@@ -10,25 +10,25 @@ The DC to bind to (requires you specify a Domain)
 .PARAMETER `Output`
 Specify where to save the output from the tool (default is pwd)
 
-.SWITCH NoServers
+.SWITCH `NoServers`
 Do not enumerate for Servers
 
-.SWITCH NoWorkstations
+.SWITCH `NoWorkstations`
 Do not enumerate for Workstations
 
-.SWITCH NoShares
+.SWITCH `NoShares`
 Do not enumerate for Shares
 
-.SWITCH NoLocalAdminAccess
+.SWITCH `NoLocalAdminAccess`
 Do not enumerate for LocalAdminAccess
 
-.SWITCH NoACLs
+.SWITCH `NoACLs`
 Do not enumerate for ACLs
 
-.SWITCH NoGPOs
+.SWITCH `NoGPOs`
 Do not enumerate for GPOs
 
-.SWITCH NoFindDomainUserLocation
+.SWITCH `NoFindDomainUserLocation`
 Do not enumerate for FindDomainUserLocation
 
 Run as follows:
