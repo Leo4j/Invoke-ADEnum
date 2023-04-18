@@ -31,7 +31,11 @@ Invoke-ADEnum -Domain <domain FQDN> -Server <DC FQDN or IP>
 
 		[Parameter (Mandatory=$False, Position = 1, ValueFromPipeline=$true)]
 		[String]
-		$Server
+		$Server,
+		
+		[Parameter (Mandatory=$False, Position = 2, ValueFromPipeline=$true)]
+		[String]
+		$Output
 
 	)
 	
@@ -41,6 +45,13 @@ Invoke-ADEnum -Domain <domain FQDN> -Server <DC FQDN or IP>
 	}
 
 	$ErrorActionPreference = "SilentlyContinue"
+	
+	# Set the path and filename for the output file
+	if($Output){$OutputFilePath = $Output}
+	else{$OutputFilePath = "$pwd\Invoke-ADEnum.txt"}
+
+	# Start capturing the script's output and save it to the file
+	Start-Transcript -Path $OutputFilePath
 	
 	Write-Host "  _____                 _                      _____  ______                       " -ForegroundColor Red
 	Write-Host " |_   _|               | |               /\   |  __ \|  ____|                      " -ForegroundColor Red
@@ -802,5 +813,11 @@ Invoke-ADEnum -Domain <domain FQDN> -Server <DC FQDN or IP>
 	else{
 		foreach($AllDomain in $AllDomains){Invoke-ACLScanner -Domain $AllDomain -ResolveGUIDs | Where-Object { $_.IdentityReferenceName -notmatch "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions" } | Select-Object IdentityReferenceName, ObjectDN, ActiveDirectoryRights | ft -AutoSize -Wrap}
 	}
+	
+	# Stop capturing the output and display it on the console
+	Stop-Transcript
+	
+	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'TerminatingError' } | Set-Content $OutputFilePath
+	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'WARNING:' } | Set-Content $OutputFilePath
 
 }
