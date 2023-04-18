@@ -50,3 +50,8 @@ Invoke-ADEnum -Domain <domain FQDN> -Server <DC FQDN or IP>
 ```
 Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
 ```
+
+.EXAMPLE - Run for each domain the tool can find but do not enumerate for Workstations and Servers
+```
+Invoke-ADEnum -NoWorkstations -NoServers
+```
