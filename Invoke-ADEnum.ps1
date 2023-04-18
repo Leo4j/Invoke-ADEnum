@@ -42,6 +42,13 @@ Invoke-ADEnum -Domain <domain FQDN> -Server <DC FQDN or IP>
 
 	$ErrorActionPreference = "SilentlyContinue"
 	
+	Write-Host "  _____                 _                      _____  ______                       " -ForegroundColor Red
+	Write-Host " |_   _|               | |               /\   |  __ \|  ____|                      " -ForegroundColor Red
+	Write-Host "   | |  _ ____   _____ | | _____ ______ /  \  | |  | | |__   _ __  _   _ _ __ ___  " -ForegroundColor Red
+	Write-Host "   | | | '_ \ \ / / _ \| |/ / _ \______/ /\ \ | |  | |  __| | '_ \| | | | '_ ` _ \ " -ForegroundColor Red
+	Write-Host "  _| |_| | | \ V / (_) |   <  __/     / ____ \| |__| | |____| | | | |_| | | | | | |" -ForegroundColor Red
+	Write-Host " |_____|_| |_|\_/ \___/|_|\_\___|    /_/    \_\_____/|______|_| |_|\__,_|_| |_| |_|" -ForegroundColor Red
+	
 	Write-Host ""
 	Write-Host "Current Domain:" -ForegroundColor Cyan
 	if($Domain -AND $Server) {
