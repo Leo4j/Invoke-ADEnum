@@ -10,6 +10,27 @@ The DC to bind to (requires you specify a Domain)
 .PARAMETER `Output`
 Specify where to save the output from the tool (default is pwd)
 
+.SWITCH NoServers
+Do not enumerate for Servers
+
+.SWITCH NoWorkstations
+Do not enumerate for Workstations
+
+.SWITCH NoShares
+Do not enumerate for Shares
+
+.SWITCH NoLocalAdminAccess
+Do not enumerate for LocalAdminAccess
+
+.SWITCH NoACLs
+Do not enumerate for ACLs
+
+.SWITCH NoGPOs
+Do not enumerate for GPOs
+
+.SWITCH NoFindDomainUserLocation
+Do not enumerate for FindDomainUserLocation
+
 Run as follows:
 ```
 iex(new-object net.webclient).downloadstring('https://raw.githubusercontent.com/Leo4j/Invoke-ADEnum/main/Invoke-ADEnum.ps1')
