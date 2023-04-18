@@ -1,6 +1,5 @@
 # Invoke-ADEnum
-Active Directory Enumerator
-Automate Active Directory Enumeration using PowerView
+Active Directory Enumerator - Automate Active Directory Enumeration using PowerView
 
 .PARAMETER `Domain`
 The Domain to enumerate for (requires you specify a Server)
