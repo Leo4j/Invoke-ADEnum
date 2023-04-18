@@ -7,7 +7,12 @@ The Domain to enumerate for (requires you specify a Server)
 .PARAMETER `Server`
 The DC to bind to (requires you specify a Domain)
 
-.EXAMPLE - Run for each domain the tool will find
+Run as follows:
+```
+iex(new-object net.webclient).downloadstring('https://raw.githubusercontent.com/Leo4j/Invoke-ADEnum/main/Invoke-ADEnum.ps1')
+```
+
+.EXAMPLE - Run for each domain the tool can find
 ```
 Invoke-ADEnum
 ```
