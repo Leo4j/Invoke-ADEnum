@@ -107,6 +107,7 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
 	}
 
 	$ErrorActionPreference = "SilentlyContinue"
+	$WarningPreference = "SilentlyContinue"
 	
 	# Set the path and filename for the output file
 	if($Output){$OutputFilePath = $Output}
