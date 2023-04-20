@@ -931,6 +931,6 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
 	
 	# Clean up error lines from output
 	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'TerminatingError' } | Set-Content $OutputFilePath
-	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'WARNING:' } | Set-Content $OutputFilePath
+	#(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'WARNING:' } | Set-Content $OutputFilePath
 	
 }
