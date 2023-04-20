@@ -24,6 +24,9 @@ Do not enumerate for Servers
 .SWITCH NoWorkstations
 Do not enumerate for Workstations
 
+.SWITCH NoUsers
+Do not enumerate for Users
+
 .SWITCH NoShares
 Do not enumerate for Shares
 
@@ -74,21 +77,25 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
 		
 		[Parameter (Mandatory=$False, Position = 5, ValueFromPipeline=$true)]
 		[Switch]
-		$NoShares,
+		$NoUsers,
 		
 		[Parameter (Mandatory=$False, Position = 6, ValueFromPipeline=$true)]
 		[Switch]
-		$NoLocalAdminAccess,
+		$NoShares,
 		
 		[Parameter (Mandatory=$False, Position = 7, ValueFromPipeline=$true)]
 		[Switch]
-		$NoACLs,
+		$NoLocalAdminAccess,
 		
 		[Parameter (Mandatory=$False, Position = 8, ValueFromPipeline=$true)]
 		[Switch]
-		$NoGPOs,
+		$NoACLs,
 		
 		[Parameter (Mandatory=$False, Position = 9, ValueFromPipeline=$true)]
+		[Switch]
+		$NoGPOs,
+		
+		[Parameter (Mandatory=$False, Position = 10, ValueFromPipeline=$true)]
 		[Switch]
 		$NoFindDomainUserLocation
 
@@ -398,6 +405,30 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
 	}
 	else{
 		foreach($AllDomain in $AllDomains){Get-DomainGroupMember 'Domain Admins' -Domain $AllDomain | %{Get-DomainUser $_.membername -LDAPFilter '(displayname=*)'} | %{$a=$_.displayname.split(' ')[0..1] -join ' '; Get-DomainUser -Domain $AllDomain -LDAPFilter "(displayname=*$a*)" -Properties displayname,samaccountname} | Select-Object displayname, samaccountname, @{Name="Domain";Expression={$AllDomain}} | Format-Table -AutoSize -Wrap}
+	}
+	
+	if($NoUsers){}
+	else{
+		if($Domain -AND $Server) {
+			Write-Host ""
+			Write-Host "Enabled Users:" -ForegroundColor Cyan
+			Get-DomainUser -UACFilter NOT_ACCOUNTDISABLE -Domain $Domain -Server $Server | select samaccountname, objectsid, @{Name='Domain';Expression={$Domain}}, @{Name='Groups';Expression={(Get-DomainGroup -Domain $Domain -Server $Server -UserName $_.samaccountname).Name -join ' - '}}, description | ft -Autosize -Wrap
+
+
+			Write-Host ""
+			Write-Host "Disabled Users:" -ForegroundColor Cyan
+			Get-DomainUser -UACFilter ACCOUNTDISABLE -Domain $Domain -Server $Server | select samaccountname, objectsid, @{Name='Domain';Expression={$Domain}}, @{Name='Groups';Expression={(Get-DomainGroup -Domain $Domain -Server $Server -UserName $_.samaccountname).Name -join ' - '}}, description | ft -Autosize -Wrap
+		}
+		else{
+			Write-Host ""
+			Write-Host "Enabled Users:" -ForegroundColor Cyan
+			foreach($AllDomain in $AllDomains){Get-DomainUser -UACFilter NOT_ACCOUNTDISABLE -Domain $AllDomain | select samaccountname, objectsid, @{Name='Domain';Expression={$AllDomain}}, @{Name='Groups';Expression={(Get-DomainGroup -UserName $_.samaccountname).Name -join ' - '}}, description | ft -Autosize -Wrap}
+
+
+			Write-Host ""
+			Write-Host "Disabled Users:" -ForegroundColor Cyan
+			foreach($AllDomain in $AllDomains){Get-DomainUser -UACFilter ACCOUNTDISABLE -Domain $AllDomain | select samaccountname, objectsid, @{Name='Domain';Expression={$AllDomain}}, @{Name='Groups';Expression={(Get-DomainGroup -UserName $_.samaccountname).Name -join ' - '}}, description | ft -Autosize -Wrap}
+		}
 	}
 
 	Write-Host ""
