@@ -16,6 +16,9 @@ Do not enumerate for Servers
 .SWITCH `NoWorkstations`
 Do not enumerate for Workstations
 
+.SWITCH `NoUsers`
+Do not enumerate for Users
+
 .SWITCH `NoShares`
 Do not enumerate for Shares
 
