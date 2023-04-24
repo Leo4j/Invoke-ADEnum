@@ -731,6 +731,41 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
 	else{
 		foreach ($AllDomain in $AllDomains){Get-DomainComputer -Domain $AllDomain | ? { $_."ms-Mcs-AdmPwdExpirationTime" -ne $null } | select dnsHostName | Format-Table -AutoSize -Wrap}
 	}
+	
+	Write-Host ""
+	Write-Host "AppLocker GPOs:" -ForegroundColor Cyan
+	if($Domain -AND $Server) {
+		Get-DomainGPO -Domain $Domain -Server $Server | ? { $_.DisplayName -like "*AppLocker*" } | select displayname, gpcfilesyspath | Format-Table -AutoSize -Wrap
+		$AppLockerGPOLocation = Get-DomainGPO -Domain $Domain -Server $Server | ? { $_.DisplayName -like "*AppLocker*" } | select-object -ExpandProperty GPCFileSysPath
+		$AppLockerGPOLocation = ($AppLockerGPOLocation | Out-String) -split "`n"
+		$AppLockerGPOLocation = $AppLockerGPOLocation.Trim()
+		$AppLockerGPOLocation = $AppLockerGPOLocation | Where-Object { $_ -ne "" }
+		foreach($AppLockerGPOLoc in $AppLockerGPOLocation){
+			Write-Host "GPO: $AppLockerGPOLoc" -ForegroundColor Yellow
+			Write-Host ""
+			$AppLockerinputString = (type $AppLockerGPOLoc\Machine\Registry.pol | Out-String)
+			$AppLockersplitString = ($AppLockerinputString -split '\<|\>').Where{$_ -ne ''}
+			$AppLockersplitString = ($AppLockersplitString -split '\[|\]').Where{$_ -ne ''}
+			$AppLockersplitString | Format-Table -AutoSize -Wrap
+		}
+	}
+	else{
+		foreach ($AllDomain in $AllDomains){
+			Get-DomainGPO -Domain $AllDomain | ? { $_.DisplayName -like "*AppLocker*" } | select displayname, gpcfilesyspath | Format-Table -AutoSize -Wrap
+			$AppLockerGPOLocation = Get-DomainGPO -Domain $AllDomain | ? { $_.DisplayName -like "*AppLocker*" } | select-object -ExpandProperty GPCFileSysPath
+			$AppLockerGPOLocation = ($AppLockerGPOLocation | Out-String) -split "`n"
+			$AppLockerGPOLocation = $AppLockerGPOLocation.Trim()
+			$AppLockerGPOLocation = $AppLockerGPOLocation | Where-Object { $_ -ne "" }
+			foreach($AppLockerGPOLoc in $AppLockerGPOLocation){
+				Write-Host "GPO: $AppLockerGPOLoc" -ForegroundColor Yellow
+				Write-Host ""
+				$AppLockerinputString = (type $AppLockerGPOLoc\Machine\Registry.pol | Out-String)
+				$AppLockersplitString = ($AppLockerinputString -split '\<|\>').Where{$_ -ne ''}
+				$AppLockersplitString = ($AppLockersplitString -split '\[|\]').Where{$_ -ne ''}
+				$AppLockersplitString | Format-Table -AutoSize -Wrap
+			}
+		}
+	}
 
 	Write-Host ""
 	Write-Host "Unconstrained Delegation:" -ForegroundColor Cyan
