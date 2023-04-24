@@ -433,7 +433,7 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
 	}
 
 	Write-Host ""
-	Write-Host "Domain Policy:" -ForegroundColor Cyan
+	Write-Host "Domain Password Policy:" -ForegroundColor Cyan
 	if($Domain -AND $Server) {
 		(Get-DomainPolicy -Domain $Domain -Server $Server).SystemAccess | Select-Object MinimumPasswordAge, MaximumPasswordAge, MinimumPasswordLength, PasswordComplexity, PasswordHistorySize, LockoutBadCount, ResetLockoutCount, LockoutDuration, RequireLogonToChangePassword, @{Name="Domain"; Expression={$Domain}} | Format-Table -AutoSize -Wrap
 	}
