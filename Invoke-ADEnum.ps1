@@ -24,6 +24,9 @@ Do not enumerate for Servers
 .SWITCH NoWorkstations
 Do not enumerate for Workstations
 
+.SWITCH NoUnsupportedOS
+Do not enumerate for machines running unsupported OS
+
 .SWITCH NoUsers
 Do not enumerate for Users
 
@@ -77,25 +80,29 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
 		
 		[Parameter (Mandatory=$False, Position = 5, ValueFromPipeline=$true)]
 		[Switch]
-		$NoUsers,
+		$NoUnsupportedOS,
 		
 		[Parameter (Mandatory=$False, Position = 6, ValueFromPipeline=$true)]
 		[Switch]
-		$NoShares,
+		$NoUsers,
 		
 		[Parameter (Mandatory=$False, Position = 7, ValueFromPipeline=$true)]
 		[Switch]
-		$NoLocalAdminAccess,
+		$NoShares,
 		
 		[Parameter (Mandatory=$False, Position = 8, ValueFromPipeline=$true)]
 		[Switch]
-		$NoACLs,
+		$NoLocalAdminAccess,
 		
 		[Parameter (Mandatory=$False, Position = 9, ValueFromPipeline=$true)]
 		[Switch]
-		$NoGPOs,
+		$NoACLs,
 		
 		[Parameter (Mandatory=$False, Position = 10, ValueFromPipeline=$true)]
+		[Switch]
+		$NoGPOs,
+		
+		[Parameter (Mandatory=$False, Position = 11, ValueFromPipeline=$true)]
 		[Switch]
 		$NoFindDomainUserLocation
 
@@ -265,6 +272,19 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
 			foreach($AllDomain in $AllDomains){Get-DomainComputer -Properties name, samaccountname, DnsHostName, operatingsystem -Domain $AllDomain | Where-Object { $_.OperatingSystem -notlike "*Server*" } | sort -Property DnsHostName | Select-Object -Property name, samaccountname, @{n='ipv4address';e={(Resolve-DnsName -Name $_.DnsHostName -Type A).IPAddress}}, DnsHostName, operatingsystem | ft -Autosize -Wrap}
 		}
 	}
+	
+	if($NoUnsupportedOS){}
+	else{
+		Write-Host ""
+		Write-Host "Hosts running Unsupported OS:" -ForegroundColor Cyan
+		if($Domain -AND $Server) {
+			Get-DomainComputer -Properties name, samaccountname, DnsHostName, operatingsystem -Domain $Domain -Server $Server | where-object {($_.OperatingSystem -like "Windows Me*") -or ($_.OperatingSystem -like "Windows NT*") -or ($_.OperatingSystem -like "Windows 95*") -or ($_.OperatingSystem -like "Windows 98*") -or ($_.OperatingSystem -like "Windows XP*") -or ($_.OperatingSystem -like "Windows 7*") -or ($_.OperatingSystem -like "Windows Vista*") -or ($_.OperatingSystem -like "Windows 2000*") -or ($_.OperatingSystem -like "Windows 8*") -or ($_.OperatingSystem -like "Windows Server 2008*") -or ($_.OperatingSystem -like "Windows Server 2003*") -or ($_.OperatingSystem -like "Windows Server 2000*") | sort -Property DnsHostName | Select-Object -Property name, samaccountname, @{n='ipv4address';e={(Resolve-DnsName -Name $_.DnsHostName -Type A).IPAddress}}, DnsHostName, operatingsystem | ft -Autosize -Wrap
+		}
+		else{
+			foreach($AllDomain in $AllDomains){Get-DomainComputer -Properties name, samaccountname, DnsHostName, operatingsystem -Domain $AllDomain | where-object {($_.OperatingSystem -like "Windows Me*") -or ($_.OperatingSystem -like "Windows NT*") -or ($_.OperatingSystem -like "Windows 95*") -or ($_.OperatingSystem -like "Windows 98*") -or ($_.OperatingSystem -like "Windows XP*") -or ($_.OperatingSystem -like "Windows 7*") -or ($_.OperatingSystem -like "Windows Vista*") -or ($_.OperatingSystem -like "Windows 2000*") -or ($_.OperatingSystem -like "Windows 8*") -or ($_.OperatingSystem -like "Windows Server 2008*") -or ($_.OperatingSystem -like "Windows Server 2003*") -or ($_.OperatingSystem -like "Windows Server 2000*") | sort -Property DnsHostName | Select-Object -Property name, samaccountname, @{n='ipv4address';e={(Resolve-DnsName -Name $_.DnsHostName -Type A).IPAddress}}, DnsHostName, operatingsystem | ft -Autosize -Wrap}
+		}
+	}
+	
 	#Write-Host ""
 	#Write-Host "All Groups:" -ForegroundColor Cyan
 	#foreach($AllDomain in $AllDomains){Get-DomainGroup -Domain $AllDomain | select SamAccountName, objectsid, @{Name='Members';Expression={(Get-DomainGroupMember -Recurse -Identity $_.SamAccountname).MemberDistinguishedName -join ' - '}} | ft -Autosize -Wrap}
