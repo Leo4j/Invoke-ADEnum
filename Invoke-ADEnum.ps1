@@ -839,7 +839,7 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
         Get-DomainComputer -Domain $Domain -Server $Server | Get-DomainObjectAcl -Domain $Domain -Server $Server -ResolveGUIDs | 
         ? { $_.ActiveDirectoryRights -match "WriteProperty|GenericWrite|GenericAll|WriteDacl" -and $_.SecurityIdentifier -match "$domainSID-[\d]{4,10}" -and $_.SecurityIdentifier.Translate([System.Security.Principal.NTAccount]) -notmatch "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions" } | 
         Select-Object @{Name='Computer_Object';Expression={([System.Security.Principal.SecurityIdentifier]$_.ObjectSID).Translate([System.Security.Principal.NTAccount])}},ActiveDirectoryRights,ObjectAceType,@{Name='Account';Expression={([System.Security.Principal.SecurityIdentifier]$_.SecurityIdentifier).Translate([System.Security.Principal.NTAccount])}} -ExcludeProperty ObjectDN | 
-        Format-Table -AutoSize -Wrap -Property Computer_Object,ActiveDirectoryRights,ObjectAceType,Account
+        Select Computer_Object, ActiveDirectoryRights, ObjectAceType, Account | Out-String
     }
     else{
         foreach ($AllDomain in $AllDomains){
@@ -847,7 +847,7 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
             Get-DomainComputer -Domain $AllDomain | Get-DomainObjectAcl -ResolveGUIDs | 
             ? { $_.ActiveDirectoryRights -match "WriteProperty|GenericWrite|GenericAll|WriteDacl" -and $_.SecurityIdentifier -match "$domainSID-[\d]{4,10}" -and $_.SecurityIdentifier.Translate([System.Security.Principal.NTAccount]) -notmatch "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions" } | 
             Select-Object @{Name='Computer_Object';Expression={([System.Security.Principal.SecurityIdentifier]$_.ObjectSID).Translate([System.Security.Principal.NTAccount])}},ActiveDirectoryRights,ObjectAceType,@{Name='Account';Expression={([System.Security.Principal.SecurityIdentifier]$_.SecurityIdentifier).Translate([System.Security.Principal.NTAccount])}} -ExcludeProperty ObjectDN | 
-            Format-Table -AutoSize -Wrap -Property Computer_Object,ActiveDirectoryRights,ObjectAceType,Account
+            Select Computer_Object, ActiveDirectoryRights, ObjectAceType, Account | Out-String
         }
     }
     
