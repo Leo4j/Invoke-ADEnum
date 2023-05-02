@@ -2,6 +2,10 @@ iex(new-object net.webclient).downloadstring('https://raw.githubusercontent.com/
 
 iex(new-object net.webclient).downloadstring('https://raw.githubusercontent.com/Leo4j/Tools/main/PowerView.ps1')
 
+Set-Variable MaximumHistoryCount 32767
+
+clear
+
 function Invoke-ADEnum
 {
 <#
