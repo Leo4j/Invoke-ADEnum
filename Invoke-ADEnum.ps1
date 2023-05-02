@@ -344,21 +344,21 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     Write-Host ""
     Write-Host "Groups by keyword:" -ForegroundColor Cyan
     if($Domain -AND $Server) {
-        Get-DomainGroup -Domain $Domain -Server $Server -Identity *SQL* | % { Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$Domain}} } | Out-String
-        Get-DomainGroup -Domain $Domain -Server $Server -Identity *Exchange* | % { Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$Domain}} } | Out-String
-        Get-DomainGroup -Domain $Domain -Server $Server -Identity *Desktop* | % { Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$Domain}} } | Out-String
-        Get-DomainGroup -Domain $Domain -Server $Server -Identity *VEEAM* | % { Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$Domain}} } | Out-String
-        Get-DomainGroup -Domain $Domain -Server $Server -Identity *PSM* | % { Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$Domain}} } | Out-String
-        Get-DomainGroup -Domain $Domain -Server $Server -Identity *Password* | % { Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$Domain}} } | Out-String
+        Get-DomainGroup -Domain $Domain -Server $Server -Identity *SQL* | % { Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$Domain}} } | ft -Autosize -Wrap
+        Get-DomainGroup -Domain $Domain -Server $Server -Identity *Exchange* | % { Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$Domain}} } | ft -Autosize -Wrap
+        Get-DomainGroup -Domain $Domain -Server $Server -Identity *Desktop* | % { Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$Domain}} } | ft -Autosize -Wrap
+        Get-DomainGroup -Domain $Domain -Server $Server -Identity *VEEAM* | % { Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$Domain}} } | ft -Autosize -Wrap
+        Get-DomainGroup -Domain $Domain -Server $Server -Identity *PSM* | % { Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$Domain}} } | ft -Autosize -Wrap
+        Get-DomainGroup -Domain $Domain -Server $Server -Identity *Password* | % { Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$Domain}} } | ft -Autosize -Wrap
     }
     else{
         foreach($AllDomain in $AllDomains){
-            Get-DomainGroup -Domain $AllDomain -Identity *SQL* | % { Get-DomainGroupMember -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$AllDomain}} } | Out-String
-            Get-DomainGroup -Domain $AllDomain -Identity *Exchange* | % { Get-DomainGroupMember -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$AllDomain}} } | Out-String
-            Get-DomainGroup -Domain $AllDomain -Identity *Desktop* | % { Get-DomainGroupMember -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$AllDomain}} } | Out-String
-            Get-DomainGroup -Domain $AllDomain -Identity *VEEAM* | % { Get-DomainGroupMember -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$AllDomain}} } | Out-String
-            Get-DomainGroup -Domain $AllDomain -Identity *PSM* | % { Get-DomainGroupMember -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$AllDomain}} } | Out-String
-            Get-DomainGroup -Domain $AllDomain -Identity *Password* | % { Get-DomainGroupMember -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$AllDomain}} } | Out-String
+            Get-DomainGroup -Domain $AllDomain -Identity *SQL* | % { Get-DomainGroupMember -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$AllDomain}} } | ft -Autosize -Wrap
+            Get-DomainGroup -Domain $AllDomain -Identity *Exchange* | % { Get-DomainGroupMember -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$AllDomain}} } | ft -Autosize -Wrap
+            Get-DomainGroup -Domain $AllDomain -Identity *Desktop* | % { Get-DomainGroupMember -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$AllDomain}} } | ft -Autosize -Wrap
+            Get-DomainGroup -Domain $AllDomain -Identity *VEEAM* | % { Get-DomainGroupMember -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$AllDomain}} } | ft -Autosize -Wrap
+            Get-DomainGroup -Domain $AllDomain -Identity *PSM* | % { Get-DomainGroupMember -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$AllDomain}} } | ft -Autosize -Wrap
+            Get-DomainGroup -Domain $AllDomain -Identity *Password* | % { Get-DomainGroupMember -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$AllDomain}} } | ft -Autosize -Wrap
         }
     }
 
