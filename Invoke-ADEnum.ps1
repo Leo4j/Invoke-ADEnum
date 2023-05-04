@@ -269,99 +269,6 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
         foreach($AllDomain in $AllDomains){Get-NetDomainController -Domain $AllDomain | Select Name, Forest, Domain, IPAddress | ft -Autosize -Wrap}
     }
     
-    if($NoServers){}
-    else{
-        Write-Host ""
-        Write-Host "Servers:" -ForegroundColor Cyan
-        if($Domain -AND $Server) {
-            Get-DomainComputer -Properties name, samaccountname, DnsHostName, operatingsystem -Domain $Domain -Server $Server -OperatingSystem "*Server*" | sort -Property DnsHostName | Select-Object -Property name, samaccountname, @{n='ipv4address';e={(Resolve-DnsName -Name $_.DnsHostName -Type A).IPAddress}}, DnsHostName, operatingsystem | ft -Autosize -Wrap
-        }
-        else{
-            foreach($AllDomain in $AllDomains){Get-DomainComputer -Properties name, samaccountname, DnsHostName, operatingsystem -Domain $AllDomain -OperatingSystem "*Server*" | sort -Property DnsHostName | Select-Object -Property name, samaccountname, @{n='ipv4address';e={(Resolve-DnsName -Name $_.DnsHostName -Type A).IPAddress}}, DnsHostName, operatingsystem | ft -Autosize -Wrap}
-        }
-    }
-    
-    if($NoWorkstations){}
-    else{
-        Write-Host ""
-        Write-Host "Workstations:" -ForegroundColor Cyan
-        if($Domain -AND $Server) {
-            Get-DomainComputer -Properties name, samaccountname, DnsHostName, operatingsystem -Domain $Domain -Server $Server | Where-Object { $_.OperatingSystem -notlike "*Server*" } | sort -Property DnsHostName | Select-Object -Property name, samaccountname, @{n='ipv4address';e={(Resolve-DnsName -Name $_.DnsHostName -Type A).IPAddress}}, DnsHostName, operatingsystem | ft -Autosize -Wrap
-        }
-        else{
-            foreach($AllDomain in $AllDomains){Get-DomainComputer -Properties name, samaccountname, DnsHostName, operatingsystem -Domain $AllDomain | Where-Object { $_.OperatingSystem -notlike "*Server*" } | sort -Property DnsHostName | Select-Object -Property name, samaccountname, @{n='ipv4address';e={(Resolve-DnsName -Name $_.DnsHostName -Type A).IPAddress}}, DnsHostName, operatingsystem | ft -Autosize -Wrap}
-        }
-    }
-    
-    if($NoUnsupportedOS){}
-    else{
-        Write-Host ""
-        Write-Host "Hosts running Unsupported OS:" -ForegroundColor Cyan
-        if($Domain -AND $Server) {
-            Get-DomainComputer -Properties name, samaccountname, DnsHostName, operatingsystem -Domain $Domain -Server $Server | where-object {($_.OperatingSystem -like "Windows Me*") -or ($_.OperatingSystem -like "Windows NT*") -or ($_.OperatingSystem -like "Windows 95*") -or ($_.OperatingSystem -like "Windows 98*") -or ($_.OperatingSystem -like "Windows XP*") -or ($_.OperatingSystem -like "Windows 7*") -or ($_.OperatingSystem -like "Windows Vista*") -or ($_.OperatingSystem -like "Windows 2000*") -or ($_.OperatingSystem -like "Windows 8*") -or ($_.OperatingSystem -like "Windows Server 2008*") -or ($_.OperatingSystem -like "Windows Server 2003*") -or ($_.OperatingSystem -like "Windows Server 2000*")} | sort -Property DnsHostName | Select-Object -Property name, samaccountname, @{n='ipv4address';e={(Resolve-DnsName -Name $_.DnsHostName -Type A).IPAddress}}, DnsHostName, operatingsystem | ft -Autosize -Wrap
-        }
-        else{
-            foreach($AllDomain in $AllDomains){Get-DomainComputer -Properties name, samaccountname, DnsHostName, operatingsystem -Domain $AllDomain | where-object {($_.OperatingSystem -like "Windows Me*") -or ($_.OperatingSystem -like "Windows NT*") -or ($_.OperatingSystem -like "Windows 95*") -or ($_.OperatingSystem -like "Windows 98*") -or ($_.OperatingSystem -like "Windows XP*") -or ($_.OperatingSystem -like "Windows 7*") -or ($_.OperatingSystem -like "Windows Vista*") -or ($_.OperatingSystem -like "Windows 2000*") -or ($_.OperatingSystem -like "Windows 8*") -or ($_.OperatingSystem -like "Windows Server 2008*") -or ($_.OperatingSystem -like "Windows Server 2003*") -or ($_.OperatingSystem -like "Windows Server 2000*")} | sort -Property DnsHostName | Select-Object -Property name, samaccountname, @{n='ipv4address';e={(Resolve-DnsName -Name $_.DnsHostName -Type A).IPAddress}}, DnsHostName, operatingsystem | ft -Autosize -Wrap}
-        }
-    }
-    
-    #Write-Host ""
-    #Write-Host "All Groups:" -ForegroundColor Cyan
-    #foreach($AllDomain in $AllDomains){Get-DomainGroup -Domain $AllDomain | select SamAccountName, objectsid, @{Name='Members';Expression={(Get-DomainGroupMember -Recurse -Identity $_.SamAccountname).MemberDistinguishedName -join ' - '}} | ft -Autosize -Wrap}
-
-    Write-Host ""
-    Write-Host "Admin Groups:" -ForegroundColor Cyan
-    if($Domain -AND $Server) {
-        Get-DomainGroup -Domain $Domain -Server $Server | where Name -like "*Admin*" | select SamAccountName, objectsid, @{Name="Domain";Expression={$Domain}}, @{Name='Members';Expression={(Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity $_.SamAccountname).MemberName -join ' - '}} | Where-Object { $_.Members } | ft -Autosize -Wrap
-    }
-    else{
-        foreach($AllDomain in $AllDomains){Get-DomainGroup -Domain $AllDomain | where Name -like "*Admin*" | select SamAccountName, objectsid, @{Name="Domain";Expression={$AllDomain}}, @{Name='Members';Expression={(Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity $_.SamAccountname).MemberName -join ' - '}} | Where-Object { $_.Members } | ft -Autosize -Wrap}
-    }
-
-    if($TrustTargetNames){
-        Write-Host ""
-        Write-Host "Groups that contain users outside of its domain and return its members:" -ForegroundColor Cyan
-        foreach($TrustTargetName in $TrustTargetNames){
-            if($Domain -AND $Server) {
-                Get-DomainForeignGroupMember -Domain $TrustTargetName -Server $Server | Select-Object GroupDomain, GroupName, GroupDistinguishedName, MemberDomain, @{Name="Member|GroupName";Expression={(ConvertFrom-SID $_.MemberName)}}, @{Name="Members";Expression={(Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity (ConvertFrom-SID $_.MemberName)).MemberName -join ' - '}}, @{Name="SID";Expression={($_.MemberName)}} | Format-Table -AutoSize -Wrap
-            }
-            
-            else{
-                Get-DomainForeignGroupMember -Domain $TrustTargetName | Select-Object GroupDomain, GroupName, GroupDistinguishedName, MemberDomain, @{Name="Member|GroupName";Expression={(ConvertFrom-SID $_.MemberName)}}, @{Name="Members";Expression={(Get-DomainGroupMember -Recurse -Identity (ConvertFrom-SID $_.MemberName)).MemberName}}, @{Name="SID";Expression={($_.MemberName) -join ' - '}} | Format-Table -AutoSize -Wrap
-            }
-        }
-    }
-
-    Write-Host ""
-    Write-Host "Other Groups:" -ForegroundColor Cyan
-    if($Domain -AND $Server) {
-        Get-DomainGroup -Domain $Domain -Server $Server | Where-Object { $_.SamAccountName -notlike "*Admin*" } | select SamAccountName, objectsid, @{Name="Domain";Expression={$Domain}}, @{Name='Members';Expression={(Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity $_.SamAccountname).MemberName -join ' - '}}, @{Name='MembersDistinguishedName';Expression={(Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity $_.SamAccountname).MemberDistinguishedName -join ' - '}} | Where-Object { $_.Members } | ft -Autosize -Wrap
-    }
-    else{
-        foreach($AllDomain in $AllDomains){Get-DomainGroup -Domain $AllDomain | Where-Object { $_.SamAccountName -notlike "*Admin*" } | select SamAccountName, objectsid, @{Name="Domain";Expression={$AllDomain}}, @{Name='Members';Expression={(Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity $_.SamAccountname).MemberName -join ' - '}}, @{Name='MembersDistinguishedName';Expression={(Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity $_.SamAccountname).MemberDistinguishedName -join ' - '}} | Where-Object { $_.Members } | ft -Autosize -Wrap}
-    }
-
-    Write-Host ""
-    Write-Host "Groups by keyword:" -ForegroundColor Cyan
-    if($Domain -AND $Server) {
-        Get-DomainGroup -Domain $Domain -Server $Server -Identity *SQL* | % { Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$Domain}} } | ft -Autosize -Wrap
-        Get-DomainGroup -Domain $Domain -Server $Server -Identity *Exchange* | % { Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$Domain}} } | ft -Autosize -Wrap
-        Get-DomainGroup -Domain $Domain -Server $Server -Identity *Desktop* | % { Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$Domain}} } | ft -Autosize -Wrap
-        Get-DomainGroup -Domain $Domain -Server $Server -Identity *VEEAM* | % { Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$Domain}} } | ft -Autosize -Wrap
-        Get-DomainGroup -Domain $Domain -Server $Server -Identity *PSM* | % { Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$Domain}} } | ft -Autosize -Wrap
-        Get-DomainGroup -Domain $Domain -Server $Server -Identity *Password* | % { Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$Domain}} } | ft -Autosize -Wrap
-    }
-    else{
-        foreach($AllDomain in $AllDomains){
-            Get-DomainGroup -Domain $AllDomain -Identity *SQL* | % { Get-DomainGroupMember -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$AllDomain}} } | ft -Autosize -Wrap
-            Get-DomainGroup -Domain $AllDomain -Identity *Exchange* | % { Get-DomainGroupMember -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$AllDomain}} } | ft -Autosize -Wrap
-            Get-DomainGroup -Domain $AllDomain -Identity *Desktop* | % { Get-DomainGroupMember -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$AllDomain}} } | ft -Autosize -Wrap
-            Get-DomainGroup -Domain $AllDomain -Identity *VEEAM* | % { Get-DomainGroupMember -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$AllDomain}} } | ft -Autosize -Wrap
-            Get-DomainGroup -Domain $AllDomain -Identity *PSM* | % { Get-DomainGroupMember -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$AllDomain}} } | ft -Autosize -Wrap
-            Get-DomainGroup -Domain $AllDomain -Identity *Password* | % { Get-DomainGroupMember -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$AllDomain}} } | ft -Autosize -Wrap
-        }
-    }
-
     Write-Host ""
     Write-Host "Enterprise Administrators:" -ForegroundColor Cyan
     if($Domain -AND $Server) {
@@ -448,29 +355,9 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
         foreach($AllDomain in $AllDomains){Get-DomainGroupMember 'Domain Admins' -Domain $AllDomain | %{Get-DomainUser $_.membername -LDAPFilter '(displayname=*)'} | %{$a=$_.displayname.split(' ')[0..1] -join ' '; Get-DomainUser -Domain $AllDomain -LDAPFilter "(displayname=*$a*)" -Properties displayname,samaccountname} | Select-Object displayname, samaccountname, @{Name="Domain";Expression={$AllDomain}} | Format-Table -AutoSize -Wrap}
     }
     
-    if($NoUsers){}
-    else{
-        if($Domain -AND $Server) {
-            Write-Host ""
-            Write-Host "Enabled Users:" -ForegroundColor Cyan
-            Get-DomainUser -UACFilter NOT_ACCOUNTDISABLE -Domain $Domain -Server $Server | select samaccountname, objectsid, @{Name='Domain';Expression={$Domain}}, @{Name='Groups';Expression={(Get-DomainGroup -Domain $Domain -Server $Server -UserName $_.samaccountname).Name -join ' - '}}, description | ft -Autosize -Wrap
-
-
-            Write-Host ""
-            Write-Host "Disabled Users:" -ForegroundColor Cyan
-            Get-DomainUser -UACFilter ACCOUNTDISABLE -Domain $Domain -Server $Server | select samaccountname, objectsid, @{Name='Domain';Expression={$Domain}}, @{Name='Groups';Expression={(Get-DomainGroup -Domain $Domain -Server $Server -UserName $_.samaccountname).Name -join ' - '}}, description | ft -Autosize -Wrap
-        }
-        else{
-            Write-Host ""
-            Write-Host "Enabled Users:" -ForegroundColor Cyan
-            foreach($AllDomain in $AllDomains){Get-DomainUser -UACFilter NOT_ACCOUNTDISABLE -Domain $AllDomain | select samaccountname, objectsid, @{Name='Domain';Expression={$AllDomain}}, @{Name='Groups';Expression={(Get-DomainGroup -UserName $_.samaccountname).Name -join ' - '}}, description | ft -Autosize -Wrap}
-
-
-            Write-Host ""
-            Write-Host "Disabled Users:" -ForegroundColor Cyan
-            foreach($AllDomain in $AllDomains){Get-DomainUser -UACFilter ACCOUNTDISABLE -Domain $AllDomain | select samaccountname, objectsid, @{Name='Domain';Expression={$AllDomain}}, @{Name='Groups';Expression={(Get-DomainGroup -UserName $_.samaccountname).Name -join ' - '}}, description | ft -Autosize -Wrap}
-        }
-    }
+    #Write-Host ""
+    #Write-Host "All Groups:" -ForegroundColor Cyan
+    #foreach($AllDomain in $AllDomains){Get-DomainGroup -Domain $AllDomain | select SamAccountName, objectsid, @{Name='Members';Expression={(Get-DomainGroupMember -Recurse -Identity $_.SamAccountname).MemberDistinguishedName -join ' - '}} | ft -Autosize -Wrap}
 
     Write-Host ""
     Write-Host "Domain Password Policy:" -ForegroundColor Cyan
@@ -505,6 +392,119 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
             }
         }
         $Result | ft -AutoSize
+    }
+    
+    Write-Host ""
+    Write-Host "Admin Groups:" -ForegroundColor Cyan
+    if($Domain -AND $Server) {
+        Get-DomainGroup -Domain $Domain -Server $Server | where Name -like "*Admin*" | select SamAccountName, objectsid, @{Name="Domain";Expression={$Domain}}, @{Name='Members';Expression={(Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity $_.SamAccountname).MemberName -join ' - '}} | Where-Object { $_.Members } | ft -Autosize -Wrap
+    }
+    else{
+        foreach($AllDomain in $AllDomains){Get-DomainGroup -Domain $AllDomain | where Name -like "*Admin*" | select SamAccountName, objectsid, @{Name="Domain";Expression={$AllDomain}}, @{Name='Members';Expression={(Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity $_.SamAccountname).MemberName -join ' - '}} | Where-Object { $_.Members } | ft -Autosize -Wrap}
+    }
+
+    if($TrustTargetNames){
+        Write-Host ""
+        Write-Host "Groups that contain users outside of its domain and return its members:" -ForegroundColor Cyan
+        foreach($TrustTargetName in $TrustTargetNames){
+            if($Domain -AND $Server) {
+                Get-DomainForeignGroupMember -Domain $TrustTargetName -Server $Server | Select-Object GroupDomain, GroupName, GroupDistinguishedName, MemberDomain, @{Name="Member|GroupName";Expression={(ConvertFrom-SID $_.MemberName)}}, @{Name="Members";Expression={(Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity (ConvertFrom-SID $_.MemberName)).MemberName -join ' - '}}, @{Name="SID";Expression={($_.MemberName)}} | Format-Table -AutoSize -Wrap
+            }
+            
+            else{
+                Get-DomainForeignGroupMember -Domain $TrustTargetName | Select-Object GroupDomain, GroupName, GroupDistinguishedName, MemberDomain, @{Name="Member|GroupName";Expression={(ConvertFrom-SID $_.MemberName)}}, @{Name="Members";Expression={(Get-DomainGroupMember -Recurse -Identity (ConvertFrom-SID $_.MemberName)).MemberName}}, @{Name="SID";Expression={($_.MemberName) -join ' - '}} | Format-Table -AutoSize -Wrap
+            }
+        }
+    }
+
+    Write-Host ""
+    Write-Host "Other Groups:" -ForegroundColor Cyan
+    if($Domain -AND $Server) {
+        Get-DomainGroup -Domain $Domain -Server $Server | Where-Object { $_.SamAccountName -notlike "*Admin*" } | select SamAccountName, objectsid, @{Name="Domain";Expression={$Domain}}, @{Name='Members';Expression={(Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity $_.SamAccountname).MemberName -join ' - '}}, @{Name='MembersDistinguishedName';Expression={(Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity $_.SamAccountname).MemberDistinguishedName -join ' - '}} | Where-Object { $_.Members } | ft -Autosize -Wrap
+    }
+    else{
+        foreach($AllDomain in $AllDomains){Get-DomainGroup -Domain $AllDomain | Where-Object { $_.SamAccountName -notlike "*Admin*" } | select SamAccountName, objectsid, @{Name="Domain";Expression={$AllDomain}}, @{Name='Members';Expression={(Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity $_.SamAccountname).MemberName -join ' - '}}, @{Name='MembersDistinguishedName';Expression={(Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity $_.SamAccountname).MemberDistinguishedName -join ' - '}} | Where-Object { $_.Members } | ft -Autosize -Wrap}
+    }
+
+    Write-Host ""
+    Write-Host "Groups by keyword:" -ForegroundColor Cyan
+    if($Domain -AND $Server) {
+        Get-DomainGroup -Domain $Domain -Server $Server -Identity *SQL* | % { Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$Domain}} } | ft -Autosize -Wrap
+        Get-DomainGroup -Domain $Domain -Server $Server -Identity *Exchange* | % { Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$Domain}} } | ft -Autosize -Wrap
+        Get-DomainGroup -Domain $Domain -Server $Server -Identity *Desktop* | % { Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$Domain}} } | ft -Autosize -Wrap
+        Get-DomainGroup -Domain $Domain -Server $Server -Identity *VEEAM* | % { Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$Domain}} } | ft -Autosize -Wrap
+        Get-DomainGroup -Domain $Domain -Server $Server -Identity *PSM* | % { Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$Domain}} } | ft -Autosize -Wrap
+        Get-DomainGroup -Domain $Domain -Server $Server -Identity *Password* | % { Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$Domain}} } | ft -Autosize -Wrap
+    }
+    else{
+        foreach($AllDomain in $AllDomains){
+            Get-DomainGroup -Domain $AllDomain -Identity *SQL* | % { Get-DomainGroupMember -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$AllDomain}} } | ft -Autosize -Wrap
+            Get-DomainGroup -Domain $AllDomain -Identity *Exchange* | % { Get-DomainGroupMember -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$AllDomain}} } | ft -Autosize -Wrap
+            Get-DomainGroup -Domain $AllDomain -Identity *Desktop* | % { Get-DomainGroupMember -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$AllDomain}} } | ft -Autosize -Wrap
+            Get-DomainGroup -Domain $AllDomain -Identity *VEEAM* | % { Get-DomainGroupMember -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$AllDomain}} } | ft -Autosize -Wrap
+            Get-DomainGroup -Domain $AllDomain -Identity *PSM* | % { Get-DomainGroupMember -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$AllDomain}} } | ft -Autosize -Wrap
+            Get-DomainGroup -Domain $AllDomain -Identity *Password* | % { Get-DomainGroupMember -Identity $_.distinguishedname | Select-Object groupname, membername, @{Name="Domain";Expression={$AllDomain}} } | ft -Autosize -Wrap
+        }
+    }
+
+    if($NoUsers){}
+    else{
+        if($Domain -AND $Server) {
+            Write-Host ""
+            Write-Host "Enabled Users:" -ForegroundColor Cyan
+            Get-DomainUser -UACFilter NOT_ACCOUNTDISABLE -Domain $Domain -Server $Server | select samaccountname, objectsid, @{Name='Domain';Expression={$Domain}}, @{Name='Groups';Expression={(Get-DomainGroup -Domain $Domain -Server $Server -UserName $_.samaccountname).Name -join ' - '}}, description | ft -Autosize -Wrap
+
+
+            Write-Host ""
+            Write-Host "Disabled Users:" -ForegroundColor Cyan
+            Get-DomainUser -UACFilter ACCOUNTDISABLE -Domain $Domain -Server $Server | select samaccountname, objectsid, @{Name='Domain';Expression={$Domain}}, @{Name='Groups';Expression={(Get-DomainGroup -Domain $Domain -Server $Server -UserName $_.samaccountname).Name -join ' - '}}, description | ft -Autosize -Wrap
+        }
+        else{
+            Write-Host ""
+            Write-Host "Enabled Users:" -ForegroundColor Cyan
+            foreach($AllDomain in $AllDomains){Get-DomainUser -UACFilter NOT_ACCOUNTDISABLE -Domain $AllDomain | select samaccountname, objectsid, @{Name='Domain';Expression={$AllDomain}}, @{Name='Groups';Expression={(Get-DomainGroup -UserName $_.samaccountname).Name -join ' - '}}, description | ft -Autosize -Wrap}
+
+
+            Write-Host ""
+            Write-Host "Disabled Users:" -ForegroundColor Cyan
+            foreach($AllDomain in $AllDomains){Get-DomainUser -UACFilter ACCOUNTDISABLE -Domain $AllDomain | select samaccountname, objectsid, @{Name='Domain';Expression={$AllDomain}}, @{Name='Groups';Expression={(Get-DomainGroup -UserName $_.samaccountname).Name -join ' - '}}, description | ft -Autosize -Wrap}
+        }
+    }
+    
+    if($NoServers){}
+    else{
+        Write-Host ""
+        Write-Host "Servers:" -ForegroundColor Cyan
+        if($Domain -AND $Server) {
+            Get-DomainComputer -Properties name, samaccountname, DnsHostName, operatingsystem -Domain $Domain -Server $Server -OperatingSystem "*Server*" | sort -Property DnsHostName | Select-Object -Property name, samaccountname, @{n='ipv4address';e={(Resolve-DnsName -Name $_.DnsHostName -Type A).IPAddress}}, DnsHostName, operatingsystem | ft -Autosize -Wrap
+        }
+        else{
+            foreach($AllDomain in $AllDomains){Get-DomainComputer -Properties name, samaccountname, DnsHostName, operatingsystem -Domain $AllDomain -OperatingSystem "*Server*" | sort -Property DnsHostName | Select-Object -Property name, samaccountname, @{n='ipv4address';e={(Resolve-DnsName -Name $_.DnsHostName -Type A).IPAddress}}, DnsHostName, operatingsystem | ft -Autosize -Wrap}
+        }
+    }
+    
+    if($NoWorkstations){}
+    else{
+        Write-Host ""
+        Write-Host "Workstations:" -ForegroundColor Cyan
+        if($Domain -AND $Server) {
+            Get-DomainComputer -Properties name, samaccountname, DnsHostName, operatingsystem -Domain $Domain -Server $Server | Where-Object { $_.OperatingSystem -notlike "*Server*" } | sort -Property DnsHostName | Select-Object -Property name, samaccountname, @{n='ipv4address';e={(Resolve-DnsName -Name $_.DnsHostName -Type A).IPAddress}}, DnsHostName, operatingsystem | ft -Autosize -Wrap
+        }
+        else{
+            foreach($AllDomain in $AllDomains){Get-DomainComputer -Properties name, samaccountname, DnsHostName, operatingsystem -Domain $AllDomain | Where-Object { $_.OperatingSystem -notlike "*Server*" } | sort -Property DnsHostName | Select-Object -Property name, samaccountname, @{n='ipv4address';e={(Resolve-DnsName -Name $_.DnsHostName -Type A).IPAddress}}, DnsHostName, operatingsystem | ft -Autosize -Wrap}
+        }
+    }
+    
+    if($NoUnsupportedOS){}
+    else{
+        Write-Host ""
+        Write-Host "Hosts running Unsupported OS:" -ForegroundColor Cyan
+        if($Domain -AND $Server) {
+            Get-DomainComputer -Properties name, samaccountname, DnsHostName, operatingsystem -Domain $Domain -Server $Server | where-object {($_.OperatingSystem -like "Windows Me*") -or ($_.OperatingSystem -like "Windows NT*") -or ($_.OperatingSystem -like "Windows 95*") -or ($_.OperatingSystem -like "Windows 98*") -or ($_.OperatingSystem -like "Windows XP*") -or ($_.OperatingSystem -like "Windows 7*") -or ($_.OperatingSystem -like "Windows Vista*") -or ($_.OperatingSystem -like "Windows 2000*") -or ($_.OperatingSystem -like "Windows 8*") -or ($_.OperatingSystem -like "Windows Server 2008*") -or ($_.OperatingSystem -like "Windows Server 2003*") -or ($_.OperatingSystem -like "Windows Server 2000*")} | sort -Property DnsHostName | Select-Object -Property name, samaccountname, @{n='ipv4address';e={(Resolve-DnsName -Name $_.DnsHostName -Type A).IPAddress}}, DnsHostName, operatingsystem | ft -Autosize -Wrap
+        }
+        else{
+            foreach($AllDomain in $AllDomains){Get-DomainComputer -Properties name, samaccountname, DnsHostName, operatingsystem -Domain $AllDomain | where-object {($_.OperatingSystem -like "Windows Me*") -or ($_.OperatingSystem -like "Windows NT*") -or ($_.OperatingSystem -like "Windows 95*") -or ($_.OperatingSystem -like "Windows 98*") -or ($_.OperatingSystem -like "Windows XP*") -or ($_.OperatingSystem -like "Windows 7*") -or ($_.OperatingSystem -like "Windows Vista*") -or ($_.OperatingSystem -like "Windows 2000*") -or ($_.OperatingSystem -like "Windows 8*") -or ($_.OperatingSystem -like "Windows Server 2008*") -or ($_.OperatingSystem -like "Windows Server 2003*") -or ($_.OperatingSystem -like "Windows Server 2000*")} | sort -Property DnsHostName | Select-Object -Property name, samaccountname, @{n='ipv4address';e={(Resolve-DnsName -Name $_.DnsHostName -Type A).IPAddress}}, DnsHostName, operatingsystem | ft -Autosize -Wrap}
+        }
     }
 
     Write-Host ""
