@@ -121,11 +121,11 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     # Set the path and filename for the output file
     if($Output){$OutputFilePath = $Output}
     else{$OutputFilePath = "$pwd\Invoke-ADEnum.txt"}
-
-    clear
     
     # Start capturing the script's output and save it to the file
     Start-Transcript -Path $OutputFilePath
+    
+    clear
     
     Write-Host "  _____                 _                      _____  ______                       " -ForegroundColor Red
     Write-Host " |_   _|               | |               /\   |  __ \|  ____|                      " -ForegroundColor Red
@@ -286,6 +286,14 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     else{
         foreach($AllDomain in $AllDomains){Get-DomainGroupMember -Domain $AllDomain -Identity "Domain Admins" -Recurse | select GroupDomain,MemberName,MemberSID | ft -Autosize -Wrap}
     }
+    
+    Write-Host ""
+    Write-Host "Groups the current user is part of:" -ForegroundColor Cyan
+	$CurrentUsername = whoami
+	Write-Host ""
+    Write-Host "Current User: $CurrentUsername"
+	$CurrentUsername = $CurrentUsername.Substring($CurrentUsername.IndexOf('\') + 1)
+	Get-DomainGroup -UserName $CurrentUsername | select samaccountname, objectsid, @{Name='Members of this group:';Expression={(Get-DomainGroupMember -Recurse -Identity $_.samaccountname).MemberName -join ' - '}} | ft -Autosize -Wrap
 
     Write-Host ""
     Write-Host "Service Accounts:" -ForegroundColor Cyan
@@ -313,6 +321,15 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     }
     else{
         foreach($AllDomain in $AllDomains){Get-DomainUser -Domain $AllDomain -SPN | ?{$_.memberof -match 'Domain Admins'} | Select-Object samaccountname, @{Name="Domain";Expression={$AllDomain}} | Format-Table -AutoSize -Wrap}
+    }
+    
+    Write-Host ""
+    Write-Host "Service accounts in 'Enterprise Admins':" -ForegroundColor Cyan
+    if($Domain -AND $Server) {
+        Get-DomainUser -Domain $Domain -Server $Server -SPN | ?{$_.memberof -match 'Enterprise Admins'} | Select-Object samaccountname, @{Name="Domain";Expression={$Domain}} | Format-Table -AutoSize -Wrap
+    }
+    else{
+        foreach($AllDomain in $AllDomains){Get-DomainUser -Domain $AllDomain -SPN | ?{$_.memberof -match 'Enterprise Admins'} | Select-Object samaccountname, @{Name="Domain";Expression={$AllDomain}} | Format-Table -AutoSize -Wrap}
     }
 
     Write-Host ""
@@ -358,14 +375,14 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     #Write-Host ""
     #Write-Host "All Groups:" -ForegroundColor Cyan
     #foreach($AllDomain in $AllDomains){Get-DomainGroup -Domain $AllDomain | select SamAccountName, objectsid, @{Name='Members';Expression={(Get-DomainGroupMember -Recurse -Identity $_.SamAccountname).MemberDistinguishedName -join ' - '}} | ft -Autosize -Wrap}
-
+    
     Write-Host ""
     Write-Host "Domain Password Policy:" -ForegroundColor Cyan
     if($Domain -AND $Server) {
-        (Get-DomainPolicy -Domain $Domain -Server $Server).SystemAccess | Select-Object MinimumPasswordAge, MaximumPasswordAge, MinimumPasswordLength, PasswordComplexity, PasswordHistorySize, LockoutBadCount, ResetLockoutCount, LockoutDuration, RequireLogonToChangePassword, @{Name="Domain"; Expression={$Domain}} | Format-Table -AutoSize -Wrap
+		(Get-DomainPolicy -Domain $Domain -Server $Server).SystemAccess | fl @{Name="Domain"; Expression={$Domain}}, MinimumPasswordAge, MaximumPasswordAge, MinimumPasswordLength, PasswordComplexity, PasswordHistorySize, LockoutBadCount, ResetLockoutCount, LockoutDuration, RequireLogonToChangePassword
     }
     else{
-        foreach($AllDomain in $AllDomains){(Get-DomainPolicy -Domain $AllDomain).SystemAccess | Select-Object MinimumPasswordAge, MaximumPasswordAge, MinimumPasswordLength, PasswordComplexity, PasswordHistorySize, LockoutBadCount, ResetLockoutCount, LockoutDuration, RequireLogonToChangePassword, @{Name="Domain"; Expression={$AllDomain}} | Format-Table -AutoSize -Wrap}
+        foreach($AllDomain in $AllDomains){(Get-DomainPolicy -Domain $AllDomain).SystemAccess | fl @{Name="Domain"; Expression={$AllDomain}}, MinimumPasswordAge, MaximumPasswordAge, MinimumPasswordLength, PasswordComplexity, PasswordHistorySize, LockoutBadCount, ResetLockoutCount, LockoutDuration, RequireLogonToChangePassword}
     }
 
     Write-Host ""
