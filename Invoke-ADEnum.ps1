@@ -977,29 +977,29 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
         Write-Host ""
         Write-Host "Find Domain Shares:" -ForegroundColor Cyan
         if($Domain -AND $Server) {
-            Find-DomainShare -ComputerDomain $Domain -Server $Server -CheckShareAccess -Threads 100 -Delay 1 | Select Name,Remark,ComputerName | Format-Table -AutoSize -Wrap
+            Find-DomainShare -ComputerDomain $Domain -Server $Server -CheckShareAccess -Threads 100 -Delay 1 | Select Name,ComputerName,Remark | Format-Table -AutoSize -Wrap
         }
         
         else{
-            foreach($AllDomain in $AllDomains){Find-DomainShare -ComputerDomain $AllDomain -CheckShareAccess -Threads 100 -Delay 1 | Select Name,Remark,ComputerName | Format-Table -AutoSize -Wrap}
+            foreach($AllDomain in $AllDomains){Find-DomainShare -ComputerDomain $AllDomain -CheckShareAccess -Threads 100 -Delay 1 | Select Name,ComputerName,Remark | Format-Table -AutoSize -Wrap}
         }
 
         Write-Host ""
         Write-Host "Find Interesting Domain Share Files:" -ForegroundColor Cyan
         if($Domain -AND $Server) {
-            Find-InterestingDomainShareFile -Server $Server -Threads 100 -Delay 1 | Format-Table -AutoSize -Wrap
+            Find-InterestingDomainShareFile -Server $Server -Threads 100 -Delay 1 | Select Owner,CreationTime,LastAccessTime,LastWriteTime | Format-Table -AutoSize -Wrap
         }
         else{
-            foreach($AllDomain in $AllDomains){Find-InterestingDomainShareFile -ComputerDomain $AllDomain -Threads 100 -Delay 1 | Format-Table -AutoSize -Wrap}
+            foreach($AllDomain in $AllDomains){Find-InterestingDomainShareFile -ComputerDomain $AllDomain -Threads 100 -Delay 1 | Select Owner,CreationTime,LastAccessTime,LastWriteTime | Format-Table -AutoSize -Wrap}
         }
         
         Write-Host ""
         Write-Host "Second run (more file extensions):"
         if($Domain -AND $Server) {
-            Find-InterestingDomainShareFile -Server $Server -Include *.doc*, *.txt*, *.xls*, *.csv, *.ppt*, *.msi*, *.wim* -Threads 100 -Delay 1 | Format-Table -AutoSize -Wrap
+            Find-InterestingDomainShareFile -Server $Server -Include *.doc*, *.txt*, *.xls*, *.csv, *.ppt*, *.msi*, *.wim* -Threads 100 -Delay 1 | Select Owner,CreationTime,LastAccessTime,LastWriteTime | Format-Table -AutoSize -Wrap
         }
         else{
-            foreach($AllDomain in $AllDomains){Find-InterestingDomainShareFile -ComputerDomain $AllDomain -Include *.doc*, *.txt*, *.xls*, *.csv, *.ppt*, *.msi*, *.wim* -Threads 100 -Delay 1 | Format-Table -AutoSize -Wrap}
+            foreach($AllDomain in $AllDomains){Find-InterestingDomainShareFile -ComputerDomain $AllDomain -Include *.doc*, *.txt*, *.xls*, *.csv, *.ppt*, *.msi*, *.wim* -Threads 100 -Delay 1 | Select Owner,CreationTime,LastAccessTime,LastWriteTime | Format-Table -AutoSize -Wrap}
         }
     }
     
