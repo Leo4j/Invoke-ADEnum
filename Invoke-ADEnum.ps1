@@ -880,7 +880,16 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     } #>
 
     Write-Host ""
-    Write-Host "Privileged users that aren't marked as sensitive/not for delegation:" -ForegroundColor Cyan
+    Write-Host "Privileged users that are marked as 'sensitive and not allowed for delegation':" -ForegroundColor Cyan
+    if($Domain -AND $Server) {
+        Get-DomainUser -Domain $Domain -Server $Server -DisallowDelegation -AdminCount | select-object samaccountname, @{Name="Domain";Expression={$Domain}} | Format-Table -AutoSize -Wrap
+    }
+    else{
+        foreach ($AllDomain in $AllDomains) {Get-DomainUser -Domain $AllDomain -DisallowDelegation -AdminCount | select-object samaccountname, @{Name="Domain";Expression={$AllDomain}} | Format-Table -AutoSize -Wrap}
+    }
+    
+    Write-Host ""
+    Write-Host "Privileged users that are not marked as 'sensitive and not allowed for delegation':" -ForegroundColor Cyan
     if($Domain -AND $Server) {
         Get-DomainUser -Domain $Domain -Server $Server -AllowDelegation -AdminCount | select-object samaccountname, @{Name="Domain";Expression={$Domain}} | Format-Table -AutoSize -Wrap
     }
