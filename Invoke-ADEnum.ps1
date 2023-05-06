@@ -223,7 +223,7 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     Write-Host ""
     Write-Host "Domain SIDs:" -ForegroundColor Cyan
     if($Domain -AND $Server) {
-        $DomainSID = Get-DomainSID -Domain $Domain -Server $Server | ft -Autosize -Wrap
+        $DomainSID = Get-DomainSID -Domain $Domain -Server $Server
         
         [PSCustomObject]@{
             DomainName = $Domain
