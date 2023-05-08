@@ -62,3 +62,5 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
 ```
 Invoke-ADEnum -NoWorkstations -NoServers
 ```
+.Example Output:
+![image](https://user-images.githubusercontent.com/61951374/236855619-fee907b2-e8d8-4134-83c6-f3e3458fa5df.png)
