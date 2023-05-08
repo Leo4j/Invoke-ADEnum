@@ -1,13 +1,14 @@
 # Invoke-ADEnum
 Active Directory Enumerator - Automate Active Directory Enumeration using PowerView
 
-.PARAMETER `Domain`
-The Domain to enumerate for (requires you specify a Server)
+.PARAMETER `Domain` (not mandatory)
+The Domain to enumerate for (it will attempt to retrieve the Master DC for the specified domain - if it fails, it will prompt the user to specify a domain controller)
+If not specified, the tool will enumerate for all the domains it can find
 
-.PARAMETER `Server`
+.PARAMETER `Server` (not mandatory)
 The DC to bind to (requires you specify a Domain)
 
-.PARAMETER `Output`
+.PARAMETER `Output` (not mandatory)
 Specify where to save the output from the tool (default is pwd)
 
 .SWITCH `NoServers`
@@ -15,6 +16,9 @@ Do not enumerate for Servers
 
 .SWITCH `NoWorkstations`
 Do not enumerate for Workstations
+
+.SWITCH `NoUnsupportedOS`
+Do not enumerate for machines running unsupported OS
 
 .SWITCH `NoUsers`
 Do not enumerate for Users
