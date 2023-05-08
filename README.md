@@ -2,7 +2,9 @@
 Active Directory Enumerator - Automate Active Directory Enumeration using PowerView
 
 .PARAMETER `Domain` (not mandatory)
+
 The Domain to enumerate for (it will attempt to retrieve the Master DC for the specified domain - if it fails, it will prompt the user to specify a domain controller)
+
 If not specified, the tool will enumerate for all the domains it can find
 
 .PARAMETER `Server` (not mandatory)
