@@ -114,7 +114,7 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
 	if($Server){}
 	else{
 		$Server = Get-DomainController -Domain $Domain | Where-Object {$_.Roles -like "RidRole"} | Select-Object -ExpandProperty Name
-		if(Server){}
+		if($Server){}
 		else{$ServerParam = [Parameter(Mandatory=$True, Position=2, ValueFromPipeline=$true)][String]$Server}
 	}
     }
