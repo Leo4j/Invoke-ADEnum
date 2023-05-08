@@ -11,10 +11,11 @@ function Invoke-ADEnum
 .SYNOPSIS
 Active Directory PowerView Enumerator
 
-.PARAMETER Domain
-The Domain to enumerate for (requires you specify a Server)
+.PARAMETER Domain (not mandatory)
+The Domain to enumerate for (it will attempt to retrieve the Master DC for the specified domain - if it fails, it will prompt the user to specify a domain controller)
+If not specified, the tool will enumerate for all the domains it can find
 
-.PARAMETER Server
+.PARAMETER Server (not mandatory)
 The DC to bind to (requires you specify a Domain)
 
 .PARAMETER Output
