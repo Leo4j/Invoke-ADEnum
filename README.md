@@ -64,5 +64,4 @@ Invoke-ADEnum -NoWorkstations -NoServers
 ```
 
 
-![image](https://user-images.githubusercontent.com/61951374/236855619-fee907b2-e8d8-4134-83c6-f3e3458fa5df.png)
 ![image](https://user-images.githubusercontent.com/61951374/236856792-c7c3f17d-a8a5-41d5-8c69-613fd15fd845.png)
