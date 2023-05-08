@@ -110,9 +110,18 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
 
     )
     
-    if($Domain -OR $Server) {
-        $DomainParam = [Parameter(Mandatory=$True, Position=1, ValueFromPipeline=$true)][String]$Domain
-        $ServerParam = [Parameter(Mandatory=$True, Position=2, ValueFromPipeline=$true)][String]$Server
+    if($Domain){
+	if($Server){}
+	else{
+		$Server = Get-DomainController -Domain $Domain | Where-Object {$_.Roles -like "RidRole"} | Select-Object -ExpandProperty Name
+		if(Server){}
+		else{$ServerParam = [Parameter(Mandatory=$True, Position=2, ValueFromPipeline=$true)][String]$Server}
+	}
+    }
+
+    elseif($Server){
+	$DomainParam = [Parameter(Mandatory=$True, Position=1, ValueFromPipeline=$true)][String]$Domain
+	#$ServerParam = [Parameter(Mandatory=$True, Position=2, ValueFromPipeline=$true)][String]$Server
     }
 
     $ErrorActionPreference = "SilentlyContinue"
