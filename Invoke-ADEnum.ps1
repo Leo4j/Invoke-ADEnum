@@ -259,6 +259,45 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     else{
         foreach($AllDomain in $AllDomains){Get-DomainTrust -Domain $AllDomain | Format-Table -AutoSize -Wrap}
     }
+    
+    Write-Host ""
+    Write-Host "Trust Accounts:" -ForegroundColor Cyan
+    if($Domain -AND $Server) {
+	Get-DomainObject -Domain $Domain -Server $Server -LDAPFilter "(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=2048)" | Select @{Name="Domain";Expression={$Domain}},samaccountname,objectsid,objectguid,samaccounttype | ft -AutoSize -Wrap
+    }
+    else{
+	foreach($AllDomain in $AllDomains){Get-DomainObject -Domain $AllDomain -LDAPFilter "(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=2048)" | Select @{Name="Domain";Expression={$AllDomain}},samaccountname,objectsid,objectguid,samaccounttype | ft -AutoSize -Wrap}
+    }
+
+    Write-Host ""
+    Write-Host "Trusted Domain Object GUIDs:" -ForegroundColor Cyan
+    if($Domain -AND $Server) {
+	$TDOTargetNames = Get-DomainTrust -Domain $Domain -Server $Server | Where-Object { $_.TrustDirection -eq 'Outbound' } | Select-Object -ExpandProperty TargetName
+	$TDOTrustDirection = "Outbound"
+	$TDOTargetNames = ($TDOTargetNames | Out-String) -split "`n"
+	$TDOTargetNames = $TDOTargetNames.Trim()
+	$TDOTargetNames = $TDOTargetNames | Where-Object { $_ -ne "" }
+	$TDOSourceDomainName = "DC=" + $Domain.Split(".")
+	$TDOSourceDomainName = $TDOSourceDomainName -replace " ", ",DC="
+	foreach($TDOTargetName in $TDOTargetNames){
+		Get-DomainObject -Domain $Domain -Server $Server -Identity "CN=$TDOTargetName,CN=System,$TDOSourceDomainName" | select @{Name="SourceName";Expression={$Domain}},@{Name="TargetName";Expression={$TDOTargetName}},@{Name="TrustDirection";Expression={$TDOTrustDirection}},objectGuid | ft -AutoSize -Wrap
+	}
+    }
+	
+    else{
+	$TDOTargetNames = foreach($AllDomain in $AllDomains){Get-DomainTrust -Domain $AllDomain | Where-Object { $_.TrustDirection -eq 'Outbound' } | Select-Object -ExpandProperty TargetName}
+	$TDOTrustDirection = "Outbound"
+	$TDOTargetNames = ($TDOTargetNames | Out-String) -split "`n"
+	$TDOTargetNames = $TDOTargetNames.Trim()
+	$TDOTargetNames = $TDOTargetNames | Where-Object { $_ -ne "" }
+	foreach($AllDomain in $AllDomains){
+		$TDOSourceDomainName = "DC=" + $AllDomain.Split(".")
+		$TDOSourceDomainName = $TDOSourceDomainName -replace " ", ",DC="
+		foreach($TDOTargetName in $TDOTargetNames){
+			Get-DomainObject -Domain $AllDomain -Identity "CN=$TDOTargetName,CN=System,$TDOSourceDomainName" | select @{Name="SourceName";Expression={$AllDomain}},@{Name="TargetName";Expression={$TDOTargetName}},@{Name="TrustDirection";Expression={$TDOTrustDirection}},objectGuid | ft -AutoSize -Wrap
+		}
+	}
+    }
 
     Write-Host ""
     Write-Host "Domain Controllers:" -ForegroundColor Cyan
