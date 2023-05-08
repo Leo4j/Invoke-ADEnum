@@ -312,10 +312,22 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     Write-Host ""
     Write-Host "Domain Controllers:" -ForegroundColor Cyan
     if($Domain -AND $Server) {
-        Get-NetDomainController -Domain $Domain | Select Name, Forest, Domain, IPAddress | ft -Autosize -Wrap
+        $domainControllers = Get-DomainController -Domain $Domain -Server $Server
+    	foreach ($dc in $domainControllers) {
+        	$isPrimaryDC = $dc.Roles -like "RidRole"
+        	$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
+        	$dc | Select-Object Name, Forest, Domain, IPAddress, @{Name="PrimaryDC";Expression={$primaryDC}} | ft -Autosize -Wrap
+    	}
     }
     else{
-        foreach($AllDomain in $AllDomains){Get-NetDomainController -Domain $AllDomain | Select Name, Forest, Domain, IPAddress | ft -Autosize -Wrap}
+        foreach($AllDomain in $AllDomains){
+		$domainControllers = Get-DomainController -Domain $AllDomain
+        	foreach ($dc in $domainControllers) {
+            		$isPrimaryDC = $dc.Roles -like "RidRole"
+            		$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
+            		$dc | Select-Object Name, Forest, Domain, IPAddress, @{Name="PrimaryDC";Expression={$primaryDC}} | ft -Autosize -Wrap
+        	}
+	}
     }
     
     Write-Host ""
