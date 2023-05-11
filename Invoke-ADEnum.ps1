@@ -352,7 +352,12 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     Write-Host "Groups the current user is part of:" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "Current User: $env:USERNAME"
-    Get-DomainGroup -UserName $env:USERNAME | select samaccountname, objectsid, @{Name='Members of this group:';Expression={(Get-DomainGroupMember -Recurse -Identity $_.samaccountname).MemberName -join ' - '}} | ft -Autosize -Wrap
+    if($Domain -AND $Server) {
+    	Get-DomainGroup -Domain $Domain -Server $Server -UserName $env:USERNAME | select samaccountname, objectsid, @{Name='Members of this group:';Expression={(Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity $_.samaccountname).MemberName -join ' - '}} | ft -Autosize -Wrap
+    }
+    else{
+    	foreach($AllDomain in $AllDomains){Get-DomainGroup -Domain $AllDomain -UserName $env:USERNAME | select samaccountname, objectsid, @{Name='Members of this group:';Expression={(Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity $_.samaccountname).MemberName -join ' - '}} | ft -Autosize -Wrap}
+    }
 
     Write-Host ""
     Write-Host "Service Accounts:" -ForegroundColor Cyan
