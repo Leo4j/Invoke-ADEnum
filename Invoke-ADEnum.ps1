@@ -333,19 +333,19 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     Write-Host ""
     Write-Host "Enterprise Administrators:" -ForegroundColor Cyan
     if($Domain -AND $Server) {
-        Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Enterprise Admins" -Recurse | select GroupDomain,MemberName,MemberSID | ft -Autosize -Wrap
+        Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Enterprise Admins" -Recurse | select MemberName,MemberSID,GroupDomain | ft -Autosize -Wrap
     }
     else{
-        foreach($AllDomain in $AllDomains){Get-DomainGroupMember -Domain $AllDomain -Identity "Enterprise Admins" -Recurse | select GroupDomain,MemberName,MemberSID | ft -Autosize -Wrap}
+        foreach($AllDomain in $AllDomains){Get-DomainGroupMember -Domain $AllDomain -Identity "Enterprise Admins" -Recurse | select MemberName,MemberSID,GroupDomain | ft -Autosize -Wrap}
     }
 
     Write-Host ""
     Write-Host "Domain Administrators:" -ForegroundColor Cyan
     if($Domain -AND $Server) {
-        Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Domain Admins" -Recurse | select GroupDomain,MemberName,MemberSID | ft -Autosize -Wrap
+        Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Domain Admins" -Recurse | select MemberName,MemberSID,GroupDomain | ft -Autosize -Wrap
     }
     else{
-        foreach($AllDomain in $AllDomains){Get-DomainGroupMember -Domain $AllDomain -Identity "Domain Admins" -Recurse | select GroupDomain,MemberName,MemberSID | ft -Autosize -Wrap}
+        foreach($AllDomain in $AllDomains){Get-DomainGroupMember -Domain $AllDomain -Identity "Domain Admins" -Recurse | select MemberName,MemberSID,GroupDomain | ft -Autosize -Wrap}
     }
     
     Write-Host ""
@@ -425,10 +425,10 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     Write-Host ""
     Write-Host "Linked DA accounts using name correlation:" -ForegroundColor Cyan
     if($Domain -AND $Server) {
-        Get-DomainGroupMember 'Domain Admins' -Domain $Domain -Server $Server | %{Get-DomainUser $_.membername -Domain $Domain -Server $Server -LDAPFilter '(displayname=*)'} | %{$a=$_.displayname.split(' ')[0..1] -join ' '; Get-DomainUser -Domain $Domain -Server $Server -LDAPFilter "(displayname=*$a*)" -Properties displayname,samaccountname} | Select-Object displayname, samaccountname, @{Name="Domain";Expression={$Domain}} | Format-Table -AutoSize -Wrap
+        Get-DomainGroupMember 'Domain Admins' -Domain $Domain -Server $Server | %{Get-DomainUser $_.membername -Domain $Domain -Server $Server -LDAPFilter '(displayname=*)'} | %{$a=$_.displayname.split(' ')[0..1] -join ' '; Get-DomainUser -Domain $Domain -Server $Server -LDAPFilter "(displayname=*$a*)" -Properties displayname,samaccountname} | Select-Object samaccountname, displayname, @{Name="Domain";Expression={$Domain}} | Format-Table -AutoSize -Wrap
     }
     else{
-        foreach($AllDomain in $AllDomains){Get-DomainGroupMember 'Domain Admins' -Domain $AllDomain | %{Get-DomainUser $_.membername -LDAPFilter '(displayname=*)'} | %{$a=$_.displayname.split(' ')[0..1] -join ' '; Get-DomainUser -Domain $AllDomain -LDAPFilter "(displayname=*$a*)" -Properties displayname,samaccountname} | Select-Object displayname, samaccountname, @{Name="Domain";Expression={$AllDomain}} | Format-Table -AutoSize -Wrap}
+        foreach($AllDomain in $AllDomains){Get-DomainGroupMember 'Domain Admins' -Domain $AllDomain | %{Get-DomainUser $_.membername -LDAPFilter '(displayname=*)'} | %{$a=$_.displayname.split(' ')[0..1] -join ' '; Get-DomainUser -Domain $AllDomain -LDAPFilter "(displayname=*$a*)" -Properties displayname,samaccountname} | Select-Object samaccountname, displayname, @{Name="Domain";Expression={$AllDomain}} | Format-Table -AutoSize -Wrap}
     }
     
     #Write-Host ""
