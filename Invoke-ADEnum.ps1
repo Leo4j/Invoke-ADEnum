@@ -349,6 +349,15 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     }
     
     Write-Host ""
+    Write-Host "Users with AdminCount set to 1:" -ForegroundColor Cyan
+    if($Domain -AND $Server) {
+        Get-DomainUser -Domain $Domain -Server $Server -AdminCount | select-object samaccountname, @{Name="Domain";Expression={$Domain}}, @{Name="Group Membership";Expression={(Get-DomainGroup -Domain $Domain -Server $Server -UserName $_.samaccountname).Name -join ' - '}} | Format-Table -AutoSize -Wrap
+    }
+    else{
+        foreach ($AllDomain in $AllDomains) {Get-DomainUser -Domain $AllDomain -AdminCount | select-object samaccountname, @{Name="Domain";Expression={$AllDomain}}, @{Name="Group Membership";Expression={(Get-DomainGroup -Domain $AllDomain -UserName $_.samaccountname).Name -join ' - '}} | Format-Table -AutoSize -Wrap}
+    }
+    
+    Write-Host ""
     Write-Host "Groups the current user is part of:" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "Current User: $env:USERNAME"
