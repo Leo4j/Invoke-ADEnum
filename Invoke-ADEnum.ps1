@@ -365,7 +365,7 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
         Get-DomainUser -SPN -Domain $Domain -Server $Server | select samaccountname, description, @{Name='Groups';Expression={(Get-DomainGroup -Domain $Domain -Server $Server -UserName $_.samaccountname).Name -join ' - '}}, @{Name="Domain";Expression={$Domain}} | ft -Autosize -Wrap
     }
     else{
-        foreach($AllDomain in $AllDomains){Get-DomainUser -SPN -Domain $AllDomain | select samaccountname, description, @{Name='Groups';Expression={(Get-DomainGroup -UserName $_.samaccountname).Name -join ' - '}}, @{Name="Domain";Expression={$AllDomain}} | ft -Autosize -Wrap}
+        foreach($AllDomain in $AllDomains){Get-DomainUser -SPN -Domain $AllDomain | select samaccountname, description, @{Name='Groups';Expression={(Get-DomainGroup -Domain $AllDomain -UserName $_.samaccountname).Name -join ' - '}}, @{Name="Domain";Expression={$AllDomain}} | ft -Autosize -Wrap}
     }
 
     Write-Host ""
@@ -543,12 +543,12 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
         else{
             Write-Host ""
             Write-Host "Enabled Users:" -ForegroundColor Cyan
-            foreach($AllDomain in $AllDomains){Get-DomainUser -UACFilter NOT_ACCOUNTDISABLE -Domain $AllDomain | select samaccountname, objectsid, @{Name='Domain';Expression={$AllDomain}}, @{Name='Groups';Expression={(Get-DomainGroup -UserName $_.samaccountname).Name -join ' - '}}, description | ft -Autosize -Wrap}
+            foreach($AllDomain in $AllDomains){Get-DomainUser -UACFilter NOT_ACCOUNTDISABLE -Domain $AllDomain | select samaccountname, objectsid, @{Name='Domain';Expression={$AllDomain}}, @{Name='Groups';Expression={(Get-DomainGroup -Domain $AllDomain -UserName $_.samaccountname).Name -join ' - '}}, description | ft -Autosize -Wrap}
 
 
             Write-Host ""
             Write-Host "Disabled Users:" -ForegroundColor Cyan
-            foreach($AllDomain in $AllDomains){Get-DomainUser -UACFilter ACCOUNTDISABLE -Domain $AllDomain | select samaccountname, objectsid, @{Name='Domain';Expression={$AllDomain}}, @{Name='Groups';Expression={(Get-DomainGroup -UserName $_.samaccountname).Name -join ' - '}}, description | ft -Autosize -Wrap}
+            foreach($AllDomain in $AllDomains){Get-DomainUser -UACFilter ACCOUNTDISABLE -Domain $AllDomain | select samaccountname, objectsid, @{Name='Domain';Expression={$AllDomain}}, @{Name='Groups';Expression={(Get-DomainGroup -Domain $AllDomain -UserName $_.samaccountname).Name -join ' - '}}, description | ft -Autosize -Wrap}
         }
     }
     
