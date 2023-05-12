@@ -978,10 +978,10 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     Write-Host ""
     Write-Host "Machines where a specific domain user/group is a member of the Administrators local group:" -ForegroundColor Cyan
     if($Domain -AND $Server) {
-        Get-DomainGPOUserLocalGroupMapping -Domain $Domain -Server $Server -LocalGroup Administrators | select ObjectName, GPODisplayName, ContainerName, ComputerName | Format-Table -AutoSize -Wrap
+        Get-DomainGPOUserLocalGroupMapping -Domain $Domain -Server $Server -LocalGroup Administrators | Select-Object ObjectName, GPODisplayName, ContainerName, ComputerName | Format-Table -AutoSize -Wrap
     }
     else{
-        foreach($AllDomain in $AllDomains){Get-DomainGPOUserLocalGroupMapping -Domain $AllDomain -LocalGroup Administrators | select ObjectName, GPODisplayName, ContainerName, ComputerName | Format-Table -AutoSize -Wrap}
+        foreach($AllDomain in $AllDomains){Get-DomainGPOUserLocalGroupMapping -Domain $AllDomain -LocalGroup Administrators | Select-Object ObjectName, GPODisplayName, ContainerName, ComputerName | Format-Table -AutoSize -Wrap}
     }
     
     if($NoGPOs){}
