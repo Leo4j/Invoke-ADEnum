@@ -597,10 +597,14 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
             $ou = $_
             $users = (Get-DomainUser -Domain $Domain -Server $Server -SearchBase "LDAP://$($_.DistinguishedName)").samaccountname
             $computers = Get-DomainComputer -Domain $Domain -Server $Server -SearchBase "LDAP://$($_.DistinguishedName)"
+	    
+	    $members = @()
+	    if ($users) { $members += $users }
+	    if ($computers) { $members += $computers.Name }
+	    
             [PSCustomObject]@{
                 Name = $ou.Name
-                Users = $users -join ' - '
-                Computers = ($computers.Name -join ' - ')
+                Members = $members -join ' - '
                 Domain = $Domain
             }
         } | Format-Table -AutoSize -Wrap
@@ -611,10 +615,14 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
                 $ou = $_
                 $users = (Get-DomainUser -Domain $AllDomain -SearchBase "LDAP://$($_.DistinguishedName)").samaccountname
                 $computers = Get-DomainComputer -Domain $AllDomain -SearchBase "LDAP://$($_.DistinguishedName)"
+		
+		$members = @()
+		if ($users) { $members += $users }
+		if ($computers) { $members += $computers.Name }
+		
                 [PSCustomObject]@{
                     Name = $ou.Name
-                    Users = $users -join ' - '
-                    Computers = ($computers.Name -join ' - ')
+                    Members = $members -join ' - '
                     Domain = $AllDomain
                 }
             } | Format-Table -AutoSize -Wrap
