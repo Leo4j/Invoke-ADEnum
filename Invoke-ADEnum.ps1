@@ -485,6 +485,100 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     }
     
     Write-Host ""
+    Write-Host "LM Compatibility Level:" -ForegroundColor Cyan
+	
+    $policySettings = @{
+        "0" = "Send LM & NTLM responses"
+        "1" = "Send LM & NTLM - use NTLMv2 session security if negotiated"
+        "2" = "Send NTLM response only"
+        "3" = "Send NTLMv2 response only"
+        "4" = "Send NTLMv2 response only. Refuse LM"
+        "5" = "Send NTLMv2 response only. Refuse LM & NTLM"
+    }
+	
+    if($Domain -AND $Server) {
+        $gpoResult = Get-DomainGPO -Domain $Domain -Server $Server -LDAPFilter "(name=*)" -Properties gpcfilesyspath, displayname |
+            ForEach-Object {
+                $gpoPath = $_.gpcfilesyspath.TrimStart("[").TrimEnd("]")
+                $gpoDisplayName = $_.displayname
+                $gpoSetting = (Get-Content -Path "$gpoPath\MACHINE\Microsoft\Windows NT\SecEdit\GptTmpl.inf" -Raw |
+                    Select-String -Pattern "LmCompatibilityLevel" | Select-Object -Last 1).Line
+                $gpoSetting = ($gpoSetting | Out-String) -split "`n"
+                $gpoSetting = $gpoSetting | Select-String -Pattern "LmCompatibilityLevel"
+                $gpoSetting = ($gpoSetting | Out-String) -split "`n"
+                $gpoSetting = $gpoSetting.Trim()
+                $gpoSetting = $gpoSetting | Where-Object { $_ -ne "" }
+				
+                if ($gpoSetting) {
+                    $settingValue = ($gpoSetting -split "=")[-1].Trim().Split(",")[-1].Trim()
+                    $policySetting = $policySettings[$settingValue]
+
+                    [PSCustomObject]@{
+                        GPODisplayName = $gpoDisplayName
+                        LMCompatibilityLevel = $settingValue
+                        "Policy Settings" = $policySetting
+                    }
+                }
+            }
+        $gpoResult | Format-Table -AutoSize -Wrap
+    }
+
+    else{
+        foreach($AllDomain in $AllDomains){
+            $gpoResult = Get-DomainGPO -Domain $AllDomain -LDAPFilter "(name=*)" -Properties gpcfilesyspath, displayname |
+                ForEach-Object {
+                    $gpoPath = $_.gpcfilesyspath.TrimStart("[").TrimEnd("]")
+                    $gpoDisplayName = $_.displayname
+                    $gpoSetting = (Get-Content -Path "$gpoPath\MACHINE\Microsoft\Windows NT\SecEdit\GptTmpl.inf" -Raw |
+                        Select-String -Pattern "LmCompatibilityLevel" | Select-Object -Last 1).Line
+                    $gpoSetting = ($gpoSetting | Out-String) -split "`n"
+                    $gpoSetting = $gpoSetting | Select-String -Pattern "LmCompatibilityLevel"
+                    $gpoSetting = ($gpoSetting | Out-String) -split "`n"
+                    $gpoSetting = $gpoSetting.Trim()
+                    $gpoSetting = $gpoSetting | Where-Object { $_ -ne "" }
+					
+                    if ($gpoSetting) {
+                        $settingValue = ($gpoSetting -split "=")[-1].Trim().Split(",")[-1].Trim()
+                        $policySetting = $policySettings[$settingValue]
+
+                        [PSCustomObject]@{
+                            GPODisplayName = $gpoDisplayName
+                            LMCompatibilityLevel = $settingValue
+                            "Policy Settings" = $policySetting
+                        }
+                    }
+                }
+            $gpoResult | Format-Table -AutoSize -Wrap
+        }
+    }
+	
+	
+    Write-Host ""
+    Write-Host "Misconfigured Certificate Templates (do not rely solely on this output):" -ForegroundColor Cyan
+
+    if($Domain -AND $Server) {
+        $CertDomainName = "DC=" + $Domain.Split(".")
+        $CertDomainName = $CertDomainName -replace " ", ",DC="
+        $vulncertusers = Get-DomainObjectACL -Domain $Domain -Server $Server -SearchBase "CN=Configuration,$CertDomainName" -LDAPFilter "(objectclass=pkicertificatetemplate)" -ResolveGUIDs | %{ $_ | Add-Member -NotePropertyName Identity -NotePropertyValue (ConvertFrom-SID -Domain $Domain -Server $Server $_.SecurityIdentifier.value) -Force; $_ } |  ?{ $_.Identity -match "Domain Users" }
+        $vulncertcomputers = Get-DomainObjectACL -Domain $Domain -Server $Server -SearchBase "CN=Configuration,$CertDomainName" -LDAPFilter "(objectclass=pkicertificatetemplate)" -ResolveGUIDs | %{ $_ | Add-Member -NotePropertyName Identity -NotePropertyValue (ConvertFrom-SID -Domain $Domain -Server $Server $_.SecurityIdentifier.value) -Force; $_ } |  ?{ $_.Identity -match "Domain Computers" }
+        Get-DomainObject -Domain $Domain -Server $Server -SearchBase "CN=Configuration,$CertDomainName" -LDAPFilter "(objectclass=pkicertificatetemplate)" | Where-Object {($_."mspki-certificate-name-flag" -eq "1" -and $_.pkiextendedkeyusage -like "1.3.6.1.5.5.7.3.2") -and (($vulncertusers.ObjectDN -contains $_.distinguishedname) -or ($vulncertcomputers.ObjectDN -contains $_.distinguishedname))} | Select-Object @{Name="Cert Template";Expression={$_.cn}}, @{Name="pkiextendedkeyusage";Expression={"Client Authentication"}}, @{Name="Flag";Expression={"ENROLLEE_SUPPLIES_SUBJECT"}},@{Name="Enrollment Rights";Expression={"Domain Users"}}, @{Name="Domain";Expression={$Domain}} | ft -AutoSize -Wrap
+        $vulncertcomputers | Where-Object {($_.ActiveDirectoryRights -match "WriteDacl") -or ($_.ActiveDirectoryRights -match "WriteOwner")} | Select-Object @{Name="Cert Template";Expression={$_.ObjectDN.Split(',')[0] -replace 'CN='}}, @{Name="Identity";Expression={"Domain Computers"}}, @{Name="ActiveDirectoryRights";Expression={"WriteDacl WriteOwner"}}, @{Name="Domain";Expression={$Domain}} | ft -AutoSize -Wrap
+        $vulncertusers | Where-Object {($_.ActiveDirectoryRights -match "WriteDacl") -or ($_.ActiveDirectoryRights -match "WriteOwner")} | Select-Object @{Name="Cert Template";Expression={$_.ObjectDN.Split(',')[0] -replace 'CN='}}, @{Name="Identity";Expression={"Domain Users"}}, @{Name="ActiveDirectoryRights";Expression={"WriteDacl WriteOwner"}}, @{Name="Domain";Expression={$Domain}} | ft -AutoSize -Wrap
+    }
+
+    else {
+        foreach($AllDomain in $AllDomains){
+            $CertDomainName = "DC=" + $AllDomain.Split(".")
+            $CertDomainName = $CertDomainName -replace " ", ",DC="
+            $vulncertusers = Get-DomainObjectACL -Domain $AllDomain -SearchBase "CN=Configuration,$CertDomainName" -LDAPFilter "(objectclass=pkicertificatetemplate)" -ResolveGUIDs | %{ $_ | Add-Member -NotePropertyName Identity -NotePropertyValue (ConvertFrom-SID -Domain $AllDomain $_.SecurityIdentifier.value) -Force; $_ } |  ?{ $_.Identity -match "Domain Users" }
+            $vulncertcomputers = Get-DomainObjectACL -Domain $AllDomain -SearchBase "CN=Configuration,$CertDomainName" -LDAPFilter "(objectclass=pkicertificatetemplate)" -ResolveGUIDs | %{ $_ | Add-Member -NotePropertyName Identity -NotePropertyValue (ConvertFrom-SID -Domain $AllDomain $_.SecurityIdentifier.value) -Force; $_ } |  ?{ $_.Identity -match "Domain Computers" }
+            Get-DomainObject -Domain $AllDomain -SearchBase "CN=Configuration,$CertDomainName" -LDAPFilter "(objectclass=pkicertificatetemplate)" | Where-Object {($_."mspki-certificate-name-flag" -eq "1" -and $_.pkiextendedkeyusage -like "1.3.6.1.5.5.7.3.2") -and (($vulncertusers.ObjectDN -contains $_.distinguishedname) -or ($vulncertcomputers.ObjectDN -contains $_.distinguishedname))} | Select-Object @{Name="Cert Template";Expression={$_.cn}}, @{Name="pkiextendedkeyusage";Expression={"Client Authentication"}}, @{Name="Flag";Expression={"ENROLLEE_SUPPLIES_SUBJECT"}},@{Name="Enrollment Rights";Expression={"Domain Users"}}, @{Name="Domain";Expression={$AllDomain}} | ft -AutoSize -Wrap
+            $vulncertcomputers | Where-Object {($_.ActiveDirectoryRights -match "WriteDacl") -or ($_.ActiveDirectoryRights -match "WriteOwner")} | Select-Object @{Name="Cert Template";Expression={$_.ObjectDN.Split(',')[0] -replace 'CN='}}, @{Name="Identity";Expression={"Domain Computers"}}, @{Name="ActiveDirectoryRights";Expression={"WriteDacl WriteOwner"}}, @{Name="Domain";Expression={$AllDomain}} | ft -AutoSize -Wrap
+            $vulncertusers | Where-Object {($_.ActiveDirectoryRights -match "WriteDacl") -or ($_.ActiveDirectoryRights -match "WriteOwner")} | Select-Object @{Name="Cert Template";Expression={$_.ObjectDN.Split(',')[0] -replace 'CN='}}, @{Name="Identity";Expression={"Domain Users"}}, @{Name="ActiveDirectoryRights";Expression={"WriteDacl WriteOwner"}}, @{Name="Domain";Expression={$AllDomain}} | ft -AutoSize -Wrap
+        }
+    }
+    
+    Write-Host ""
     Write-Host "Admin Groups:" -ForegroundColor Cyan
     if($Domain -AND $Server) {
         Get-DomainGroup -Domain $Domain -Server $Server | where Name -like "*Admin*" | select SamAccountName, objectsid, @{Name="Domain";Expression={$Domain}}, @{Name='Members';Expression={(Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity $_.SamAccountname).MemberName -join ' - '}} | Where-Object { $_.Members } | ft -Autosize -Wrap
