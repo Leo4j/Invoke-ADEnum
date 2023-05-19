@@ -332,6 +332,17 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     }
     
     Write-Host ""
+    Write-Host "Groups the current user is part of:" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "Current User: $env:USERNAME"
+    if($Domain -AND $Server) {
+    	Get-DomainGroup -Domain $Domain -Server $Server -UserName $env:USERNAME | select samaccountname, objectsid, @{Name='Members of this group:';Expression={(Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity $_.samaccountname).MemberName -join ' - '}} | ft -Autosize -Wrap
+    }
+    else{
+    	foreach($AllDomain in $AllDomains){Get-DomainGroup -Domain $AllDomain -UserName $env:USERNAME | select samaccountname, objectsid, @{Name='Members of this group:';Expression={(Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity $_.samaccountname).MemberName -join ' - '}} | ft -Autosize -Wrap}
+    }
+    
+    Write-Host ""
     Write-Host "Enterprise Administrators:" -ForegroundColor Cyan
     if($Domain -AND $Server) {
         Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Enterprise Admins" -Recurse | select MemberName,MemberSID,GroupDomain | ft -Autosize -Wrap
@@ -359,16 +370,32 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     }
     
     Write-Host ""
-    Write-Host "Groups the current user is part of:" -ForegroundColor Cyan
-    Write-Host ""
-    Write-Host "Current User: $env:USERNAME"
+    Write-Host "Groups with AdminCount set to 1:" -ForegroundColor Cyan
     if($Domain -AND $Server) {
-    	Get-DomainGroup -Domain $Domain -Server $Server -UserName $env:USERNAME | select samaccountname, objectsid, @{Name='Members of this group:';Expression={(Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity $_.samaccountname).MemberName -join ' - '}} | ft -Autosize -Wrap
+		Get-DomainGroup -Domain $Domain -Server $Server -AdminCount | Select-Object samaccountname,objectsid,@{Name="Domain";Expression={$Domain}},@{Name="Membership";Expression={(Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $_.samaccountname -Recurse | Select-Object -ExpandProperty MemberName) -join ', ' }} | ft -Autosize -Wrap
     }
     else{
-    	foreach($AllDomain in $AllDomains){Get-DomainGroup -Domain $AllDomain -UserName $env:USERNAME | select samaccountname, objectsid, @{Name='Members of this group:';Expression={(Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity $_.samaccountname).MemberName -join ' - '}} | ft -Autosize -Wrap}
+       foreach($AllDomain in $AllDomains){Get-DomainGroup -Domain $AllDomain -AdminCount | Select-Object samaccountname,objectsid,@{Name="Domain";Expression={$AllDomain}},@{Name="Membership";Expression={(Get-DomainGroupMember -Domain $AllDomain -Identity $_.samaccountname -Recurse | Select-Object -ExpandProperty MemberName) -join ', ' }} | ft -Autosize -Wrap}
     }
-
+    
+    Write-Host ""
+    Write-Host "Machine accounts in privileged groups:" -ForegroundColor Cyan
+    if($Domain -AND $Server) {
+        Get-DomainGroup -Domain $Domain -Server $Server -AdminCount | Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse | ?{$_.MemberName -like '*$'} | Select-Object GroupDomain,GroupName,MemberDomain,MemberName,MemberObjectClass,MemberSID | ft -Autosize -Wrap
+    }
+    else{
+        foreach($AllDomain in $AllDomains){Get-DomainGroup -Domain $AllDomain -AdminCount | Get-DomainGroupMember -Recurse | ?{$_.MemberName -like '*$'} | Select-Object GroupDomain,GroupName,MemberDomain,MemberName,MemberObjectClass,MemberSID | ft -Autosize -Wrap}
+    }
+    
+    Write-Host ""
+    Write-Host "Members of Pre-Windows 2000 Compatible Access group:" -ForegroundColor Cyan
+    if($Domain -AND $Server) {
+		Get-DomainGroup -Domain $Domain -Server $Server -Identity "Pre-Windows 2000 Compatible Access" | Select-Object samaccountname,objectsid,@{Name="Domain";Expression={$Domain}},@{Name="Membership";Expression={(Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $_.samaccountname -Recurse | Where-Object { $_.MemberName -ne "Authenticated Users" } | Select-Object -ExpandProperty MemberName) -join ', ' }} | ft -Autosize -Wrap
+    }
+    else{
+       foreach($AllDomain in $AllDomains){Get-DomainGroup -Domain $AllDomain -Identity "Pre-Windows 2000 Compatible Access" | Select-Object samaccountname,objectsid,@{Name="Domain";Expression={$AllDomain}},@{Name="Membership";Expression={(Get-DomainGroupMember -Domain $AllDomain -Identity $_.samaccountname -Recurse | Where-Object { $_.MemberName -ne "Authenticated Users" } | Select-Object -ExpandProperty MemberName) -join ', ' }} | ft -Autosize -Wrap}
+    }
+    
     Write-Host ""
     Write-Host "Service Accounts:" -ForegroundColor Cyan
     if($Domain -AND $Server) {
@@ -404,6 +431,15 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     }
     else{
         foreach($AllDomain in $AllDomains){Get-DomainUser -Domain $AllDomain -SPN | ?{$_.memberof -match 'Enterprise Admins'} | Select-Object samaccountname, @{Name="Domain";Expression={$AllDomain}} | Format-Table -AutoSize -Wrap}
+    }
+    
+    Write-Host ""
+    Write-Host "Group Managed Service Accounts (GMSA):" -ForegroundColor Cyan
+    if($Domain -AND $Server) {
+    	Get-DomainObject -Domain $Domain -Server $Server | Where-Object { $_.ObjectClass -eq 'msDS-GroupManagedServiceAccount' } | Select-Object samaccountname, dnshostname, samaccounttype, serviceprincipalname, msds-managedpasswordinterval, pwdlastset, distinguishedname, objectcategory, objectclass, @{Name="Domain";Expression={$Domain}} | fl
+    }
+    else{
+    	foreach($AllDomain in $AllDomains){Get-DomainObject -Domain $AllDomain | Where-Object { $_.ObjectClass -eq 'msDS-GroupManagedServiceAccount' } | Select-Object samaccountname, dnshostname, samaccounttype, serviceprincipalname, msds-managedpasswordinterval, pwdlastset, distinguishedname, objectcategory, objectclass, @{Name="Domain";Expression={$AllDomain}} | fl}
     }
 
     Write-Host ""
@@ -1149,15 +1185,6 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     else{
         foreach($AllDomain in $AllDomains){$dcName = "dc=" + $AllDomain.Split("."); $dcName = $dcName -replace " ", ",dc="; Get-DomainObjectAcl -Domain $AllDomain -SearchBase "CN=AdminSDHolder,CN=System,$dcName" -ResolveGUIDs | select ObjectDN,AceQualifier,ActiveDirectoryRights,ObjectAceType | Out-String}
     } #>
-
-    Write-Host ""
-    Write-Host "Find any machine accounts in privileged groups:" -ForegroundColor Cyan
-    if($Domain -AND $Server) {
-        Get-DomainGroup -Domain $Domain -Server $Server -AdminCount | Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse | ?{$_.MemberName -like '*$'} | Select-Object GroupDomain,GroupName,MemberDomain,MemberName,MemberObjectClass,MemberSID | ft -Autosize -Wrap
-    }
-    else{
-        foreach($AllDomain in $AllDomains){Get-DomainGroup -Domain $AllDomain -AdminCount | Get-DomainGroupMember -Recurse | ?{$_.MemberName -like '*$'} | Select-Object GroupDomain,GroupName,MemberDomain,MemberName,MemberObjectClass,MemberSID | ft -Autosize -Wrap}
-    }
     
     if($NoShares){}
     else{
