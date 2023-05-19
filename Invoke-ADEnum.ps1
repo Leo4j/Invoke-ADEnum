@@ -21,6 +21,9 @@ The DC to bind to (requires you specify a Domain)
 .PARAMETER Output
 Specify where to save the output from the tool (default is pwd)
 
+.PARAMETER Exclude
+Exclude a specific domain from enumeration
+
 .SWITCH NoServers
 Do not enumerate for Servers
 
@@ -72,40 +75,44 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
         [Parameter (Mandatory=$False, Position = 2, ValueFromPipeline=$true)]
         [String]
         $Output,
-        
-        [Parameter (Mandatory=$False, Position = 3, ValueFromPipeline=$true)]
-        [Switch]
-        $NoServers,
+	
+	[Parameter (Mandatory=$False, Position = 3, ValueFromPipeline=$true)]
+        [String]
+        $Exclude,
         
         [Parameter (Mandatory=$False, Position = 4, ValueFromPipeline=$true)]
         [Switch]
-        $NoWorkstations,
+        $NoServers,
         
         [Parameter (Mandatory=$False, Position = 5, ValueFromPipeline=$true)]
         [Switch]
-        $NoUnsupportedOS,
+        $NoWorkstations,
         
         [Parameter (Mandatory=$False, Position = 6, ValueFromPipeline=$true)]
         [Switch]
-        $NoUsers,
+        $NoUnsupportedOS,
         
         [Parameter (Mandatory=$False, Position = 7, ValueFromPipeline=$true)]
         [Switch]
-        $NoShares,
+        $NoUsers,
         
         [Parameter (Mandatory=$False, Position = 8, ValueFromPipeline=$true)]
         [Switch]
-        $NoLocalAdminAccess,
+        $NoShares,
         
         [Parameter (Mandatory=$False, Position = 9, ValueFromPipeline=$true)]
         [Switch]
-        $NoACLs,
+        $NoLocalAdminAccess,
         
         [Parameter (Mandatory=$False, Position = 10, ValueFromPipeline=$true)]
         [Switch]
-        $NoGPOs,
+        $NoACLs,
         
         [Parameter (Mandatory=$False, Position = 11, ValueFromPipeline=$true)]
+        [Switch]
+        $NoGPOs,
+        
+        [Parameter (Mandatory=$False, Position = 12, ValueFromPipeline=$true)]
         [Switch]
         $NoFindDomainUserLocation
 
@@ -230,6 +237,8 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     #$AllDomains += $TrustTargetNames
     $PlaceHolderDomains = $AllDomains
     $AllDomains = $AllDomains | Where-Object { $_ -notin $OutboundTrusts }
+    
+    if($Exclude){$AllDomains = $AllDomains | Where-Object { $_ -notin $Exclude }}
 
     Write-Host ""
     Write-Host "Domain SIDs:" -ForegroundColor Cyan
