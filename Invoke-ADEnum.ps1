@@ -360,22 +360,45 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
         foreach($AllDomain in $AllDomains){Get-DomainGroupMember -Domain $AllDomain -Identity "Domain Admins" -Recurse | select MemberName,MemberSID,GroupDomain | ft -Autosize -Wrap}
     }
     
-    Write-Host ""
-    Write-Host "Users with AdminCount set to 1:" -ForegroundColor Cyan
-    if($Domain -AND $Server) {
-        Get-DomainUser -Domain $Domain -Server $Server -AdminCount | select-object samaccountname, @{Name="Domain";Expression={$Domain}}, @{Name="Group Membership";Expression={(Get-DomainGroup -Domain $Domain -Server $Server -UserName $_.samaccountname).Name -join ' - '}} | Format-Table -AutoSize -Wrap
-    }
-    else{
-        foreach ($AllDomain in $AllDomains) {Get-DomainUser -Domain $AllDomain -AdminCount | select-object samaccountname, @{Name="Domain";Expression={$AllDomain}}, @{Name="Group Membership";Expression={(Get-DomainGroup -Domain $AllDomain -UserName $_.samaccountname).Name -join ' - '}} | Format-Table -AutoSize -Wrap}
-    }
+    $excludedUsers = @(
+    'Administrator',
+    'krbtgt'
+    )
     
     Write-Host ""
-    Write-Host "Groups with AdminCount set to 1:" -ForegroundColor Cyan
+    Write-Host "Users with AdminCount set to 1 (non-defaults):" -ForegroundColor Cyan
     if($Domain -AND $Server) {
-		Get-DomainGroup -Domain $Domain -Server $Server -AdminCount | Select-Object samaccountname,objectsid,@{Name="Domain";Expression={$Domain}},@{Name="Membership";Expression={(Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $_.samaccountname -Recurse | Select-Object -ExpandProperty MemberName) -join ', ' }} | ft -Autosize -Wrap
+        Get-DomainUser -Domain $Domain -Server $Server -AdminCount | Where-Object { $_.samaccountname -notin $excludedUsers } | select-object samaccountname, @{Name="Domain";Expression={$Domain}}, @{Name="Group Membership";Expression={(Get-DomainGroup -Domain $Domain -Server $Server -UserName $_.samaccountname).Name -join ' - '}} | Format-Table -AutoSize -Wrap
     }
     else{
-       foreach($AllDomain in $AllDomains){Get-DomainGroup -Domain $AllDomain -AdminCount | Select-Object samaccountname,objectsid,@{Name="Domain";Expression={$AllDomain}},@{Name="Membership";Expression={(Get-DomainGroupMember -Domain $AllDomain -Identity $_.samaccountname -Recurse | Select-Object -ExpandProperty MemberName) -join ', ' }} | ft -Autosize -Wrap}
+        foreach ($AllDomain in $AllDomains) {Get-DomainUser -Domain $AllDomain -AdminCount | Where-Object { $_.samaccountname -notin $excludedUsers } | select-object samaccountname, @{Name="Domain";Expression={$AllDomain}}, @{Name="Group Membership";Expression={(Get-DomainGroup -Domain $AllDomain -UserName $_.samaccountname).Name -join ' - '}} | Format-Table -AutoSize -Wrap}
+    }
+    
+    $excludedGroups = @(
+    'Administrator',
+    'Administrators',
+    'Print Operators',
+    'Backup Operators',
+    'Replicator',
+    'krbtgt',
+    'Domain Controllers',
+    'Schema Admins',
+    'Enterprise Admins',
+    'Domain Admins',
+    'Server Operators',
+    'Account Operators',
+    'Read-only Domain Controllers',
+    'Key Admins',
+    'Enterprise Key Admins'
+    )
+    
+    Write-Host ""
+    Write-Host "Groups with AdminCount set to 1 (non-defaults):" -ForegroundColor Cyan
+    if($Domain -AND $Server) {
+		Get-DomainGroup -Domain $Domain -Server $Server -AdminCount | Where-Object { $_.samaccountname -notin $excludedGroups } | Select-Object samaccountname,objectsid,@{Name="Domain";Expression={$Domain}},@{Name="Membership";Expression={(Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $_.samaccountname -Recurse | Select-Object -ExpandProperty MemberName) -join ', ' }} | ft -Autosize -Wrap
+    }
+    else{
+       foreach($AllDomain in $AllDomains){Get-DomainGroup -Domain $AllDomain -AdminCount | Where-Object { $_.samaccountname -notin $excludedGroups } | Select-Object samaccountname,objectsid,@{Name="Domain";Expression={$AllDomain}},@{Name="Membership";Expression={(Get-DomainGroupMember -Domain $AllDomain -Identity $_.samaccountname -Recurse | Select-Object -ExpandProperty MemberName) -join ', ' }} | ft -Autosize -Wrap}
     }
     
     Write-Host ""
