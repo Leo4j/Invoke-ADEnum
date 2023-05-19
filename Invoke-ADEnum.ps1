@@ -1153,10 +1153,10 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     Write-Host ""
     Write-Host "Find any machine accounts in privileged groups:" -ForegroundColor Cyan
     if($Domain -AND $Server) {
-        Get-DomainGroup -Domain $Domain -Server $Server -AdminCount | Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse | ?{$_.MemberName -like '*$'} | Out-String
+        Get-DomainGroup -Domain $Domain -Server $Server -AdminCount | Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse | ?{$_.MemberName -like '*$'} | Select-Object GroupDomain,GroupName,MemberDomain,MemberName,MemberObjectClass,MemberSID | ft -Autosize -Wrap
     }
     else{
-        foreach($AllDomain in $AllDomains){Get-DomainGroup -Domain $AllDomain -AdminCount | Get-DomainGroupMember -Recurse | ?{$_.MemberName -like '*$'} | Out-String}
+        foreach($AllDomain in $AllDomains){Get-DomainGroup -Domain $AllDomain -AdminCount | Get-DomainGroupMember -Recurse | ?{$_.MemberName -like '*$'} | Select-Object GroupDomain,GroupName,MemberDomain,MemberName,MemberObjectClass,MemberSID | ft -Autosize -Wrap}
     }
     
     if($NoShares){}
