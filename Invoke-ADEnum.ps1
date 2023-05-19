@@ -318,6 +318,20 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
 		}
 	}
     }
+    
+    if($TrustTargetNames){
+        Write-Host ""
+        Write-Host "Groups that contain users outside of its domain and return its members:" -ForegroundColor Cyan
+        foreach($TrustTargetName in $TrustTargetNames){
+            if($Domain -AND $Server) {
+                Get-DomainForeignGroupMember -Domain $TrustTargetName -Server $Server | Select-Object GroupDomain, GroupName, GroupDistinguishedName, MemberDomain, @{Name="Member|GroupName";Expression={(ConvertFrom-SID $_.MemberName)}}, @{Name="Members";Expression={(Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity (ConvertFrom-SID $_.MemberName)).MemberName -join ' - '}}, @{Name="SID";Expression={($_.MemberName)}} | Format-Table -AutoSize -Wrap
+            }
+            
+            else{
+                Get-DomainForeignGroupMember -Domain $TrustTargetName | Select-Object GroupDomain, GroupName, GroupDistinguishedName, MemberDomain, @{Name="Member|GroupName";Expression={(ConvertFrom-SID $_.MemberName)}}, @{Name="Members";Expression={(Get-DomainGroupMember -Recurse -Identity (ConvertFrom-SID $_.MemberName)).MemberName}}, @{Name="SID";Expression={($_.MemberName) -join ' - '}} | Format-Table -AutoSize -Wrap
+            }
+        }
+    }
 
     Write-Host ""
     Write-Host "Domain Controllers:" -ForegroundColor Cyan
@@ -438,16 +452,6 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     }
 
     Write-Host ""
-    Write-Host "Users who don't have kerberos preauthentication set:" -ForegroundColor Cyan
-    if($Domain -AND $Server) {
-        Get-DomainUser -Domain $Domain -Server $Server -PreauthNotRequired | Select-Object samaccountname, @{Name="Domain";Expression={$Domain}} | Format-Table -AutoSize -Wrap
-        #Get-DomainUser -UACFilter DONT_REQ_PREAUTH | select samaccountname | Format-Table -AutoSize -Wrap
-    }
-    else{
-        foreach($AllDomain in $AllDomains){Get-DomainUser -Domain $AllDomain -PreauthNotRequired | Select-Object samaccountname, @{Name="Domain";Expression={$AllDomain}} | Format-Table -AutoSize -Wrap}
-    }
-
-    Write-Host ""
     Write-Host "Service accounts in 'Domain Admins':" -ForegroundColor Cyan
     if($Domain -AND $Server) {
         Get-DomainUser -Domain $Domain -Server $Server -SPN | ?{$_.memberof -match 'Domain Admins'} | Select-Object samaccountname, @{Name="Domain";Expression={$Domain}} | Format-Table -AutoSize -Wrap
@@ -463,6 +467,16 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     }
     else{
         foreach($AllDomain in $AllDomains){Get-DomainUser -Domain $AllDomain -SPN | ?{$_.memberof -match 'Enterprise Admins'} | Select-Object samaccountname, @{Name="Domain";Expression={$AllDomain}} | Format-Table -AutoSize -Wrap}
+    }
+    
+    Write-Host ""
+    Write-Host "Users who don't have kerberos preauthentication set:" -ForegroundColor Cyan
+    if($Domain -AND $Server) {
+        Get-DomainUser -Domain $Domain -Server $Server -PreauthNotRequired | Select-Object samaccountname, @{Name="Domain";Expression={$Domain}} | Format-Table -AutoSize -Wrap
+        #Get-DomainUser -UACFilter DONT_REQ_PREAUTH | select samaccountname | Format-Table -AutoSize -Wrap
+    }
+    else{
+        foreach($AllDomain in $AllDomains){Get-DomainUser -Domain $AllDomain -PreauthNotRequired | Select-Object samaccountname, @{Name="Domain";Expression={$AllDomain}} | Format-Table -AutoSize -Wrap}
     }
     
     Write-Host ""
@@ -654,20 +668,6 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     }
     else{
         foreach($AllDomain in $AllDomains){Get-DomainGroup -Domain $AllDomain | where Name -like "*Admin*" | select SamAccountName, objectsid, @{Name="Domain";Expression={$AllDomain}}, @{Name='Members';Expression={(Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity $_.SamAccountname).MemberName -join ' - '}} | Where-Object { $_.Members } | ft -Autosize -Wrap}
-    }
-
-    if($TrustTargetNames){
-        Write-Host ""
-        Write-Host "Groups that contain users outside of its domain and return its members:" -ForegroundColor Cyan
-        foreach($TrustTargetName in $TrustTargetNames){
-            if($Domain -AND $Server) {
-                Get-DomainForeignGroupMember -Domain $TrustTargetName -Server $Server | Select-Object GroupDomain, GroupName, GroupDistinguishedName, MemberDomain, @{Name="Member|GroupName";Expression={(ConvertFrom-SID $_.MemberName)}}, @{Name="Members";Expression={(Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity (ConvertFrom-SID $_.MemberName)).MemberName -join ' - '}}, @{Name="SID";Expression={($_.MemberName)}} | Format-Table -AutoSize -Wrap
-            }
-            
-            else{
-                Get-DomainForeignGroupMember -Domain $TrustTargetName | Select-Object GroupDomain, GroupName, GroupDistinguishedName, MemberDomain, @{Name="Member|GroupName";Expression={(ConvertFrom-SID $_.MemberName)}}, @{Name="Members";Expression={(Get-DomainGroupMember -Recurse -Identity (ConvertFrom-SID $_.MemberName)).MemberName}}, @{Name="SID";Expression={($_.MemberName) -join ' - '}} | Format-Table -AutoSize -Wrap
-            }
-        }
     }
 
     Write-Host ""
