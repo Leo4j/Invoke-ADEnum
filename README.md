@@ -12,7 +12,7 @@ The DC to bind to (requires you specify a Domain)
 Specify where to save the output from the tool (default is pwd)
 
 .PARAMETER `Exclude` (not mandatory)
-Specify a domain to keep out of scope
+Exclude a specific domain from enumeration
 
 .SWITCH `NoServers`
 Do not enumerate for Servers
