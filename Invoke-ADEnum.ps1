@@ -336,7 +336,7 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     Write-Host ""
     Write-Host "Domain Controllers:" -ForegroundColor Cyan
     if($Domain -AND $Server) {
-        $domainControllers = Get-DomainController -Domain $Domain -Server $Server
+        $domainControllers = Get-DomainController -Domain $Domain
     	foreach ($dc in $domainControllers) {
         	$isPrimaryDC = $dc.Roles -like "RidRole"
         	$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
