@@ -321,15 +321,13 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
         
     Write-Host ""
     Write-Host "Groups that contain users outside of its domain and return its members:" -ForegroundColor Cyan
-    if($Domain) {
-        Get-DomainForeignGroupMember -Domain $Domain | Select-Object GroupDomain, GroupName, GroupDistinguishedName, MemberDomain, @{Name="Member|GroupName";Expression={(ConvertFrom-SID $_.MemberName)}}, @{Name="Members";Expression={(Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity (ConvertFrom-SID $_.MemberName)).MemberName -join ' - '}}, @{Name="SID";Expression={($_.MemberName)}} | Where {$_."Member|GroupName"} | Format-Table -AutoSize -Wrap
+    if($Domain -AND $Server) {
+        Get-DomainForeignGroupMember -Domain $Domain -Server $Server | Select-Object GroupDomain, GroupName, GroupDistinguishedName, MemberDomain, @{Name="Member|GroupName";Expression={(ConvertFrom-SID $_.MemberName)}}, @{Name="Members";Expression={(Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity (ConvertFrom-SID $_.MemberName)).MemberName -join ' - '}}, @{Name="SID";Expression={($_.MemberName)}} | Where {$_."Member|GroupName"} | Format-Table -AutoSize -Wrap
     }
             
     else{
-        foreach($TrustTargetName in $TrustTargetNames){
-	    if($TrustTargetName -notin $OutboundTrusts){
-            	Get-DomainForeignGroupMember -Domain $TrustTargetName | Select-Object GroupDomain, GroupName, GroupDistinguishedName, MemberDomain, @{Name="Member|GroupName";Expression={(ConvertFrom-SID $_.MemberName)}}, @{Name="Members";Expression={(Get-DomainGroupMember -Recurse -Identity (ConvertFrom-SID $_.MemberName)).MemberName}}, @{Name="SID";Expression={($_.MemberName) -join ' - '}} | Format-Table -AutoSize -Wrap
-	    }
+        foreach($AllDomain in $AllDomains){
+            Get-DomainForeignGroupMember -Domain $AllDomain | Select-Object GroupDomain, GroupName, GroupDistinguishedName, MemberDomain, @{Name="Member|GroupName";Expression={(ConvertFrom-SID $_.MemberName)}}, @{Name="Members";Expression={(Get-DomainGroupMember -Recurse -Identity (ConvertFrom-SID $_.MemberName)).MemberName}}, @{Name="SID";Expression={($_.MemberName) -join ' - '}} | Where {$_."Member|GroupName"} | Format-Table -AutoSize -Wrap
         }
     }
     
