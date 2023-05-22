@@ -1078,19 +1078,19 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     Write-Host ""
     Write-Host "Constrained Delegation (Computers):" -ForegroundColor Cyan
     if($Domain -AND $Server) {
-        Get-DomainComputer -Domain $Domain -Server $Server -TrustedToAuth -Properties Name,dnshostname,msds-AllowedToDelegateTo | Format-Table -AutoSize -Wrap
+        Get-DomainComputer -Domain $Domain -Server $Server -TrustedToAuth | Select-Object Name,dnshostname,@{Name="msds-AllowedToDelegateTo";Expression={$_."msds-AllowedToDelegateTo" -Join " - "}} | Format-Table -AutoSize -Wrap
     }
     else{
-        foreach ($AllDomain in $AllDomains) {Get-DomainComputer -Domain $AllDomain -TrustedToAuth -Properties Name,dnshostname,msds-AllowedToDelegateTo | Format-Table -AutoSize -Wrap}
+        foreach ($AllDomain in $AllDomains) {Get-DomainComputer -Domain $AllDomain -TrustedToAuth | Select-Object Name,dnshostname,@{Name="msds-AllowedToDelegateTo";Expression={$_."msds-AllowedToDelegateTo" -Join " - "}} | Format-Table -AutoSize -Wrap}
     }
 
     Write-Host ""
     Write-Host "Constrained Delegation (Users):" -ForegroundColor Cyan
     if($Domain -AND $Server) {
-        Get-DomainUser -Domain $Domain -Server $Server -TrustedToAuth -Properties Name,dnshostname,msds-AllowedToDelegateTo | Format-Table -AutoSize -Wrap
+        Get-DomainUser -Domain $Domain -Server $Server -TrustedToAuth | Select-Object Name,dnshostname,@{Name="msds-AllowedToDelegateTo";Expression={$_."msds-AllowedToDelegateTo" -Join " - "}} | Format-Table -AutoSize -Wrap
     }
     else{
-        foreach ($AllDomain in $AllDomains) {Get-DomainUser -Domain $AllDomain -TrustedToAuth -Properties Name,dnshostname,msds-AllowedToDelegateTo | Format-Table -AutoSize -Wrap}
+        foreach ($AllDomain in $AllDomains) {Get-DomainUser -Domain $AllDomain -TrustedToAuth | Select-Object Name,dnshostname,@{Name="msds-AllowedToDelegateTo";Expression={$_."msds-AllowedToDelegateTo" -Join " - "}} | Format-Table -AutoSize -Wrap}
     }
     
     Write-Host ""
