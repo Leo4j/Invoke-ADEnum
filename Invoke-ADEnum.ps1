@@ -138,7 +138,7 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     # Set the path and filename for the output file
     if($Output){$OutputFilePath = $Output}
     elseif($Domain){$OutputFilePath = "$pwd\Invoke-ADEnum_$Domain.txt"}
-    else{$OutputFilePath = "$pwd\Invoke-ADEnum_$($env:USERDNSDOMAIN.ToLower()).txt"}
+    else{$OutputFilePath = "$pwd\Invoke-ADEnum.txt"}
     
     # Start capturing the script's output and save it to the file
     Start-Transcript -Path $OutputFilePath
