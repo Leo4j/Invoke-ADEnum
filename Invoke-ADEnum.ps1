@@ -832,7 +832,7 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
             foreach($AllDomain in $AllDomains){
                 $dcName = "dc=" + $AllDomain.Split(".")
                 $dcName = $dcName -replace " ", ",dc="
-                Get-DomainObjectAcl -Domain $AllDomain -Identity "CN=Policies,CN=System,$dcName" -ResolveGUIDs | ? { $_.ObjectAceType -eq "Group-Policy-Container" -and $_.ActiveDirectoryRights -contains "CreateChild" } | % { ConvertFrom-SID $_.SecurityIdentifier }
+                Get-DomainObjectAcl -Domain $AllDomain -Identity "CN=Policies,CN=System,$dcName" -ResolveGUIDs | ? { $_.ObjectAceType -eq "Group-Policy-Container" -and $_.ActiveDirectoryRights -contains "CreateChild" } | % { ConvertFrom-SID $_.SecurityIdentifier -Domain $AllDomain }
             }
         }
 
@@ -843,7 +843,7 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
         if($Domain -AND $Server) {
             $jSIDdomain = Get-DomainSID -Domain $Domain -Server $Server
             
-            $jGPOIDRAW = (Get-DomainGPO -Domain $Domain -Server $Server | Get-DomainObjectAcl -Domain $Domain -Server $Server -ResolveGUIDs | ? { $_.ActiveDirectoryRights -match "CreateChild|WriteProperty|GenericAll" -and $_.SecurityIdentifier -match "$jSIDdomain-[\d]{4,10}" })
+            $jGPOIDRAW = (Get-DomainGPO -Domain $Domain -Server $Server | Get-DomainObjectAcl -ResolveGUIDs | ? { $_.ActiveDirectoryRights -match "CreateChild|WriteProperty|GenericAll" -and $_.SecurityIdentifier -match "$jSIDdomain-[\d]{4,10}" })
             
             $jGPOIDs = ($jGPOIDRAW | Select-Object -ExpandProperty ObjectDN | Get-Unique)
             
@@ -899,7 +899,7 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
         Write-Host "Who can link GPOs:" -ForegroundColor Cyan
         if($Domain -AND $Server) {
             #foreach($AllDomain in $AllDomains){$gpolinkresult = (Get-DomainOU -Domain $AllDomain | Get-DomainObjectAcl -ResolveGUIDs | ? { $_.ObjectAceType -eq "GP-Link" -and $_.ActiveDirectoryRights -match "WriteProperty" }); $gpolinkresult | select ObjectDN,ActiveDirectoryRights,ObjectAceType,SecurityIdentifier | fl; $SIDresolvesto = ConvertFrom-SID $gpolinkresult.SecurityIdentifier ; Write-Host "SecurityIdentifier resolves to " -NoNewline; Write-Host "$SIDresolvesto" -ForegroundColor Yellow}
-            $gpolinkresult = (Get-DomainOU -Domain $Domain -Server $Server | Get-DomainObjectAcl -Domain $Domain -Server $Server -ResolveGUIDs | ? { $_.ObjectAceType -eq "GP-Link" -and $_.ActiveDirectoryRights -match "WriteProperty" })
+            $gpolinkresult = (Get-DomainOU -Domain $Domain -Server $Server | Get-DomainObjectAcl -ResolveGUIDs | ? { $_.ObjectAceType -eq "GP-Link" -and $_.ActiveDirectoryRights -match "WriteProperty" })
             $gpolinkresult | Select-Object ObjectDN, ActiveDirectoryRights, ObjectAceType, @{Name="SecurityIdentifier";Expression={$_.SecurityIdentifier}}, @{Name="SID_Resolves_To";Expression={(ConvertFrom-SID -Domain $Domain -Server $Server $_.SecurityIdentifier)}} | Format-List
         }
         else{
