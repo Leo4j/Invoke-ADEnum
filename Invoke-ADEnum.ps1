@@ -155,21 +155,21 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     Write-Host ""
     Write-Host "Current Domain:" -ForegroundColor Cyan
     if($Domain -AND $Server) {
-        Get-NetDomain -Domain $Domain | Select Name, Forest, Parent, Children, DomainControllers | ft -Autosize -Wrap
+        Get-NetDomain -Domain $Domain | Select Name, Forest, Parent, @{Name = 'Children'; Expression = {$_.Children -join ', '}}, @{Name = 'DomainControllers'; Expression = {$_.DomainControllers -join ', '}} | ft -Autosize -Wrap
     }
     else{
-        Get-NetDomain | Select Name, Forest, Parent, Children, DomainControllers | ft -Autosize -Wrap
+        Get-NetDomain | Select Name, Forest, Parent, @{Name = 'Children'; Expression = {$_.Children -join ', '}}, @{Name = 'DomainControllers'; Expression = {$_.DomainControllers -join ', '}} | ft -Autosize -Wrap
     }
 
     Write-Host ""
     Write-Host "Parent and Child Domains:" -ForegroundColor Cyan
     if($Domain -AND $Server) {
         $DomainForest = (Get-NetDomain -Domain $Domain | Select-Object -ExpandProperty Forest)
-        Get-NetDomain -Domain $DomainForest | Select Name, Forest, Parent, Children, DomainControllers | ft -Autosize -Wrap
+        Get-NetDomain -Domain $DomainForest | Select Name, Forest, Parent, @{Name = 'Children'; Expression = {$_.Children -join ', '}}, @{Name = 'DomainControllers'; Expression = {$_.DomainControllers -join ', '}} | ft -Autosize -Wrap
     }
     else{
         $DomainForest = (Get-NetDomain | Select-Object -ExpandProperty Forest)
-        Get-NetDomain -Domain $DomainForest | Select Name, Forest, Parent, Children, DomainControllers | ft -Autosize -Wrap
+        Get-NetDomain -Domain $DomainForest | Select Name, Forest, Parent, @{Name = 'Children'; Expression = {$_.Children -join ', '}}, @{Name = 'DomainControllers'; Expression = {$_.DomainControllers -join ', '}} | ft -Autosize -Wrap
     }
     
     # All Domains
@@ -264,7 +264,7 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     
     Write-Host ""
     Write-Host "Domains for the current forest:" -ForegroundColor Cyan
-    Get-ForestDomain | Format-Table -AutoSize -Wrap
+    Get-ForestDomain | Select-Object Forest, @{Name = 'DomainControllers'; Expression = {$_.DomainControllers -join ', '}}, @{Name = 'Children'; Expression = {$_.Children -join ', '}}, DomainMode, DomainModeLevel, Parent, PdcRoleOwner, RidRoleOwner, InfrastructureRoleOwner, Name | Format-Table -AutoSize -Wrap
 
     Write-Host ""
     Write-Host "Forest Global Catalog:" -ForegroundColor Cyan
