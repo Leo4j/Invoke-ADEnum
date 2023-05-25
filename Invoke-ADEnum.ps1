@@ -1,7 +1,7 @@
 <#
-PowerView Author: Will Schroeder (@harmj0y)
 Invoke-ADEnum Author: Rob LP (@L3o4j)
 Required Dependencies: PowerView
+PowerView Author: Will Schroeder (@harmj0y)
 #>
 
 function Invoke-ADEnum
