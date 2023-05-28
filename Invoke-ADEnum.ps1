@@ -189,6 +189,8 @@ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
     Write-Host "   | | | '_ \ \ / / _ \| |/ / _ \______/ /\ \ | |  | |  __| | '_ \| | | | '_ ' _  \" -ForegroundColor Red
     Write-Host "  _| |_| | | \ V / (_) |   <  __/     / ____ \| |__| | |____| | | | |_| | | | | | |" -ForegroundColor Red
     Write-Host " |_____|_| |_|\_/ \___/|_|\_\___|    /_/    \_\_____/|______|_| |_|\__,_|_| |_| |_|" -ForegroundColor Red
+    Write-Host ""
+    Write-Host " [+] Rob LP (@L3o4j) https://github.com/Leo4j" -ForegroundColor Yellow
     
     Write-Host ""
     Write-Host "Current Domain:" -ForegroundColor Cyan
