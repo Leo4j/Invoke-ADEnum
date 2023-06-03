@@ -204,9 +204,6 @@ PARAMETERS:
 -Local <path-on-disk>		Specify the local path to PowerView.ps1					-Local c:\Windows\Temp\PowerView.ps1
 
 
-+++> NOTE: If you use -CustomURL or -Local parameters you'll have to bypass AMSI manually <+++
-
-
 SWITCHES:
 
 -TargetsOnly			Show only Target Domains
