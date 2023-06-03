@@ -5,11 +5,9 @@ Invoke-ADEnum is an Active Directory enumeration tool designed to automate the p
 
 With Invoke-ADEnum, you can quickly and efficiently enumerate various aspects of Active Directory, including forests, domains, trusts, domain controllers, users, groups, computers, shares, ACLs, OUs, GPOs, and more.
 
-One of the standout features of Invoke-ADEnum is its ability to generate an Active Directory Audit Report in HTML format. The report offers a detailed overview of the Active Directory infrastructure, in an easy-to-navigate layout.
+One of the features of Invoke-ADEnum is its ability to generate an Active Directory Audit Report in HTML format. Whether performing security assessments, compliance audits, or general Active Directory enumeration tasks, the report will provide a detailed overview of the Active Directory infrastructure, in an easy-to-navigate layout.
 
-Whether performing security assessments, compliance audits, or general Active Directory enumeration tasks, Invoke-ADEnum is a tool for any IT professional working with Active Directory.
-
-Required Dependencies: PowerView
+Invoke-ADEnum is a tool for any IT professional working with Active Directory.
 
 PARAMETERS:
 
@@ -31,41 +29,41 @@ PARAMETERS:
 
 SWITCHES:
 
--TargetsOnly                    Show only Target Domains
+`-TargetsOnly`                    Show only Target Domains
 
--NoServers                      Do not enumerate for Servers
+`-NoServers`                      Do not enumerate for Servers
 
--Workstations                   Enumerate for Workstations
+`-Workstations`                   Enumerate for Workstations
 
--NoUnsupportedOS                Do not enumerate for machines running unsupported OS
+`-NoUnsupportedOS`                Do not enumerate for machines running unsupported OS
 
--DomainUsers                    Enumerate for Users
+`-DomainUsers`                    Enumerate for Users
 
--Shares                         Enumerate for Shares
+`-Shares`                         Enumerate for Shares
 
--FindLocalAdminAccess           Enumerate for Machines where the Current User is Local Admin
+`-FindLocalAdminAccess`           Enumerate for Machines where the Current User is Local Admin
 
--DomainACLs                     Enumerate for Domain ACLs
+`-DomainACLs`                     Enumerate for Domain ACLs
 
--NoGPOs                         Do not enumerate for GPOs and Who can Modify/Link them
+`-NoGPOs`                         Do not enumerate for GPOs and Who can Modify/Link them
 
--MoreGPOs                       More enumeration leveraging GPOs
+`-MoreGPOs`                       More enumeration leveraging GPOs
 
--NoLAPS                         Do not enumerate for LAPS GPO
+`-NoLAPS`                         Do not enumerate for LAPS GPO
 
--NoAppLocker                    Do not enumerate for AppLocker GPO
+`-NoAppLocker`                    Do not enumerate for AppLocker GPO
 
--NoVulnCertTemplates            Do not enumerate for Misconfigured Certificate Templates
+`-NoVulnCertTemplates`            Do not enumerate for Misconfigured Certificate Templates
 
--DomainOUs                      Enumerate for Organizational Units
+`-DomainOUs`                      Enumerate for Organizational Units
 
--MoreOUs                        More enumeration leveraging Organizational Units
+`-MoreOUs`                        More enumeration leveraging Organizational Units
 
--FindDomainUserLocation         Enumerate for Machines where Domain Admins are Logged into
+`-FindDomainUserLocation`         Enumerate for Machines where Domain Admins are Logged into
 
--AllGroups                      Enumerate for All Domain Groups
+`-AllGroups`                      Enumerate for All Domain Groups
 
--Help                           Show the Help page
+`-Help`                           Show the Help page
 
 
 EXAMPLES:
@@ -95,4 +93,8 @@ FULL ENUMERATION: (may take a long time)
 Invoke-ADEnum -Workstations -DomainUsers -Shares -FindLocalAdminAccess -DomainACLs -MoreGPOs -DomainOUs -MoreOUs -FindDomainUserLocation -AllGroups
 ```
 
-![image](https://user-images.githubusercontent.com/61951374/236856792-c7c3f17d-a8a5-41d5-8c69-613fd15fd845.png)
+
+![2023-06-03_15-27](https://github.com/Leo4j/Invoke-ADEnum/assets/61951374/b1f72991-2177-4ff3-ae38-07b4ae43dd90)
+![2023-06-03_15-28](https://github.com/Leo4j/Invoke-ADEnum/assets/61951374/ab4d4280-bffe-4d23-a327-65a616d8c967)
+![2023-06-03_15-25](https://github.com/Leo4j/Invoke-ADEnum/assets/61951374/062e0c9c-aa06-4170-b4b5-1b0148bb6c0d)
+![2023-06-03_15-26_1](https://github.com/Leo4j/Invoke-ADEnum/assets/61951374/a0e78a2b-8b75-4bab-ad6a-3ae9a20fc98c)
