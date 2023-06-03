@@ -8,13 +8,13 @@ PARAMETERS:
 
 `-Server <DC FQDN or IP>`         The DC to bind to (requires you specify a Domain)
 
-`-Output <path-on-disk>`          Specify where to save the output from the tool (default is pwd)         -Output C:\Windows\Temp\Invoke-ADEnum.txt
+`-Output <path-on-disk>`          Specify where to save the output from the tool (default is pwd)         `-Output C:\Windows\Temp\Invoke-ADEnum.txt`
 
-`-Exclude <domain FQDN>`          Exclude one or more domains from enumeration                            -Exclude contoso.local,ad.example.org
+`-Exclude <domain FQDN>`          Exclude one or more domains from enumeration                            `-Exclude contoso.local,ad.example.org`
 
-`-CustomURL <URL>`                Specify the Server URL where you're hosting PowerView.ps1               -CustomURL http://yourserver.com/Tools/PowerView.ps1
+`-CustomURL <URL>`                Specify the Server URL where you're hosting PowerView.ps1               `-CustomURL http://yourserver.com/Tools/PowerView.ps1`
 
-`-Local <path-on-disk>`           Specify the local path to PowerView.ps1                                 -Local c:\Windows\Temp\PowerView.ps1
+`-Local <path-on-disk>`           Specify the local path to PowerView.ps1                                 `-Local c:\Windows\Temp\PowerView.ps1`
 
 
 +++> NOTE: If you use -CustomURL or -Local parameters you'll have to bypass AMSI manually <+++
