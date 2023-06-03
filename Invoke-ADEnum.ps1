@@ -206,7 +206,7 @@ PARAMETERS:
 
 SWITCHES:
 
--TargetsOnly			Show only Target Domains
+-TargetsOnly			Show Target Domains only - Will not create a Report
 
 -NoServers			Do not enumerate for Servers
 
