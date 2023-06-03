@@ -1,5 +1,6 @@
 # Invoke-ADEnum
 Automate Active Directory Enumeration
+
 Required Dependencies: PowerView
 
 PARAMETERS:
