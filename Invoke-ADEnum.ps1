@@ -1,14 +1,3 @@
-<#
-
-.SYNOPSIS
-Invoke-ADEnum Author: Rob LP (@L3o4j)
-
-.DESCRIPTION
-Automate Active Directory Enumeration
-Required Dependencies: PowerView
-
-#>
-
 function Invoke-ADEnum
 {
 	
