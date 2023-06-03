@@ -1,70 +1,89 @@
 # Invoke-ADEnum
-Automate Active Directory Enumeration using PowerView
+Automate Active Directory Enumeration
+Required Dependencies: PowerView
 
-.PARAMETER `Domain` (not mandatory)
-The Domain to enumerate for (it will attempt to retrieve the Master DC for the specified domain - if it fails, it will prompt the user to specify a domain controller)
-If not specified, the tool will enumerate for all the domains it can find
+PARAMETERS:
 
-.PARAMETER `Server` (not mandatory)
-The DC to bind to (requires you specify a Domain)
+-Domain <domain FQDN>           The Domain to enumerate for. If not specified, the tool will enumerate for all the domains it can find
 
-.PARAMETER `Output` (not mandatory)
-Specify where to save the output from the tool (default is pwd)
+-Server <DC FQDN or IP>         The DC to bind to (requires you specify a Domain)
 
-.PARAMETER `Exclude` (not mandatory)
-Exclude a specific domain from enumeration
+-Output <path-on-disk>          Specify where to save the output from the tool (default is pwd)         -Output C:\Windows\Temp\Invoke-ADEnum.txt
 
-.SWITCH `NoServers`
-Do not enumerate for Servers
+-Exclude <domain FQDN>          Exclude one or more domains from enumeration                            -Exclude contoso.local,ad.example.org
 
-.SWITCH `NoWorkstations`
-Do not enumerate for Workstations
+-CustomURL <URL>                Specify the Server URL where you're hosting PowerView.ps1               -CustomURL http://yourserver.com/Tools/PowerView.ps1
 
-.SWITCH `NoUnsupportedOS`
-Do not enumerate for machines running unsupported OS
+-Local <path-on-disk>           Specify the local path to PowerView.ps1                                 -Local c:\Windows\Temp\PowerView.ps1
 
-.SWITCH `NoUsers`
-Do not enumerate for Users
 
-.SWITCH `NoShares`
-Do not enumerate for Shares
++++> NOTE: If you use -CustomURL or -Local parameters you'll have to bypass AMSI manually <+++
 
-.SWITCH `NoLocalAdminAccess`
-Do not enumerate for LocalAdminAccess
 
-.SWITCH `NoACLs`
-Do not enumerate for ACLs
+SWITCHES:
 
-.SWITCH `NoGPOs`
-Do not enumerate for GPOs
+-TargetsOnly                    Show only Target Domains
 
-.SWITCH `NoFindDomainUserLocation`
-Do not enumerate for FindDomainUserLocation
+-NoServers                      Do not enumerate for Servers
 
-Run as follows:
-```
-iex(new-object net.webclient).downloadstring('https://raw.githubusercontent.com/Leo4j/Invoke-ADEnum/main/Invoke-ADEnum.ps1')
-```
+-Workstations                   Enumerate for Workstations
 
-.EXAMPLE - Run for each domain the tool can find
+-NoUnsupportedOS                Do not enumerate for machines running unsupported OS
+
+-DomainUsers                    Enumerate for Users
+
+-Shares                         Enumerate for Shares
+
+-FindLocalAdminAccess           Enumerate for Machines where the Current User is Local Admin
+
+-DomainACLs                     Enumerate for Domain ACLs
+
+-NoGPOs                         Do not enumerate for GPOs and Who can Modify/Link them
+
+-MoreGPOs                       More enumeration leveraging GPOs
+
+-NoLAPS                         Do not enumerate for LAPS GPO
+
+-NoAppLocker                    Do not enumerate for AppLocker GPO
+
+-NoVulnCertTemplates            Do not enumerate for Misconfigured Certificate Templates
+
+-DomainOUs                      Enumerate for Organizational Units
+
+-MoreOUs                        More enumeration leveraging Organizational Units
+
+-FindDomainUserLocation         Enumerate for Machines where Domain Admins are Logged into
+
+-AllGroups                      Enumerate for All Domain Groups
+
+-Help                           Show the Help page
+
+
+EXAMPLES:
+
 ```
 Invoke-ADEnum
 ```
-
-.EXAMPLE - Run for a specific Domain/DC
 ```
-Invoke-ADEnum -Domain <domain FQDN> -Server <DC FQDN or IP>
+Invoke-ADEnum -TargetsOnly -Local C:\Users\m.seitz\Downloads\PowerView.ps1
 ```
-
-.EXAMPLE - Run for each domain the tool can find and save output to C:\Windows\Temp\Invoke-ADEnum.txt
+```
+Invoke-ADEnum -Domain contoso.local -Server DC01.contoso.local
+```
 ```
 Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
 ```
-
-.EXAMPLE - Run for each domain the tool can find but do not enumerate for Workstations and Servers
 ```
-Invoke-ADEnum -NoWorkstations -NoServers
+Invoke-ADEnum -Exclude contoso.local,domain.local -NoVulnCertTemplates
+```
+```
+Invoke-ADEnum -CustomURL http://yourserver.com/Tools/PowerView.ps1
 ```
 
+
+FULL ENUMERATION: (may take a long time)
+```
+Invoke-ADEnum -Workstations -DomainUsers -Shares -FindLocalAdminAccess -DomainACLs -MoreGPOs -DomainOUs -MoreOUs -FindDomainUserLocation -AllGroups
+```
 
 ![image](https://user-images.githubusercontent.com/61951374/236856792-c7c3f17d-a8a5-41d5-8c69-613fd15fd845.png)
