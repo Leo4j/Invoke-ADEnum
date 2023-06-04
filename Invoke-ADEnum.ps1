@@ -217,7 +217,7 @@ function Invoke-ADEnum
 "
 		Write-Host " [SWITCHES]" -ForegroundColor Yellow
 		Write-Host "
- -TargetsOnly			Show Target Domains only - Will not create a Report
+ -TargetsOnly			Show Target Domains only (Stay in scope) - Will not create a Report
 
  -NoServers			Do not enumerate for Servers
 
