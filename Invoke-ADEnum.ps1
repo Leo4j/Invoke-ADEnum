@@ -202,80 +202,80 @@ function Invoke-ADEnum
 
  [PARAMETERS]" -ForegroundColor Yellow
 Write-Host "
- -Domain <domain FQDN>" -ForegroundColor Cyan -NoNewLine
+ -Domain <domain FQDN>" -NoNewLine
 Write-Host "          The Domain to enumerate for. If not specified, the tool will enumerate for all the domains it can find"
 Write-Host "
- -Server <DC FQDN or IP>" -ForegroundColor Cyan -NoNewLine
+ -Server <DC FQDN or IP>" -NoNewLine
 Write-Host "        The DC to bind to (requires you specify a Domain)"
 Write-Host "
- -Output <path-on-disk>" -ForegroundColor Cyan -NoNewLine
+ -Output <path-on-disk>" -NoNewLine
 Write-Host "         Specify where to save the output from the tool (default is pwd)       	-Output C:\Windows\Temp\Invoke-ADEnum.txt"
 Write-Host "
- -Exclude <domain FQDN>" -ForegroundColor Cyan -NoNewLine
+ -Exclude <domain FQDN>" -NoNewLine
 Write-Host "         Exclude one or more domains from enumeration                    	-Exclude contoso.local,ad.example.org"
 Write-Host "
- -CustomURL <URL>" -ForegroundColor Cyan -NoNewLine
+ -CustomURL <URL>" -NoNewLine
 Write-Host "          	Specify the Server URL where you're hosting PowerView.ps1           	-CustomURL http://yourserver.com/Tools/PowerView.ps1"
 Write-Host "
- -Local <path-on-disk>" -ForegroundColor Cyan -NoNewLine
+ -Local <path-on-disk>" -NoNewLine
 Write-Host "          Specify the local path to PowerView.ps1                                 -Local c:\Windows\Temp\PowerView.ps1
 
 "
 		Write-Host "
  [SWITCHES]" -ForegroundColor Yellow
 Write-Host "
- -TargetsOnly" 	-ForegroundColor Cyan -NoNewLine
+ -TargetsOnly" 	-NoNewLine
 Write-Host "			Show Target Domains only - Will not create a Report"
 Write-Host "
- -NoServers" 	-ForegroundColor Cyan -NoNewLine
+ -NoServers" 	-NoNewLine
 Write-Host "			Do not enumerate for Servers"
 Write-Host "
- -Workstations" 	-ForegroundColor Cyan -NoNewLine
+ -Workstations" 	-NoNewLine
 Write-Host "			Enumerate for Workstations"
 Write-Host "
- -NoUnsupportedOS" -ForegroundColor Cyan -NoNewLine
+ -NoUnsupportedOS" -NoNewLine
 Write-Host "		Do not enumerate for machines running unsupported OS"
 Write-Host "
- -DomainUsers" -ForegroundColor Cyan -NoNewLine
+ -DomainUsers" -NoNewLine
 Write-Host "			Enumerate for Users"
 Write-Host "
- -Shares" -ForegroundColor Cyan -NoNewLine
+ -Shares" -NoNewLine
 Write-Host "			Enumerate for Shares"
 Write-Host "
- -FindLocalAdminAccess" -ForegroundColor Cyan -NoNewLine
+ -FindLocalAdminAccess" -NoNewLine
 Write-Host "		Enumerate for Machines where the Current User is Local Admin"
 Write-Host "
- -DomainACLs" -ForegroundColor Cyan -NoNewLine
+ -DomainACLs" -NoNewLine
 Write-Host "			Enumerate for Domain ACLs"
 Write-Host "
- -NoGPOs" -ForegroundColor Cyan -NoNewLine
+ -NoGPOs" -NoNewLine
 Write-Host "			Do not enumerate for GPOs and Who can Modify/Link them"
 Write-Host "
- -MoreGPOs" -ForegroundColor Cyan -NoNewLine
+ -MoreGPOs" -NoNewLine
 Write-Host "			More enumeration leveraging GPOs"
 Write-Host "
- -NoLAPS" -ForegroundColor Cyan -NoNewLine
+ -NoLAPS" -NoNewLine
 Write-Host "			Do not enumerate for LAPS GPO"
 Write-Host "
- -NoAppLocker" -ForegroundColor Cyan -NoNewLine
+ -NoAppLocker" -NoNewLine
 Write-Host "			Do not enumerate for AppLocker GPO"
 Write-Host "
- -NoVulnCertTemplates" -ForegroundColor Cyan -NoNewLine
+ -NoVulnCertTemplates" -NoNewLine
 Write-Host "		Do not enumerate for Misconfigured Certificate Templates"
 Write-Host "
- -DomainOUs" -ForegroundColor Cyan -NoNewLine
+ -DomainOUs" -NoNewLine
 Write-Host "			Enumerate for Organizational Units"
 Write-Host "
- -MoreOUs" -ForegroundColor Cyan -NoNewLine
+ -MoreOUs" -NoNewLine
 Write-Host "			More enumeration leveraging Organizational Units"
 Write-Host "
- -FindDomainUserLocation" -ForegroundColor Cyan -NoNewLine
+ -FindDomainUserLocation" -NoNewLine
 Write-Host "	Enumerate for Machines where Domain Admins are Logged into"
 Write-Host "
- -AllGroups" -ForegroundColor Cyan -NoNewLine
+ -AllGroups" -NoNewLine
 Write-Host "			Enumerate for All Domain Groups"
 Write-Host "
- -Help" -ForegroundColor Cyan -NoNewLine
+ -Help"-NoNewLine
 Write-Host "				Show this Help page
 
 "
@@ -293,13 +293,13 @@ Write-Host "				Show this Help page
 
  Invoke-ADEnum -CustomURL http://yourserver.com/Tools/PowerView.ps1
 
-" -ForegroundColor Cyan
+"
 		Write-Host " [FULL ENUMERATION]" -ForegroundColor Yellow -NoNewLine
 		Write-Host " (may take a long time)"
 		Write-Host "
  Invoke-ADEnum -Workstations -DomainUsers -Shares -FindLocalAdminAccess -DomainACLs -MoreGPOs -DomainOUs -MoreOUs -FindDomainUserLocation -AllGroups
 
-		" -ForegroundColor Cyan
+		"
 		
 		break
 		
