@@ -200,80 +200,106 @@ function Invoke-ADEnum
 		
 		Write-Host "
 
-PARAMETERS:
+ [PARAMETERS]" -ForegroundColor Yellow
+Write-Host "
+ -Domain <domain FQDN>" -ForegroundColor Cyan -NoNewLine
+Write-Host "          The Domain to enumerate for. If not specified, the tool will enumerate for all the domains it can find"
+Write-Host "
+ -Server <DC FQDN or IP>" -ForegroundColor Cyan -NoNewLine
+Write-Host "        The DC to bind to (requires you specify a Domain)"
+Write-Host "
+ -Output <path-on-disk>" -ForegroundColor Cyan -NoNewLine
+Write-Host "         Specify where to save the output from the tool (default is pwd)       	-Output C:\Windows\Temp\Invoke-ADEnum.txt"
+Write-Host "
+ -Exclude <domain FQDN>" -ForegroundColor Cyan -NoNewLine
+Write-Host "         Exclude one or more domains from enumeration                    	-Exclude contoso.local,ad.example.org"
+Write-Host "
+ -CustomURL <URL>" -ForegroundColor Cyan -NoNewLine
+Write-Host "          	Specify the Server URL where you're hosting PowerView.ps1           	-CustomURL http://yourserver.com/Tools/PowerView.ps1"
+Write-Host "
+ -Local <path-on-disk>" -ForegroundColor Cyan -NoNewLine
+Write-Host "          Specify the local path to PowerView.ps1                                 -Local c:\Windows\Temp\PowerView.ps1
 
--Domain <domain FQDN>		The Domain to enumerate for. If not specified, the tool will enumerate for all the domains it can find
+"
+		Write-Host "
+ [SWITCHES]" -ForegroundColor Yellow
+Write-Host "
+ -TargetsOnly" 	-ForegroundColor Cyan -NoNewLine
+Write-Host "			Show Target Domains only - Will not create a Report"
+Write-Host "
+ -NoServers" 	-ForegroundColor Cyan -NoNewLine
+Write-Host "			Do not enumerate for Servers"
+Write-Host "
+ -Workstations" 	-ForegroundColor Cyan -NoNewLine
+Write-Host "			Enumerate for Workstations"
+Write-Host "
+ -NoUnsupportedOS" -ForegroundColor Cyan -NoNewLine
+Write-Host "		Do not enumerate for machines running unsupported OS"
+Write-Host "
+ -DomainUsers" -ForegroundColor Cyan -NoNewLine
+Write-Host "			Enumerate for Users"
+Write-Host "
+ -Shares" -ForegroundColor Cyan -NoNewLine
+Write-Host "			Enumerate for Shares"
+Write-Host "
+ -FindLocalAdminAccess" -ForegroundColor Cyan -NoNewLine
+Write-Host "		Enumerate for Machines where the Current User is Local Admin"
+Write-Host "
+ -DomainACLs" -ForegroundColor Cyan -NoNewLine
+Write-Host "			Enumerate for Domain ACLs"
+Write-Host "
+ -NoGPOs" -ForegroundColor Cyan -NoNewLine
+Write-Host "			Do not enumerate for GPOs and Who can Modify/Link them"
+Write-Host "
+ -MoreGPOs" -ForegroundColor Cyan -NoNewLine
+Write-Host "			More enumeration leveraging GPOs"
+Write-Host "
+ -NoLAPS" -ForegroundColor Cyan -NoNewLine
+Write-Host "			Do not enumerate for LAPS GPO"
+Write-Host "
+ -NoAppLocker" -ForegroundColor Cyan -NoNewLine
+Write-Host "			Do not enumerate for AppLocker GPO"
+Write-Host "
+ -NoVulnCertTemplates" -ForegroundColor Cyan -NoNewLine
+Write-Host "		Do not enumerate for Misconfigured Certificate Templates"
+Write-Host "
+ -DomainOUs" -ForegroundColor Cyan -NoNewLine
+Write-Host "			Enumerate for Organizational Units"
+Write-Host "
+ -MoreOUs" -ForegroundColor Cyan -NoNewLine
+Write-Host "			More enumeration leveraging Organizational Units"
+Write-Host "
+ -FindDomainUserLocation" -ForegroundColor Cyan -NoNewLine
+Write-Host "	Enumerate for Machines where Domain Admins are Logged into"
+Write-Host "
+ -AllGroups" -ForegroundColor Cyan -NoNewLine
+Write-Host "			Enumerate for All Domain Groups"
+Write-Host "
+ -Help" -ForegroundColor Cyan -NoNewLine
+Write-Host "				Show this Help page
 
--Server <DC FQDN or IP>		The DC to bind to (requires you specify a Domain)
+"
+		Write-Host " [EXAMPLES]" -ForegroundColor Yellow
+		Write-Host "
+ Invoke-ADEnum
 
--Output <path-on-disk>		Specify where to save the output from the tool (default is pwd)		-Output C:\Windows\Temp\Invoke-ADEnum.txt
+ Invoke-ADEnum -TargetsOnly -Local C:\Users\m.seitz\Downloads\PowerView.ps1
 
--Exclude <domain FQDN>		Exclude one or more domains from enumeration				-Exclude contoso.local,ad.example.org
+ Invoke-ADEnum -Domain contoso.local -Server DC01.contoso.local
 
--CustomURL <URL>		Specify the Server URL where you're hosting PowerView.ps1		-CustomURL http://yourserver.com/Tools/PowerView.ps1
+ Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
 
--Local <path-on-disk>		Specify the local path to PowerView.ps1					-Local c:\Windows\Temp\PowerView.ps1
+ Invoke-ADEnum -Exclude contoso.local,domain.local -NoVulnCertTemplates
 
+ Invoke-ADEnum -CustomURL http://yourserver.com/Tools/PowerView.ps1
 
-SWITCHES:
+" -ForegroundColor Cyan
+		Write-Host " [FULL ENUMERATION]" -ForegroundColor Yellow -NoNewLine
+		Write-Host " (may take a long time)"
+		Write-Host "
+ Invoke-ADEnum -Workstations -DomainUsers -Shares -FindLocalAdminAccess -DomainACLs -MoreGPOs -DomainOUs -MoreOUs -FindDomainUserLocation -AllGroups
 
--TargetsOnly			Show Target Domains only - Will not create a Report
-
--NoServers			Do not enumerate for Servers
-
--Workstations			Enumerate for Workstations
-
--NoUnsupportedOS		Do not enumerate for machines running unsupported OS
-
--DomainUsers			Enumerate for Users
-
--Shares				Enumerate for Shares
-
--FindLocalAdminAccess		Enumerate for Machines where the Current User is Local Admin
-
--DomainACLs			Enumerate for Domain ACLs
-
--NoGPOs				Do not enumerate for GPOs and Who can Modify/Link them
-
--MoreGPOs			More enumeration leveraging GPOs
-
--NoLAPS				Do not enumerate for LAPS GPO
-
--NoAppLocker			Do not enumerate for AppLocker GPO
-
--NoVulnCertTemplates		Do not enumerate for Misconfigured Certificate Templates
-
--DomainOUs			Enumerate for Organizational Units
-
--MoreOUs			More enumeration leveraging Organizational Units
-
--FindDomainUserLocation		Enumerate for Machines where Domain Admins are Logged into
-
--AllGroups			Enumerate for All Domain Groups
-
--Help				Show this Help page
-
-
-EXAMPLES:
-
-Invoke-ADEnum
-
-Invoke-ADEnum -TargetsOnly -Local C:\Users\m.seitz\Downloads\PowerView.ps1
-
-Invoke-ADEnum -Domain contoso.local -Server DC01.contoso.local
-
-Invoke-ADEnum -Output C:\Windows\Temp\Invoke-ADEnum.txt
-
-Invoke-ADEnum -Exclude contoso.local,domain.local -NoVulnCertTemplates
-
-Invoke-ADEnum -CustomURL http://yourserver.com/Tools/PowerView.ps1
-
-
-FULL ENUMERATION: (may take a long time)
-
-Invoke-ADEnum -Workstations -DomainUsers -Shares -FindLocalAdminAccess -DomainACLs -MoreGPOs -DomainOUs -MoreOUs -FindDomainUserLocation -AllGroups
-
-		"
+		" -ForegroundColor Cyan
 		
 		break
 		
