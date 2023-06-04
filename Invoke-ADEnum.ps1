@@ -1594,12 +1594,12 @@ function Invoke-ADEnum
 	##################################
 
     Write-Host ""
-	Write-Host "Retrieve *most* users who can perform DCsync:" -ForegroundColor Cyan
+	Write-Host "Retrieve *most* users who can perform DCSync:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
 		$dcName = "dc=" + $Domain.Split(".")
 		$dcName = $dcName -replace " ", ",dc="
 		$replicationUsers = Get-DomainObjectAcl "$dcName" -Domain $Domain -Server $Server -ResolveGUIDs |
-			Where-Object { ($_.ObjectType -match 'replication-get') -or ($_.ActiveDirectoryRights -match 'GenericAll') -or ($_.ActiveDirectoryRights -match 'WriteDacl')} |
+			Where-Object { ($_.ObjectAceType -match 'replication-get') -or ($_.ActiveDirectoryRights -match 'GenericAll') -or ($_.ActiveDirectoryRights -match 'WriteDacl')} |
 			Select-Object -Unique SecurityIdentifier
 
 		$TempReplicationUsers = foreach ($replicationUser in $replicationUsers) {
@@ -1612,7 +1612,7 @@ function Invoke-ADEnum
 
 		if ($TempReplicationUsers) {
 			$TempReplicationUsers | Format-Table -AutoSize -Wrap
-			$HTMLReplicationUsers = $TempReplicationUsers | ConvertTo-Html -Fragment -PreContent "<h2>Retrieve *most* users who can perform DC replication (i.e. DCsync)</h2>"
+			$HTMLReplicationUsers = $TempReplicationUsers | ConvertTo-Html -Fragment -PreContent "<h2>Retrieve *most* users who can perform DCSync</h2>"
 		}
 	}
 	else {
@@ -1620,7 +1620,7 @@ function Invoke-ADEnum
 			$dcName = "dc=" + $AllDomain.Split(".")
 			$dcName = $dcName -replace " ", ",dc="
 			$replicationUsers = Get-DomainObjectAcl "$dcName" -Domain $AllDomain -ResolveGUIDs |
-				Where-Object { ($_.ObjectType -match 'replication-get') -or ($_.ActiveDirectoryRights -match 'GenericAll') -or ($_.ActiveDirectoryRights -match 'WriteDacl')} |
+				Where-Object { ($_.ObjectAceType -match 'replication-get') -or ($_.ActiveDirectoryRights -match 'GenericAll') -or ($_.ActiveDirectoryRights -match 'WriteDacl')} |
 				Select-Object -Unique SecurityIdentifier
 
 			foreach ($replicationUser in $replicationUsers) {
@@ -1634,7 +1634,7 @@ function Invoke-ADEnum
 
 		if ($TempReplicationUsers) {
 			$TempReplicationUsers | Format-Table -AutoSize -Wrap
-			$HTMLReplicationUsers = $TempReplicationUsers | ConvertTo-Html -Fragment -PreContent "<h2>Retrieve *most* users who can perform DC replication (i.e. DCsync)</h2>"
+			$HTMLReplicationUsers = $TempReplicationUsers | ConvertTo-Html -Fragment -PreContent "<h2>Retrieve *most* users who can perform DCSync</h2>"
 		}
 	}
 	
