@@ -201,82 +201,57 @@ function Invoke-ADEnum
 		Write-Host "
 
  [PARAMETERS]" -ForegroundColor Yellow
-Write-Host "
- -Domain <domain FQDN>" -NoNewLine
-Write-Host "          The Domain to enumerate for. If not specified, the tool will enumerate for all the domains it can find"
-Write-Host "
- -Server <DC FQDN or IP>" -NoNewLine
-Write-Host "        The DC to bind to (requires you specify a Domain)"
-Write-Host "
- -Output <path-on-disk>" -NoNewLine
-Write-Host "         Specify where to save the output from the tool (default is pwd)       	-Output C:\Windows\Temp\Invoke-ADEnum.txt"
-Write-Host "
- -Exclude <domain FQDN>" -NoNewLine
-Write-Host "         Exclude one or more domains from enumeration                    	-Exclude contoso.local,ad.example.org"
-Write-Host "
- -CustomURL <URL>" -NoNewLine
-Write-Host "          	Specify the Server URL where you're hosting PowerView.ps1           	-CustomURL http://yourserver.com/Tools/PowerView.ps1"
-Write-Host "
- -Local <path-on-disk>" -NoNewLine
-Write-Host "          Specify the local path to PowerView.ps1                                 -Local c:\Windows\Temp\PowerView.ps1
+		Write-Host "
+ -Domain <domain FQDN>		The Domain to enumerate for. If not specified, the tool will enumerate for all the domains it can find
+
+ -Server <DC FQDN or IP>	The DC to bind to (requires you specify a Domain)
+
+ -Output <path-on-disk>		Specify where to save the output from the tool (default is pwd)		-Output C:\Windows\Temp\Invoke-ADEnum.txt
+
+ -Exclude <domain FQDN>		Exclude one or more domains from enumeration				-Exclude contoso.local,ad.example.org
+
+ -CustomURL <URL>		Specify the Server URL where you're hosting PowerView.ps1		-CustomURL http://yourserver.com/Tools/PowerView.ps1
+
+ -Local <path-on-disk>		Specify the local path to PowerView.ps1					-Local c:\Windows\Temp\PowerView.ps1
 
 "
+		Write-Host " [SWITCHES]" -ForegroundColor Yellow
 		Write-Host "
- [SWITCHES]" -ForegroundColor Yellow
-Write-Host "
- -TargetsOnly" 	-NoNewLine
-Write-Host "			Show Target Domains only - Will not create a Report"
-Write-Host "
- -NoServers" 	-NoNewLine
-Write-Host "			Do not enumerate for Servers"
-Write-Host "
- -Workstations" 	-NoNewLine
-Write-Host "			Enumerate for Workstations"
-Write-Host "
- -NoUnsupportedOS" -NoNewLine
-Write-Host "		Do not enumerate for machines running unsupported OS"
-Write-Host "
- -DomainUsers" -NoNewLine
-Write-Host "			Enumerate for Users"
-Write-Host "
- -Shares" -NoNewLine
-Write-Host "			Enumerate for Shares"
-Write-Host "
- -FindLocalAdminAccess" -NoNewLine
-Write-Host "		Enumerate for Machines where the Current User is Local Admin"
-Write-Host "
- -DomainACLs" -NoNewLine
-Write-Host "			Enumerate for Domain ACLs"
-Write-Host "
- -NoGPOs" -NoNewLine
-Write-Host "			Do not enumerate for GPOs and Who can Modify/Link them"
-Write-Host "
- -MoreGPOs" -NoNewLine
-Write-Host "			More enumeration leveraging GPOs"
-Write-Host "
- -NoLAPS" -NoNewLine
-Write-Host "			Do not enumerate for LAPS GPO"
-Write-Host "
- -NoAppLocker" -NoNewLine
-Write-Host "			Do not enumerate for AppLocker GPO"
-Write-Host "
- -NoVulnCertTemplates" -NoNewLine
-Write-Host "		Do not enumerate for Misconfigured Certificate Templates"
-Write-Host "
- -DomainOUs" -NoNewLine
-Write-Host "			Enumerate for Organizational Units"
-Write-Host "
- -MoreOUs" -NoNewLine
-Write-Host "			More enumeration leveraging Organizational Units"
-Write-Host "
- -FindDomainUserLocation" -NoNewLine
-Write-Host "	Enumerate for Machines where Domain Admins are Logged into"
-Write-Host "
- -AllGroups" -NoNewLine
-Write-Host "			Enumerate for All Domain Groups"
-Write-Host "
- -Help"-NoNewLine
-Write-Host "				Show this Help page
+ -TargetsOnly			Show Target Domains only - Will not create a Report
+
+ -NoServers			Do not enumerate for Servers
+
+ -Workstations			Enumerate for Workstations
+
+ -NoUnsupportedOS		Do not enumerate for machines running unsupported OS
+
+ -DomainUsers			Enumerate for Users
+
+ -Shares			Enumerate for Shares
+
+ -FindLocalAdminAccess		Enumerate for Machines where the Current User is Local Admin
+
+ -DomainACLs			Enumerate for Domain ACLs
+
+ -NoGPOs			Do not enumerate for GPOs and Who can Modify/Link them
+
+ -MoreGPOs			More enumeration leveraging GPOs
+
+ -NoLAPS			Do not enumerate for LAPS GPO
+
+ -NoAppLocker			Do not enumerate for AppLocker GPO
+
+ -NoVulnCertTemplates		Do not enumerate for Misconfigured Certificate Templates
+
+ -DomainOUs			Enumerate for Organizational Units
+
+ -MoreOUs			More enumeration leveraging Organizational Units
+
+ -FindDomainUserLocation	Enumerate for Machines where Domain Admins are Logged into
+
+ -AllGroups			Enumerate for All Domain Groups
+
+ -Help				Show this Help page
 
 "
 		Write-Host " [EXAMPLES]" -ForegroundColor Yellow
