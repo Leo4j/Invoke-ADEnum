@@ -11,7 +11,7 @@ Invoke-ADEnum is a tool for any IT professional working with Active Directory.
 
 PARAMETERS:
 
-`-Domain <domain FQDN>`           The Domain to enumerate for. If not specified, it will enumerate for all the domains it can find
+`-Domain <domain FQDN>`           The Domain to enumerate for. If not specified, it will enumerate for all the domains identified
 
 `-Server <DC FQDN or IP>`         The DC to bind to (requires you specify a Domain)
 
