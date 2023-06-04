@@ -24,7 +24,7 @@ PARAMETERS:
 `-Local <path-on-disk>`           Specify the local path to PowerView.ps1
 
 
-+++> NOTE: If you use -CustomURL or -Local parameters you'll have to bypass AMSI manually <+++
++++> NOTE: If you use `-CustomURL` or `-Local` parameters you'll have to bypass AMSI manually <+++
 
 
 SWITCHES:
