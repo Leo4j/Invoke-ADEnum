@@ -29,7 +29,7 @@ PARAMETERS:
 
 SWITCHES:
 
-`-TargetsOnly`                    Show only Target Domains
+`-TargetsOnly`                    Show Target Domains Only (Stay in scope) - Will not create a Report
 
 `-NoServers`                      Do not enumerate for Servers
 
