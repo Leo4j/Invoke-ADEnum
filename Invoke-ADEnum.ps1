@@ -6,6 +6,8 @@ Invoke-ADEnum Author: Rob LP (@L3o4j)
 .DESCRIPTION
 Automate Active Directory Enumeration
 Required Dependencies: PowerView
+URL: https://github.com/PowerShellMafia/PowerSploit/blob/master/Recon/PowerView.ps1
+PowerView Author: Will Schroeder (@harmj0y)
 
 #>
 
