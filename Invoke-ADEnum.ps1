@@ -2642,33 +2642,35 @@ function Invoke-ADEnum
 		Write-Host ""
 		Write-Host "Who can read LAPS:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$LAPSCanReads = Get-DomainComputer -Domain $Domain -Server $Server -Properties distinguishedname | Get-DomainObjectAcl -Domain $Domain -Server $Server -ResolveGUIDs | Where-Object { $_.ObjectAceType -eq "ms-Mcs-AdmPwd" -and $_.ActiveDirectoryRights -match "ReadProperty" }
+			$LAPSCanReads = Get-NetOU -Domain $Domain -Server $Server -Properties distinguishedname | Get-ObjectAcl -Domain $Domain -Server $Server -ResolveGUIDs | Where-Object { ($_.ObjectAceType -like 'ms-Mcs-AdmPwd') -and ($_.ActiveDirectoryRights -match 'ReadProperty')}
 			$TempLAPSCanRead = foreach ($LAPSCanRead in $LAPSCanReads) {
 				[PSCustomObject]@{
-					"Delegated Groups" = (ConvertFrom-SID $LAPSCanRead.SecurityIdentifier -Domain $Domain -Server $Server)
-					"ObjectDn" = $LAPSCanRead.ObjectDN
+					"Delegated Groups" = (ConvertFrom-SID $LAPSCanRead.SecurityIdentifier -Domain $Domain)
+					"Target OU" = $LAPSCanRead.ObjectDN
+					Domain = $Domain
 				}
 			}
 
-			if ($TempLAPSCanRead) {
-				$TempLAPSCanRead | Format-Table -AutoSize -Wrap
-				$HTMLLAPSCanRead = $TempLAPSCanRead | ConvertTo-Html -Fragment -PreContent "<h2>Who can read LAPS</h2>"
+			if ($TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null}) {
+				$TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | Format-Table -AutoSize -Wrap
+				$HTMLLAPSCanRead = $TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | ConvertTo-Html -Fragment -PreContent "<h2>Who can read LAPS</h2>"
 			}
 		}
 		else {
 			$TempLAPSCanRead = foreach ($AllDomain in $AllDomains) {
-				$LAPSCanReads = Get-DomainComputer -Domain $AllDomain -Properties distinguishedname | Get-DomainObjectAcl -ResolveGUIDs | Where-Object { $_.ObjectAceType -eq "ms-Mcs-AdmPwd" -and $_.ActiveDirectoryRights -match "ReadProperty" }
+				$LAPSCanReads = Get-NetOU -Domain $AllDomain -Properties distinguishedname | Get-ObjectAcl -Domain $AllDomain -ResolveGUIDs | Where-Object { ($_.ObjectAceType -like 'ms-Mcs-AdmPwd') -and ($_.ActiveDirectoryRights -match 'ReadProperty')}
 				foreach ($LAPSCanRead in $LAPSCanReads) {
 					[PSCustomObject]@{
 						"Delegated Groups" = (ConvertFrom-SID $LAPSCanRead.SecurityIdentifier -Domain $AllDomain)
-						"ObjectDn" = $LAPSCanRead.ObjectDN
+						"Target OU" = $LAPSCanRead.ObjectDN
+						Domain = $AllDomain
 					}
 				}
 			}
 
-			if ($TempLAPSCanRead) {
-				$TempLAPSCanRead | Format-Table -AutoSize -Wrap
-				$HTMLLAPSCanRead = $TempLAPSCanRead | ConvertTo-Html -Fragment -PreContent "<h2>Who can read LAPS</h2>"
+			if ($TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null}) {
+				$TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | Format-Table -AutoSize -Wrap
+				$HTMLLAPSCanRead = $TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | ConvertTo-Html -Fragment -PreContent "<h2>Who can read LAPS</h2>"
 			}
 		}
 
