@@ -76,45 +76,49 @@ function Invoke-ADEnum
 		
 		[Parameter (Mandatory=$False, Position = 15, ValueFromPipeline=$true)]
         [Switch]
-        $NoLAPS,
+        $AllGPOs,
 		
 		[Parameter (Mandatory=$False, Position = 16, ValueFromPipeline=$true)]
         [Switch]
-        $NoAppLocker,
+        $NoLAPS,
 		
 		[Parameter (Mandatory=$False, Position = 17, ValueFromPipeline=$true)]
         [Switch]
-        $NoVulnCertTemplates,
+        $NoAppLocker,
 		
 		[Parameter (Mandatory=$False, Position = 18, ValueFromPipeline=$true)]
         [Switch]
-        $DomainOUs,
+        $NoVulnCertTemplates,
 		
 		[Parameter (Mandatory=$False, Position = 19, ValueFromPipeline=$true)]
         [Switch]
+        $DomainOUs,
+		
+		[Parameter (Mandatory=$False, Position = 20, ValueFromPipeline=$true)]
+        [Switch]
         $MoreOUs,
         
-        [Parameter (Mandatory=$False, Position = 20, ValueFromPipeline=$true)]
+        [Parameter (Mandatory=$False, Position = 21, ValueFromPipeline=$true)]
         [Switch]
         $FindDomainUserLocation,
 		
-		[Parameter (Mandatory=$False, Position = 21, ValueFromPipeline=$true)]
+		[Parameter (Mandatory=$False, Position = 22, ValueFromPipeline=$true)]
         [Switch]
         $AllGroups,
 		
-		[Parameter (Mandatory=$False, Position = 22, ValueFromPipeline=$true)]
+		[Parameter (Mandatory=$False, Position = 23, ValueFromPipeline=$true)]
         [Switch]
         $TargetsOnly,
 		
-		[Parameter (Mandatory=$False, Position = 23, ValueFromPipeline=$true)]
+		[Parameter (Mandatory=$False, Position = 24, ValueFromPipeline=$true)]
         [Switch]
         $Debugging,
 		
-		[Parameter (Mandatory=$False, Position = 24, ValueFromPipeline=$true)]
+		[Parameter (Mandatory=$False, Position = 25, ValueFromPipeline=$true)]
         [Switch]
         $NoClear,
 		
-		[Parameter (Mandatory=$False, Position = 25, ValueFromPipeline=$true)]
+		[Parameter (Mandatory=$False, Position = 26, ValueFromPipeline=$true)]
         [Switch]
         $Help
 
@@ -242,6 +246,8 @@ function Invoke-ADEnum
  -NoGPOs			Do not enumerate for GPOs and Who can Modify/Link them
 
  -MoreGPOs			More enumeration leveraging GPOs
+ 
+ -AllGPOs			List all domain GPOs
 
  -NoLAPS			Do not enumerate for LAPS GPO
 
@@ -3658,7 +3664,7 @@ function Invoke-ADEnum
     ########### All Domain GPOs ###############
 	###########################################
 	
-	if($NoGPOs){}
+	if(!$AllGPOs){}
     else{
         Write-Host ""
 		Write-Host "All Domain GPOs:" -ForegroundColor Cyan
