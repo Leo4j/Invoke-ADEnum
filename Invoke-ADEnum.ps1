@@ -1669,9 +1669,9 @@ function Invoke-ADEnum
 			'Quota' = $Quota
 		}
 
-		if ($TempMachineQuota) {
-			$TempMachineQuota | Where-Object {$_.Quota -ge 1} | Format-Table -AutoSize
-			$HTMLMachineQuota = $TempMachineQuota | Where-Object {$_.Quota -ge 1} | ConvertTo-Html -Fragment -PreContent "<h2>Machine Account Quota</h2>"
+		if ($TempMachineQuota | Where-Object {$_.Quota -ge 1}) {
+			$TempMachineQuota | Format-Table -AutoSize
+			$HTMLMachineQuota = $TempMachineQuota | ConvertTo-Html -Fragment -PreContent "<h2>Machine Account Quota</h2>"
 		}
 	}
 	else {
@@ -1685,9 +1685,9 @@ function Invoke-ADEnum
 			}
 		}
 
-		if ($TempMachineQuota) {
-			$TempMachineQuota | Where-Object {$_.Quota -ge 1} | Format-Table -AutoSize
-			$HTMLMachineQuota = $TempMachineQuota | Where-Object {$_.Quota -ge 1} | ConvertTo-Html -Fragment -PreContent "<h2>Machine Account Quota</h2>"
+		if ($TempMachineQuota | Where-Object {$_.Quota -ge 1}) {
+			$TempMachineQuota | Format-Table -AutoSize
+			$HTMLMachineQuota = $TempMachineQuota | ConvertTo-Html -Fragment -PreContent "<h2>Machine Account Quota</h2>"
 		}
 	}
 	
