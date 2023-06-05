@@ -1034,7 +1034,7 @@ function Invoke-ADEnum
 				"Group Name" = $GetCurrUserGroup.samaccountname
 				"Object SID" = $GetCurrUserGroup.objectsid
 				Domain = $Domain
-				"Members of this group (Users)" = ((Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity $GetCurrUserGroup.samaccountname).MemberName | Sort-Object -Unique) -join ' - '
+				#"Members of this group (Users)" = ((Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity $GetCurrUserGroup.samaccountname).MemberName | Sort-Object -Unique) -join ' - '
 			}
 		}
 		
@@ -1051,7 +1051,7 @@ function Invoke-ADEnum
 					"Group Name" = $GetCurrUserGroup.samaccountname
 					"Object SID" = $GetCurrUserGroup.objectsid
 					Domain = $AllDomain
-					"Members of this group" = ((Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity $GetCurrUserGroup.samaccountname).MemberName | Sort-Object -Unique) -join ' - '
+					#"Members of this group" = ((Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity $GetCurrUserGroup.samaccountname).MemberName | Sort-Object -Unique) -join ' - '
 				}
 			}
 		}
