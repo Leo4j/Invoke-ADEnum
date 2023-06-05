@@ -482,7 +482,49 @@ function Invoke-ADEnum
 		}
     }
 	
-	if($TargetsOnly){break}
+	if($TargetsOnly){
+		
+		Write-Host ""
+		Write-Host "Accounts Analysis:" -ForegroundColor Cyan
+		
+		if ($Domain -and $Server) {
+			
+			$QuickDomainAnalysis = [PSCustomObject]@{
+				"Enabled Users" = (Get-DomainUser -UACFilter NOT_ACCOUNTDISABLE -Domain $Domain -Server $Server).samaccountname.count
+				"Disabled Users" = (Get-DomainUser -UACFilter ACCOUNTDISABLE -Domain $Domain -Server $Server).samaccountname.count
+				"Enabled Servers" = (Get-DomainComputer -Domain $Domain -Server $Server -OperatingSystem "*Server*" -UACFilter NOT_ACCOUNTDISABLE).samaccountname.count
+				"Disabled Servers" = (Get-DomainComputer -Domain $Domain -Server $Server -OperatingSystem "*Server*" -UACFilter ACCOUNTDISABLE).samaccountname.count
+				"Enabled Workstations"  = (Get-DomainComputer -Domain $Domain -Server $Server -UACFilter NOT_ACCOUNTDISABLE | Where-Object { $_.OperatingSystem -notlike "*Server*" }).samaccountname.count
+				"Disabled Workstations"  = (Get-DomainComputer -Domain $Domain -Server $Server -UACFilter ACCOUNTDISABLE | Where-Object { $_.OperatingSystem -notlike "*Server*" }).samaccountname.count
+				Domain = $Domain
+			}
+			
+			$QuickDomainAnalysis | ft -Autosize -Wrap
+			
+		}
+		
+		else{
+			
+			$QuickDomainAnalysis = foreach($AllDomain in $AllDomains){
+				
+				[PSCustomObject]@{
+				"Enabled Users" = (Get-DomainUser -UACFilter NOT_ACCOUNTDISABLE -Domain $AllDomain).samaccountname.count
+				"Disabled Users" = (Get-DomainUser -UACFilter ACCOUNTDISABLE -Domain $AllDomain).samaccountname.count
+				"Enabled Servers" = (Get-DomainComputer -Domain $AllDomain -OperatingSystem "*Server*" -UACFilter NOT_ACCOUNTDISABLE).samaccountname.count
+				"Disabled Servers" = (Get-DomainComputer -Domain $AllDomain -OperatingSystem "*Server*" -UACFilter ACCOUNTDISABLE).samaccountname.count
+				"Enabled Workstations"  = (Get-DomainComputer -Domain $AllDomain -UACFilter NOT_ACCOUNTDISABLE | Where-Object { $_.OperatingSystem -notlike "*Server*" }).samaccountname.count
+				"Disabled Workstations"  = (Get-DomainComputer -Domain $AllDomain -UACFilter ACCOUNTDISABLE | Where-Object { $_.OperatingSystem -notlike "*Server*" }).samaccountname.count
+				Domain = $AllDomain
+				}
+				
+			}
+			
+			$QuickDomainAnalysis | ft -Autosize -Wrap
+			
+		}
+		
+		break
+	}
 	else{}
 	
 	#############################################
