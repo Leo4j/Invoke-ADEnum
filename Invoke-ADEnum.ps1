@@ -1778,7 +1778,7 @@ function Invoke-ADEnum
 	Write-Host ""
 	
 	##################################
-    ########### DCsync ###############
+    ########### DCSync ###############
 	##################################
 
     Write-Host ""
@@ -1793,8 +1793,9 @@ function Invoke-ADEnum
 		$TempReplicationUsers = foreach ($replicationUser in $replicationUsers) {
 			[PSCustomObject]@{
 				"User or Group Name" = ConvertFrom-SID -Server $Server $replicationUser.SecurityIdentifier
+				"Enabled" = if ((Get-DomainUser -Domain $Domain -Server $Server -Identity (ConvertFrom-SID $replicationUser.SecurityIdentifier -Domain $Domain)).useraccountcontrol -band 2) { "False" } elseif ((Get-DomainUser -Domain $Domain -Server $Server -Identity (ConvertFrom-SID $replicationUser.SecurityIdentifier -Domain $Domain)).useraccountcontrol -eq $null) { "" } else { "True" }
 				"Domain" = $Domain
-				Members = ((Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity (ConvertFrom-SID $replicationUser.SecurityIdentifier)).MemberName | Sort-Object -Unique) -join ' - '
+				Members = ((Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity (ConvertFrom-SID $replicationUser.SecurityIdentifier -Domain $Domain)).MemberName | Sort-Object -Unique) -join ' - '
 			}
 		}
 
@@ -1814,8 +1815,9 @@ function Invoke-ADEnum
 			foreach ($replicationUser in $replicationUsers) {
 				[PSCustomObject]@{
 					"User or Group Name" = ConvertFrom-SID $replicationUser.SecurityIdentifier -Domain $AllDomain
+					"Enabled" = if ((Get-DomainUser -Domain $AllDomain -Identity (ConvertFrom-SID $replicationUser.SecurityIdentifier -Domain $AllDomain)).useraccountcontrol -band 2) { "False" } elseif ((Get-DomainUser -Domain $AllDomain -Identity (ConvertFrom-SID $replicationUser.SecurityIdentifier -Domain $AllDomain)).useraccountcontrol -eq $null) { "" } else { "True" }
 					"Domain" = $AllDomain
-					Members = ((Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity (ConvertFrom-SID $replicationUser.SecurityIdentifier)).MemberName | Sort-Object -Unique) -join ' - '
+					Members = ((Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity (ConvertFrom-SID $replicationUser.SecurityIdentifier -Domain $AllDomain)).MemberName | Sort-Object -Unique) -join ' - '
 				}
 			}
 		}
