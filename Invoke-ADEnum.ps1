@@ -1997,7 +1997,7 @@ function Invoke-ADEnum
 				"Last Logon" = $User.lastlogontimestamp
 				"SID" = $User.objectSID
 				"Domain" = $Domain
-				"Group Membership" = (Get-DomainGroup -Domain $Domain -Server $Server -UserName $User.samaccountname).Name -join ' - '
+				#"Group Membership" = (Get-DomainGroup -Domain $Domain -Server $Server -UserName $User.samaccountname).Name -join ' - '
 			}
 		}
 
@@ -2021,7 +2021,7 @@ function Invoke-ADEnum
 					"Last Logon" = $User.lastlogontimestamp
 					"SID" = $User.objectSID
 					"Domain" = $AllDomain
-					"Group Membership" = (Get-DomainGroup -Domain $AllDomain -UserName $User.samaccountname).Name -join ' - '
+					#"Group Membership" = (Get-DomainGroup -Domain $AllDomain -UserName $User.samaccountname).Name -join ' - '
 				}
 			}
 		}
