@@ -2569,7 +2569,7 @@ function Invoke-ADEnum
 		Write-Host ""
 		Write-Host "Who can read LAPS:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$LAPSCanReads = Get-DomainComputer -Domain $Domain -Server $Server | Get-DomainObjectAcl -Domain $Domain -Server $Server -ResolveGUIDs | Where-Object { $_.ObjectAceType -eq "ms-Mcs-AdmPwd" -and $_.ActiveDirectoryRights -match "ReadProperty" }
+			$LAPSCanReads = Get-DomainComputer -Domain $Domain -Server $Server -Properties distinguishedname | Get-DomainObjectAcl -Domain $Domain -Server $Server -ResolveGUIDs | Where-Object { $_.ObjectAceType -eq "ms-Mcs-AdmPwd" -and $_.ActiveDirectoryRights -match "ReadProperty" }
 			$TempLAPSCanRead = foreach ($LAPSCanRead in $LAPSCanReads) {
 				[PSCustomObject]@{
 					"Delegated Groups" = (ConvertFrom-SID $LAPSCanRead.SecurityIdentifier -Domain $Domain -Server $Server)
@@ -2584,7 +2584,7 @@ function Invoke-ADEnum
 		}
 		else {
 			$TempLAPSCanRead = foreach ($AllDomain in $AllDomains) {
-				$LAPSCanReads = Get-DomainComputer -Domain $AllDomain | Get-DomainObjectAcl -ResolveGUIDs | Where-Object { $_.ObjectAceType -eq "ms-Mcs-AdmPwd" -and $_.ActiveDirectoryRights -match "ReadProperty" }
+				$LAPSCanReads = Get-DomainComputer -Domain $AllDomain -Properties distinguishedname | Get-DomainObjectAcl -ResolveGUIDs | Where-Object { $_.ObjectAceType -eq "ms-Mcs-AdmPwd" -and $_.ActiveDirectoryRights -match "ReadProperty" }
 				foreach ($LAPSCanRead in $LAPSCanReads) {
 					[PSCustomObject]@{
 						"Delegated Groups" = (ConvertFrom-SID $LAPSCanRead.SecurityIdentifier -Domain $AllDomain)
