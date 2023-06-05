@@ -1351,7 +1351,7 @@ function Invoke-ADEnum
 	Write-Host "Resource Based Constrained Delegation:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
 		$domainSID = Get-DomainSID $Domain -Server $Server
-		$RBACDObjects = Get-DomainComputer -Domain $Domain -Server $Server | Get-DomainObjectAcl -Domain $Domain -Server $Server -ResolveGUIDs |
+		$RBACDObjects = Get-DomainComputer -Domain $Domain -Server $Server -Properties distinguishedname | Get-DomainObjectAcl -Domain $Domain -Server $Server -ResolveGUIDs |
 			Where-Object { $_.ActiveDirectoryRights -match "WriteProperty|GenericWrite|GenericAll|WriteDacl" -and $_.SecurityIdentifier -match "$domainSID-[\d]{4,10}" -and $_.SecurityIdentifier.Translate([System.Security.Principal.NTAccount]) -notmatch "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions" } |
 			ForEach-Object {
 				[PSCustomObject]@{
@@ -1370,7 +1370,7 @@ function Invoke-ADEnum
 	else {
 		$RBACDObjects = foreach ($AllDomain in $AllDomains) {
 			$domainSID = Get-DomainSID $AllDomain
-			Get-DomainComputer -Domain $AllDomain | Get-DomainObjectAcl -ResolveGUIDs |
+			Get-DomainComputer -Domain $AllDomain -Properties distinguishedname | Get-DomainObjectAcl -ResolveGUIDs |
 				Where-Object { $_.ActiveDirectoryRights -match "WriteProperty|GenericWrite|GenericAll|WriteDacl" -and $_.SecurityIdentifier -match "$domainSID-[\d]{4,10}" -and $_.SecurityIdentifier.Translate([System.Security.Principal.NTAccount]) -notmatch "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions" } |
 				ForEach-Object {
 					[PSCustomObject]@{
