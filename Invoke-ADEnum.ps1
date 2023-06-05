@@ -1684,10 +1684,10 @@ function Invoke-ADEnum
 		$dcName = "dc=" + $Domain.Split(".")
 		$dcName = $dcName -replace " ", ",dc="
 		$Quota = (Get-DomainObject -Domain $Domain -Server $Server -Identity "$dcName" -Properties ms-DS-MachineAccountQuota) | Select-Object -ExpandProperty ms-DS-MachineAccountQuota
-		if($Quota -eq $null){$Quota = "10"}
+		
 		$TempMachineQuota = [PSCustomObject]@{
 			'Domain' = $Domain
-			'Quota' = $Quota
+			'Quota' = if ($Quota -eq $null) { "10" } else { $Quota }
 		}
 
 		if ($TempMachineQuota | Where-Object {$_.Quota -ge 1}) {
@@ -1700,10 +1700,10 @@ function Invoke-ADEnum
 			$dcName = "dc=" + $AllDomain.Split(".")
 			$dcName = $dcName -replace " ", ",dc="
 			$Quota = (Get-DomainObject -Domain $AllDomain -Identity "$dcName" -Properties ms-DS-MachineAccountQuota) | Select-Object -ExpandProperty ms-DS-MachineAccountQuota
-			if($Quota -eq $null){$Quota = "10"}
+			
 			[PSCustomObject]@{
 				'Domain' = $AllDomain
-				'Quota' = $Quota
+				'Quota' = if ($Quota -eq $null) { "10" } else { $Quota }
 			}
 		}
 
