@@ -128,8 +128,6 @@ function Invoke-ADEnum
 	
 	Set-Variable MaximumHistoryCount 32767
 	
-	$FormatEnumerationLimit=-1
-	
 	if($help){}
 	
 	else{
