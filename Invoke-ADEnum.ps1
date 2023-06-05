@@ -1360,7 +1360,7 @@ function Invoke-ADEnum
 			[PSCustomObject]@{
 				"User Name" = $PasswordSetUser.samaccountname
 				"Enabled" = if ($PasswordSetUser.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ((Get-DomainUser -Identity $PasswordSetUser.MemberName -Domain $Domain -Server $Server).lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+				"Active" = if ($PasswordSetUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
 				"Adm" = if ($PasswordSetUser.memberof -match 'Administrators') { "YES" } else { "NO" }
 				"DA" = if ($PasswordSetUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 				"EA" = if ($PasswordSetUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -1392,7 +1392,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"User Name" = $PasswordSetUser.samaccountname
 					"Enabled" = if ($PasswordSetUser.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ((Get-DomainUser -Identity $PasswordSetUser.MemberName -Domain $AllDomain).lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ($PasswordSetUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
 					"Adm" = if ($PasswordSetUser.memberof -match 'Administrators') { "YES" } else { "NO" }
 					"DA" = if ($PasswordSetUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 					"EA" = if ($PasswordSetUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -1411,6 +1411,73 @@ function Invoke-ADEnum
 		if ($TempPasswordSetUsers) {
 			$TempPasswordSetUsers | Format-Table -AutoSize -Wrap
 			$HTMLPasswordSetUsers = $TempPasswordSetUsers | ConvertTo-Html -Fragment -PreContent "<h2>Check if any user passwords are set</h2>"
+		}
+		
+	}
+	
+	#################################################################################################
+    ########### Users that may have empty passwords (if allowed) or shorter passwords ###############
+	#################################################################################################
+	
+	Write-Host ""
+	Write-Host "Users that may have empty passwords or shorter passwords:" -ForegroundColor Cyan
+	
+	if ($Domain -and $Server) {
+		
+		$EmptyPasswordUsers = Get-DomainUser -UACFilter PASSWD_NOTREQD -Domain $Domain -Server $Server
+		
+		$TempEmptyPasswordUsers = foreach($EmptyPasswordUser in $EmptyPasswordUsers){
+			
+			[PSCustomObject]@{
+				"User Name" = $EmptyPasswordUser.samaccountname
+				"Enabled" = if ($EmptyPasswordUser.useraccountcontrol -band 2) { "False" } else { "True" }
+				"Active" = if ($EmptyPasswordUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+				"Adm" = if ($EmptyPasswordUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+				"DA" = if ($EmptyPasswordUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+				"EA" = if ($EmptyPasswordUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+				"Last Logon" = $EmptyPasswordUser.lastlogontimestamp
+				"SID" = $EmptyPasswordUser.objectSID
+				"Groups Membership" = (Get-DomainGroup -Domain $Domain -Server $Server -UserName $EmptyPasswordUser.samaccountname).Name -join ' - '
+				"Domain" = $Domain
+			}
+			
+		}
+		
+		if ($TempEmptyPasswordUsers) {
+			$TempEmptyPasswordUsers | Format-Table -AutoSize -Wrap
+			$HTMLEmptyPasswordUsers = $TempEmptyPasswordUsers | ConvertTo-Html -Fragment -PreContent "<h2>Users that may have empty passwords or shorter passwords</h2>"
+		}
+	
+	}
+	
+	else {
+		
+		$TempEmptyPasswordUsers = foreach ($AllDomain in $AllDomains) {
+			
+			$EmptyPasswordUsers = Get-DomainUser -UACFilter PASSWD_NOTREQD -Domain $AllDomain
+		
+			foreach($EmptyPasswordUser in $EmptyPasswordUsers){
+				
+				[PSCustomObject]@{
+					"User Name" = $EmptyPasswordUser.samaccountname
+					"Enabled" = if ($EmptyPasswordUser.useraccountcontrol -band 2) { "False" } else { "True" }
+					"Active" = if ($EmptyPasswordUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Adm" = if ($EmptyPasswordUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+					"DA" = if ($EmptyPasswordUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					"EA" = if ($EmptyPasswordUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+					"Last Logon" = $EmptyPasswordUser.lastlogontimestamp
+					"SID" = $EmptyPasswordUser.objectSID
+					"Groups Membership" = (Get-DomainGroup -Domain $AllDomain -UserName $EmptyPasswordUser.samaccountname).Name -join ' - '
+					"Domain" = $AllDomain
+				}
+				
+			}
+			
+		}
+		
+		if ($TempEmptyPasswordUsers) {
+			$TempEmptyPasswordUsers | Format-Table -AutoSize -Wrap
+			$HTMLEmptyPasswordUsers = $TempEmptyPasswordUsers | ConvertTo-Html -Fragment -PreContent "<h2>Users that may have empty passwords or shorter passwords</h2>"
 		}
 		
 	}
@@ -3940,7 +4007,7 @@ function Invoke-ADEnum
     # Stop capturing the output and display it on the console
     Stop-Transcript | Out-Null
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLPasswordSetUsers $HTMLPreWin2kCompatibleAccess $HTMLLMCompatibilityLevel $HTMLMachineQuota $HTMLUnsupportedHosts $InterestingDataBanner $HTMLReplicationUsers $HTMLServiceAccounts $HTMLGMSAs $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLMachineAccountsPriv $HTMLnopreauthset $HTMLsidHistoryUsers $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $HTMLLinkedDAAccounts $HTMLAdminGroups $HTMLGroupsByKeyword $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLDomainGPOs $HTMLOtherGroups $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $UsersEnumBanner $HTMLEnabledUsers $HTMLDisabledUsers $HTMLAllDomainOUs" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLPreWin2kCompatibleAccess $HTMLLMCompatibilityLevel $HTMLMachineQuota $HTMLUnsupportedHosts $InterestingDataBanner $HTMLReplicationUsers $HTMLServiceAccounts $HTMLGMSAs $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLMachineAccountsPriv $HTMLnopreauthset $HTMLsidHistoryUsers $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $HTMLLinkedDAAccounts $HTMLAdminGroups $HTMLGroupsByKeyword $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLDomainGPOs $HTMLOtherGroups $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $UsersEnumBanner $HTMLEnabledUsers $HTMLDisabledUsers $HTMLAllDomainOUs" -Title "Active Directory Audit" -Head $header
 	$HTMLOutputFilePath = $OutputFilePath.Replace(".txt", ".html")
 	$Report | Out-File $HTMLOutputFilePath
 	
