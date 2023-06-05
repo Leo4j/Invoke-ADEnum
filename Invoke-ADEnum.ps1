@@ -2363,8 +2363,8 @@ function Invoke-ADEnum
 		}
 		
 		if ($TempRevEncUsers | Where-Object {$_.Name -ne $null}) {
-			$TempRevEncUsers | Format-Table -AutoSize
-			$HTMLRevEncUsers = $TempRevEncUsers | ConvertTo-Html -Fragment -PreContent "<h2>Users with Reversible Encryption</h2>"
+			$TempRevEncUsers | Where-Object {$_.Name -ne $null} | Format-Table -AutoSize
+			$HTMLRevEncUsers = $TempRevEncUsers | Where-Object {$_.Name -ne $null} | ConvertTo-Html -Fragment -PreContent "<h2>Users with Reversible Encryption</h2>"
 		}
 		
 	}
@@ -2390,8 +2390,8 @@ function Invoke-ADEnum
 		}
 		
 		if ($TempRevEncUsers | Where-Object {$_.Name -ne $null}) {
-			$TempRevEncUsers | Format-Table -AutoSize
-			$HTMLRevEncUsers = $TempRevEncUsers | ConvertTo-Html -Fragment -PreContent "<h2>Users with Reversible Encryption</h2>"
+			$TempRevEncUsers | Where-Object {$_.Name -ne $null} | Format-Table -AutoSize
+			$HTMLRevEncUsers = $TempRevEncUsers | Where-Object {$_.Name -ne $null} | ConvertTo-Html -Fragment -PreContent "<h2>Users with Reversible Encryption</h2>"
 		}
 	}
 	
