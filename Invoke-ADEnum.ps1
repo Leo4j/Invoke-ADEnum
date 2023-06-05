@@ -2338,6 +2338,63 @@ function Invoke-ADEnum
 		}
 	}
 	
+	##################################################
+    ########### Reversible Encryption ################
+	##################################################
+	
+	Write-Host ""
+	Write-Host "Users with Reversible Encryption:" -ForegroundColor Cyan
+
+	if ($Domain -and $Server) {
+		
+		$RevEncUsers = Get-DomainUser -Identity * -Domain $Domain -Server $Server | ? {$_.useraccountcontrol -like '*ENCRYPTED_TEXT_PWD_ALLOWED*'}
+		
+		$TempRevEncUsers = [PSCustomObject]@{
+					"Name" = $RevEncUser.samaccountname
+					"Enabled" = if ($RevEncUser.useraccountcontrol -band 2) { "False" } else { "True" }
+					"Active" = if ($RevEncUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Adm" = if ($RevEncUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+					"DA" = if ($RevEncUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					"EA" = if ($RevEncUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+					"Last Logon" = $RevEncUser.lastlogontimestamp
+					"Object SID" = $RevEncUser.objectsid
+					"Domain" = $Domain
+					"Description" = $EnabledUser.description
+		}
+		
+		if ($TempRevEncUsers) {
+			$TempRevEncUsers | Format-Table -AutoSize
+			$HTMLRevEncUsers = $TempRevEncUsers | ConvertTo-Html -Fragment -PreContent "<h2>Users with Reversible Encryption</h2>"
+		}
+		
+	}
+	
+	else{
+		
+		$TempRevEncUsers = foreach ($AllDomain in $AllDomains) {
+			$RevEncUsers = Get-DomainUser -Identity * -Domain $AllDomain | ? {$_.useraccountcontrol -like '*ENCRYPTED_TEXT_PWD_ALLOWED*'}
+			
+			[PSCustomObject]@{
+					"Name" = $RevEncUser.samaccountname
+					"Enabled" = if ($RevEncUser.useraccountcontrol -band 2) { "False" } else { "True" }
+					"Active" = if ($RevEncUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Adm" = if ($RevEncUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+					"DA" = if ($RevEncUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					"EA" = if ($RevEncUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+					"Last Logon" = $RevEncUser.lastlogontimestamp
+					"Object SID" = $RevEncUser.objectsid
+					"Domain" = $Domain
+					"description" = $RevEncUser.description
+				}
+			
+		}
+		
+		if ($TempRevEncUsers) {
+			$TempRevEncUsers | Format-Table -AutoSize
+			$HTMLRevEncUsers = $TempRevEncUsers | ConvertTo-Html -Fragment -PreContent "<h2>Users with Reversible Encryption</h2>"
+		}
+	}
+	
 	#######################################
     ########### GPO Rights ################
 	#######################################
@@ -4059,7 +4116,7 @@ function Invoke-ADEnum
     # Stop capturing the output and display it on the console
     Stop-Transcript | Out-Null
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLPreWin2kCompatibleAccess $HTMLLMCompatibilityLevel $HTMLMachineQuota $HTMLUnsupportedHosts $InterestingDataBanner $HTMLReplicationUsers $HTMLServiceAccounts $HTMLGMSAs $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLMachineAccountsPriv $HTMLnopreauthset $HTMLsidHistoryUsers $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $HTMLLinkedDAAccounts $HTMLAdminGroups $HTMLGroupsByKeyword $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLDomainGPOs $HTMLOtherGroups $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $UsersEnumBanner $HTMLEnabledUsers $HTMLDisabledUsers $HTMLAllDomainOUs" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLPreWin2kCompatibleAccess $HTMLLMCompatibilityLevel $HTMLMachineQuota $HTMLUnsupportedHosts $InterestingDataBanner $HTMLReplicationUsers $HTMLServiceAccounts $HTMLGMSAs $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLMachineAccountsPriv $HTMLnopreauthset $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $HTMLLinkedDAAccounts $HTMLAdminGroups $HTMLGroupsByKeyword $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLDomainGPOs $HTMLOtherGroups $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $UsersEnumBanner $HTMLEnabledUsers $HTMLDisabledUsers $HTMLAllDomainOUs" -Title "Active Directory Audit" -Head $header
 	$HTMLOutputFilePath = $OutputFilePath.Replace(".txt", ".html")
 	$Report | Out-File $HTMLOutputFilePath
 	
