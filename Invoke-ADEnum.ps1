@@ -1116,7 +1116,9 @@ function Invoke-ADEnum
 				$HTMLVulnCertUsers = $TempVulnCertUsers | ConvertTo-Html -Fragment
 			}
 			
-			else{$HTMLVulnCertUsers = $TempVulnCertUsers | ConvertTo-Html -Fragment -PreContent "<h2>Vulnerable Certificate Templates</h2>"}
+			elseif ($TempVulnCertUsers) {
+				$HTMLVulnCertUsers = $TempVulnCertUsers | ConvertTo-Html -Fragment -PreContent "<h2>Vulnerable Certificate Templates</h2>"
+			}
 		}
 		
 		else {
@@ -1182,7 +1184,9 @@ function Invoke-ADEnum
 				$HTMLVulnCertUsers = $TempVulnCertUsers | ConvertTo-Html -Fragment
 			}
 			
-			else{$HTMLVulnCertUsers = $TempVulnCertUsers | ConvertTo-Html -Fragment -PreContent "<h2>Vulnerable Certificate Templates</h2>"}
+			elseif ($TempVulnCertUsers) {
+				$HTMLVulnCertUsers = $TempVulnCertUsers | ConvertTo-Html -Fragment -PreContent "<h2>Vulnerable Certificate Templates</h2>"
+			}
 		}
 	}
 	
