@@ -2362,7 +2362,7 @@ function Invoke-ADEnum
 					"Description" = $EnabledUser.description
 		}
 		
-		if ($TempRevEncUsers) {
+		if ($TempRevEncUsers | Where-Object {$_.Name -ne $null}) {
 			$TempRevEncUsers | Format-Table -AutoSize
 			$HTMLRevEncUsers = $TempRevEncUsers | ConvertTo-Html -Fragment -PreContent "<h2>Users with Reversible Encryption</h2>"
 		}
@@ -2389,7 +2389,7 @@ function Invoke-ADEnum
 			
 		}
 		
-		if ($TempRevEncUsers) {
+		if ($TempRevEncUsers | Where-Object {$_.Name -ne $null}) {
 			$TempRevEncUsers | Format-Table -AutoSize
 			$HTMLRevEncUsers = $TempRevEncUsers | ConvertTo-Html -Fragment -PreContent "<h2>Users with Reversible Encryption</h2>"
 		}
