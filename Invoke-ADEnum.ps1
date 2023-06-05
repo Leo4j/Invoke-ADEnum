@@ -1199,6 +1199,7 @@ function Invoke-ADEnum
 			[PSCustomObject]@{
 				"Name" = $Computer.samaccountname
 				"Enabled" = if ($Computer.useraccountcontrol -band 2) { "False" } else { "True" }
+				"Active" = if ($Computer.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
 				"IP Address" = Resolve-DnsName -Name $Computer.name -Type A -Server $Server | Select-Object -ExpandProperty IPAddress
 				"Account SID" = $Computer.objectsid
 				"Operating System" = $Computer.operatingsystem
@@ -1221,6 +1222,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"Name" = $Computer.samaccountname
 					"Enabled" = if ($Computer.useraccountcontrol -band 2) { "False" } else { "True" }
+					"Active" = if ($Computer.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
 					"IP Address" = Resolve-DnsName -Name $Computer.name -Type A -Server $Server | Select-Object -ExpandProperty IPAddress
 					"Account SID" = $Computer.objectsid
 					"Operating System" = $Computer.operatingsystem
