@@ -878,7 +878,7 @@ function Invoke-ADEnum
 			[PSCustomObject]@{
 				"Member Name" = $BuiltInAdministrator.MemberName
 				"Enabled" = if ($BuiltInAdministrator.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ((Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $Domain -Server $Server).lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+				"Active" = if ((Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $Domain -Server $Server).lastlogontimestamp -ge $inactiveThreshold) { "Yes" } elseif ((Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $Domain -Server $Server).lastlogontimestamp -eq $null) { "" } else { "No" }
 				"Last Logon" = (Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $Domain -Server $Server).lastlogontimestamp
 				"Member SID" = $BuiltInAdministrator.MemberSID
 				"Group Domain" = $BuiltInAdministrator.GroupDomain
@@ -898,7 +898,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"Member Name" = $BuiltInAdministrator.MemberName
 					"Enabled" = if ($BuiltInAdministrator.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ((Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $AllDomain).lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ((Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $AllDomain).lastlogontimestamp -ge $inactiveThreshold) { "Yes" } elseif ((Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $AllDomain).lastlogontimestamp -eq $null) { "" } else { "No" }
 					"Last Logon" = (Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $AllDomain).lastlogontimestamp
 					"Member SID" = $BuiltInAdministrator.MemberSID
 					"Group Domain" = $BuiltInAdministrator.GroupDomain
@@ -925,7 +925,7 @@ function Invoke-ADEnum
 			[PSCustomObject]@{
 				"Member Name" = $EnterpriseAdmin.MemberName
 				"Enabled" = if ($EnterpriseAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ((Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $Domain -Server $Server).lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+				"Active" = if ((Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $Domain -Server $Server).lastlogontimestamp -ge $inactiveThreshold) { "Yes" } elseif ((Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $Domain -Server $Server).lastlogontimestamp -eq $null) { "" } else { "No" }
 				"Last Logon" = (Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $Domain -Server $Server).lastlogontimestamp
 				"Member SID" = $EnterpriseAdmin.MemberSID
 				"Group Domain" = $EnterpriseAdmin.GroupDomain
@@ -945,7 +945,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"Member Name" = $EnterpriseAdmin.MemberName
 					"Enabled" = if ($EnterpriseAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ((Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $AllDomain).lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ((Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $AllDomain).lastlogontimestamp -ge $inactiveThreshold) { "Yes" } elseif ((Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $AllDomain).lastlogontimestamp -eq $null) { "" } else { "No" }
 					"Last Logon" = (Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $AllDomain).lastlogontimestamp
 					"Member SID" = $EnterpriseAdmin.MemberSID
 					"Group Domain" = $EnterpriseAdmin.GroupDomain
@@ -972,7 +972,7 @@ function Invoke-ADEnum
 			[PSCustomObject]@{
 				"Member Name" = $DomainAdmin.MemberName
 				"Enabled" = if ($DomainAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ((Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $Domain -Server $Server).lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+				"Active" = if ((Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $Domain -Server $Server).lastlogontimestamp -ge $inactiveThreshold) { "Yes" } elseif ((Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $Domain -Server $Server).lastlogontimestamp -eq $null) { "" } else { "No" }
 				"Last Logon" = (Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $Domain -Server $Server).lastlogontimestamp
 				"Member SID" = $DomainAdmin.MemberSID
 				"Group Domain" = $DomainAdmin.GroupDomain
@@ -992,7 +992,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"Member Name" = $DomainAdmin.MemberName
 					"Enabled" = if ($DomainAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ((Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $AllDomain).lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ((Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $AllDomain).lastlogontimestamp -ge $inactiveThreshold) { "Yes" } elseif ((Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $AllDomain).lastlogontimestamp -eq $null) { "" } else { "No" }
 					"Last Logon" = (Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $AllDomain).lastlogontimestamp
 					"Member SID" = $DomainAdmin.MemberSID
 					"Group Domain" = $DomainAdmin.GroupDomain
