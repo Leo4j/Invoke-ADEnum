@@ -290,7 +290,7 @@ function Invoke-ADEnum
 		Write-Host " [FULL ENUMERATION]" -ForegroundColor Yellow -NoNewLine
 		Write-Host " (may take a long time)"
 		Write-Host "
- Invoke-ADEnum -Workstations -DomainUsers -Shares -AllGroups -DomainACLs -MoreGPOs -AllGPOs -DomainOUs -MoreOUs -FindLocalAdminAccess -FindDomainUserLocation
+ Invoke-ADEnum -Workstations -DomainUsers -Shares -AllGroups -DomainACLs -MoreGPOs -AllGPOs -LAPSComputers -DomainOUs -MoreOUs -FindLocalAdminAccess -FindDomainUserLocation
 
 		"
 		
