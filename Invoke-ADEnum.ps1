@@ -26,15 +26,15 @@ function Invoke-ADEnum
         [String]
         $Output,
 	
-		[Parameter (Mandatory=$False, Position = 3, ValueFromPipeline=$true)]
+	[Parameter (Mandatory=$False, Position = 3, ValueFromPipeline=$true)]
         [String]
         $Exclude,
 		
-		[Parameter (Mandatory=$False, Position = 4, ValueFromPipeline=$true)]
+	[Parameter (Mandatory=$False, Position = 4, ValueFromPipeline=$true)]
         [String]
         $CustomURL,
 		
-		[Parameter (Mandatory=$False, Position = 5, ValueFromPipeline=$true)]
+	[Parameter (Mandatory=$False, Position = 5, ValueFromPipeline=$true)]
         [String]
         $Local,
         
@@ -70,55 +70,59 @@ function Invoke-ADEnum
         [Switch]
         $NoGPOs,
 		
-		[Parameter (Mandatory=$False, Position = 14, ValueFromPipeline=$true)]
+	[Parameter (Mandatory=$False, Position = 14, ValueFromPipeline=$true)]
         [Switch]
         $MoreGPOs,
 		
-		[Parameter (Mandatory=$False, Position = 15, ValueFromPipeline=$true)]
+	[Parameter (Mandatory=$False, Position = 15, ValueFromPipeline=$true)]
         [Switch]
         $AllGPOs,
 		
-		[Parameter (Mandatory=$False, Position = 16, ValueFromPipeline=$true)]
+	[Parameter (Mandatory=$False, Position = 16, ValueFromPipeline=$true)]
         [Switch]
         $NoLAPS,
 		
-		[Parameter (Mandatory=$False, Position = 17, ValueFromPipeline=$true)]
+	[Parameter (Mandatory=$False, Position = 17, ValueFromPipeline=$true)]
+        [Switch]
+        $LAPSComputers,
+		
+	[Parameter (Mandatory=$False, Position = 18, ValueFromPipeline=$true)]
         [Switch]
         $NoAppLocker,
 		
-		[Parameter (Mandatory=$False, Position = 18, ValueFromPipeline=$true)]
+	[Parameter (Mandatory=$False, Position = 19, ValueFromPipeline=$true)]
         [Switch]
         $NoVulnCertTemplates,
 		
-		[Parameter (Mandatory=$False, Position = 19, ValueFromPipeline=$true)]
+	[Parameter (Mandatory=$False, Position = 20, ValueFromPipeline=$true)]
         [Switch]
         $DomainOUs,
 		
-		[Parameter (Mandatory=$False, Position = 20, ValueFromPipeline=$true)]
+	[Parameter (Mandatory=$False, Position = 21, ValueFromPipeline=$true)]
         [Switch]
         $MoreOUs,
         
-        [Parameter (Mandatory=$False, Position = 21, ValueFromPipeline=$true)]
+        [Parameter (Mandatory=$False, Position = 22, ValueFromPipeline=$true)]
         [Switch]
         $FindDomainUserLocation,
 		
-		[Parameter (Mandatory=$False, Position = 22, ValueFromPipeline=$true)]
+	[Parameter (Mandatory=$False, Position = 23, ValueFromPipeline=$true)]
         [Switch]
         $AllGroups,
 		
-		[Parameter (Mandatory=$False, Position = 23, ValueFromPipeline=$true)]
+	[Parameter (Mandatory=$False, Position = 24, ValueFromPipeline=$true)]
         [Switch]
         $TargetsOnly,
 		
-		[Parameter (Mandatory=$False, Position = 24, ValueFromPipeline=$true)]
+	[Parameter (Mandatory=$False, Position = 25, ValueFromPipeline=$true)]
         [Switch]
         $Debugging,
 		
-		[Parameter (Mandatory=$False, Position = 25, ValueFromPipeline=$true)]
+	[Parameter (Mandatory=$False, Position = 26, ValueFromPipeline=$true)]
         [Switch]
         $NoClear,
 		
-		[Parameter (Mandatory=$False, Position = 26, ValueFromPipeline=$true)]
+	[Parameter (Mandatory=$False, Position = 27, ValueFromPipeline=$true)]
         [Switch]
         $Help
 
@@ -250,6 +254,8 @@ function Invoke-ADEnum
  -AllGPOs			List all domain GPOs
 
  -NoLAPS			Do not enumerate for LAPS GPO
+ 
+ -LAPSComputers			Enumerate Computer objects where LAPS is enabled
 
  -NoAppLocker			Do not enumerate for AppLocker GPO
 
@@ -2673,6 +2679,10 @@ function Invoke-ADEnum
 				$HTMLLAPSCanRead = $TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | ConvertTo-Html -Fragment -PreContent "<h2>Who can read LAPS</h2>"
 			}
 		}
+		
+	}
+	
+	if($LAPSComputers){
 
 		Write-Host ""
 		Write-Host "Computer objects where LAPS is enabled:" -ForegroundColor Cyan
