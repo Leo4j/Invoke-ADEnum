@@ -1555,14 +1555,18 @@ function Invoke-ADEnum
 		$PreWin2kCompatibleAccess = Get-DomainGroup -Domain $Domain -Server $Server -Identity "Pre-Windows 2000 Compatible Access"
 		$PreWin2kCompatibleAccessMembers = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Pre-Windows 2000 Compatible Access" -Recurse | Where-Object { $_.MemberName -ne "Authenticated Users" }
 		$TempPreWin2kCompatibleAccess = foreach ($Member in $PreWin2kCompatibleAccessMembers) {
+			$memberName = $Member.MemberName.TrimEnd('$')
+			$computer = Get-DomainComputer -Identity $memberName -Domain $Domain -Server $Server
+			$ipAddress = Resolve-DnsName -Name $memberName -Type A -Server $Server | Select-Object -ExpandProperty IPAddress
+
 			[PSCustomObject]@{
-				"Member" = $Member | Select-Object -ExpandProperty MemberName
+				"Member" = $Member.MemberName
 				"Enabled" = if ($Member.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ((Get-DomainComputer -Identity $Member.MemberName.TrimEnd('$') -Domain $Domain -Server $Server).lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
-				"IP Address" = Resolve-DnsName -Name (($Member | Select-Object -ExpandProperty MemberName).TrimEnd('$')) -Type A -Server $Server| Select-Object -ExpandProperty IPAddress
-				"Member SID" = $Member | Select-Object -ExpandProperty MemberSID
-				"Operating System" = Get-DomainComputer $Member.MemberName.TrimEnd('$') -Domain $Domain -Server $Server | Select-Object -ExpandProperty operatingsystem
-				"Object Class" = $Member | Select-Object -ExpandProperty MemberObjectClass
+				"Active" = if ($computer.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+				"IP Address" = $ipAddress
+				"Member SID" = $Member.MemberSID
+				"Operating System" = $computer.operatingsystem
+				"Object Class" = $Member.MemberObjectClass
 				"Domain" = $Domain
 			}
 		}
@@ -1578,14 +1582,18 @@ function Invoke-ADEnum
 			$PreWin2kCompatibleAccess = Get-DomainGroup -Domain $AllDomain -Identity "Pre-Windows 2000 Compatible Access"
 			$PreWin2kCompatibleAccessMembers = Get-DomainGroupMember -Domain $AllDomain -Identity "Pre-Windows 2000 Compatible Access" -Recurse | Where-Object { $_.MemberName -ne "Authenticated Users" }
 			foreach ($Member in $PreWin2kCompatibleAccessMembers) {
+				$memberName = $Member.MemberName.TrimEnd('$')
+				$computer = Get-DomainComputer -Identity $memberName -Domain $AllDomain
+				$ipAddress = Resolve-DnsName -Name $memberName -Type A -Server $Server | Select-Object -ExpandProperty IPAddress
+
 				[PSCustomObject]@{
-					"Member" = $Member | Select-Object -ExpandProperty MemberName
+					"Member" = $Member.MemberName
 					"Enabled" = if ($Member.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ((Get-DomainComputer -Identity $Member.MemberName.TrimEnd('$') -Domain $AllDomain).lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
-					"IP Address" = Resolve-DnsName -Name (($Member | Select-Object -ExpandProperty MemberName).TrimEnd('$')) -Type A -Server $Server | Select-Object -ExpandProperty IPAddress
-					"Member SID" = $Member | Select-Object -ExpandProperty MemberSID
-					"Operating System" = Get-DomainComputer $Member.MemberName.TrimEnd('$') -Domain $AllDomain | Select-Object -ExpandProperty operatingsystem
-					"Object Class" = $Member | Select-Object -ExpandProperty MemberObjectClass
+					"Active" = if ($computer.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"IP Address" = $ipAddress
+					"Member SID" = $Member.MemberSID
+					"Operating System" = $computer.operatingsystem
+					"Object Class" = $Member.MemberObjectClass
 					"Domain" = $AllDomain
 				}
 			}
