@@ -1806,7 +1806,7 @@ function Invoke-ADEnum
 	if ($Domain -and $Server) {
 		$dcName = "dc=" + $Domain.Split(".")
 		$dcName = $dcName -replace " ", ",dc="
-		$replicationUsers = Get-DomainObjectAcl "$dcName" -Domain $Domain -Server $Server -ResolveGUIDs |
+		$replicationUsers = Get-ObjectAcl "$dcName" -Domain $Domain -Server $Server -ResolveGUIDs |
 			Where-Object { ($_.ObjectAceType -match 'replication-get') -or ($_.ActiveDirectoryRights -match 'GenericAll') -or ($_.ActiveDirectoryRights -match 'WriteDacl')} |
 			Select-Object -Unique SecurityIdentifier
 
@@ -1828,7 +1828,7 @@ function Invoke-ADEnum
 		$TempReplicationUsers = foreach ($AllDomain in $AllDomains) {
 			$dcName = "dc=" + $AllDomain.Split(".")
 			$dcName = $dcName -replace " ", ",dc="
-			$replicationUsers = Get-DomainObjectAcl "$dcName" -Domain $AllDomain -ResolveGUIDs |
+			$replicationUsers = Get-ObjectAcl "$dcName" -Domain $AllDomain -ResolveGUIDs |
 				Where-Object { ($_.ObjectAceType -match 'replication-get') -or ($_.ActiveDirectoryRights -match 'GenericAll') -or ($_.ActiveDirectoryRights -match 'WriteDacl')} |
 				Select-Object -Unique SecurityIdentifier
 
