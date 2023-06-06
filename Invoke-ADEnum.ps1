@@ -503,13 +503,16 @@ function Invoke-ADEnum
 		
 		if ($Domain -and $Server) {
 			
+			$DomainUsers = Get-DomainUser -Domain $Domain -Server $Server
+			$DomainComputers = Get-DomainComputer -Domain $Domain -Server $Server
+
 			$QuickDomainAnalysis = [PSCustomObject]@{
-				"Enabled Users" = (Get-DomainUser -UACFilter NOT_ACCOUNTDISABLE -Domain $Domain -Server $Server).samaccountname.count
-				"Disabled Users" = (Get-DomainUser -UACFilter ACCOUNTDISABLE -Domain $Domain -Server $Server).samaccountname.count
-				"Enabled Servers" = (Get-DomainComputer -Domain $Domain -Server $Server -OperatingSystem "*Server*" -UACFilter NOT_ACCOUNTDISABLE).samaccountname.count
-				"Disabled Servers" = (Get-DomainComputer -Domain $Domain -Server $Server -OperatingSystem "*Server*" -UACFilter ACCOUNTDISABLE).samaccountname.count
-				"Enabled Workstations"  = (Get-DomainComputer -Domain $Domain -Server $Server -UACFilter NOT_ACCOUNTDISABLE | Where-Object { $_.OperatingSystem -notlike "*Server*" }).samaccountname.count
-				"Disabled Workstations"  = (Get-DomainComputer -Domain $Domain -Server $Server -UACFilter ACCOUNTDISABLE | Where-Object { $_.OperatingSystem -notlike "*Server*" }).samaccountname.count
+				"Enabled Users" = ($DomainUsers | Where-Object { $_.userAccountControl -notmatch 'ACCOUNTDISABLE' }).samaccountname.count
+				"Disabled Users" = ($DomainUsers | Where-Object { $_.userAccountControl -match 'ACCOUNTDISABLE' }).samaccountname.count
+				"Enabled Servers" = ($DomainComputers | Where-Object { $_.OperatingSystem -like "*Server*" -and $_.userAccountControl -notmatch 'ACCOUNTDISABLE' }).samaccountname.count
+				"Disabled Servers" = ($DomainComputers | Where-Object { $_.OperatingSystem -like "*Server*" -and $_.userAccountControl -match 'ACCOUNTDISABLE' }).samaccountname.count
+				"Enabled Workstations"  = ($DomainComputers | Where-Object { $_.OperatingSystem -notlike "*Server*" -and $_.userAccountControl -notmatch 'ACCOUNTDISABLE' }).samaccountname.count
+				"Disabled Workstations"  = ($DomainComputers | Where-Object { $_.OperatingSystem -notlike "*Server*" -and $_.userAccountControl -match 'ACCOUNTDISABLE' }).samaccountname.count
 				Domain = $Domain
 			}
 			
@@ -521,14 +524,17 @@ function Invoke-ADEnum
 			
 			$QuickDomainAnalysis = foreach($AllDomain in $AllDomains){
 				
+				$DomainUsers = Get-DomainUser -Domain $AllDomain -Properties samaccountname
+				$DomainComputers = Get-DomainComputer -Domain $AllDomain -Properties samaccountname
+
 				[PSCustomObject]@{
-				"Enabled Users" = (Get-DomainUser -UACFilter NOT_ACCOUNTDISABLE -Domain $AllDomain).samaccountname.count
-				"Disabled Users" = (Get-DomainUser -UACFilter ACCOUNTDISABLE -Domain $AllDomain).samaccountname.count
-				"Enabled Servers" = (Get-DomainComputer -Domain $AllDomain -OperatingSystem "*Server*" -UACFilter NOT_ACCOUNTDISABLE).samaccountname.count
-				"Disabled Servers" = (Get-DomainComputer -Domain $AllDomain -OperatingSystem "*Server*" -UACFilter ACCOUNTDISABLE).samaccountname.count
-				"Enabled Workstations"  = (Get-DomainComputer -Domain $AllDomain -UACFilter NOT_ACCOUNTDISABLE | Where-Object { $_.OperatingSystem -notlike "*Server*" }).samaccountname.count
-				"Disabled Workstations"  = (Get-DomainComputer -Domain $AllDomain -UACFilter ACCOUNTDISABLE | Where-Object { $_.OperatingSystem -notlike "*Server*" }).samaccountname.count
-				Domain = $AllDomain
+					"Enabled Users" = ($DomainUsers | Where-Object { $_.userAccountControl -notmatch 'ACCOUNTDISABLE' }).count
+					"Disabled Users" = ($DomainUsers | Where-Object { $_.userAccountControl -match 'ACCOUNTDISABLE' }).count
+					"Enabled Servers" = ($DomainComputers | Where-Object { $_.OperatingSystem -like "*Server*" -and $_.userAccountControl -notmatch 'ACCOUNTDISABLE' }).count
+					"Disabled Servers" = ($DomainComputers | Where-Object { $_.OperatingSystem -like "*Server*" -and $_.userAccountControl -match 'ACCOUNTDISABLE' }).count
+					"Enabled Workstations"  = ($DomainComputers | Where-Object { $_.OperatingSystem -notlike "*Server*" -and $_.userAccountControl -notmatch 'ACCOUNTDISABLE' }).count
+					"Disabled Workstations"  = ($DomainComputers | Where-Object { $_.OperatingSystem -notlike "*Server*" -and $_.userAccountControl -match 'ACCOUNTDISABLE' }).count
+					Domain = $AllDomain
 				}
 				
 			}
