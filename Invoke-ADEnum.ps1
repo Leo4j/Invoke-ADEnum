@@ -2361,7 +2361,7 @@ function Invoke-ADEnum
 
 	if ($Domain -and $Server) {
 		
-		$RevEncUsers = Get-DomainUser -Identity * -Domain $Domain -Server $Server | ? {$_.useraccountcontrol -like '*ENCRYPTED_TEXT_PWD_ALLOWED*'}
+		$RevEncUsers = Get-DomainUser -Identity * -Domain $Domain -Server $Server -LDAPFilter "(&(objectCategory=User)(userAccountControl:1.2.840.113556.1.4.803:=128))"
 		
 		$TempRevEncUsers = [PSCustomObject]@{
 					"Name" = $RevEncUser.samaccountname
@@ -2386,7 +2386,7 @@ function Invoke-ADEnum
 	else{
 		
 		$TempRevEncUsers = foreach ($AllDomain in $AllDomains) {
-			$RevEncUsers = Get-DomainUser -Identity * -Domain $AllDomain | ? {$_.useraccountcontrol -like '*ENCRYPTED_TEXT_PWD_ALLOWED*'}
+			$RevEncUsers = Get-DomainUser -Identity * -Domain $AllDomain -LDAPFilter "(&(objectCategory=User)(userAccountControl:1.2.840.113556.1.4.803:=128))"
 			
 			[PSCustomObject]@{
 					"Name" = $RevEncUser.samaccountname
