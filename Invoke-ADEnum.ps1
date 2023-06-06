@@ -1811,11 +1811,16 @@ function Invoke-ADEnum
 			Select-Object -Unique SecurityIdentifier
 
 		$TempReplicationUsers = foreach ($replicationUser in $replicationUsers) {
+			$userSID = ConvertFrom-SID -Domain $Domain $replicationUser.SecurityIdentifier
+			$user = Get-DomainUser -Domain $Domain -Server $Server -Identity $userSID
+			$enabled = if ($user.useraccountcontrol -band 2) { "False" } elseif ($user.useraccountcontrol -eq $null) { "" } else { "True" }
+			$members = Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity $userSID | Select-Object -ExpandProperty MemberName | Sort-Object -Unique -Join ' - '
+
 			[PSCustomObject]@{
-				"User or Group Name" = ConvertFrom-SID -Server $Server $replicationUser.SecurityIdentifier
-				"Enabled" = if ((Get-DomainUser -Domain $Domain -Server $Server -Identity (ConvertFrom-SID $replicationUser.SecurityIdentifier -Domain $Domain)).useraccountcontrol -band 2) { "False" } elseif ((Get-DomainUser -Domain $Domain -Server $Server -Identity (ConvertFrom-SID $replicationUser.SecurityIdentifier -Domain $Domain)).useraccountcontrol -eq $null) { "" } else { "True" }
+				"User or Group Name" = $userSID
+				"Enabled" = $enabled
 				"Domain" = $Domain
-				Members = ((Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity (ConvertFrom-SID $replicationUser.SecurityIdentifier -Domain $Domain)).MemberName | Sort-Object -Unique) -join ' - '
+				"Members" = $members
 			}
 		}
 
@@ -1833,11 +1838,16 @@ function Invoke-ADEnum
 				Select-Object -Unique SecurityIdentifier
 
 			foreach ($replicationUser in $replicationUsers) {
+				$userSID = ConvertFrom-SID $replicationUser.SecurityIdentifier -Domain $AllDomain
+				$user = Get-DomainUser -Domain $AllDomain -Identity $userSID
+				$enabled = if ($user.useraccountcontrol -band 2) { "False" } elseif ($user.useraccountcontrol -eq $null) { "" } else { "True" }
+				$members = Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity $userSID | Select-Object -ExpandProperty MemberName | Sort-Object -Unique -Join ' - '
+
 				[PSCustomObject]@{
-					"User or Group Name" = ConvertFrom-SID $replicationUser.SecurityIdentifier -Domain $AllDomain
-					"Enabled" = if ((Get-DomainUser -Domain $AllDomain -Identity (ConvertFrom-SID $replicationUser.SecurityIdentifier -Domain $AllDomain)).useraccountcontrol -band 2) { "False" } elseif ((Get-DomainUser -Domain $AllDomain -Identity (ConvertFrom-SID $replicationUser.SecurityIdentifier -Domain $AllDomain)).useraccountcontrol -eq $null) { "" } else { "True" }
+					"User or Group Name" = $userSID
+					"Enabled" = $enabled
 					"Domain" = $AllDomain
-					Members = ((Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity (ConvertFrom-SID $replicationUser.SecurityIdentifier -Domain $AllDomain)).MemberName | Sort-Object -Unique) -join ' - '
+					"Members" = $members
 				}
 			}
 		}
