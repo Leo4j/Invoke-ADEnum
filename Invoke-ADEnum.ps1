@@ -2682,6 +2682,84 @@ function Invoke-ADEnum
 			}
 		}
 		
+		Write-Host ""
+		Write-Host "LAPS Extended Rights:" -ForegroundColor Cyan
+		
+		if ($Domain -and $Server) {
+			
+			$LAPSFilter = "(objectCategory=Computer)(ms-mcs-admpwdexpirationtime=*)"
+			
+			$ExtendedRights = Get-ObjectAcl -ResolveGUIDs -Filter $LAPSFilter -Domain $Domain -Server $Server | Where-Object { $_.ActiveDirectoryRights -match "ExtendedRight" }
+			
+			$CompMap = @{}
+			
+			$ComputerObjects = Get-NetComputer -Filter "(ms-mcs-admpwdexpirationtime=*)" -Domain $Domain -Server $Server | ForEach-Object { $CompMap.Add($_.distinguishedname, $_.dnshostname) }
+			
+			$TempLAPSExtended = $ExtendedRights | ForEach-Object {
+
+				$LAPSComputerName =  $CompMap[$_.ObjectDN]
+				
+				$LAPSIdentity = $_.IdentityReference
+
+				if($_.ObjectType -match "All" -and $_.IdentityReference -notmatch "BUILTIN") { $Status = "Non Delegated by Admin" }
+				
+				else { return }
+
+				[PSCustomObject]@{
+					"Computer Name" = $LAPSComputerName
+					"Identity" = $LAPSIdentity
+					"Status" = $Status
+					"Domain" = $Domain
+				}
+
+			}
+			
+			if ($TempLAPSExtended) {
+				$TempLAPSExtended | Format-Table -AutoSize -Wrap
+				$HTMLLAPSExtended = $TempLAPSExtended | ConvertTo-Html -Fragment -PreContent "<h2>LAPS Extended Rights</h2>"
+			}
+			
+		}
+		
+		else {
+			$TempLAPSCanRead = foreach ($AllDomain in $AllDomains) {
+				
+				$LAPSFilter = "(objectCategory=Computer)(ms-mcs-admpwdexpirationtime=*)"
+			
+				$ExtendedRights = Get-ObjectAcl -ResolveGUIDs -Filter $LAPSFilter -Domain $AllDomain | Where-Object { $_.ActiveDirectoryRights -match "ExtendedRight" }
+				
+				$CompMap = @{}
+				
+				$ComputerObjects = Get-NetComputer -Filter "(ms-mcs-admpwdexpirationtime=*)" -Domain $AllDomain | ForEach-Object { $CompMap.Add($_.distinguishedname, $_.dnshostname) }
+				
+				$ExtendedRights | ForEach-Object {
+
+					$LAPSComputerName =  $CompMap[$_.ObjectDN]
+					
+					$LAPSIdentity = $_.IdentityReference
+
+					if($_.ObjectType -match "All" -and $_.IdentityReference -notmatch "BUILTIN") { $Status = "Non Delegated by Admin" }
+					
+					else { return }
+
+					[PSCustomObject]@{
+						"Computer Name" = $LAPSComputerName
+						"Identity" = $LAPSIdentity
+						"Status" = $Status
+						"Domain" = $Domain
+					}
+
+				}
+				
+			}
+			
+			if ($TempLAPSExtended) {
+				$TempLAPSExtended | Format-Table -AutoSize -Wrap
+				$HTMLLAPSExtended = $TempLAPSExtended | ConvertTo-Html -Fragment -PreContent "<h2>LAPS Extended Rights</h2>"
+			}
+			
+		}
+		
 	}
 	
 	if($LAPSComputers){
@@ -4136,7 +4214,7 @@ function Invoke-ADEnum
     # Stop capturing the output and display it on the console
     Stop-Transcript | Out-Null
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLPreWin2kCompatibleAccess $HTMLLMCompatibilityLevel $HTMLMachineQuota $HTMLUnsupportedHosts $InterestingDataBanner $HTMLReplicationUsers $HTMLServiceAccounts $HTMLGMSAs $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLMachineAccountsPriv $HTMLnopreauthset $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $HTMLLinkedDAAccounts $HTMLAdminGroups $HTMLGroupsByKeyword $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLDomainGPOs $HTMLOtherGroups $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $UsersEnumBanner $HTMLEnabledUsers $HTMLDisabledUsers $HTMLAllDomainOUs" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLPreWin2kCompatibleAccess $HTMLLMCompatibilityLevel $HTMLMachineQuota $HTMLUnsupportedHosts $InterestingDataBanner $HTMLReplicationUsers $HTMLServiceAccounts $HTMLGMSAs $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLMachineAccountsPriv $HTMLnopreauthset $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $HTMLLinkedDAAccounts $HTMLAdminGroups $HTMLGroupsByKeyword $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLDomainGPOs $HTMLOtherGroups $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $UsersEnumBanner $HTMLEnabledUsers $HTMLDisabledUsers $HTMLAllDomainOUs" -Title "Active Directory Audit" -Head $header
 	$HTMLOutputFilePath = $OutputFilePath.Replace(".txt", ".html")
 	$Report | Out-File $HTMLOutputFilePath
 	
