@@ -3364,7 +3364,7 @@ function Invoke-ADEnum
 	Write-Host ""
 	Write-Host "Other Groups (by keyword):" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$Keywords = @("SQL", "Remote", "VEEAM", "PSM", "Password", "Management", "LAPS", "Backup", "Security", "Cyber", "Director", "Desk", "CCTV", "Finance")
+		$Keywords = @("SQL", "Remote", "VEEAM", "Hyper", "VMWare", "PSM", "Password", "Management", "LAPS", "Backup", "Security", "Cyber", "Director", "Desk", "CCTV", "Finance")
 		$TempGroupsByKeyword = foreach ($Keyword in $Keywords) {
 			Get-DomainGroup -Domain $Domain -Server $Server -Identity "*$Keyword*" |
 			ForEach-Object {
@@ -3387,7 +3387,7 @@ function Invoke-ADEnum
 	}
 	else {
 		$TempGroupsByKeyword = foreach ($AllDomain in $AllDomains) {
-			$Keywords = @("SQL", "Remote", "VEEAM", "PSM", "Password", "Management", "LAPS", "Backup", "Security", "Cyber", "Director", "Desk", "CCTV", "Finance")
+			$Keywords = @("SQL", "Remote", "VEEAM", "Hyper", "VMWare", "PSM", "Password", "Management", "LAPS", "Backup", "Security", "Cyber", "Director", "Desk", "CCTV", "Finance")
 			foreach ($Keyword in $Keywords) {
 				Get-DomainGroup -Domain $AllDomain -Identity "*$Keyword*" |
 				ForEach-Object {
