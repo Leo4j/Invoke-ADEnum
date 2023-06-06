@@ -1909,7 +1909,7 @@ function Invoke-ADEnum
     Write-Host ""
 	Write-Host "Group Managed Service Accounts (GMSA):" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$GMSAs = Get-DomainObject -Domain $Domain -Server $Server | Where-Object { $_.ObjectClass -eq 'msDS-GroupManagedServiceAccount' }
+		$GMSAs = Get-DomainObject -Domain $Domain -Server $Server -LDAPFilter '(objectClass=msDS-GroupManagedServiceAccount)'
 		$TempGMSAs = foreach ($GMSA in $GMSAs) {
 			[PSCustomObject]@{
 				"Account" = $GMSA.samaccountname
@@ -1933,7 +1933,7 @@ function Invoke-ADEnum
 	}
 	else {
 		$TempGMSAs = foreach ($AllDomain in $AllDomains) {
-			$GMSAs = Get-DomainObject -Domain $AllDomain | Where-Object { $_.ObjectClass -eq 'msDS-GroupManagedServiceAccount' }
+			$GMSAs = Get-DomainObject -Domain $AllDomain -LDAPFilter '(objectClass=msDS-GroupManagedServiceAccount)'
 			foreach ($GMSA in $GMSAs) {
 				[PSCustomObject]@{
 					"Account" = $GMSA.samaccountname
