@@ -2249,13 +2249,14 @@ function Invoke-ADEnum
     if ($Domain -and $Server) {
 		$MachinePrivGroupMembers = Get-DomainGroup -Domain $Domain -Server $Server -AdminCount | Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse | Where-Object { $_.MemberName -like '*$' } | Sort-Object -Unique
 		$TempMachineAccountsPriv = foreach ($GroupMember in $MachinePrivGroupMembers) {
+			$DomainComputerGroupMember = Get-DomainComputer -Identity $GroupMember.MemberName.TrimEnd('$') -Domain $Domain -Server $Server
 			[PSCustomObject]@{
 				"Member" = $GroupMember.MemberName
 				"Enabled" = if ($GroupMember.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ((Get-DomainComputer -Identity $GroupMember.MemberName.TrimEnd('$') -Domain $Domain -Server $Server).lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+				"Active" = if ($DomainComputerGroupMember.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
 				"IP Address" = Resolve-DnsName -Name ($GroupMember.MemberName.TrimEnd('$')) -Type A -Server $Server | Select-Object -ExpandProperty IPAddress
 				"Member SID" = $GroupMember.MemberSID
-				"Operating System" = Get-DomainComputer $GroupMember.MemberName.TrimEnd('$') -Domain $Domain -Server $Server | Select-Object -ExpandProperty operatingsystem
+				"Operating System" = $DomainComputerGroupMember.operatingsystem
 				"Member Domain" = $GroupMember.MemberDomain
 				"Privileged Group" = $GroupMember.GroupName
 				"Group Domain" = $GroupMember.GroupDomain
@@ -2272,13 +2273,14 @@ function Invoke-ADEnum
 			$Server = Get-DomainController -Domain $AllDomain | Where-Object {$_.Roles -like "RidRole"} | Select-Object -ExpandProperty Name
 			$MachinePrivGroupMembers = Get-DomainGroup -Domain $AllDomain -AdminCount | Get-DomainGroupMember -Recurse | Where-Object { $_.MemberName -like '*$' } | Sort-Object -Unique
 			foreach ($GroupMember in $MachinePrivGroupMembers) {
+				$DomainComputerGroupMember = Get-DomainComputer -Identity $GroupMember.MemberName.TrimEnd('$') -Domain $AllDomain
 				[PSCustomObject]@{
 					"Member" = $GroupMember.MemberName
 					"Enabled" = if ($GroupMember.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ((Get-DomainComputer -Identity $GroupMember.MemberName.TrimEnd('$') -Domain $AllDomain).lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ($DomainComputerGroupMember.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
 					"IP Address" = Resolve-DnsName -Name ($GroupMember.MemberName.TrimEnd('$')) -Type A -Server $Server | Select-Object -ExpandProperty IPAddress
 					"Member SID" = $GroupMember.MemberSID
-					"Operating System" = Get-DomainComputer $GroupMember.MemberName.TrimEnd('$') -Domain $AllDomain | Select-Object -ExpandProperty operatingsystem
+					"Operating System" = $DomainComputerGroupMember.operatingsystem
 					"Member Domain" = $GroupMember.MemberDomain
 					"Privileged Group" = $GroupMember.GroupName
 					"Group Domain" = $GroupMember.GroupDomain
