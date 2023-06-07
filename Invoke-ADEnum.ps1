@@ -2407,7 +2407,8 @@ function Invoke-ADEnum
 		
 		$RevEncUsers = Get-DomainUser -Identity * -Domain $Domain -Server $Server -LDAPFilter "(&(objectCategory=User)(userAccountControl:1.2.840.113556.1.4.803:=128))"
 		
-		$TempRevEncUsers = [PSCustomObject]@{
+		$TempRevEncUsers = foreach ($RevEncUser in $RevEncUsers) {
+			[PSCustomObject]@{
 					"Name" = $RevEncUser.samaccountname
 					"Enabled" = if ($RevEncUser.useraccountcontrol -band 2) { "False" } else { "True" }
 					"Active" = if ($RevEncUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
@@ -2417,7 +2418,8 @@ function Invoke-ADEnum
 					"Last Logon" = $RevEncUser.lastlogontimestamp
 					"Object SID" = $RevEncUser.objectsid
 					"Domain" = $Domain
-					"Description" = $EnabledUser.description
+					"Description" = $RevEncUser.description
+			}
 		}
 		
 		if ($TempRevEncUsers | Where-Object {$_.Name -ne $null}) {
@@ -2432,7 +2434,8 @@ function Invoke-ADEnum
 		$TempRevEncUsers = foreach ($AllDomain in $AllDomains) {
 			$RevEncUsers = Get-DomainUser -Identity * -Domain $AllDomain -LDAPFilter "(&(objectCategory=User)(userAccountControl:1.2.840.113556.1.4.803:=128))"
 			
-			[PSCustomObject]@{
+			foreach ($RevEncUser in $RevEncUsers) {
+				[PSCustomObject]@{
 					"Name" = $RevEncUser.samaccountname
 					"Enabled" = if ($RevEncUser.useraccountcontrol -band 2) { "False" } else { "True" }
 					"Active" = if ($RevEncUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
@@ -2444,7 +2447,7 @@ function Invoke-ADEnum
 					"Domain" = $Domain
 					"description" = $RevEncUser.description
 				}
-			
+			}
 		}
 		
 		if ($TempRevEncUsers | Where-Object {$_.Name -ne $null}) {
