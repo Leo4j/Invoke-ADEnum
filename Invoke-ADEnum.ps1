@@ -1073,6 +1073,97 @@ function Invoke-ADEnum
 	Write-Host "Configuration Flaws with Potential for Exploitation" -ForegroundColor Red
 	Write-Host ""
 	
+	###############################################
+    ########### ADCS HTTP Endpoints ###############
+	###############################################
+	if($NoVulnCertTemplates){}
+	else{
+		Write-Host ""
+		Write-Host "ADCS HTTP Endpoints:" -ForegroundColor Cyan
+
+		if ($Domain -and $Server) {
+			
+			$CertPublishers = Get-DomainGroupMember "Cert Publishers" -Domain $Domain -Server $Server | Select-Object MemberName,MemberSID,GroupName,GroupDomain
+
+			$TempCertPublishers = foreach ($CertPublisher in $CertPublishers) {
+				
+				$CAName = $CertPublisher.MemberName.TrimEnd('$')
+				
+				$Endpoint = "$CAName.$Domain/certsrv/"
+				$httpuri = "http://$CAName.$Domain/certsrv/"
+				$httpsuri = "https://$CAName.$Domain/certsrv/"
+				
+				$httpresponse = Invoke-WebRequest -Uri $httpuri -UseDefaultCredentials -TimeoutSec 5 -UseBasicParsing
+				$httpsresponse = Invoke-WebRequest -Uri $httpsuri -UseDefaultCredentials -TimeoutSec 5 -UseBasicParsing
+				
+				if(($httpresponse.statuscode -eq 200) -OR ($httpsresponse.statuscode -eq 200)){
+				
+					[PSCustomObject]@{
+						"Member Name" = $CertPublisher.MemberName
+						"IP Address" = (Resolve-DnsName -Name "$CAName.$Domain" -Type A).IPAddress
+						"Member SID" = $CertPublisher.MemberSID
+						"Group Name" = $CertPublisher.GroupName
+						"Endpoint" = $Endpoint
+						"HTTP" = if ($httpresponse.statuscode -eq 200) {"True"} else {"False"}
+						"HTTPS" = if ($httpsresponse.statuscode -eq 200) {"True"} else {"False"}
+						"Domain" = $CertPublisher.GroupDomain
+					}
+					
+				}
+				
+			}
+			
+			if ($TempCertPublishers) {
+				$TempCertPublishers | Format-Table -AutoSize -Wrap
+				$HTMLCertPublishers = $TempCertPublishers | ConvertTo-Html -Fragment -PreContent "<h2>ADCS HTTP Endpoints</h2>"
+			}
+			
+		}
+		
+		else {
+			
+			$TempCertPublishers = foreach ($AllDomain in $AllDomains) {
+			
+				$CertPublishers = Get-DomainGroupMember "Cert Publishers" -Domain $AllDomain | Select-Object MemberName,MemberSID,GroupName,GroupDomain
+
+				foreach ($CertPublisher in $CertPublishers) {
+					
+					$CAName = $CertPublisher.MemberName.TrimEnd('$')
+					
+					$Endpoint = "$CAName.$AllDomain/certsrv/"
+					$httpuri = "http://$CAName.$AllDomain/certsrv/"
+					$httpsuri = "https://$CAName.$AllDomain/certsrv/"
+					
+					$httpresponse = Invoke-WebRequest -Uri $httpuri -UseDefaultCredentials -TimeoutSec 5 -UseBasicParsing
+					$httpsresponse = Invoke-WebRequest -Uri $httpsuri -UseDefaultCredentials -TimeoutSec 5 -UseBasicParsing
+					
+					if(($httpresponse.statuscode -eq 200) -OR ($httpsresponse.statuscode -eq 200)){
+					
+						[PSCustomObject]@{
+							"Member Name" = $CertPublisher.MemberName
+							"IP Address" = (Resolve-DnsName -Name "$CAName.$AllDomain" -Type A).IPAddress
+							"Member SID" = $CertPublisher.MemberSID
+							"Group Name" = $CertPublisher.GroupName
+							"Endpoint" = $Endpoint
+							"HTTP" = if ($httpresponse.statuscode -eq 200) {"True"} else {"False"}
+							"HTTPS" = if ($httpsresponse.statuscode -eq 200) {"True"} else {"False"}
+							"Domain" = $CertPublisher.GroupDomain
+						}
+						
+					}
+					
+				}
+			
+			}
+			
+			if ($TempCertPublishers) {
+				$TempCertPublishers | Format-Table -AutoSize -Wrap
+				$HTMLCertPublishers = $TempCertPublishers | ConvertTo-Html -Fragment -PreContent "<h2>ADCS HTTP Endpoints</h2>"
+			}
+
+		}
+	}
+	
 	###############################################################
     ########### Misconfigured Certificate Templates ###############
 	###############################################################
