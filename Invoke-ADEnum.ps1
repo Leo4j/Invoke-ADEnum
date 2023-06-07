@@ -1826,7 +1826,7 @@ function Invoke-ADEnum
 			$userSID = ConvertFrom-SID -Domain $Domain $replicationUser.SecurityIdentifier
 			$user = Get-DomainUser -Domain $Domain -Server $Server -Identity $userSID
 			$enabled = if ($user.useraccountcontrol -band 2) { "False" } elseif ($user.useraccountcontrol -eq $null) { "" } else { "True" }
-			$members = Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity $userSID | Select-Object -ExpandProperty MemberName | Sort-Object -Unique -Join ' - '
+			$members = (Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity $userSID | Select-Object -ExpandProperty MemberName | Sort-Object -Unique) -Join ' - '
 
 			[PSCustomObject]@{
 				"User or Group Name" = $userSID
@@ -1853,7 +1853,7 @@ function Invoke-ADEnum
 				$userSID = ConvertFrom-SID $replicationUser.SecurityIdentifier -Domain $AllDomain
 				$user = Get-DomainUser -Domain $AllDomain -Identity $userSID
 				$enabled = if ($user.useraccountcontrol -band 2) { "False" } elseif ($user.useraccountcontrol -eq $null) { "" } else { "True" }
-				$members = Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity $userSID | Select-Object -ExpandProperty MemberName | Sort-Object -Unique -Join ' - '
+				$members = (Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity $userSID | Select-Object -ExpandProperty MemberName | Sort-Object -Unique) -Join ' - '
 
 				[PSCustomObject]@{
 					"User or Group Name" = $userSID
