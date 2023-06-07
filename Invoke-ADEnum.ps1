@@ -466,7 +466,7 @@ function Invoke-ADEnum
 				"Forest" = $TDomain.Forest
 				"Parent" = $TDomain.Parent
 				"Children" = ($TDomain.Children -join ', ')
-				"DomainControllers" = ($TDomain.DomainControllers -join ', ')
+				"Domain Controllers" = ($TDomain.DomainControllers -join ', ')
 			}
 		}
 
@@ -844,11 +844,11 @@ function Invoke-ADEnum
 
 		$TempForeignGroupMembers = foreach ($ForeignGroupMember in $ForeignGroupMembers) {
 			[PSCustomObject]@{
-				"GroupDomain" = $ForeignGroupMember.GroupDomain
-				"GroupName" = $ForeignGroupMember.GroupName
-				"GroupDistinguishedName" = $ForeignGroupMember.GroupDistinguishedName
-				"MemberDomain" = $ForeignGroupMember.MemberDomain
-				"Member|GroupName" = (ConvertFrom-SID $ForeignGroupMember.MemberName)
+				"Group Domain" = $ForeignGroupMember.GroupDomain
+				"Group Name" = $ForeignGroupMember.GroupName
+				"Group Distinguished Name" = $ForeignGroupMember.GroupDistinguishedName
+				"Member Domain" = $ForeignGroupMember.MemberDomain
+				"Member or GroupName" = (ConvertFrom-SID $ForeignGroupMember.MemberName)
 				"Members" = (Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity (ConvertFrom-SID $ForeignGroupMember.MemberName)).MemberName -join ' - '
 				"SID" = $ForeignGroupMember.MemberName
 			}
@@ -866,11 +866,11 @@ function Invoke-ADEnum
 
 			foreach ($ForeignGroupMember in $ForeignGroupMembers) {
 				[PSCustomObject]@{
-					"GroupDomain" = $ForeignGroupMember.GroupDomain
-					"GroupName" = $ForeignGroupMember.GroupName
-					"GroupDistinguishedName" = $ForeignGroupMember.GroupDistinguishedName
-					"MemberDomain" = $ForeignGroupMember.MemberDomain
-					"Member|GroupName" = (ConvertFrom-SID $ForeignGroupMember.MemberName)
+					"Group Domain" = $ForeignGroupMember.GroupDomain
+					"Group Name" = $ForeignGroupMember.GroupName
+					"Group Distinguished Name" = $ForeignGroupMember.GroupDistinguishedName
+					"Member Domain" = $ForeignGroupMember.MemberDomain
+					"Member or GroupName" = (ConvertFrom-SID $ForeignGroupMember.MemberName)
 					"Members" = (Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity (ConvertFrom-SID $ForeignGroupMember.MemberName)).MemberName -join ' - '
 					"SID" = $ForeignGroupMember.MemberName
 				}
@@ -2395,7 +2395,7 @@ function Invoke-ADEnum
 		$nopreauthsetUsers = Get-DomainUser -Domain $Domain -Server $Server -PreauthNotRequired
 		$Tempnopreauthset = foreach ($User in $nopreauthsetUsers) {
 			[PSCustomObject]@{
-				"UserName" = $User.samaccountname
+				"User Name" = $User.samaccountname
 				"Enabled" = if ($User.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if ($User.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
 				"Adm" = if ($User.memberof -match 'Administrators') { "YES" } else { "NO" }
@@ -2417,7 +2417,7 @@ function Invoke-ADEnum
 			$nopreauthsetUsers = Get-DomainUser -Domain $AllDomain -PreauthNotRequired
 			foreach ($User in $nopreauthsetUsers) {
 				[PSCustomObject]@{
-					"UserName" = $User.samaccountname
+					"User Name" = $User.samaccountname
 					"Enabled" = if ($User.useraccountcontrol -band 2) { "False" } else { "True" }
 					"Active" = if ($User.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
 					"Adm" = if ($User.memberof -match 'Administrators') { "YES" } else { "NO" }
@@ -2446,7 +2446,7 @@ function Invoke-ADEnum
 		$sidHistoryUsers = Get-DomainUser -Domain $Domain -Server $Server -LDAPFilter '(sidHistory=*)'
 		$TempsidHistoryUsers = foreach ($sidHistoryUser in $sidHistoryUsers) {
 			[PSCustomObject]@{
-				"samaccountname" = $sidHistoryUser.samaccountname
+				"User Name" = $sidHistoryUser.samaccountname
 				"Enabled" = if ($sidHistoryUser.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if ($sidHistoryUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
 				"Adm" = if ($sidHistoryUser.memberof -match 'Administrators') { "YES" } else { "NO" }
@@ -2468,7 +2468,7 @@ function Invoke-ADEnum
 			$sidHistoryUsers = Get-DomainUser -Domain $AllDomain -LDAPFilter '(sidHistory=*)'
 			foreach ($sidHistoryUser in $sidHistoryUsers) {
 				[PSCustomObject]@{
-					"samaccountname" = $sidHistoryUser.samaccountname
+					"User Name" = $sidHistoryUser.samaccountname
 					"Enabled" = if ($sidHistoryUser.useraccountcontrol -band 2) { "False" } else { "True" }
 					"Active" = if ($sidHistoryUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
 					"Adm" = if ($sidHistoryUser.memberof -match 'Administrators') { "YES" } else { "NO" }
@@ -2536,7 +2536,7 @@ function Invoke-ADEnum
 					"Last Logon" = $RevEncUser.lastlogontimestamp
 					"Object SID" = $RevEncUser.objectsid
 					"Domain" = $AllDomain
-					"description" = $RevEncUser.description
+					"Description" = $RevEncUser.description
 				}
 			}
 		}
@@ -2664,10 +2664,10 @@ function Invoke-ADEnum
 			$TempGpoLinkResults = foreach ($result in $gpolinkresult) {
 				[PSCustomObject]@{
 					"Who can link" = (ConvertFrom-SID -Domain $Domain -Server $Server $result.SecurityIdentifier)
-					"SecurityIdentifier" = $result.SecurityIdentifier
-					"ObjectDN" = $result.ObjectDN
-					"ActiveDirectoryRights" = $result.ActiveDirectoryRights
-					"ObjectAceType" = $result.ObjectAceType
+					"Security Identifier" = $result.SecurityIdentifier
+					"Object DN" = $result.ObjectDN
+					"Active Directory Rights" = $result.ActiveDirectoryRights
+					"Object Ace Type" = $result.ObjectAceType
 				}
 			}
 
@@ -2682,10 +2682,10 @@ function Invoke-ADEnum
 				foreach ($result in $gpolinkresult) {
 					[PSCustomObject]@{
 						"Who can link" = (ConvertFrom-SID -Domain $AllDomain $result.SecurityIdentifier)
-						"SecurityIdentifier" = $result.SecurityIdentifier
-						"ObjectDN" = $result.ObjectDN
-						"ActiveDirectoryRights" = $result.ActiveDirectoryRights
-						"ObjectAceType" = $result.ObjectAceType
+						"Security Identifier" = $result.SecurityIdentifier
+						"Object DN" = $result.ObjectDN
+						"Active Directory Rights" = $result.ActiveDirectoryRights
+						"Object Ace Type" = $result.ObjectAceType
 					}
 				}
 			}
@@ -3218,7 +3218,7 @@ function Invoke-ADEnum
 			$UserLocations = Find-DomainUserLocation -Domain $Domain -Server $Server -Delay 1
 			$TempFindDomainUserLocation = foreach ($UserLocation in $UserLocations) {
 				[PSCustomObject]@{
-					"UserName" = $UserLocation.UserName
+					"User Name" = $UserLocation.UserName
 					"User Domain" = $UserLocation.UserDomain
 					"Computer Name" = $UserLocation.ComputerName
 					"IP Address" = $UserLocation.IPAddress
@@ -3239,7 +3239,7 @@ function Invoke-ADEnum
 				$UserLocations = Find-DomainUserLocation -Domain $AllDomain -Delay 1
 				foreach ($UserLocation in $UserLocations) {
 					[PSCustomObject]@{
-						"UserName" = $UserLocation.UserName
+						"User Name" = $UserLocation.UserName
 						"User Domain" = $UserLocation.UserDomain
 						"Computer Name" = $UserLocation.ComputerName
 						"IP Address" = $UserLocation.IPAddress
@@ -3430,9 +3430,9 @@ function Invoke-ADEnum
 
 			$TempACLScannerResults = foreach ($Result in $ACLScannerResults) {
 				[PSCustomObject]@{
-					"IdentityReferenceName" = $Result.IdentityReferenceName
-					"ObjectDN" = $Result.ObjectDN
-					"ActiveDirectoryRights" = $Result.ActiveDirectoryRights
+					"Identity Reference Name" = $Result.IdentityReferenceName
+					"Object DN" = $Result.ObjectDN
+					"Active Directory Rights" = $Result.ActiveDirectoryRights
 					"Domain" = $Domain
 				}
 			}
@@ -3448,9 +3448,9 @@ function Invoke-ADEnum
 
 				foreach ($Result in $ACLScannerResults) {
 					[PSCustomObject]@{
-						"IdentityReferenceName" = $Result.IdentityReferenceName
-						"ObjectDN" = $Result.ObjectDN
-						"ActiveDirectoryRights" = $Result.ActiveDirectoryRights
+						"Identity Reference Name" = $Result.IdentityReferenceName
+						"Object DN" = $Result.ObjectDN
+						"Active Directory Rights" = $Result.ActiveDirectoryRights
 						"Domain" = $AllDomain
 					}
 				}
@@ -3743,7 +3743,7 @@ function Invoke-ADEnum
 			'Nb Locked' = ($UserAccountAnalysis | Where-Object { $_.lockouttime -ne $null }).Name.Count
 			'Nb Pwd Never Expire' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -match "DONT_EXPIRE_PASSWORD" }).Name.Count
 			'Nb Password not Req.' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -match "PASSWD_NOTREQD" }).Name.Count
-			'Nb Reversible password' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -band 128 }).Name.count
+			'Nb Reversible Password' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -band 128 }).Name.count
 			Domain = $Domain
 		}
 		
@@ -3768,7 +3768,7 @@ function Invoke-ADEnum
 				'Nb Locked' = ($UserAccountAnalysis | Where-Object { $_.lockouttime -ne $null }).Name.Count
 				'Nb Pwd Never Expire' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -match "DONT_EXPIRE_PASSWORD" }).Name.Count
 				'Nb Password not Req.' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -match "PASSWD_NOTREQD" }).Name.Count
-				'Nb Reversible password' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -band 128 }).Name.count
+				'Nb Reversible Password' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -band 128 }).Name.count
 				Domain = $AllDomain
 			}
 			
@@ -3902,8 +3902,8 @@ function Invoke-ADEnum
 			$DomainGPOs = Get-DomainGPO -Domain $Domain -Server $Server -Properties DisplayName, gpcfilesyspath | Sort-Object -Property DisplayName
 			$TempDomainGPOs = foreach ($DomainGPO in $DomainGPOs) {
 				[PSCustomObject]@{
-					"DisplayName" = $DomainGPO.DisplayName
-					"gpcfilesyspath" = $DomainGPO.gpcfilesyspath
+					"GPO Name" = $DomainGPO.DisplayName
+					"Path" = $DomainGPO.gpcfilesyspath
 				}
 			}
 
@@ -3917,8 +3917,8 @@ function Invoke-ADEnum
 				$DomainGPOs = Get-DomainGPO -Domain $AllDomain -Properties DisplayName, gpcfilesyspath | Sort-Object -Property DisplayName
 				foreach ($DomainGPO in $DomainGPOs) {
 					[PSCustomObject]@{
-						"DisplayName" = $DomainGPO.DisplayName
-						"gpcfilesyspath" = $DomainGPO.gpcfilesyspath
+						"GPO Name" = $DomainGPO.DisplayName
+						"Path" = $DomainGPO.gpcfilesyspath
 					}
 				}
 			}
@@ -4205,11 +4205,11 @@ function Invoke-ADEnum
 			$EnabledUsers = Get-DomainUser -UACFilter NOT_ACCOUNTDISABLE -Domain $Domain -Server $Server
 			$TempEnabledUsers = foreach ($EnabledUser in $EnabledUsers) {
 				[PSCustomObject]@{
-					"samaccountname" = $EnabledUser.samaccountname
-					"objectsid" = $EnabledUser.objectsid
+					"User Name" = $EnabledUser.samaccountname
+					"Object SID" = $EnabledUser.objectsid
 					"Domain" = $Domain
 					"Groups" = (Get-DomainGroup -Domain $Domain -Server $Server -UserName $EnabledUser.samaccountname).Name -join ' - '
-					"description" = $EnabledUser.description
+					"Description" = $EnabledUser.description
 				}
 			}
 
@@ -4223,11 +4223,11 @@ function Invoke-ADEnum
 				$EnabledUsers = Get-DomainUser -UACFilter NOT_ACCOUNTDISABLE -Domain $AllDomain
 				foreach ($EnabledUser in $EnabledUsers) {
 					[PSCustomObject]@{
-						"samaccountname" = $EnabledUser.samaccountname
-						"objectsid" = $EnabledUser.objectsid
+						"User Name" = $EnabledUser.samaccountname
+						"Object SID" = $EnabledUser.objectsid
 						"Domain" = $AllDomain
 						"Groups" = (Get-DomainGroup -Domain $AllDomain -UserName $EnabledUser.samaccountname).Name -join ' - '
-						"description" = $EnabledUser.description
+						"Description" = $EnabledUser.description
 					}
 				}
 			}
@@ -4253,11 +4253,11 @@ function Invoke-ADEnum
 			$DisabledUsers = Get-DomainUser -UACFilter ACCOUNTDISABLE -Domain $Domain -Server $Server
 			$TempDisabledUsers = foreach ($DisabledUser in $DisabledUsers) {
 				[PSCustomObject]@{
-					"samaccountname" = $DisabledUser.samaccountname
-					"objectsid" = $DisabledUser.objectsid
+					"User Name" = $DisabledUser.samaccountname
+					"Object SID" = $DisabledUser.objectsid
 					"Domain" = $Domain
 					"Groups" = (Get-DomainGroup -Domain $Domain -Server $Server -UserName $DisabledUser.samaccountname).Name -join ' - '
-					"description" = $DisabledUser.description
+					"Description" = $DisabledUser.description
 				}
 			}
 
@@ -4271,11 +4271,11 @@ function Invoke-ADEnum
 				$DisabledUsers = Get-DomainUser -UACFilter ACCOUNTDISABLE -Domain $AllDomain
 				foreach ($DisabledUser in $DisabledUsers) {
 					[PSCustomObject]@{
-						"samaccountname" = $DisabledUser.samaccountname
-						"objectsid" = $DisabledUser.objectsid
+						"User Name" = $DisabledUser.samaccountname
+						"Object SID" = $DisabledUser.objectsid
 						"Domain" = $AllDomain
 						"Groups" = (Get-DomainGroup -Domain $AllDomain -UserName $DisabledUser.samaccountname).Name -join ' - '
-						"description" = $DisabledUser.description
+						"Description" = $DisabledUser.description
 					}
 				}
 			}
