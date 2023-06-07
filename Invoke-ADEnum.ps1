@@ -503,8 +503,8 @@ function Invoke-ADEnum
 		
 		if ($Domain -and $Server) {
 			
-			$xDomainUsers = Get-DomainUser -Domain $Domain -Server $Server
-			$DomainComputers = Get-DomainComputer -Domain $Domain -Server $Server
+			$xDomainUsers = Get-DomainUser -Domain $Domain -Server $Server -Properties Name,userAccountControl
+			$DomainComputers = Get-DomainComputer -Domain $Domain -Server $Server -Properties OperatingSystem,userAccountControl,samaccountname
 
 			$QuickDomainAnalysis = [PSCustomObject]@{
 				"Enabled Users" = ($xDomainUsers | Where-Object { $_.userAccountControl -notmatch 'ACCOUNTDISABLE' }).Name.count
@@ -523,8 +523,8 @@ function Invoke-ADEnum
 			
 			$QuickDomainAnalysis = foreach($AllDomain in $AllDomains){
 				
-				$xDomainUsers = Get-DomainUser -Domain $AllDomain
-				$DomainComputers = Get-DomainComputer -Domain $AllDomain
+				$xDomainUsers = Get-DomainUser -Domain $AllDomain -Properties Name,userAccountControl
+				$DomainComputers = Get-DomainComputer -Domain $AllDomain -Properties OperatingSystem,userAccountControl,samaccountname
 
 				[PSCustomObject]@{
 					"Enabled Users" = ($xDomainUsers | Where-Object { $_.userAccountControl -notmatch 'ACCOUNTDISABLE' }).Name.count
