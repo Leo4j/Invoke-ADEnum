@@ -2405,7 +2405,7 @@ function Invoke-ADEnum
 
 	if ($Domain -and $Server) {
 		
-		$RevEncUsers = Get-DomainUser -Identity * -Domain $Domain -Server $Server -LDAPFilter "(&(objectCategory=User)(userAccountControl:1.2.840.113556.1.4.803:=128))"
+		$RevEncUsers = Get-DomainUser -Domain $Domain -Server $Server -LDAPFilter "(&(objectCategory=User)(userAccountControl:1.2.840.113556.1.4.803:=128))"
 		
 		$TempRevEncUsers = foreach ($RevEncUser in $RevEncUsers) {
 			[PSCustomObject]@{
@@ -2432,7 +2432,7 @@ function Invoke-ADEnum
 	else{
 		
 		$TempRevEncUsers = foreach ($AllDomain in $AllDomains) {
-			$RevEncUsers = Get-DomainUser -Identity * -Domain $AllDomain -LDAPFilter "(&(objectCategory=User)(userAccountControl:1.2.840.113556.1.4.803:=128))"
+			$RevEncUsers = Get-DomainUser -Domain $AllDomain -LDAPFilter "(&(objectCategory=User)(userAccountControl:1.2.840.113556.1.4.803:=128))"
 			
 			foreach ($RevEncUser in $RevEncUsers) {
 				[PSCustomObject]@{
