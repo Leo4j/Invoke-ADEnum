@@ -1844,7 +1844,7 @@ function Invoke-ADEnum
 
 		$TempReplicationUsers = foreach ($replicationUser in $replicationUsers) {
 			$userSID = ConvertFrom-SID -Domain $Domain $replicationUser.SecurityIdentifier
-			$user = Get-DomainUser -Domain $Domain -Server $Server -Identity $userSID
+			$user = Get-DomainUser -Domain $Domain -Server $Server -Identity $userSID -Properties useraccountcontrol
 			$enabled = if ($user.useraccountcontrol -band 2) { "False" } elseif ($user.useraccountcontrol -eq $null) { "" } else { "True" }
 			$members = (Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity $userSID | Select-Object -ExpandProperty MemberName | Sort-Object -Unique) -Join ' - '
 
@@ -1871,7 +1871,7 @@ function Invoke-ADEnum
 
 			foreach ($replicationUser in $replicationUsers) {
 				$userSID = ConvertFrom-SID $replicationUser.SecurityIdentifier -Domain $AllDomain
-				$user = Get-DomainUser -Domain $AllDomain -Identity $userSID
+				$user = Get-DomainUser -Domain $AllDomain -Identity $userSID -Properties useraccountcontrol
 				$enabled = if ($user.useraccountcontrol -band 2) { "False" } elseif ($user.useraccountcontrol -eq $null) { "" } else { "True" }
 				$members = (Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity $userSID | Select-Object -ExpandProperty MemberName | Sort-Object -Unique) -Join ' - '
 
@@ -2444,7 +2444,7 @@ function Invoke-ADEnum
 					"EA" = if ($RevEncUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 					"Last Logon" = $RevEncUser.lastlogontimestamp
 					"Object SID" = $RevEncUser.objectsid
-					"Domain" = $Domain
+					"Domain" = $AllDomain
 					"description" = $RevEncUser.description
 				}
 			}
