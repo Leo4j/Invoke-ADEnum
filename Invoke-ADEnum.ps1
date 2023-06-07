@@ -1693,8 +1693,8 @@ function Invoke-ADEnum
 	Write-Host "Machine Account Quota:" -ForegroundColor Cyan
 
 	if ($Domain -and $Server) {
-		$dcName = "dc=" + $Domain.Split(".")
-		$dcName = $dcName -replace " ", ",dc="
+		$dcName = "DC=" + $Domain.Split(".")
+		$dcName = $dcName -replace " ", ",DC="
 		$Quota = (Get-DomainObject -Domain $Domain -Server $Server -Identity "$dcName" -Properties ms-DS-MachineAccountQuota) | Select-Object -ExpandProperty ms-DS-MachineAccountQuota
 		
 		$TempMachineQuota = [PSCustomObject]@{
@@ -1709,8 +1709,8 @@ function Invoke-ADEnum
 	}
 	else {
 		$TempMachineQuota = foreach ($AllDomain in $AllDomains) {
-			$dcName = "dc=" + $AllDomain.Split(".")
-			$dcName = $dcName -replace " ", ",dc="
+			$dcName = "DC=" + $AllDomain.Split(".")
+			$dcName = $dcName -replace " ", ",DC="
 			$Quota = (Get-DomainObject -Domain $AllDomain -Identity "$dcName" -Properties ms-DS-MachineAccountQuota) | Select-Object -ExpandProperty ms-DS-MachineAccountQuota
 			
 			[PSCustomObject]@{
@@ -1816,8 +1816,8 @@ function Invoke-ADEnum
     Write-Host ""
 	Write-Host "Retrieve *most* users who can perform DCSync:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$dcName = "dc=" + $Domain.Split(".")
-		$dcName = $dcName -replace " ", ",dc="
+		$dcName = "DC=" + $Domain.Split(".")
+		$dcName = $dcName -replace " ", ",DC="
 		$replicationUsers = Get-ObjectAcl "$dcName" -Domain $Domain -Server $Server -ResolveGUIDs |
 			Where-Object { ($_.ObjectAceType -match 'replication-get') -or ($_.ActiveDirectoryRights -match 'GenericAll') -or ($_.ActiveDirectoryRights -match 'WriteDacl')} |
 			Select-Object -Unique SecurityIdentifier
@@ -1843,8 +1843,8 @@ function Invoke-ADEnum
 	}
 	else {
 		$TempReplicationUsers = foreach ($AllDomain in $AllDomains) {
-			$dcName = "dc=" + $AllDomain.Split(".")
-			$dcName = $dcName -replace " ", ",dc="
+			$dcName = "DC=" + $AllDomain.Split(".")
+			$dcName = $dcName -replace " ", ",DC="
 			$replicationUsers = Get-ObjectAcl "$dcName" -Domain $AllDomain -ResolveGUIDs |
 				Where-Object { ($_.ObjectAceType -match 'replication-get') -or ($_.ActiveDirectoryRights -match 'GenericAll') -or ($_.ActiveDirectoryRights -match 'WriteDacl')} |
 				Select-Object -Unique SecurityIdentifier
@@ -2441,8 +2441,8 @@ function Invoke-ADEnum
         Write-Host ""
 		Write-Host "Who can create GPOs:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$dcName = "dc=" + $Domain.Split(".")
-			$dcName = $dcName -replace " ", ",dc="
+			$dcName = "DC=" + $Domain.Split(".")
+			$dcName = $dcName -replace " ", ",DC="
 			$GPOCreators = Get-DomainObjectAcl -Domain $Domain -Server $Server -Identity "CN=Policies,CN=System,$dcName" -ResolveGUIDs | Where-Object { $_.ObjectAceType -eq "Group-Policy-Container" -and $_.ActiveDirectoryRights -contains "CreateChild" } | ForEach-Object { ConvertFrom-SID $_.SecurityIdentifier -Domain $Domain -Server $Server }
 			$TempGPOCreators = foreach ($GPOCreator in $GPOCreators) {
 				[PSCustomObject]@{
@@ -2453,8 +2453,8 @@ function Invoke-ADEnum
 		}
 		else {
 			$TempGPOCreators = foreach ($AllDomain in $AllDomains) {
-				$dcName = "dc=" + $AllDomain.Split(".")
-				$dcName = $dcName -replace " ", ",dc="
+				$dcName = "DC=" + $AllDomain.Split(".")
+				$dcName = $dcName -replace " ", ",DC="
 				$GPOCreators = Get-DomainObjectAcl -Domain $AllDomain -Identity "CN=Policies,CN=System,$dcName" -ResolveGUIDs | Where-Object { $_.ObjectAceType -eq "Group-Policy-Container" -and $_.ActiveDirectoryRights -contains "CreateChild" } | ForEach-Object { ConvertFrom-SID $_.SecurityIdentifier -Domain $AllDomain }
 				foreach ($GPOCreator in $GPOCreators) {
 					[PSCustomObject]@{
