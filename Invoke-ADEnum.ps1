@@ -1084,16 +1084,19 @@ function Invoke-ADEnum
 		if ($Domain -and $Server) {
 			$CertDomainName = "DC=" + $Domain.Split(".")
 			$CertDomainName = $CertDomainName -replace " ", ",DC="
-			$VulnCertUsers = Get-DomainObjectACL -Domain $Domain -Server $Server -SearchBase "CN=Configuration,$CertDomainName" -LDAPFilter "(objectclass=pkicertificatetemplate)" -ResolveGUIDs | %{ $_ | Add-Member -NotePropertyName Identity -NotePropertyValue (ConvertFrom-SID -Domain $Domain -Server $Server $_.SecurityIdentifier.value) -Force; $_ } |  ?{ $_.Identity -match "Domain Users" } 
-			$vulnCertComputers = Get-DomainObjectACL -Domain $Domain -Server $Server -SearchBase "CN=Configuration,$CertDomainName" -LDAPFilter "(objectclass=pkicertificatetemplate)" -ResolveGUIDs | %{ $_ | Add-Member -NotePropertyName Identity -NotePropertyValue (ConvertFrom-SID -Domain $Domain -Server $Server $_.SecurityIdentifier.value) -Force; $_ } |  ?{ $_.Identity -match "Domain Computers" }
-			$VulnCertFlags = Get-DomainObject -Domain $Domain -Server $Server -SearchBase "CN=Configuration,$CertDomainName" -LDAPFilter "(objectclass=pkicertificatetemplate)" | Where-Object {($_. "mspki-certificate-name-flag" -eq "1" -and $_.pkiextendedkeyusage -like "1.3.6.1.5.5.7.3.2") -and (($vulncertusers.ObjectDN -contains $_.distinguishedname) -or ($vulncertcomputers.ObjectDN -contains $_.distinguishedname))}
+			
+			$acl = Get-DomainObjectACL -Domain $Domain -Server $Server -SearchBase "CN=Configuration,$CertDomainName" -LDAPFilter "(objectclass=pkicertificatetemplate)" -ResolveGUIDs | %{ $_ | Add-Member -NotePropertyName Identity -NotePropertyValue (ConvertFrom-SID -Domain $Domain -Server $Server $_.SecurityIdentifier.value) -Force; $_ }
+			
+			$VulnCertUsers = $acl | ?{ $_.Identity -match "Domain Users" } 
+			$vulnCertComputers = $acl | ?{ $_.Identity -match "Domain Computers" }
+			
+			$VulnCertFlags = Get-DomainObject -Domain $Domain -Server $Server -SearchBase "CN=Configuration,$CertDomainName" -LDAPFilter "(objectclass=pkicertificatetemplate)" | Where-Object {($_. "mspki-certificate-name-flag" -eq "1" -and $_.pkiextendedkeyusage -like "1.3.6.1.5.5.7.3.2") -and (($vulnCertUsers.ObjectDN -contains $_.distinguishedname) -or ($vulnCertComputers.ObjectDN -contains $_.distinguishedname))}
 			$VulnCertUsersX = $VulnCertUsers | Where-Object {($_.ActiveDirectoryRights -match "WriteDacl") -or ($_.ActiveDirectoryRights -match "WriteOwner")}
 			$vulnCertComputersX = $vulnCertComputers | Where-Object {($_.ActiveDirectoryRights -match "WriteDacl") -or ($_.ActiveDirectoryRights -match "WriteOwner")}
-			
-			
-			$VulnCertTemplatesFlags = foreach ($vulncertflag in $VulnCertFlags) {
+
+			$VulnCertTemplatesFlags = foreach ($vulnCertFlag in $VulnCertFlags) {
 				[PSCustomObject]@{
-					"Cert Template" = $vulncertflag.cn
+					"Cert Template" = $vulnCertFlag.cn
 					"Extended Key Usage" = "Client Authentication"
 					"Flag" = "ENROLLEE_SUPPLIES_SUBJECT"
 					"Enrollment Rights" = "Domain Users"
@@ -1110,9 +1113,9 @@ function Invoke-ADEnum
 				}
 			}
 			
-			$TempVulnCertUsers = foreach ($vulncertuser in $VulnCertUsersX) {
+			$TempVulnCertUsers = foreach ($vulnCertUser in $VulnCertUsersX) {
 				[PSCustomObject]@{
-					"Cert Template" = $vulncertuser.ObjectDN.Split(',')[0] -replace 'CN='
+					"Cert Template" = $vulnCertUser.ObjectDN.Split(',')[0] -replace 'CN='
 					"Identity" = "Domain Users"
 					"Active Directory Rights" = "WriteDacl or WriteOwner"
 					"Domain" = $Domain
@@ -1140,14 +1143,20 @@ function Invoke-ADEnum
 		}
 		
 		else {
-			$VulnCertTemplatesFlags = foreach ($AllDomain in $AllDomains) {
-				$CertDomainName = "DC=" + $AllDomain.Split(".")
-				$CertDomainName = $CertDomainName -replace " ", ",DC="
-				$VulnCertUsers = Get-DomainObjectACL -Domain $AllDomain -SearchBase "CN=Configuration,$CertDomainName" -LDAPFilter "(objectclass=pkicertificatetemplate)" -ResolveGUIDs | %{$_ | Add-Member -NotePropertyName Identity -NotePropertyValue (ConvertFrom-SID -Domain $AllDomain $_.SecurityIdentifier.value) -Force; $_} | ?{ $_.Identity -match "Domain Users" }
-				$vulnCertComputers = Get-DomainObjectACL -Domain $AllDomain -SearchBase "CN=Configuration,$CertDomainName" -LDAPFilter "(objectclass=pkicertificatetemplate)" -ResolveGUIDs | ForEach-Object {$_ | Add-Member -NotePropertyName Identity -NotePropertyValue (ConvertFrom-SID -Domain $AllDomain $_.SecurityIdentifier.value) -Force; $_ } | Where-Object { $_.Identity -match "Domain Computers" }
+			$VulnCertTemplatesFlags = @()
+			$TempVulnCertComputers = @()
+			$TempVulnCertUsers = @()
+
+			foreach ($AllDomain in $AllDomains) {
+				$CertDomainName = "DC=" + $AllDomain.Split(".") -replace " ", ",DC="
+				$DomainObjectACLs = Get-DomainObjectACL -Domain $AllDomain -SearchBase "CN=Configuration,$CertDomainName" -LDAPFilter "(objectclass=pkicertificatetemplate)" -ResolveGUIDs
+				
+				$VulnCertUsers = $DomainObjectACLs | %{$_ | Add-Member -NotePropertyName Identity -NotePropertyValue (ConvertFrom-SID -Domain $AllDomain $_.SecurityIdentifier.value) -Force; $_} | ?{ $_.Identity -match "Domain Users" }
+				$vulnCertComputers = $DomainObjectACLs | ForEach-Object {$_ | Add-Member -NotePropertyName Identity -NotePropertyValue (ConvertFrom-SID -Domain $AllDomain $_.SecurityIdentifier.value) -Force; $_ } | Where-Object { $_.Identity -match "Domain Computers" }
 				$VulnCertFlags = Get-DomainObject -Domain $AllDomain -SearchBase "CN=Configuration,$CertDomainName" -LDAPFilter "(objectclass=pkicertificatetemplate)" | Where-Object {($_. "mspki-certificate-name-flag" -eq "1" -and $_.pkiextendedkeyusage -like "1.3.6.1.5.5.7.3.2") -and (($vulncertusers.ObjectDN -contains $_.distinguishedname) -or ($vulncertcomputers.ObjectDN -contains $_.distinguishedname))}
+				
 				foreach ($vulncertflag in $VulnCertFlags) {
-					[PSCustomObject]@{
+					$VulnCertTemplatesFlags += [PSCustomObject]@{
 						"Cert Template" = $vulncertflag.cn
 						"Extended Key Usage" = "Client Authentication"
 						"Flag" = "ENROLLEE_SUPPLIES_SUBJECT"
@@ -1155,30 +1164,20 @@ function Invoke-ADEnum
 						"Domain" = $AllDomain
 					}
 				}
-			}
-			
-			$TempVulnCertComputers = foreach ($AllDomain in $AllDomains) {
-				$CertDomainName = "DC=" + $AllDomain.Split(".")
-				$CertDomainName = $CertDomainName -replace " ", ",DC="
-				$vulnCertComputers = Get-DomainObjectACL -Domain $AllDomain -SearchBase "CN=Configuration,$CertDomainName" -LDAPFilter "(objectclass=pkicertificatetemplate)" -ResolveGUIDs | ForEach-Object {$_ | Add-Member -NotePropertyName Identity -NotePropertyValue (ConvertFrom-SID -Domain $AllDomain $_.SecurityIdentifier.value) -Force; $_ } | Where-Object { $_.Identity -match "Domain Computers" } | Where-Object {($_.ActiveDirectoryRights -match "WriteDacl") -or ($_.ActiveDirectoryRights -match "WriteOwner")}
-				
-				foreach ($vulnCertComputer in $vulnCertComputers) {
-					[PSCustomObject]@{
+
+				$vulnCertComputersRights = $vulnCertComputers | Where-Object {($_.ActiveDirectoryRights -match "WriteDacl") -or ($_.ActiveDirectoryRights -match "WriteOwner")}
+				foreach ($vulnCertComputer in $vulnCertComputersRights) {
+					$TempVulnCertComputers += [PSCustomObject]@{
 						"Cert Template" = $vulnCertComputer.ObjectDN.Split(',')[0] -replace 'CN='
 						"Identity" = "Domain Computers"
 						"Active Directory Rights" = "WriteDacl or WriteOwner"
 						"Domain" = $AllDomain
 					}
 				}
-			}
-			
-			$TempVulnCertUsers = foreach ($AllDomain in $AllDomains) {
-				$CertDomainName = "DC=" + $AllDomain.Split(".")
-				$CertDomainName = $CertDomainName -replace " ", ",DC="
-				$VulnCertUsers = Get-DomainObjectACL -Domain $AllDomain -SearchBase "CN=Configuration,$CertDomainName" -LDAPFilter "(objectclass=pkicertificatetemplate)" -ResolveGUIDs | %{$_ | Add-Member -NotePropertyName Identity -NotePropertyValue (ConvertFrom-SID -Domain $AllDomain $_.SecurityIdentifier.value) -Force; $_} | ?{ $_.Identity -match "Domain Users" } | Where-Object {($_.ActiveDirectoryRights -match "WriteDacl") -or ($_.ActiveDirectoryRights -match "WriteOwner")}
-
-				foreach ($vulncertuser in $VulnCertUsers) {
-					[PSCustomObject]@{
+				
+				$VulnCertUsersRights = $VulnCertUsers | Where-Object {($_.ActiveDirectoryRights -match "WriteDacl") -or ($_.ActiveDirectoryRights -match "WriteOwner")}
+				foreach ($vulncertuser in $VulnCertUsersRights) {
+					$TempVulnCertUsers += [PSCustomObject]@{
 						"Cert Template" = $vulncertuser.ObjectDN.Split(',')[0] -replace 'CN='
 						"Identity" = "Domain Users"
 						"Active Directory Rights" = "WriteDacl or WriteOwner"
@@ -1190,6 +1189,7 @@ function Invoke-ADEnum
 			$VulnCertTemplatesFlags | Format-Table -AutoSize -Wrap
 			$TempVulnCertComputers | Format-Table -AutoSize -Wrap
 			$TempVulnCertUsers | Format-Table -AutoSize -Wrap
+
 			
 			if ($VulnCertTemplatesFlags) {
 				$HTMLVulnCertTemplates = $VulnCertTemplatesFlags | ConvertTo-Html -Fragment -PreContent "<h2>Vulnerable Certificate Templates</h2>"
