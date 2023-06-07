@@ -1373,8 +1373,20 @@ function Invoke-ADEnum
 	Write-Host "Resource Based Constrained Delegation:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
 		$domainSID = Get-DomainSID $Domain -Server $Server
-		$RBACDObjects = Get-DomainComputer -Domain $Domain -Server $Server -Properties distinguishedname | Get-DomainObjectAcl -Domain $Domain -Server $Server -ResolveGUIDs |
-			Where-Object { $_.ActiveDirectoryRights -match "WriteProperty|GenericWrite|GenericAll|WriteDacl" -and $_.SecurityIdentifier -match "$domainSID-[\d]{4,10}" -and $_.SecurityIdentifier.Translate([System.Security.Principal.NTAccount]) -notmatch "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions" } |
+
+		$sidPattern = "$domainSID-[\d]{4,10}"
+
+		$exclusionList = "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions"
+
+		$DomainComputers = Get-DomainComputer -Domain $Domain -Server $Server -Properties distinguishedname
+
+		$RBACDObjects = $DomainComputers | 
+			Get-DomainObjectAcl -Domain $Domain -Server $Server -ResolveGUIDs | 
+			Where-Object { 
+				$_.ActiveDirectoryRights -match "WriteProperty|GenericWrite|GenericAll|WriteDacl" -and 
+				$_.SecurityIdentifier -match $sidPattern -and 
+				$_.SecurityIdentifier.Translate([System.Security.Principal.NTAccount]) -notmatch $exclusionList 
+			} | 
 			ForEach-Object {
 				[PSCustomObject]@{
 					"Computer Object" = ([System.Security.Principal.SecurityIdentifier]$_.ObjectSID).Translate([System.Security.Principal.NTAccount])
@@ -1390,10 +1402,18 @@ function Invoke-ADEnum
 		}
 	}
 	else {
+		$ExcludedAccounts = "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions"
+
 		$RBACDObjects = foreach ($AllDomain in $AllDomains) {
 			$domainSID = Get-DomainSID $AllDomain
-			Get-DomainComputer -Domain $AllDomain -Properties distinguishedname | Get-DomainObjectAcl -ResolveGUIDs |
-				Where-Object { $_.ActiveDirectoryRights -match "WriteProperty|GenericWrite|GenericAll|WriteDacl" -and $_.SecurityIdentifier -match "$domainSID-[\d]{4,10}" -and $_.SecurityIdentifier.Translate([System.Security.Principal.NTAccount]) -notmatch "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions" } |
+			$DomainComputers = Get-DomainComputer -Domain $AllDomain -Properties distinguishedname
+			
+			$DomainComputers | Get-DomainObjectAcl -ResolveGUIDs |
+				Where-Object { 
+					$_.ActiveDirectoryRights -match "WriteProperty|GenericWrite|GenericAll|WriteDacl" -and 
+					$_.SecurityIdentifier -match "$domainSID-[\d]{4,10}" -and 
+					$_.SecurityIdentifier.Translate([System.Security.Principal.NTAccount]) -notmatch $ExcludedAccounts
+				} |
 				ForEach-Object {
 					[PSCustomObject]@{
 						"Computer Object" = ([System.Security.Principal.SecurityIdentifier]$_.ObjectSID).Translate([System.Security.Principal.NTAccount])
