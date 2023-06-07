@@ -2235,7 +2235,7 @@ function Invoke-ADEnum
 				"Active" = if ((Get-DomainComputer -Identity $GroupMember.MemberName.TrimEnd('$') -Domain $Domain -Server $Server).lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
 				"IP Address" = Resolve-DnsName -Name ($GroupMember.MemberName.TrimEnd('$')) -Type A -Server $Server | Select-Object -ExpandProperty IPAddress
 				"Member SID" = $GroupMember.MemberSID
-				"Operating System" = Get-DomainComputer $GroupMember.MemberName.TrimEnd('$') | Select-Object -ExpandProperty operatingsystem
+				"Operating System" = Get-DomainComputer $GroupMember.MemberName.TrimEnd('$') -Domain $Domain -Server $Server | Select-Object -ExpandProperty operatingsystem
 				"Member Domain" = $GroupMember.MemberDomain
 				"Privileged Group" = $GroupMember.GroupName
 				"Group Domain" = $GroupMember.GroupDomain
@@ -2258,7 +2258,7 @@ function Invoke-ADEnum
 					"Active" = if ((Get-DomainComputer -Identity $GroupMember.MemberName.TrimEnd('$') -Domain $AllDomain).lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
 					"IP Address" = Resolve-DnsName -Name ($GroupMember.MemberName.TrimEnd('$')) -Type A -Server $Server | Select-Object -ExpandProperty IPAddress
 					"Member SID" = $GroupMember.MemberSID
-					"Operating System" = Get-DomainComputer $GroupMember.MemberName.TrimEnd('$') | Select-Object -ExpandProperty operatingsystem
+					"Operating System" = Get-DomainComputer $GroupMember.MemberName.TrimEnd('$') -Domain $AllDomain | Select-Object -ExpandProperty operatingsystem
 					"Member Domain" = $GroupMember.MemberDomain
 					"Privileged Group" = $GroupMember.GroupName
 					"Group Domain" = $GroupMember.GroupDomain
