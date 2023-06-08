@@ -1307,7 +1307,7 @@ function Invoke-ADEnum
 	Write-Host "Unconstrained Delegation:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
 		$DCs = Get-DomainController -Domain $Domain -Server $Server
-		$Unconstrained = Get-NetComputer -Domain $Domain -Server $Server -Unconstrained | Where-Object { $_.dnshostname -notmatch "($($DCs.Name -join ' - '))" }
+		$Unconstrained = Get-NetComputer -Domain $Domain -Server $Server -Unconstrained | Where-Object { $DCs.Name -notcontains $_.dnshostname }
 		$TempUnconstrained = foreach ($Computer in $Unconstrained) {
 			[PSCustomObject]@{
 				"Name" = $Computer.samaccountname
@@ -1330,7 +1330,7 @@ function Invoke-ADEnum
 		$TempUnconstrained = foreach ($AllDomain in $AllDomains) {
 			$Server = Get-DomainController -Domain $AllDomain | Where-Object {$_.Roles -like "RidRole"} | Select-Object -ExpandProperty Name
 			$DCs = Get-DomainController -Domain $AllDomain
-			$Unconstrained = Get-NetComputer -Domain $AllDomain -Unconstrained | Where-Object { $_.dnshostname -notmatch "($($DCs.Name -join ' - '))" }
+			$Unconstrained = Get-NetComputer -Domain $AllDomain -Unconstrained | Where-Object { $DCs.Name -notcontains $_.dnshostname }
 			foreach ($Computer in $Unconstrained) {
 				[PSCustomObject]@{
 					"Name" = $Computer.samaccountname
