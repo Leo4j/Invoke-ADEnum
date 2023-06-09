@@ -126,6 +126,10 @@ function Invoke-ADEnum
 		
 	[Parameter (Mandatory=$False, Position = 27, ValueFromPipeline=$true)]
         [Switch]
+        $AllEnum,
+		
+	[Parameter (Mandatory=$False, Position = 28, ValueFromPipeline=$true)]
+        [Switch]
         $Help
 
     )
@@ -218,60 +222,62 @@ function Invoke-ADEnum
 
  [PARAMETERS]" -ForegroundColor Yellow
 		Write-Host "
+ -CustomURL <URL>		Specify the Server URL where you're hosting PowerView.ps1		-CustomURL http://yourserver.com/Tools/PowerView.ps1
+ 
  -Domain <domain FQDN>		The Domain to enumerate for. If not specified, the tool will enumerate for all the domains it can find
-
- -Server <DC FQDN or IP>	The DC to bind to (requires you specify a Domain)
-
+ 
+ -Exclude <domain FQDN>		Exclude one or more domains from enumeration				-Exclude contoso.local,ad.example.org
+ 
+ -Local <path-on-disk>		Specify the local path to PowerView.ps1					-Local c:\Windows\Temp\PowerView.ps1
+ 
  -Output <path-on-disk>		Specify where to save the output from the tool (default is pwd)		-Output C:\Windows\Temp\Invoke-ADEnum.txt
 
- -Exclude <domain FQDN>		Exclude one or more domains from enumeration				-Exclude contoso.local,ad.example.org
-
- -CustomURL <URL>		Specify the Server URL where you're hosting PowerView.ps1		-CustomURL http://yourserver.com/Tools/PowerView.ps1
-
- -Local <path-on-disk>		Specify the local path to PowerView.ps1					-Local c:\Windows\Temp\PowerView.ps1
+ -Server <DC FQDN or IP>	The DC to bind to (requires you specify a Domain)
 
 "
 		Write-Host " [SWITCHES]" -ForegroundColor Yellow
 		Write-Host "
- -TargetsOnly			Show Target Domains only (Stay in scope) - Will not create a Report
-
- -NoServers			Do not enumerate for Servers
-
- -Workstations			Enumerate for Workstations
-
- -NoUnsupportedOS		Do not enumerate for machines running unsupported OS
-
- -DomainUsers			Enumerate for Users
-
- -Shares			Enumerate for Shares
-
- -FindLocalAdminAccess		Enumerate for Machines where the Current User is Local Admin
-
- -DomainACLs			Enumerate for Domain ACLs
-
- -NoGPOs			Do not enumerate for GPOs and Who can Modify/Link them
-
- -MoreGPOs			More enumeration leveraging GPOs
+ -AllEnum			Enumerate for Everything (may take a long time)
+ 
+ -AllGroups			Enumerate for All Domain Groups
  
  -AllGPOs			List all domain GPOs
-
- -NoLAPS			Do not enumerate for LAPS GPO
+ 
+ -DomainACLs			Enumerate for Domain ACLs
+ 
+ -DomainOUs			Enumerate for Organizational Units
+ 
+ -DomainUsers			Enumerate for Users
+ 
+ -FindDomainUserLocation	Enumerate for Machines where Domain Admins are Logged into
+ 
+ -FindLocalAdminAccess		Enumerate for Machines where the Current User is Local Admin
+ 
+ -Help				Show this Help page
  
  -LAPSComputers			Enumerate Computer objects where LAPS is enabled
-
- -NoAppLocker			Do not enumerate for AppLocker GPO
-
- -NoVulnCertTemplates		Do not enumerate for Misconfigured Certificate Templates
-
- -DomainOUs			Enumerate for Organizational Units
-
+ 
+ -MoreGPOs			More enumeration leveraging GPOs
+ 
  -MoreOUs			More enumeration leveraging Organizational Units
+ 
+ -NoAppLocker			Do not enumerate for AppLocker GPO
+ 
+ -NoGPOs			Do not enumerate for GPOs and Who can Modify/Link them
+ 
+ -NoLAPS			Do not enumerate for LAPS GPO
+ 
+ -NoServers			Do not enumerate for Servers
+ 
+ -NoUnsupportedOS		Do not enumerate for machines running unsupported OS
+ 
+ -NoVulnCertTemplates		Do not enumerate for Misconfigured Certificate Templates
+ 
+ -Shares			Enumerate for Shares
+ 
+ -TargetsOnly			Show Target Domains only (Stay in scope) - Will not create a Report
 
- -FindDomainUserLocation	Enumerate for Machines where Domain Admins are Logged into
-
- -AllGroups			Enumerate for All Domain Groups
-
- -Help				Show this Help page
+ -Workstations			Enumerate for Workstations
 
 "
 		Write-Host " [EXAMPLES]" -ForegroundColor Yellow
@@ -289,12 +295,6 @@ function Invoke-ADEnum
  Invoke-ADEnum -CustomURL http://yourserver.com/Tools/PowerView.ps1
 
 "
-		Write-Host " [FULL ENUMERATION]" -ForegroundColor Yellow -NoNewLine
-		Write-Host " (may take a long time)"
-		Write-Host "
- Invoke-ADEnum -Workstations -DomainUsers -Shares -AllGroups -DomainACLs -MoreGPOs -AllGPOs -LAPSComputers -DomainOUs -MoreOUs -FindLocalAdminAccess -FindDomainUserLocation
-
-		"
 		
 		break
 		
@@ -582,7 +582,7 @@ function Invoke-ADEnum
 	Write-Host ""
     Write-Host "Domain Controllers:" -ForegroundColor Cyan
     if($Domain -AND $Server) {
-        $domainControllers = Get-DomainController -Domain $Domain
+        $domainControllers = Get-DomainController -Domain $Domain | Sort-Object -Property Name
     	$TempHTMLdc = foreach ($dc in $domainControllers) {
         	$isPrimaryDC = $dc.Roles -like "RidRole"
         	$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
@@ -602,7 +602,7 @@ function Invoke-ADEnum
     }
     else{
         $TempHTMLdc = foreach($AllDomain in $AllDomains){
-			$domainControllers = Get-DomainController -Domain $AllDomain
+			$domainControllers = Get-DomainController -Domain $AllDomain | Sort-Object -Property Name
         	foreach ($dc in $domainControllers) {
 				$isPrimaryDC = $dc.Roles -like "RidRole"
 				$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
@@ -855,7 +855,7 @@ function Invoke-ADEnum
 		}
 
 		if ($TempForeignGroupMembers) {
-			$TempForeignGroupMembers | Where {$_."Member|GroupName"} | Format-Table -AutoSize -Wrap
+			$TempForeignGroupMembers | Format-Table -AutoSize -Wrap
 			$HTMLGetDomainForeignGroupMember = $TempForeignGroupMembers | ConvertTo-Html -Fragment -PreContent "<h2>Groups that contain users outside of its domain and return its members</h2>"
 		}
 	}
@@ -878,7 +878,7 @@ function Invoke-ADEnum
 		}
 
 		if ($TempForeignGroupMembers) {
-			$TempForeignGroupMembers | Where {$_."Member|GroupName"} | Format-Table -AutoSize -Wrap
+			$TempForeignGroupMembers | Format-Table -AutoSize -Wrap
 			$HTMLGetDomainForeignGroupMember = $TempForeignGroupMembers | ConvertTo-Html -Fragment -PreContent "<h2>Groups that contain users outside of its domain and return its members</h2>"
 		}
 	}
@@ -891,17 +891,24 @@ function Invoke-ADEnum
 	Write-Host ""
     Write-Host "Built-In Administrators:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$BuiltInAdministrators = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Administrators"
+		$BuiltInAdministrators = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Administrators" | Sort-Object -Property MemberName
 		$TempBuiltInAdministrators = foreach($BuiltInAdministrator in $BuiltInAdministrators){
+			
+			$domainObject = if ($BuiltInAdministrator.MemberName) { Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $Domain -Server $Server } else { $null }
+
+			$lastLogonTimestamp = $domainObject.lastlogontimestamp
+			$isActive = if ($lastLogonTimestamp -ge $inactiveThreshold) { "Yes" } elseif ($lastLogonTimestamp -eq $null) { "" } else { "No" }
+
 			[PSCustomObject]@{
 				"Member Name" = if ($BuiltInAdministrator.MemberName) { $BuiltInAdministrator.MemberName } else { ConvertFrom-SID $BuiltInAdministrator.MemberSID }
 				"Enabled" = if ($BuiltInAdministrator.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ((Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $Domain -Server $Server).lastlogontimestamp -ge $inactiveThreshold) { "Yes" } elseif ((Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $Domain -Server $Server).lastlogontimestamp -eq $null) { "" } else { "No" }
-				"Last Logon" = (Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $Domain -Server $Server).lastlogontimestamp
+				"Active" = $isActive
+				"Last Logon" = $lastLogonTimestamp
 				"Member SID" = $BuiltInAdministrator.MemberSID
 				"Group Domain" = $BuiltInAdministrator.GroupDomain
-				"Description" = (Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $Domain -Server $Server).description
+				"Description" = $domainObject.description
 			}
+
 		}
 
 		if ($TempBuiltInAdministrators) {
@@ -911,17 +918,26 @@ function Invoke-ADEnum
 	}
 	else {
 		$TempBuiltInAdministrators = foreach ($AllDomain in $AllDomains) {
-			$BuiltInAdministrators = Get-DomainGroupMember -Domain $AllDomain -Identity "Administrators"
+			$BuiltInAdministrators = Get-DomainGroupMember -Domain $AllDomain -Identity "Administrators" | Sort-Object -Property MemberName
 			foreach($BuiltInAdministrator in $BuiltInAdministrators){
+				
+				$domainObject = Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $AllDomain
+				$memberName = if ($BuiltInAdministrator.MemberName) { $BuiltInAdministrator.MemberName } else { ConvertFrom-SID $BuiltInAdministrator.MemberSID }
+				$isEnabled = if ($BuiltInAdministrator.useraccountcontrol -band 2) { "False" } else { "True" }
+				$lastLogon = $domainObject.lastlogontimestamp
+
+				$isActive = if ($lastLogon -ge $inactiveThreshold) { "Yes" } elseif ($lastLogon -eq $null) { "" } else { "No" }
+
 				[PSCustomObject]@{
-					"Member Name" = if ($BuiltInAdministrator.MemberName) { $BuiltInAdministrator.MemberName } else { ConvertFrom-SID $BuiltInAdministrator.MemberSID }
-					"Enabled" = if ($BuiltInAdministrator.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ((Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $AllDomain).lastlogontimestamp -ge $inactiveThreshold) { "Yes" } elseif ((Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $AllDomain).lastlogontimestamp -eq $null) { "" } else { "No" }
-					"Last Logon" = (Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $AllDomain).lastlogontimestamp
+					"Member Name" = $memberName
+					"Enabled" = $isEnabled
+					"Active" = $isActive
+					"Last Logon" = $lastLogon
 					"Member SID" = $BuiltInAdministrator.MemberSID
 					"Group Domain" = $BuiltInAdministrator.GroupDomain
-					"Description" = (Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $AllDomain).description
+					"Description" = $domainObject.description
 				}
+
 			}
 		}
 		
@@ -938,17 +954,24 @@ function Invoke-ADEnum
 	Write-Host ""
     Write-Host "Enterprise Administrators:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$EnterpriseAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Enterprise Admins" -Recurse
+		$EnterpriseAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Enterprise Admins" -Recurse | Sort-Object -Property MemberName
 		$TempEnterpriseAdmins = foreach($EnterpriseAdmin in $EnterpriseAdmins){
+			
+			$domainObject = Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $Domain -Server $Server
+			$memberName = if ($EnterpriseAdmin.MemberName) { $EnterpriseAdmin.MemberName } else { ConvertFrom-SID $EnterpriseAdmin.MemberSID }
+			$isEnabled = if ($EnterpriseAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
+			$isActive = if ($domainObject.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } elseif ($domainObject.lastlogontimestamp -eq $null) { "" } else { "No" }
+
 			[PSCustomObject]@{
-				"Member Name" = if ($EnterpriseAdmin.MemberName) { $EnterpriseAdmin.MemberName } else { ConvertFrom-SID $EnterpriseAdmin.MemberSID }
-				"Enabled" = if ($EnterpriseAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ((Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $Domain -Server $Server).lastlogontimestamp -ge $inactiveThreshold) { "Yes" } elseif ((Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $Domain -Server $Server).lastlogontimestamp -eq $null) { "" } else { "No" }
-				"Last Logon" = (Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $Domain -Server $Server).lastlogontimestamp
+				"Member Name" = $memberName
+				"Enabled" = $isEnabled
+				"Active" = $isActive
+				"Last Logon" = $domainObject.lastlogontimestamp
 				"Member SID" = $EnterpriseAdmin.MemberSID
 				"Group Domain" = $EnterpriseAdmin.GroupDomain
-				"Description" = (Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $Domain -Server $Server).description
+				"Description" = $domainObject.description
 			}
+
 		}
 
 		if ($TempEnterpriseAdmins) {
@@ -958,16 +981,22 @@ function Invoke-ADEnum
 	}
 	else {
 		$TempEnterpriseAdmins = foreach ($AllDomain in $AllDomains) {
-			$EnterpriseAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Enterprise Admins" -Recurse
+			$EnterpriseAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Enterprise Admins" -Recurse | Sort-Object -Property MemberName
 			foreach($EnterpriseAdmin in $EnterpriseAdmins){
+				
+				$domainObject = Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $AllDomain
+				$memberName = if ($EnterpriseAdmin.MemberName) { $EnterpriseAdmin.MemberName } else { ConvertFrom-SID $EnterpriseAdmin.MemberSID }
+				$isEnabled = if ($EnterpriseAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
+				$isActive = if ($domainObject.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } elseif ($domainObject.lastlogontimestamp -eq $null) { "" } else { "No" }
+
 				[PSCustomObject]@{
-					"Member Name" = if ($EnterpriseAdmin.MemberName) { $EnterpriseAdmin.MemberName } else { ConvertFrom-SID $EnterpriseAdmin.MemberSID }
-					"Enabled" = if ($EnterpriseAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ((Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $AllDomain).lastlogontimestamp -ge $inactiveThreshold) { "Yes" } elseif ((Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $AllDomain).lastlogontimestamp -eq $null) { "" } else { "No" }
-					"Last Logon" = (Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $AllDomain).lastlogontimestamp
+					"Member Name" = $memberName
+					"Enabled" = $isEnabled
+					"Active" = $isActive
+					"Last Logon" = $domainObject.lastlogontimestamp
 					"Member SID" = $EnterpriseAdmin.MemberSID
 					"Group Domain" = $EnterpriseAdmin.GroupDomain
-					"Description" = (Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $AllDomain).description
+					"Description" = $domainObject.description
 				}
 			}
 		}
@@ -985,17 +1014,23 @@ function Invoke-ADEnum
 	Write-Host ""
     Write-Host "Domain Administrators:" -ForegroundColor Cyan
     if ($Domain -and $Server) {
-		$DomainAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Domain Admins" -Recurse
+		$DomainAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Domain Admins" -Recurse | Sort-Object -Property MemberName
 		$TempDomainAdmins = foreach ($DomainAdmin in $DomainAdmins) {
+			
+			$domainObject = Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $Domain -Server $Server
+			$lastLogonTimestamp = $domainObject.lastlogontimestamp
+			$isActive = if ($lastLogonTimestamp -ge $inactiveThreshold) { "Yes" } elseif ($lastLogonTimestamp -eq $null) { "" } else { "No" }
+
 			[PSCustomObject]@{
 				"Member Name" = if ($DomainAdmin.MemberName) { $DomainAdmin.MemberName } else { ConvertFrom-SID $DomainAdmin.MemberSID }
 				"Enabled" = if ($DomainAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ((Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $Domain -Server $Server).lastlogontimestamp -ge $inactiveThreshold) { "Yes" } elseif ((Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $Domain -Server $Server).lastlogontimestamp -eq $null) { "" } else { "No" }
-				"Last Logon" = (Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $Domain -Server $Server).lastlogontimestamp
+				"Active" = $isActive
+				"Last Logon" = $lastLogonTimestamp
 				"Member SID" = $DomainAdmin.MemberSID
 				"Group Domain" = $DomainAdmin.GroupDomain
-				"Description" = (Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $Domain -Server $Server).description
+				"Description" = $domainObject.description
 			}
+
 		}
 
 		if ($TempDomainAdmins) {
@@ -1005,16 +1040,21 @@ function Invoke-ADEnum
 	}
 	else {
 		$TempDomainAdmins = foreach ($AllDomain in $AllDomains) {
-			$DomainAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Domain Admins" -Recurse
+			$DomainAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Domain Admins" -Recurse | Sort-Object -Property MemberName
 			foreach ($DomainAdmin in $DomainAdmins) {
+				
+				$domainObject = Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $AllDomain
+				$lastLogonTimestamp = $domainObject.lastlogontimestamp
+				$isActive = if ($lastLogonTimestamp -ge $inactiveThreshold) { "Yes" } elseif ($lastLogonTimestamp -eq $null) { "" } else { "No" }
+
 				[PSCustomObject]@{
 					"Member Name" = if ($DomainAdmin.MemberName) { $DomainAdmin.MemberName } else { ConvertFrom-SID $DomainAdmin.MemberSID }
 					"Enabled" = if ($DomainAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ((Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $AllDomain).lastlogontimestamp -ge $inactiveThreshold) { "Yes" } elseif ((Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $AllDomain).lastlogontimestamp -eq $null) { "" } else { "No" }
-					"Last Logon" = (Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $AllDomain).lastlogontimestamp
+					"Active" = $isActive
+					"Last Logon" = $lastLogonTimestamp
 					"Member SID" = $DomainAdmin.MemberSID
 					"Group Domain" = $DomainAdmin.GroupDomain
-					"Description" = (Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $AllDomain).description
+					"Description" = $domainObject.description
 				}
 			}
 		}
@@ -1034,7 +1074,7 @@ function Invoke-ADEnum
     Write-Host ""
     Write-Host "Current User: $env:USERNAME"
     if($Domain -AND $Server) {
-		$GetCurrUserGroups = Get-DomainGroup -Domain $Domain -Server $Server -UserName $env:USERNAME | Where-Object { $_.samaccountname -notlike "Domain Users" }
+		$GetCurrUserGroups = Get-DomainGroup -Domain $Domain -Server $Server -UserName $env:USERNAME | Sort-Object -Property samaccountname | Where-Object { $_.samaccountname -notlike "Domain Users" }
     	$TempGetCurrUserGroup = foreach($GetCurrUserGroup in $GetCurrUserGroups){
 			[PSCustomObject]@{
 				"Group Name" = $GetCurrUserGroup.samaccountname
@@ -1051,7 +1091,7 @@ function Invoke-ADEnum
     }
     else{
     	$TempGetCurrUserGroup = foreach($AllDomain in $AllDomains){
-			$GetCurrUserGroups = Get-DomainGroup -Domain $AllDomain -UserName $env:USERNAME | Where-Object { $_.samaccountname -notlike "Domain Users" }
+			$GetCurrUserGroups = Get-DomainGroup -Domain $AllDomain -UserName $env:USERNAME | Sort-Object -Property samaccountname | Where-Object { $_.samaccountname -notlike "Domain Users" }
 			foreach($GetCurrUserGroup in $GetCurrUserGroups){
 				[PSCustomObject]@{
 					"Group Name" = $GetCurrUserGroup.samaccountname
@@ -1083,7 +1123,7 @@ function Invoke-ADEnum
 
 		if ($Domain -and $Server) {
 			
-			$CertPublishers = Get-DomainGroupMember "Cert Publishers" -Domain $Domain -Server $Server | Select-Object MemberName,MemberSID,GroupName,GroupDomain
+			$CertPublishers = Get-DomainGroupMember "Cert Publishers" -Domain $Domain -Server $Server | Sort-Object -Property MemberName | Select-Object MemberName,MemberSID,GroupName,GroupDomain
 
 			$TempCertPublishers = foreach ($CertPublisher in $CertPublishers) {
 				
@@ -1124,7 +1164,7 @@ function Invoke-ADEnum
 			
 			$TempCertPublishers = foreach ($AllDomain in $AllDomains) {
 			
-				$CertPublishers = Get-DomainGroupMember "Cert Publishers" -Domain $AllDomain | Select-Object MemberName,MemberSID,GroupName,GroupDomain
+				$CertPublishers = Get-DomainGroupMember "Cert Publishers" -Domain $AllDomain | Sort-Object -Property MemberName | Select-Object MemberName,MemberSID,GroupName,GroupDomain
 
 				foreach ($CertPublisher in $CertPublishers) {
 					
@@ -1307,7 +1347,7 @@ function Invoke-ADEnum
 	Write-Host "Unconstrained Delegation:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
 		$DCs = Get-DomainController -Domain $Domain -Server $Server
-		$Unconstrained = Get-NetComputer -Domain $Domain -Server $Server -Unconstrained | Where-Object { $DCs.Name -notcontains $_.dnshostname }
+		$Unconstrained = Get-NetComputer -Domain $Domain -Server $Server -Unconstrained | Where-Object { $DCs.Name -notcontains $_.dnshostname } | Sort-Object -Property samaccountname
 		$TempUnconstrained = foreach ($Computer in $Unconstrained) {
 			[PSCustomObject]@{
 				"Name" = $Computer.samaccountname
@@ -1330,7 +1370,7 @@ function Invoke-ADEnum
 		$TempUnconstrained = foreach ($AllDomain in $AllDomains) {
 			$Server = Get-DomainController -Domain $AllDomain | Where-Object {$_.Roles -like "RidRole"} | Select-Object -ExpandProperty Name
 			$DCs = Get-DomainController -Domain $AllDomain
-			$Unconstrained = Get-NetComputer -Domain $AllDomain -Unconstrained | Where-Object { $DCs.Name -notcontains $_.dnshostname }
+			$Unconstrained = Get-NetComputer -Domain $AllDomain -Unconstrained | Where-Object { $DCs.Name -notcontains $_.dnshostname } | Sort-Object -Property samaccountname
 			foreach ($Computer in $Unconstrained) {
 				[PSCustomObject]@{
 					"Name" = $Computer.samaccountname
@@ -1358,7 +1398,7 @@ function Invoke-ADEnum
     Write-Host ""
 	Write-Host "Constrained Delegation (Computers):" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$ConstrainedDelegationComputers = Get-DomainComputer -Domain $Domain -Server $Server -TrustedToAuth
+		$ConstrainedDelegationComputers = Get-DomainComputer -Domain $Domain -Server $Server -TrustedToAuth | Sort-Object -Property samaccountname
 		$TempConstrainedDelegationComputers = foreach ($ConstrainedDelegationComputer in $ConstrainedDelegationComputers) {
 			[PSCustomObject]@{
 				"Name" = $ConstrainedDelegationComputer.samaccountname
@@ -1380,7 +1420,7 @@ function Invoke-ADEnum
 	else {
 		$TempConstrainedDelegationComputers = foreach ($AllDomain in $AllDomains) {
 			$Server = Get-DomainController -Domain $AllDomain | Where-Object {$_.Roles -like "RidRole"} | Select-Object -ExpandProperty Name
-			$ConstrainedDelegationComputers = Get-DomainComputer -Domain $AllDomain -TrustedToAuth
+			$ConstrainedDelegationComputers = Get-DomainComputer -Domain $AllDomain -TrustedToAuth | Sort-Object -Property samaccountname
 			foreach ($ConstrainedDelegationComputer in $ConstrainedDelegationComputers) {
 				[PSCustomObject]@{
 					"Name" = $ConstrainedDelegationComputer.samaccountname
@@ -1409,7 +1449,7 @@ function Invoke-ADEnum
     Write-Host ""
 	Write-Host "Constrained Delegation (Users):" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$ConstrainedDelegationUsers = Get-DomainUser -Domain $Domain -Server $Server -TrustedToAuth
+		$ConstrainedDelegationUsers = Get-DomainUser -Domain $Domain -Server $Server -TrustedToAuth | Sort-Object -Property Name
 		$TempConstrainedDelegationUsers = foreach ($ConstrainedDelegationUser in $ConstrainedDelegationUsers) {
 			[PSCustomObject]@{
 				"Name" = $ConstrainedDelegationUser.Name
@@ -1432,7 +1472,7 @@ function Invoke-ADEnum
 	}
 	else {
 		$TempConstrainedDelegationUsers = foreach ($AllDomain in $AllDomains) {
-			$ConstrainedDelegationUsers = Get-DomainUser -Domain $AllDomain -TrustedToAuth
+			$ConstrainedDelegationUsers = Get-DomainUser -Domain $AllDomain -TrustedToAuth | Sort-Object -Property Name
 			foreach ($ConstrainedDelegationUser in $ConstrainedDelegationUsers) {
 				[PSCustomObject]@{
 					"Name" = $ConstrainedDelegationUser.Name
@@ -1469,7 +1509,7 @@ function Invoke-ADEnum
 
 		$exclusionList = "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions"
 
-		$DomainComputers = Get-DomainComputer -Domain $Domain -Server $Server -Properties distinguishedname
+		$DomainComputers = Get-DomainComputer -Domain $Domain -Server $Server -Properties distinguishedname | Sort-Object -Property distinguishedname
 
 		$RBACDObjects = $DomainComputers | 
 			Get-DomainObjectAcl -Domain $Domain -Server $Server -ResolveGUIDs | 
@@ -1497,7 +1537,7 @@ function Invoke-ADEnum
 
 		$RBACDObjects = foreach ($AllDomain in $AllDomains) {
 			$domainSID = Get-DomainSID $AllDomain
-			$DomainComputers = Get-DomainComputer -Domain $AllDomain -Properties distinguishedname
+			$DomainComputers = Get-DomainComputer -Domain $AllDomain -Properties distinguishedname | Sort-Object -Property distinguishedname
 			
 			$DomainComputers | Get-DomainObjectAcl -ResolveGUIDs |
 				Where-Object { 
@@ -1530,7 +1570,7 @@ function Invoke-ADEnum
 	
 	if ($Domain -and $Server) {
 		
-		$PasswordSetUsers = Get-DomainUser -LDAPFilter '(userPassword=*)' -Domain $Domain -Server $Server | % {Add-Member -InputObject $_ NoteProperty 'Password' "$([System.Text.Encoding]::ASCII.GetString($_.userPassword))" -PassThru}
+		$PasswordSetUsers = Get-DomainUser -LDAPFilter '(userPassword=*)' -Domain $Domain -Server $Server | Sort-Object -Property samaccountname | % {Add-Member -InputObject $_ NoteProperty 'Password' "$([System.Text.Encoding]::ASCII.GetString($_.userPassword))" -PassThru}
 		
 		$TempPasswordSetUsers = foreach($PasswordSetUser in $PasswordSetUsers){
 			
@@ -1562,7 +1602,7 @@ function Invoke-ADEnum
 		
 		$TempPasswordSetUsers = foreach ($AllDomain in $AllDomains) {
 			
-			$PasswordSetUsers = Get-DomainUser -LDAPFilter '(userPassword=*)' -Domain $AllDomain | % {Add-Member -InputObject $_ NoteProperty 'Password' "$([System.Text.Encoding]::ASCII.GetString($_.userPassword))" -PassThru}
+			$PasswordSetUsers = Get-DomainUser -LDAPFilter '(userPassword=*)' -Domain $AllDomain | Sort-Object -Property samaccountname | % {Add-Member -InputObject $_ NoteProperty 'Password' "$([System.Text.Encoding]::ASCII.GetString($_.userPassword))" -PassThru}
 		
 			foreach($PasswordSetUser in $PasswordSetUsers){
 				
@@ -1601,7 +1641,7 @@ function Invoke-ADEnum
 	
 	if ($Domain -and $Server) {
 		
-		$EmptyPasswordUsers = Get-DomainUser -UACFilter PASSWD_NOTREQD -Domain $Domain -Server $Server
+		$EmptyPasswordUsers = Get-DomainUser -UACFilter PASSWD_NOTREQD -Domain $Domain -Server $Server | Sort-Object -Property samaccountname
 		
 		$TempEmptyPasswordUsers = foreach($EmptyPasswordUser in $EmptyPasswordUsers){
 			
@@ -1631,7 +1671,7 @@ function Invoke-ADEnum
 		
 		$TempEmptyPasswordUsers = foreach ($AllDomain in $AllDomains) {
 			
-			$EmptyPasswordUsers = Get-DomainUser -UACFilter PASSWD_NOTREQD -Domain $AllDomain
+			$EmptyPasswordUsers = Get-DomainUser -UACFilter PASSWD_NOTREQD -Domain $AllDomain | Sort-Object -Property samaccountname
 		
 			foreach($EmptyPasswordUser in $EmptyPasswordUsers){
 				
@@ -1668,7 +1708,7 @@ function Invoke-ADEnum
 	Write-Host "Members of Pre-Windows 2000 Compatible Access group:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
 		$PreWin2kCompatibleAccess = Get-DomainGroup -Domain $Domain -Server $Server -Identity "Pre-Windows 2000 Compatible Access"
-		$PreWin2kCompatibleAccessMembers = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Pre-Windows 2000 Compatible Access" -Recurse | Where-Object { $_.MemberName -ne "Authenticated Users" }
+		$PreWin2kCompatibleAccessMembers = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Pre-Windows 2000 Compatible Access" -Recurse | Where-Object { $_.MemberName -ne "Authenticated Users" } | Sort-Object -Property MemberName
 		$TempPreWin2kCompatibleAccess = foreach ($Member in $PreWin2kCompatibleAccessMembers) {
 			$memberName = $Member.MemberName.TrimEnd('$')
 			$computer = Get-DomainComputer -Identity $memberName -Domain $Domain -Server $Server
@@ -1695,7 +1735,7 @@ function Invoke-ADEnum
 		$TempPreWin2kCompatibleAccess = foreach ($AllDomain in $AllDomains) {
 			$Server = Get-DomainController -Domain $AllDomain | Where-Object {$_.Roles -like "RidRole"} | Select-Object -ExpandProperty Name
 			$PreWin2kCompatibleAccess = Get-DomainGroup -Domain $AllDomain -Identity "Pre-Windows 2000 Compatible Access"
-			$PreWin2kCompatibleAccessMembers = Get-DomainGroupMember -Domain $AllDomain -Identity "Pre-Windows 2000 Compatible Access" -Recurse | Where-Object { $_.MemberName -ne "Authenticated Users" }
+			$PreWin2kCompatibleAccessMembers = Get-DomainGroupMember -Domain $AllDomain -Identity "Pre-Windows 2000 Compatible Access" -Recurse | Where-Object { $_.MemberName -ne "Authenticated Users" } | Sort-Object -Property MemberName
 			foreach ($Member in $PreWin2kCompatibleAccessMembers) {
 				$memberName = $Member.MemberName.TrimEnd('$')
 				$computer = Get-DomainComputer -Identity $memberName -Domain $AllDomain
@@ -1764,7 +1804,9 @@ function Invoke-ADEnum
 			$TempLMCompatibilityLevel | Where-Object {$_.Setting -le 2} | Format-Table -AutoSize -Wrap
 			$HTMLLMCompatibilityLevel = $TempLMCompatibilityLevel | Where-Object {$_.Setting -le 2} | ConvertTo-Html -Fragment -PreContent "<h2>LM Compatibility Level</h2>"
 		}
-	} else {
+	} 
+	
+	else {
 		foreach ($AllDomain in $AllDomains) {
 			$TempLMCompatibilityLevel = Get-DomainGPO -Domain $AllDomain -LDAPFilter "(name=*)" -Properties gpcfilesyspath, displayname |
 				ForEach-Object {
@@ -1948,8 +1990,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempReplicationUsers) {
-			$TempReplicationUsers | Format-Table -AutoSize -Wrap
-			$HTMLReplicationUsers = $TempReplicationUsers | ConvertTo-Html -Fragment -PreContent "<h2>Retrieve *most* users who can perform DCSync</h2>"
+			$TempReplicationUsers | Sort-Object -Property "User or Group Name" | Format-Table -AutoSize -Wrap
+			$HTMLReplicationUsers = $TempReplicationUsers | Sort-Object -Property "User or Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Retrieve *most* users who can perform DCSync</h2>"
 		}
 	}
 	else {
@@ -1976,8 +2018,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempReplicationUsers) {
-			$TempReplicationUsers | Format-Table -AutoSize -Wrap
-			$HTMLReplicationUsers = $TempReplicationUsers | ConvertTo-Html -Fragment -PreContent "<h2>Retrieve *most* users who can perform DCSync</h2>"
+			$TempReplicationUsers | Sort-Object -Property "User or Group Name" | Format-Table -AutoSize -Wrap
+			$HTMLReplicationUsers = $TempReplicationUsers | Sort-Object -Property "User or Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Retrieve *most* users who can perform DCSync</h2>"
 		}
 	}
 	
@@ -1989,7 +2031,7 @@ function Invoke-ADEnum
 	Write-Host ""
 	Write-Host "Service Accounts:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$ServiceAccounts = Get-DomainUser -SPN -Domain $Domain -Server $Server
+		$ServiceAccounts = Get-DomainUser -SPN -Domain $Domain -Server $Server | Sort-Object -Property samaccountname
 		$TempServiceAccounts = foreach ($Account in $ServiceAccounts) {
 			[PSCustomObject]@{
 				"Account" = $Account.samaccountname
@@ -2010,9 +2052,10 @@ function Invoke-ADEnum
 			$HTMLServiceAccounts = $TempServiceAccounts | ConvertTo-Html -Fragment -PreContent "<h2>Service Accounts</h2>"
 		}
 	}
+	
 	else {
 		$TempServiceAccounts = foreach ($AllDomain in $AllDomains) {
-			$ServiceAccounts = Get-DomainUser -SPN -Domain $AllDomain
+			$ServiceAccounts = Get-DomainUser -SPN -Domain $AllDomain | Sort-Object -Property samaccountname
 			foreach ($Account in $ServiceAccounts) {
 				[PSCustomObject]@{
 					"Account" = $Account.samaccountname
@@ -2042,7 +2085,7 @@ function Invoke-ADEnum
     Write-Host ""
 	Write-Host "Group Managed Service Accounts (GMSA):" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$GMSAs = Get-DomainObject -Domain $Domain -Server $Server -LDAPFilter '(objectClass=msDS-GroupManagedServiceAccount)'
+		$GMSAs = Get-DomainObject -Domain $Domain -Server $Server -LDAPFilter '(objectClass=msDS-GroupManagedServiceAccount)' | Sort-Object -Property samaccountname
 		$TempGMSAs = foreach ($GMSA in $GMSAs) {
 			[PSCustomObject]@{
 				"Account" = $GMSA.samaccountname
@@ -2064,9 +2107,10 @@ function Invoke-ADEnum
 			$HTMLGMSAs = $TempGMSAs | ConvertTo-Html -Fragment -PreContent "<h2>Group Managed Service Accounts (GMSA)</h2>"
 		}
 	}
+	
 	else {
 		$TempGMSAs = foreach ($AllDomain in $AllDomains) {
-			$GMSAs = Get-DomainObject -Domain $AllDomain -LDAPFilter '(objectClass=msDS-GroupManagedServiceAccount)'
+			$GMSAs = Get-DomainObject -Domain $AllDomain -LDAPFilter '(objectClass=msDS-GroupManagedServiceAccount)' | Sort-Object -Property samaccountname
 			foreach ($GMSA in $GMSAs) {
 				[PSCustomObject]@{
 					"Account" = $GMSA.samaccountname
@@ -2120,7 +2164,7 @@ function Invoke-ADEnum
 	
     if ($Domain -and $Server) {
 	$excludedGroupsIdentities = foreach($excludedGroup in $excludedGroups){Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $excludedGroup | Select-Object -ExpandProperty MemberName | Sort-Object -Unique}
-		$UsersAdminCount = Get-DomainUser -Domain $Domain -Server $Server -AdminCount | Where-Object { $_.samaccountname -notin $excludedUsers -AND $_.samaccountname -notin $excludedGroupsIdentities }
+		$UsersAdminCount = Get-DomainUser -Domain $Domain -Server $Server -AdminCount | Where-Object { $_.samaccountname -notin $excludedUsers -AND $_.samaccountname -notin $excludedGroupsIdentities } | Sort-Object -Property samaccountname
 		$TempUsersAdminCount = foreach ($User in $UsersAdminCount) {
 			[PSCustomObject]@{
 				"User Name" = $User.samaccountname
@@ -2141,10 +2185,11 @@ function Invoke-ADEnum
 			$HTMLUsersAdminCount = $TempUsersAdminCount | ConvertTo-Html -Fragment -PreContent "<h2>Users with AdminCount set to 1 (non-defaults)</h2>"
 		}
 	}
+	
 	else {
 		$TempUsersAdminCount = foreach ($AllDomain in $AllDomains) {
 			$excludedGroupsIdentities = foreach($excludedGroup in $excludedGroups){Get-DomainGroupMember -Domain $AllDomain -Identity $excludedGroup | Select-Object -ExpandProperty MemberName | Sort-Object -Unique}
-			$UsersAdminCount = Get-DomainUser -Domain $AllDomain -AdminCount | Where-Object { $_.samaccountname -notin $excludedUsers -AND $_.samaccountname -notin $excludedGroupsIdentities }
+			$UsersAdminCount = Get-DomainUser -Domain $AllDomain -AdminCount | Where-Object { $_.samaccountname -notin $excludedUsers -AND $_.samaccountname -notin $excludedGroupsIdentities } | Sort-Object -Property samaccountname
 			foreach ($User in $UsersAdminCount) {
 				[PSCustomObject]@{
 					"User Name" = $User.samaccountname
@@ -2194,7 +2239,7 @@ function Invoke-ADEnum
     )
 	
     if ($Domain -and $Server) {
-		$GroupsAdminCount = Get-DomainGroup -Domain $Domain -Server $Server -AdminCount | Where-Object { $_.samaccountname -notin $excludedGroups }
+		$GroupsAdminCount = Get-DomainGroup -Domain $Domain -Server $Server -AdminCount | Where-Object { $_.samaccountname -notin $excludedGroups } | Sort-Object -Property samaccountname
 		$TempGroupsAdminCount = foreach ($Group in $GroupsAdminCount) {
 			[PSCustomObject]@{
 				"Group Name" = $Group.samaccountname
@@ -2209,9 +2254,10 @@ function Invoke-ADEnum
 			$HTMLGroupsAdminCount = $TempGroupsAdminCount | ConvertTo-Html -Fragment -PreContent "<h2>Groups with AdminCount set to 1 (non-defaults)</h2>"
 		}
 	}
+	
 	else {
 		$TempGroupsAdminCount = foreach ($AllDomain in $AllDomains) {
-			$GroupsAdminCount = Get-DomainGroup -Domain $AllDomain -AdminCount | Where-Object { $_.samaccountname -notin $excludedGroups }
+			$GroupsAdminCount = Get-DomainGroup -Domain $AllDomain -AdminCount | Where-Object { $_.samaccountname -notin $excludedGroups } | Sort-Object -Property samaccountname
 			foreach ($Group in $GroupsAdminCount) {
 				[PSCustomObject]@{
 					"Group Name" = $Group.samaccountname
@@ -2228,14 +2274,182 @@ function Invoke-ADEnum
 		}
 	}
 	
+	##################################################################
+    ########### Admin users in "Protected Users" group ###############
+	##################################################################
+	
+	Write-Host ""
+	Write-Host "Admin Users in 'Protected Users' group:" -ForegroundColor Cyan
+	if ($Domain -and $Server) {
+		$dcName = "DC=" + $Domain.Split(".")
+		$dcName = $dcName -replace " ", ",DC="
+		$ProtectedUsers = Get-DomainUser -Domain $Domain -Server $Server -LDAPFilter "(&(AdminCount=1)(memberof=CN=Protected Users,CN=Users,$dcName))" | Sort-Object -Property samaccountname
+		$TempAdminsInProtectedUsersGroup = foreach ($ProtectedUser in $ProtectedUsers) {
+			[PSCustomObject]@{
+				"Account" = $ProtectedUser.samaccountname
+				"Enabled" = if ($ProtectedUser.useraccountcontrol -band 2) { "False" } else { "True" }
+				"Active" = if ($ProtectedUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+				"Adm" = if ($ProtectedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+				"DA" = if ($ProtectedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+				"EA" = if ($ProtectedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+				"Last Logon" = $ProtectedUser.lastlogontimestamp
+				"SID" = $ProtectedUser.objectSID
+				"Domain" = $Domain
+			}
+		}
+
+		if ($TempAdminsInProtectedUsersGroup) {
+			$TempAdminsInProtectedUsersGroup | Format-Table -AutoSize -Wrap
+			$HTMLAdminsInProtectedUsersGroup = $TempAdminsInProtectedUsersGroup | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users in 'Protected Users' Group</h2>"
+		}
+	}
+	
+	else {
+		$TempAdminsInProtectedUsersGroup = foreach ($AllDomain in $AllDomains) {
+			$dcName = "DC=" + $AllDomain.Split(".")
+			$dcName = $dcName -replace " ", ",DC="
+			$ProtectedUsers = Get-DomainUser -Domain $AllDomain -LDAPFilter "(&(AdminCount=1)(memberof=CN=Protected Users,CN=Users,$dcName))" | Sort-Object -Property samaccountname
+			foreach ($ProtectedUser in $ProtectedUsers) {
+				[PSCustomObject]@{
+					"Account" = $ProtectedUser.samaccountname
+					"Enabled" = if ($ProtectedUser.useraccountcontrol -band 2) { "False" } else { "True" }
+					"Active" = if ($ProtectedUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Adm" = if ($ProtectedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+					"DA" = if ($ProtectedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					"EA" = if ($ProtectedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+					"Last Logon" = $ProtectedUser.lastlogontimestamp
+					"SID" = $ProtectedUser.objectSID
+					"Domain" = $AllDomain
+				}
+			}
+		}
+
+		if ($TempAdminsInProtectedUsersGroup) {
+			$TempAdminsInProtectedUsersGroup | Format-Table -AutoSize -Wrap
+			$HTMLAdminsInProtectedUsersGroup = $TempAdminsInProtectedUsersGroup | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users in 'Protected Users' Group</h2>"
+		}
+	}
+	
+	######################################################################
+    ########### Admin users NOT in "Protected Users" group ###############
+	######################################################################
+	
+	Write-Host ""
+	Write-Host "Admin Users NOT in 'Protected Users' group:" -ForegroundColor Cyan
+	if ($Domain -and $Server) {
+		$dcName = "DC=" + $Domain.Split(".")
+		$dcName = $dcName -replace " ", ",DC="
+		$ProtectedUsers = Get-DomainUser -Domain $Domain -Server $Server -LDAPFilter "(&(AdminCount=1)(!(memberof=CN=Protected Users,CN=Users,$dcName)))" | Sort-Object -Property samaccountname
+		$TempAdminsNotInProtectedUsersGroup = foreach ($ProtectedUser in $ProtectedUsers) {
+			[PSCustomObject]@{
+				"Account" = $ProtectedUser.samaccountname
+				"Enabled" = if ($ProtectedUser.useraccountcontrol -band 2) { "False" } else { "True" }
+				"Active" = if ($ProtectedUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+				"Adm" = if ($ProtectedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+				"DA" = if ($ProtectedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+				"EA" = if ($ProtectedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+				"Last Logon" = $ProtectedUser.lastlogontimestamp
+				"SID" = $ProtectedUser.objectSID
+				"Domain" = $Domain
+			}
+		}
+
+		if ($TempAdminsNotInProtectedUsersGroup) {
+			$TempAdminsNotInProtectedUsersGroup | Format-Table -AutoSize -Wrap
+			$HTMLAdminsNotInProtectedUsersGroup = $TempAdminsNotInProtectedUsersGroup | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users NOT in 'Protected Users' Group</h2>"
+		}
+	}
+	
+	else {
+		$TempAdminsNotInProtectedUsersGroup = foreach ($AllDomain in $AllDomains) {
+			$dcName = "DC=" + $AllDomain.Split(".")
+			$dcName = $dcName -replace " ", ",DC="
+			$ProtectedUsers = Get-DomainUser -Domain $AllDomain -LDAPFilter "(&(AdminCount=1)(!(memberof=CN=Protected Users,CN=Users,$dcName)))" | Sort-Object -Property samaccountname
+			foreach ($ProtectedUser in $ProtectedUsers) {
+				[PSCustomObject]@{
+					"Account" = $ProtectedUser.samaccountname
+					"Enabled" = if ($ProtectedUser.useraccountcontrol -band 2) { "False" } else { "True" }
+					"Active" = if ($ProtectedUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Adm" = if ($ProtectedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+					"DA" = if ($ProtectedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					"EA" = if ($ProtectedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+					"Last Logon" = $ProtectedUser.lastlogontimestamp
+					"SID" = $ProtectedUser.objectSID
+					"Domain" = $AllDomain
+				}
+			}
+		}
+
+		if ($TempAdminsNotInProtectedUsersGroup) {
+			$TempAdminsNotInProtectedUsersGroup | Format-Table -AutoSize -Wrap
+			$HTMLAdminsNotInProtectedUsersGroup = $TempAdminsNotInProtectedUsersGroup | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users NOT in 'Protected Users' Group</h2>"
+		}
+	}
+	
+	######################################################################
+    ########### Non Admin users in "Protected Users" group ###############
+	######################################################################
+	
+	Write-Host ""
+	Write-Host "Non-Admin Users in 'Protected Users' group:" -ForegroundColor Cyan
+	if ($Domain -and $Server) {
+		$dcName = "DC=" + $Domain.Split(".")
+		$dcName = $dcName -replace " ", ",DC="
+		$ProtectedUsers = Get-DomainUser -Domain $Domain -Server $Server -LDAPFilter "(&(!(AdminCount=1))(memberof=CN=Protected Users,CN=Users,$dcName))" | Sort-Object -Property samaccountname
+		$TempNonAdminsInProtectedUsersGroup = foreach ($ProtectedUser in $ProtectedUsers) {
+			[PSCustomObject]@{
+				"Account" = $ProtectedUser.samaccountname
+				"Enabled" = if ($ProtectedUser.useraccountcontrol -band 2) { "False" } else { "True" }
+				"Active" = if ($ProtectedUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+				"Adm" = if ($ProtectedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+				"DA" = if ($ProtectedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+				"EA" = if ($ProtectedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+				"Last Logon" = $ProtectedUser.lastlogontimestamp
+				"SID" = $ProtectedUser.objectSID
+				"Domain" = $Domain
+			}
+		}
+
+		if ($TempNonAdminsInProtectedUsersGroup) {
+			$TempNonAdminsInProtectedUsersGroup | Format-Table -AutoSize -Wrap
+			$HTMLNonAdminsInProtectedUsersGroup = $TempNonAdminsInProtectedUsersGroup | ConvertTo-Html -Fragment -PreContent "<h2>Non-Admin Users in 'Protected Users' Group</h2>"
+		}
+	}
+	
+	else {
+		$TempNonAdminsInProtectedUsersGroup = foreach ($AllDomain in $AllDomains) {
+			$dcName = "DC=" + $AllDomain.Split(".")
+			$dcName = $dcName -replace " ", ",DC="
+			$ProtectedUsers = Get-DomainUser -Domain $AllDomain -LDAPFilter "(&(!(AdminCount=1))(memberof=CN=Protected Users,CN=Users,$dcName))" | Sort-Object -Property samaccountname
+			foreach ($ProtectedUser in $ProtectedUsers) {
+				[PSCustomObject]@{
+					"Account" = $ProtectedUser.samaccountname
+					"Enabled" = if ($ProtectedUser.useraccountcontrol -band 2) { "False" } else { "True" }
+					"Active" = if ($ProtectedUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Adm" = if ($ProtectedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+					"DA" = if ($ProtectedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					"EA" = if ($ProtectedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+					"Last Logon" = $ProtectedUser.lastlogontimestamp
+					"SID" = $ProtectedUser.objectSID
+					"Domain" = $AllDomain
+				}
+			}
+		}
+
+		if ($TempNonAdminsInProtectedUsersGroup) {
+			$TempNonAdminsInProtectedUsersGroup | Format-Table -AutoSize -Wrap
+			$HTMLNonAdminsInProtectedUsersGroup = $TempNonAdminsInProtectedUsersGroup | ConvertTo-Html -Fragment -PreContent "<h2>Non-Admin Users in 'Protected Users' Group</h2>"
+		}
+	}
+	
 	####################################################################
     ########### sensitive and not allowed for delegation ###############
 	####################################################################
 	
 	Write-Host ""
-	Write-Host "Privileged users that are marked as 'sensitive and not allowed for delegation':" -ForegroundColor Cyan
+	Write-Host "Privileged users marked as 'sensitive and not allowed for delegation':" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$PrivilegedUsers = Get-DomainUser -Domain $Domain -Server $Server -DisallowDelegation -AdminCount
+		$PrivilegedUsers = Get-DomainUser -Domain $Domain -Server $Server -DisallowDelegation -AdminCount | Sort-Object -Property samaccountname
 		$TempPrivilegedSensitiveUsers = foreach ($PrivilegedUser in $PrivilegedUsers) {
 			[PSCustomObject]@{
 				"Account" = $PrivilegedUser.samaccountname
@@ -2252,12 +2466,13 @@ function Invoke-ADEnum
 
 		if ($TempPrivilegedSensitiveUsers) {
 			$TempPrivilegedSensitiveUsers | Format-Table -AutoSize -Wrap
-			$HTMLPrivilegedSensitiveUsers = $TempPrivilegedSensitiveUsers | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users that are marked as 'sensitive and not allowed for delegation'</h2>"
+			$HTMLPrivilegedSensitiveUsers = $TempPrivilegedSensitiveUsers | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users marked as 'sensitive and not allowed for delegation'</h2>"
 		}
 	}
+	
 	else {
 		$TempPrivilegedSensitiveUsers = foreach ($AllDomain in $AllDomains) {
-			$PrivilegedUsers = Get-DomainUser -Domain $AllDomain -DisallowDelegation -AdminCount
+			$PrivilegedUsers = Get-DomainUser -Domain $AllDomain -DisallowDelegation -AdminCount | Sort-Object -Property samaccountname
 			foreach ($PrivilegedUser in $PrivilegedUsers) {
 				[PSCustomObject]@{
 					"Account" = $PrivilegedUser.samaccountname
@@ -2275,7 +2490,7 @@ function Invoke-ADEnum
 
 		if ($TempPrivilegedSensitiveUsers) {
 			$TempPrivilegedSensitiveUsers | Format-Table -AutoSize -Wrap
-			$HTMLPrivilegedSensitiveUsers = $TempPrivilegedSensitiveUsers | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users that are marked as 'sensitive and not allowed for delegation'</h2>"
+			$HTMLPrivilegedSensitiveUsers = $TempPrivilegedSensitiveUsers | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users marked as 'sensitive and not allowed for delegation'</h2>"
 		}
 	}
 
@@ -2285,9 +2500,9 @@ function Invoke-ADEnum
 	####################################################################
     
     Write-Host ""
-	Write-Host "Privileged users that are NOT marked as 'sensitive and not allowed for delegation':" -ForegroundColor Cyan
+	Write-Host "Privileged users NOT marked as 'sensitive and not allowed for delegation':" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$PrivilegedUsers = Get-DomainUser -Domain $Domain -Server $Server -AllowDelegation -AdminCount
+		$PrivilegedUsers = Get-DomainUser -Domain $Domain -Server $Server -AllowDelegation -AdminCount | Sort-Object -Property samaccountname
 		$TempPrivilegedNotSensitiveUsers = foreach ($PrivilegedUser in $PrivilegedUsers) {
 			[PSCustomObject]@{
 				"Account" = $PrivilegedUser.samaccountname
@@ -2304,12 +2519,13 @@ function Invoke-ADEnum
 
 		if ($TempPrivilegedNotSensitiveUsers) {
 			$TempPrivilegedNotSensitiveUsers | Format-Table -AutoSize -Wrap
-			$HTMLPrivilegedNotSensitiveUsers = $TempPrivilegedNotSensitiveUsers | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users that are not marked as 'sensitive and not allowed for delegation'</h2>"
+			$HTMLPrivilegedNotSensitiveUsers = $TempPrivilegedNotSensitiveUsers | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users NOT marked as 'sensitive and not allowed for delegation'</h2>"
 		}
 	}
+	
 	else {
 		$TempPrivilegedNotSensitiveUsers = foreach ($AllDomain in $AllDomains) {
-			$PrivilegedUsers = Get-DomainUser -Domain $AllDomain -AllowDelegation -AdminCount
+			$PrivilegedUsers = Get-DomainUser -Domain $AllDomain -AllowDelegation -AdminCount | Sort-Object -Property samaccountname
 			foreach ($PrivilegedUser in $PrivilegedUsers) {
 				[PSCustomObject]@{
 					"Account" = $PrivilegedUser.samaccountname
@@ -2327,7 +2543,59 @@ function Invoke-ADEnum
 
 		if ($TempPrivilegedNotSensitiveUsers) {
 			$TempPrivilegedNotSensitiveUsers | Format-Table -AutoSize -Wrap
-			$HTMLPrivilegedNotSensitiveUsers = $TempPrivilegedNotSensitiveUsers | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users that are not marked as 'sensitive and not allowed for delegation'</h2>"
+			$HTMLPrivilegedNotSensitiveUsers = $TempPrivilegedNotSensitiveUsers | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users NOT marked as 'sensitive and not allowed for delegation'</h2>"
+		}
+	}
+	
+	#############################################################################################
+    ########### Non Privileged marked as sensitive and not allowed for delegation ###############
+	#############################################################################################
+	
+	Write-Host ""
+	Write-Host "Non-Privileged users marked as 'sensitive and not allowed for delegation':" -ForegroundColor Cyan
+	if ($Domain -and $Server) {
+		$PrivilegedUsers = Get-DomainUser -Domain $Domain -Server $Server -DisallowDelegation -LDAPFilter "(&(!(AdminCount=1)))" | Sort-Object -Property samaccountname
+		$TempNonPrivilegedSensitiveUsers = foreach ($PrivilegedUser in $PrivilegedUsers) {
+			[PSCustomObject]@{
+				"Account" = $PrivilegedUser.samaccountname
+				"Enabled" = if ($PrivilegedUser.useraccountcontrol -band 2) { "False" } else { "True" }
+				"Active" = if ($PrivilegedUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+				"Adm" = if ($PrivilegedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+				"DA" = if ($PrivilegedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+				"EA" = if ($PrivilegedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+				"Last Logon" = $PrivilegedUser.lastlogontimestamp
+				"SID" = $PrivilegedUser.objectSID
+				"Domain" = $Domain
+			}
+		}
+
+		if ($TempNonPrivilegedSensitiveUsers) {
+			$TempNonPrivilegedSensitiveUsers | Format-Table -AutoSize -Wrap
+			$HTMLNonPrivilegedSensitiveUsers = $TempNonPrivilegedSensitiveUsers | ConvertTo-Html -Fragment -PreContent "<h2>Non-Privileged users marked as 'sensitive and not allowed for delegation'</h2>"
+		}
+	}
+	
+	else {
+		$TempNonPrivilegedSensitiveUsers = foreach ($AllDomain in $AllDomains) {
+			$PrivilegedUsers = Get-DomainUser -Domain $AllDomain -DisallowDelegation -LDAPFilter "(&(!(AdminCount=1)))" | Sort-Object -Property samaccountname
+			foreach ($PrivilegedUser in $PrivilegedUsers) {
+				[PSCustomObject]@{
+					"Account" = $PrivilegedUser.samaccountname
+					"Enabled" = if ($PrivilegedUser.useraccountcontrol -band 2) { "False" } else { "True" }
+					"Active" = if ($PrivilegedUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Adm" = if ($PrivilegedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+					"DA" = if ($PrivilegedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					"EA" = if ($PrivilegedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+					"Last Logon" = $PrivilegedUser.lastlogontimestamp
+					"SID" = $PrivilegedUser.objectSID
+					"Domain" = $AllDomain
+				}
+			}
+		}
+
+		if ($TempNonPrivilegedSensitiveUsers) {
+			$TempNonPrivilegedSensitiveUsers | Format-Table -AutoSize -Wrap
+			$HTMLNonPrivilegedSensitiveUsers = $TempNonPrivilegedSensitiveUsers | ConvertTo-Html -Fragment -PreContent "<h2>Non-Privileged users marked as 'sensitive and not allowed for delegation'</h2>"
 		}
 	}
 	
@@ -2338,7 +2606,7 @@ function Invoke-ADEnum
 	Write-Host ""
     Write-Host "Machine accounts in privileged groups:" -ForegroundColor Cyan
     if ($Domain -and $Server) {
-		$MachinePrivGroupMembers = Get-DomainGroup -Domain $Domain -Server $Server -AdminCount | Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse | Where-Object { $_.MemberName -like '*$' } | Sort-Object -Unique
+		$MachinePrivGroupMembers = Get-DomainGroup -Domain $Domain -Server $Server -AdminCount | Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse | Where-Object { $_.MemberName -like '*$' } | Sort-Object -Property MemberName -Unique
 		$TempMachineAccountsPriv = foreach ($GroupMember in $MachinePrivGroupMembers) {
 			$DomainComputerGroupMember = Get-DomainComputer -Identity $GroupMember.MemberName.TrimEnd('$') -Domain $Domain -Server $Server
 			[PSCustomObject]@{
@@ -2359,10 +2627,11 @@ function Invoke-ADEnum
 			$HTMLMachineAccountsPriv = $TempMachineAccountsPriv | ConvertTo-Html -Fragment -PreContent "<h2>Machine accounts in privileged groups</h2>"
 		}
 	}
+	
 	else {
 		$TempMachineAccountsPriv = foreach ($AllDomain in $AllDomains) {
 			$Server = Get-DomainController -Domain $AllDomain | Where-Object {$_.Roles -like "RidRole"} | Select-Object -ExpandProperty Name
-			$MachinePrivGroupMembers = Get-DomainGroup -Domain $AllDomain -AdminCount | Get-DomainGroupMember -Recurse | Where-Object { $_.MemberName -like '*$' } | Sort-Object -Unique
+			$MachinePrivGroupMembers = Get-DomainGroup -Domain $AllDomain -AdminCount | Get-DomainGroupMember -Recurse | Where-Object { $_.MemberName -like '*$' } | Sort-Object -Property MemberName -Unique
 			foreach ($GroupMember in $MachinePrivGroupMembers) {
 				$DomainComputerGroupMember = Get-DomainComputer -Identity $GroupMember.MemberName.TrimEnd('$') -Domain $AllDomain
 				[PSCustomObject]@{
@@ -2392,7 +2661,7 @@ function Invoke-ADEnum
     Write-Host ""
 	Write-Host "Users without kerberos preauthentication set:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$nopreauthsetUsers = Get-DomainUser -Domain $Domain -Server $Server -PreauthNotRequired
+		$nopreauthsetUsers = Get-DomainUser -Domain $Domain -Server $Server -PreauthNotRequired | Sort-Object -Property samaccountname
 		$Tempnopreauthset = foreach ($User in $nopreauthsetUsers) {
 			[PSCustomObject]@{
 				"User Name" = $User.samaccountname
@@ -2412,9 +2681,10 @@ function Invoke-ADEnum
 			$HTMLnopreauthset = $Tempnopreauthset | ConvertTo-Html -Fragment -PreContent "<h2>Users without kerberos preauthentication set</h2>"
 		}
 	}
+	
 	else {
 		$Tempnopreauthset = foreach ($AllDomain in $AllDomains) {
-			$nopreauthsetUsers = Get-DomainUser -Domain $AllDomain -PreauthNotRequired
+			$nopreauthsetUsers = Get-DomainUser -Domain $AllDomain -PreauthNotRequired | Sort-Object -Property samaccountname
 			foreach ($User in $nopreauthsetUsers) {
 				[PSCustomObject]@{
 					"User Name" = $User.samaccountname
@@ -2443,7 +2713,7 @@ function Invoke-ADEnum
     Write-Host ""
 	Write-Host "Users with sidHistory set:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$sidHistoryUsers = Get-DomainUser -Domain $Domain -Server $Server -LDAPFilter '(sidHistory=*)'
+		$sidHistoryUsers = Get-DomainUser -Domain $Domain -Server $Server -LDAPFilter '(sidHistory=*)' | Sort-Object -Property samaccountname
 		$TempsidHistoryUsers = foreach ($sidHistoryUser in $sidHistoryUsers) {
 			[PSCustomObject]@{
 				"User Name" = $sidHistoryUser.samaccountname
@@ -2463,9 +2733,10 @@ function Invoke-ADEnum
 			$HTMLsidHistoryUsers = $TempsidHistoryUsers | ConvertTo-Html -Fragment -PreContent "<h2>Users with sidHistory set</h2>"
 		}
 	}
+	
 	else {
 		$TempsidHistoryUsers = foreach ($AllDomain in $AllDomains) {
-			$sidHistoryUsers = Get-DomainUser -Domain $AllDomain -LDAPFilter '(sidHistory=*)'
+			$sidHistoryUsers = Get-DomainUser -Domain $AllDomain -LDAPFilter '(sidHistory=*)' | Sort-Object -Property samaccountname
 			foreach ($sidHistoryUser in $sidHistoryUsers) {
 				[PSCustomObject]@{
 					"User Name" = $sidHistoryUser.samaccountname
@@ -2496,7 +2767,7 @@ function Invoke-ADEnum
 
 	if ($Domain -and $Server) {
 		
-		$RevEncUsers = Get-DomainUser -Domain $Domain -Server $Server -LDAPFilter "(&(objectCategory=User)(userAccountControl:1.2.840.113556.1.4.803:=128))"
+		$RevEncUsers = Get-DomainUser -Domain $Domain -Server $Server -LDAPFilter "(&(objectCategory=User)(userAccountControl:1.2.840.113556.1.4.803:=128))" | Sort-Object -Property samaccountname
 		
 		$TempRevEncUsers = foreach ($RevEncUser in $RevEncUsers) {
 			[PSCustomObject]@{
@@ -2523,7 +2794,7 @@ function Invoke-ADEnum
 	else{
 		
 		$TempRevEncUsers = foreach ($AllDomain in $AllDomains) {
-			$RevEncUsers = Get-DomainUser -Domain $AllDomain -LDAPFilter "(&(objectCategory=User)(userAccountControl:1.2.840.113556.1.4.803:=128))"
+			$RevEncUsers = Get-DomainUser -Domain $AllDomain -LDAPFilter "(&(objectCategory=User)(userAccountControl:1.2.840.113556.1.4.803:=128))" | Sort-Object -Property samaccountname
 			
 			foreach ($RevEncUser in $RevEncUsers) {
 				[PSCustomObject]@{
@@ -2621,6 +2892,7 @@ function Invoke-ADEnum
 				}
 			}
 		}
+		
 		else {
 			$TempGPOsWhocanmodify = foreach ($AllDomain in $AllDomains) {
 				$jSIDdomain = Get-DomainSID -Domain $AllDomain
@@ -2900,12 +3172,12 @@ function Invoke-ADEnum
 		
 	}
 	
-	if($LAPSComputers){
+	if($LAPSComputers -OR $AllEnum){
 
 		Write-Host ""
 		Write-Host "Computer objects where LAPS is enabled:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$LapsEnabledComputers = Get-DomainComputer -Domain $Domain -Server $Server | Where-Object { $_."ms-Mcs-AdmPwdExpirationTime" -ne $null }
+			$LapsEnabledComputers = Get-DomainComputer -Domain $Domain -Server $Server | Where-Object { $_."ms-Mcs-AdmPwdExpirationTime" -ne $null } | Sort-Object -Property samaccountname
 			$TempLapsEnabledComputers = foreach ($LapsEnabledComputer in $LapsEnabledComputers) {
 				[PSCustomObject]@{
 					"Name" = $LapsEnabledComputer.samaccountname
@@ -2922,7 +3194,7 @@ function Invoke-ADEnum
 		}
 		else {
 			$TempLapsEnabledComputers = foreach ($AllDomain in $AllDomains) {
-				$LapsEnabledComputers = Get-DomainComputer -Domain $AllDomain | Where-Object { $_."ms-Mcs-AdmPwdExpirationTime" -ne $null }
+				$LapsEnabledComputers = Get-DomainComputer -Domain $AllDomain | Where-Object { $_."ms-Mcs-AdmPwdExpirationTime" -ne $null } | Sort-Object -Property samaccountname
 				foreach ($LapsEnabledComputer in $LapsEnabledComputers) {
 					[PSCustomObject]@{
 						"Name" = $LapsEnabledComputer.samaccountname
@@ -2949,7 +3221,7 @@ function Invoke-ADEnum
 		Write-Host ""
 		Write-Host "AppLocker GPOs:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$AppLockerGPOs = Get-DomainGPO -Domain $Domain -Server $Server | Where-Object { $_.DisplayName -like "*AppLocker*" }
+			$AppLockerGPOs = Get-DomainGPO -Domain $Domain -Server $Server | Where-Object { $_.DisplayName -like "*AppLocker*" } | Sort-Object -Property DisplayName
 			$TempAppLockerGPOs = foreach ($AppLockerGPO in $AppLockerGPOs) {
 				[PSCustomObject]@{
 					"Display Name" = $AppLockerGPO.DisplayName
@@ -2965,7 +3237,7 @@ function Invoke-ADEnum
 		
 		else {
 			$TempAppLockerGPOs = foreach ($AllDomain in $AllDomains) {
-				$AppLockerGPOs = Get-DomainGPO -Domain $AllDomain | Where-Object { $_.DisplayName -like "*AppLocker*" }
+				$AppLockerGPOs = Get-DomainGPO -Domain $AllDomain | Where-Object { $_.DisplayName -like "*AppLocker*" } | Sort-Object -Property DisplayName
 				foreach ($AppLockerGPO in $AppLockerGPOs) {
 					[PSCustomObject]@{
 						"Display Name" = $AppLockerGPO.DisplayName
@@ -2985,12 +3257,11 @@ function Invoke-ADEnum
     ########### GPOs that modify local group memberships ###############
 	####################################################################
 	
-	if(!$MoreGPOs){}
-    else{
+	if($MoreGPOs -OR $AllEnum){
         Write-Host ""
 		Write-Host "GPOs that modify local group memberships through Restricted Groups or Group Policy Preferences:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$GPOLocalGroups = Get-DomainGPOLocalGroup -Domain $Domain -Server $Server
+			$GPOLocalGroups = Get-DomainGPOLocalGroup -Domain $Domain -Server $Server | Sort-Object -Property GPODisplayName
 			$TempGPOLocalGroupsMembership = foreach ($GPOLocalGroup in $GPOLocalGroups) {
 				[PSCustomObject]@{
 					"GPO Display Name" = $GPOLocalGroup.GPODisplayName
@@ -3005,7 +3276,7 @@ function Invoke-ADEnum
 		}
 		else {
 			$TempGPOLocalGroupsMembership = foreach ($AllDomain in $AllDomains) {
-				$GPOLocalGroups = Get-DomainGPOLocalGroup -Domain $AllDomain
+				$GPOLocalGroups = Get-DomainGPOLocalGroup -Domain $AllDomain | Sort-Object -Property GPODisplayName
 				foreach ($GPOLocalGroup in $GPOLocalGroups) {
 					[PSCustomObject]@{
 						"GPO Display Name" = $GPOLocalGroup.GPODisplayName
@@ -3025,12 +3296,11 @@ function Invoke-ADEnum
     ########### Users which are in a local group of a machine using GPO ###############
 	###################################################################################
 	
-	if(!$MoreGPOs){}
-    else{
+	if($MoreGPOs -OR $AllEnum){
         Write-Host ""
 		Write-Host "Users which are in a local group of a machine using GPO:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$GPOComputerAdmins = Get-DomainComputer -Domain $Domain -Server $Server | Find-GPOComputerAdmin -Domain $Domain -Server $Server
+			$GPOComputerAdmins = Get-DomainComputer -Domain $Domain -Server $Server | Sort-Object -Property samaccountname | Find-GPOComputerAdmin -Domain $Domain -Server $Server
 			$TempGPOComputerAdmins = foreach ($GPOComputerAdmin in $GPOComputerAdmins) {
 				[PSCustomObject]@{
 					"Computer Name" = $GPOComputerAdmin.ComputerName
@@ -3049,7 +3319,7 @@ function Invoke-ADEnum
 		}
 		else {
 			$TempGPOComputerAdmins = foreach ($AllDomain in $AllDomains) {
-				$GPOComputerAdmins = Get-DomainComputer -Domain $AllDomain | Find-GPOComputerAdmin -Domain $AllDomain
+				$GPOComputerAdmins = Get-DomainComputer -Domain $AllDomain | Sort-Object -Property samaccountname | Find-GPOComputerAdmin -Domain $AllDomain
 				foreach ($GPOComputerAdmin in $GPOComputerAdmins) {
 					[PSCustomObject]@{
 						"Computer Name" = $GPOComputerAdmin.ComputerName
@@ -3073,12 +3343,11 @@ function Invoke-ADEnum
     ########### Machines where a specific domain user/group is a member of the Administrators local group ###############
 	#####################################################################################################################
 	
-	if(!$MoreGPOs){}
-	else{
+	if($MoreGPOs -OR $AllEnum){
 		Write-Host ""
 		Write-Host "Machines where a specific domain user/group is a member of the Administrators local group:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$GPOMappings = Get-DomainGPOUserLocalGroupMapping -Domain $Domain -Server $Server -LocalGroup Administrators
+			$GPOMappings = Get-DomainGPOUserLocalGroupMapping -Domain $Domain -Server $Server -LocalGroup Administrators | Sort-Object -Property ObjectName
 			$TempGPOMachinesAdminlocalgroup = foreach ($GPOMapping in $GPOMappings) {
 				[PSCustomObject]@{
 					"Object Name" = $GPOMapping.ObjectName
@@ -3095,7 +3364,7 @@ function Invoke-ADEnum
 		}
 		else {
 			$TempGPOMachinesAdminlocalgroup = foreach ($AllDomain in $AllDomains) {
-				$GPOMappings = Get-DomainGPOUserLocalGroupMapping -Domain $AllDomain -LocalGroup Administrators
+				$GPOMappings = Get-DomainGPOUserLocalGroupMapping -Domain $AllDomain -LocalGroup Administrators | Sort-Object -Property ObjectName
 				foreach ($GPOMapping in $GPOMappings) {
 					[PSCustomObject]@{
 						"Object Name" = $GPOMapping.ObjectName
@@ -3117,12 +3386,11 @@ function Invoke-ADEnum
     ########### Machines where a user is member of a specific group ###############
 	###############################################################################
 	
-	if(!$MoreGPOs){}
-	else{
+	if($MoreGPOs -OR $AllEnum){
 		Write-Host ""
 		Write-Host "Machines where a user is a member of a specific group:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$usersInGroup = Get-DomainUser -Domain $Domain -Server $Server | Find-GPOLocation -Domain $Domain -Server $Server
+			$usersInGroup = Get-DomainUser -Domain $Domain -Server $Server | Sort-Object -Property samaccountname | Find-GPOLocation -Domain $Domain -Server $Server
 			$TempUsersInGroup = foreach ($userInGroup in $usersInGroup) {
 				[PSCustomObject]@{
 					"Object Name" = $userInGroup.ObjectName
@@ -3141,7 +3409,7 @@ function Invoke-ADEnum
 		}
 		else {
 			$TempUsersInGroup = foreach ($AllDomain in $AllDomains) {
-				$usersInGroup = Get-DomainUser -Domain $AllDomain | Find-GPOLocation
+				$usersInGroup = Get-DomainUser -Domain $AllDomain | Sort-Object -Property samaccountname | Find-GPOLocation -Domain $AllDomain
 				foreach ($userInGroup in $usersInGroup) {
 					[PSCustomObject]@{
 						"Object Name" = $userInGroup.ObjectName
@@ -3166,8 +3434,7 @@ function Invoke-ADEnum
     ######### Find Local Admin Access ###############
 	#################################################
 	
-	if(!$FindLocalAdminAccess){}
-    else{
+	if($FindLocalAdminAccess -OR $AllEnum){
         Write-Host ""
 		Write-Host "Find Local Admin Access:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
@@ -3210,8 +3477,7 @@ function Invoke-ADEnum
     ######### Find Domain User Location ###############
 	###################################################
     
-    if(!$FindDomainUserLocation){}
-    else{
+    if($FindDomainUserLocation -OR $AllEnum){
         Write-Host ""
 		Write-Host "Find Domain User Location:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
@@ -3263,8 +3529,7 @@ function Invoke-ADEnum
     ######### Logged on users for all machines in any Server OU ###############
 	###########################################################################
 	
-	if(!$MoreOUs){}
-	else{
+	if($MoreOUs -OR $AllEnum){
 		Write-Host ""
 		Write-Host "Logged on users for all machines in any Server OU:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
@@ -3305,8 +3570,7 @@ function Invoke-ADEnum
     ######### Domain Shares ###############
 	#######################################
 	
-	if(!$Shares){}
-    else{
+	if($Shares -OR $AllEnum){
         Write-Host ""
 		Write-Host "Accessible Domain Shares:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
@@ -3421,12 +3685,11 @@ function Invoke-ADEnum
     ######### Domain ACLs ###############
 	#####################################
     
-    if(!$DomainACLs){}
-    else{
+    if($DomainACLs -OR $AllEnum){
         Write-Host ""
 		Write-Host "Find interesting ACLs:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$ACLScannerResults = Invoke-ACLScanner -Domain $Domain -Server $Server -ResolveGUIDs | Where-Object { $_.IdentityReferenceName -notmatch "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions" }
+			$ACLScannerResults = Invoke-ACLScanner -Domain $Domain -Server $Server -ResolveGUIDs | Where-Object { $_.IdentityReferenceName -notmatch "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions" } | Sort-Object -Property IdentityReferenceName
 
 			$TempACLScannerResults = foreach ($Result in $ACLScannerResults) {
 				[PSCustomObject]@{
@@ -3444,7 +3707,7 @@ function Invoke-ADEnum
 		}
 		else {
 			$TempACLScannerResults = foreach ($AllDomain in $AllDomains) {
-				$ACLScannerResults = Invoke-ACLScanner -Domain $AllDomain -ResolveGUIDs | Where-Object { $_.IdentityReferenceName -notmatch "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions" }
+				$ACLScannerResults = Invoke-ACLScanner -Domain $AllDomain -ResolveGUIDs | Where-Object { $_.IdentityReferenceName -notmatch "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions" } | Sort-Object -Property IdentityReferenceName
 
 				foreach ($Result in $ACLScannerResults) {
 					[PSCustomObject]@{
@@ -3471,7 +3734,7 @@ function Invoke-ADEnum
 	Write-Host ""
 	Write-Host "Linked DA accounts using name correlation:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$LinkedDAAccounts = Get-DomainGroupMember 'Domain Admins' -Domain $Domain -Server $Server | ForEach-Object {
+		$LinkedDAAccounts = Get-DomainGroupMember 'Domain Admins' -Domain $Domain -Server $Server | Sort-Object -Property MemberName | ForEach-Object {
 			$user = Get-DomainUser $_.membername -Domain $Domain -Server $Server -LDAPFilter '(displayname=*)'
 			$nameParts = $user.displayname.split(' ')[0..1] -join ' '
 			$linkedAccounts = Get-DomainUser -Domain $Domain -Server $Server -LDAPFilter "(displayname=*$nameParts*)"
@@ -3498,7 +3761,7 @@ function Invoke-ADEnum
 	}
 	else {
 		$LinkedDAAccounts = foreach ($AllDomain in $AllDomains) {
-			$members = Get-DomainGroupMember 'Domain Admins' -Domain $AllDomain
+			$members = Get-DomainGroupMember 'Domain Admins' -Domain $AllDomain | Sort-Object -Property MemberName
 			foreach ($member in $members) {
 				$user = Get-DomainUser $member.membername -LDAPFilter '(displayname=*)'
 				$nameParts = $user.displayname.split(' ')[0..1] -join ' '
@@ -3533,7 +3796,7 @@ function Invoke-ADEnum
 	Write-Host ""
 	Write-Host "Admin Groups (by keyword):" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$AdminGroups = Get-DomainGroup -Domain $Domain -Server $Server | Where-Object { $_.Name -like "*Admin*" }
+		$AdminGroups = Get-DomainGroup -Domain $Domain -Server $Server | Where-Object { $_.Name -like "*Admin*" } | Sort-Object -Property samaccountname
 		$TempAdminGroups = foreach ($AdminGroup in $AdminGroups) {
 			[PSCustomObject]@{
 				"Keyword" = "Admin"
@@ -3546,14 +3809,13 @@ function Invoke-ADEnum
 		}
 
 		if ($TempAdminGroups) {
-			$TempAdminGroups2 = $TempAdminGroups | Where-Object { $_.Members }
-			$TempAdminGroups2 | Format-Table -AutoSize -Wrap
-			$HTMLAdminGroups = $TempAdminGroups | ConvertTo-Html -Fragment -PreContent "<h2>Admin Groups (by keyword)</h2>"
+			$TempAdminGroups | Where-Object { $_.Members } | Format-Table -AutoSize -Wrap
+			$HTMLAdminGroups = $TempAdminGroups | Where-Object { $_.Members } | ConvertTo-Html -Fragment -PreContent "<h2>Admin Groups (by keyword)</h2>"
 		}
 	}
 	else {
 		$TempAdminGroups = foreach ($AllDomain in $AllDomains) {
-			$AdminGroups = Get-DomainGroup -Domain $AllDomain | Where-Object { $_.Name -like "*Admin*" }
+			$AdminGroups = Get-DomainGroup -Domain $AllDomain | Where-Object { $_.Name -like "*Admin*" } | Sort-Object -Property samaccountname
 			foreach ($AdminGroup in $AdminGroups) {
 				[PSCustomObject]@{
 					"Keyword" = "Admin"
@@ -3567,9 +3829,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempAdminGroups) {
-			$TempAdminGroups2 = $TempAdminGroups | Where-Object { $_.Members }
-			$TempAdminGroups2 | Format-Table -AutoSize -Wrap
-			$HTMLAdminGroups = $TempAdminGroups2 | ConvertTo-Html -Fragment -PreContent "<h2>Admin Groups (by keyword)</h2>"
+			$TempAdminGroups | Where-Object { $_.Members } | Format-Table -AutoSize -Wrap
+			$HTMLAdminGroups = $TempAdminGroups | Where-Object { $_.Members } | ConvertTo-Html -Fragment -PreContent "<h2>Admin Groups (by keyword)</h2>"
 		}
 	}
 	
@@ -3580,9 +3841,9 @@ function Invoke-ADEnum
 	Write-Host ""
 	Write-Host "Other Groups (by keyword):" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$Keywords = @("SQL", "Remote", "VEEAM", "Hyper", "VMWare", "PSM", "Password", "Management", "LAPS", "Backup", "Security", "Cyber", "Director", "Desk", "CCTV", "Finance")
+		$Keywords = @("Backup", "CCTV", "Cyber", "Desk", "Director", "Finance", "Hyper", "LAPS", "Management", "Password", "PSM", "Remote", "Security", "SQL", "VEEAM", "VMWare")
 		$TempGroupsByKeyword = foreach ($Keyword in $Keywords) {
-			Get-DomainGroup -Domain $Domain -Server $Server -Identity "*$Keyword*" |
+			Get-DomainGroup -Domain $Domain -Server $Server -Identity "*$Keyword*" | Sort-Object -Property samaccountname |
 			ForEach-Object {
 				$Group = $_
 				[PSCustomObject]@{
@@ -3605,7 +3866,7 @@ function Invoke-ADEnum
 		$TempGroupsByKeyword = foreach ($AllDomain in $AllDomains) {
 			$Keywords = @("SQL", "Remote", "VEEAM", "Hyper", "VMWare", "PSM", "Password", "Management", "LAPS", "Backup", "Security", "Cyber", "Director", "Desk", "CCTV", "Finance")
 			foreach ($Keyword in $Keywords) {
-				Get-DomainGroup -Domain $AllDomain -Identity "*$Keyword*" |
+				Get-DomainGroup -Domain $AllDomain -Identity "*$Keyword*" | Sort-Object -Property samaccountname |
 				ForEach-Object {
 					$Group = $_
 					[PSCustomObject]@{
@@ -3894,8 +4155,7 @@ function Invoke-ADEnum
     ########### All Domain GPOs ###############
 	###########################################
 	
-	if(!$AllGPOs){}
-    else{
+	if($AllGPOs -OR $AllEnum){
         Write-Host ""
 		Write-Host "All Domain GPOs:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
@@ -3936,12 +4196,11 @@ function Invoke-ADEnum
     ########### All Groups ###########
 	##################################
 	
-	if(!$AllGroups){}
-	else{
+	if($AllGroups -OR $AllEnum){
 		Write-Host ""
 		Write-Host "All Groups:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$OtherGroups = Get-DomainGroup -Domain $Domain -Server $Server
+			$OtherGroups = Get-DomainGroup -Domain $Domain -Server $Server | Sort-Object -Property samaccountname
 			$TempOtherGroups = foreach ($OtherGroup in $OtherGroups) {
 				[PSCustomObject]@{
 					"Group Name" = $OtherGroup.SamAccountName
@@ -3960,7 +4219,7 @@ function Invoke-ADEnum
 		}
 		else {
 			$TempOtherGroups = foreach ($AllDomain in $AllDomains) {
-				$OtherGroups = Get-DomainGroup -Domain $AllDomain
+				$OtherGroups = Get-DomainGroup -Domain $AllDomain | Sort-Object -Property samaccountname
 				foreach ($OtherGroup in $OtherGroups) {
 					[PSCustomObject]@{
 						"Group Name" = $OtherGroup.SamAccountName
@@ -3989,7 +4248,7 @@ function Invoke-ADEnum
         Write-Host ""
 		Write-Host "Servers (Enabled):" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$ComputerServers = Get-DomainComputer -Domain $Domain -Server $Server -OperatingSystem "*Server*" -UACFilter NOT_ACCOUNTDISABLE
+			$ComputerServers = Get-DomainComputer -Domain $Domain -Server $Server -OperatingSystem "*Server*" -UACFilter NOT_ACCOUNTDISABLE | Sort-Object -Property samaccountname
 			$TempServersEnabled = foreach ($ComputerServer in $ComputerServers) {
 				[PSCustomObject]@{
 					"Name" = $ComputerServer.samaccountname
@@ -4010,7 +4269,7 @@ function Invoke-ADEnum
 		}
 		else {
 			$TempServersEnabled = foreach ($AllDomain in $AllDomains) {
-				$ComputerServers = Get-DomainComputer -Domain $AllDomain -OperatingSystem "*Server*" -UACFilter NOT_ACCOUNTDISABLE
+				$ComputerServers = Get-DomainComputer -Domain $AllDomain -OperatingSystem "*Server*" -UACFilter NOT_ACCOUNTDISABLE | Sort-Object -Property samaccountname
 				foreach ($ComputerServer in $ComputerServers) {
 					[PSCustomObject]@{
 						"Name" = $ComputerServer.samaccountname
@@ -4042,7 +4301,7 @@ function Invoke-ADEnum
         Write-Host ""
 		Write-Host "Servers (Disabled):" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$ComputerServers = Get-DomainComputer -Domain $Domain -Server $Server -OperatingSystem "*Server*" -UACFilter ACCOUNTDISABLE
+			$ComputerServers = Get-DomainComputer -Domain $Domain -Server $Server -OperatingSystem "*Server*" -UACFilter ACCOUNTDISABLE | Sort-Object -Property samaccountname
 			$TempServersDisabled = foreach ($ComputerServer in $ComputerServers) {
 				[PSCustomObject]@{
 					"Name" = $ComputerServer.samaccountname
@@ -4063,7 +4322,7 @@ function Invoke-ADEnum
 		}
 		else {
 			$TempServersDisabled = foreach ($AllDomain in $AllDomains) {
-				$ComputerServers = Get-DomainComputer -Domain $AllDomain -OperatingSystem "*Server*" -UACFilter ACCOUNTDISABLE
+				$ComputerServers = Get-DomainComputer -Domain $AllDomain -OperatingSystem "*Server*" -UACFilter ACCOUNTDISABLE | Sort-Object -Property samaccountname
 				foreach ($ComputerServer in $ComputerServers) {
 					[PSCustomObject]@{
 						"Name" = $ComputerServer.samaccountname
@@ -4090,12 +4349,11 @@ function Invoke-ADEnum
     ########### Workstations (Enabled) ###############
 	##################################################
 	
-	if(!$Workstations){}
-    else{
+	if($Workstations -OR $AllEnum){
         Write-Host ""
 		Write-Host "Workstations (Enabled):" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$AllWorkstations = Get-DomainComputer -Domain $Domain -Server $Server -UACFilter NOT_ACCOUNTDISABLE | Where-Object { $_.OperatingSystem -notlike "*Server*" } | Sort-Object -Property DnsHostName
+			$AllWorkstations = Get-DomainComputer -Domain $Domain -Server $Server -UACFilter NOT_ACCOUNTDISABLE | Where-Object { $_.OperatingSystem -notlike "*Server*" } | Sort-Object -Property samaccountname
 			$TempWorkstationsEnabled = foreach ($Workstation in $AllWorkstations) {
 				[PSCustomObject]@{
 					"Name" = $Workstation.samaccountname
@@ -4116,7 +4374,7 @@ function Invoke-ADEnum
 		}
 		else {
 			$TempWorkstationsEnabled = foreach ($AllDomain in $AllDomains) {
-				$AllWorkstations = Get-DomainComputer -Domain $AllDomain -UACFilter NOT_ACCOUNTDISABLE | Where-Object { $_.OperatingSystem -notlike "*Server*" } | Sort-Object -Property DnsHostName
+				$AllWorkstations = Get-DomainComputer -Domain $AllDomain -UACFilter NOT_ACCOUNTDISABLE | Where-Object { $_.OperatingSystem -notlike "*Server*" } | Sort-Object -Property samaccountname
 				foreach ($Workstation in $AllWorkstations) {
 					[PSCustomObject]@{
 						"Name" = $Workstation.samaccountname
@@ -4143,12 +4401,11 @@ function Invoke-ADEnum
     ########### Workstations (Disabled) ###############
 	###################################################
 	
-	if(!$Workstations){}
-    else{
+	if($Workstations -OR $AllEnum){
         Write-Host ""
 		Write-Host "Workstations (Disabled):" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$AllWorkstations = Get-DomainComputer -Domain $Domain -Server $Server -UACFilter ACCOUNTDISABLE | Where-Object { $_.OperatingSystem -notlike "*Server*" } | Sort-Object -Property DnsHostName
+			$AllWorkstations = Get-DomainComputer -Domain $Domain -Server $Server -UACFilter ACCOUNTDISABLE | Where-Object { $_.OperatingSystem -notlike "*Server*" } | Sort-Object -Property samaccountname
 			$TempWorkstationsDisabled = foreach ($Workstation in $AllWorkstations) {
 				[PSCustomObject]@{
 					"Name" = $Workstation.samaccountname
@@ -4169,7 +4426,7 @@ function Invoke-ADEnum
 		}
 		else {
 			$TempWorkstationsDisabled = foreach ($AllDomain in $AllDomains) {
-				$AllWorkstations = Get-DomainComputer -Domain $AllDomain -UACFilter ACCOUNTDISABLE | Where-Object { $_.OperatingSystem -notlike "*Server*" } | Sort-Object -Property DnsHostName
+				$AllWorkstations = Get-DomainComputer -Domain $AllDomain -UACFilter ACCOUNTDISABLE | Where-Object { $_.OperatingSystem -notlike "*Server*" } | Sort-Object -Property samaccountname
 				foreach ($Workstation in $AllWorkstations) {
 					[PSCustomObject]@{
 						"Name" = $Workstation.samaccountname
@@ -4196,13 +4453,12 @@ function Invoke-ADEnum
     ########### Enabled Users ###########
 	#####################################
 	
-	if (!$DomainUsers){}
-	else {
+	if ($DomainUsers -OR $AllEnum){
 		Write-Host ""
 		Write-Host "Users (Enabled):" -ForegroundColor Cyan
 		
 		if ($Domain -and $Server) {
-			$EnabledUsers = Get-DomainUser -UACFilter NOT_ACCOUNTDISABLE -Domain $Domain -Server $Server
+			$EnabledUsers = Get-DomainUser -UACFilter NOT_ACCOUNTDISABLE -Domain $Domain -Server $Server | Sort-Object -Property samaccountname
 			$TempEnabledUsers = foreach ($EnabledUser in $EnabledUsers) {
 				[PSCustomObject]@{
 					"User Name" = $EnabledUser.samaccountname
@@ -4220,7 +4476,7 @@ function Invoke-ADEnum
 		}
 		else {
 			$TempEnabledUsers = foreach ($AllDomain in $AllDomains) {
-				$EnabledUsers = Get-DomainUser -UACFilter NOT_ACCOUNTDISABLE -Domain $AllDomain
+				$EnabledUsers = Get-DomainUser -UACFilter NOT_ACCOUNTDISABLE -Domain $AllDomain | Sort-Object -Property samaccountname
 				foreach ($EnabledUser in $EnabledUsers) {
 					[PSCustomObject]@{
 						"User Name" = $EnabledUser.samaccountname
@@ -4244,13 +4500,12 @@ function Invoke-ADEnum
     ########### Disabled Users ###########
 	######################################
 	
-	if (!$DomainUsers) {}
-	else {
+	if ($DomainUsers -OR $AllEnum){
 		Write-Host ""
 		Write-Host "Users (Disabled):" -ForegroundColor Cyan
 		
 		if ($Domain -and $Server) {
-			$DisabledUsers = Get-DomainUser -UACFilter ACCOUNTDISABLE -Domain $Domain -Server $Server
+			$DisabledUsers = Get-DomainUser -UACFilter ACCOUNTDISABLE -Domain $Domain -Server $Server | Sort-Object -Property samaccountname
 			$TempDisabledUsers = foreach ($DisabledUser in $DisabledUsers) {
 				[PSCustomObject]@{
 					"User Name" = $DisabledUser.samaccountname
@@ -4268,7 +4523,7 @@ function Invoke-ADEnum
 		}
 		else {
 			$TempDisabledUsers = foreach ($AllDomain in $AllDomains) {
-				$DisabledUsers = Get-DomainUser -UACFilter ACCOUNTDISABLE -Domain $AllDomain
+				$DisabledUsers = Get-DomainUser -UACFilter ACCOUNTDISABLE -Domain $AllDomain | Sort-Object -Property samaccountname
 				foreach ($DisabledUser in $DisabledUsers) {
 					[PSCustomObject]@{
 						"User Name" = $DisabledUser.samaccountname
@@ -4291,13 +4546,12 @@ function Invoke-ADEnum
     ########### Domain OUs ###########
 	######################################
 	
-	if(!$DomainOUs){}
-	else{
+	if($DomainOUs -OR $AllEnum){
 		Write-Host ""
 		Write-Host "All Domain OUs:" -ForegroundColor Cyan
 
 		if($Domain -AND $Server) {
-			$TempAllDomainOUs = Get-DomainOU -Domain $Domain -Server $Server | ForEach-Object {
+			$TempAllDomainOUs = Get-DomainOU -Domain $Domain -Server $Server | Sort-Object -Property Name | ForEach-Object {
 				$ou = $_
 				$users = (Get-DomainUser -Domain $Domain -Server $Server -SearchBase "LDAP://$($_.DistinguishedName)").samaccountname
 				$computers = Get-DomainComputer -Domain $Domain -Server $Server -SearchBase "LDAP://$($_.DistinguishedName)"
@@ -4320,7 +4574,7 @@ function Invoke-ADEnum
 		}
 		else{
 			$TempAllDomainOUs = foreach($AllDomain in $AllDomains){
-				Get-DomainOU -Domain $AllDomain | ForEach-Object {
+				Get-DomainOU -Domain $AllDomain | Sort-Object -Property Name | ForEach-Object {
 					$ou = $_
 					$users = (Get-DomainUser -Domain $AllDomain -SearchBase "LDAP://$($_.DistinguishedName)").samaccountname
 					$computers = Get-DomainComputer -Domain $AllDomain -SearchBase "LDAP://$($_.DistinguishedName)"
@@ -4352,7 +4606,7 @@ function Invoke-ADEnum
     # Stop capturing the output and display it on the console
     Stop-Transcript | Out-Null
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLPreWin2kCompatibleAccess $HTMLLMCompatibilityLevel $HTMLMachineQuota $HTMLUnsupportedHosts $InterestingDataBanner $HTMLReplicationUsers $HTMLServiceAccounts $HTMLGMSAs $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLMachineAccountsPriv $HTMLnopreauthset $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $HTMLLinkedDAAccounts $HTMLAdminGroups $HTMLGroupsByKeyword $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLDomainGPOs $HTMLOtherGroups $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $UsersEnumBanner $HTMLEnabledUsers $HTMLDisabledUsers $HTMLAllDomainOUs" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLPreWin2kCompatibleAccess $HTMLLMCompatibilityLevel $HTMLMachineQuota $HTMLUnsupportedHosts $InterestingDataBanner $HTMLReplicationUsers $HTMLServiceAccounts $HTMLGMSAs $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLnopreauthset $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $HTMLLinkedDAAccounts $HTMLAdminGroups $HTMLGroupsByKeyword $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLDomainGPOs $HTMLOtherGroups $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $UsersEnumBanner $HTMLEnabledUsers $HTMLDisabledUsers $HTMLAllDomainOUs" -Title "Active Directory Audit" -Head $header
 	$HTMLOutputFilePath = $OutputFilePath.Replace(".txt", ".html")
 	$Report | Out-File $HTMLOutputFilePath
 	
