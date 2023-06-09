@@ -222,7 +222,7 @@ function Invoke-ADEnum
 
  [PARAMETERS]" -ForegroundColor Yellow
 		Write-Host "
- -CustomURL <URL>		Specify the Server URL where you're hosting PowerView.ps1		-CustomURL http://yourserver.com/Tools/PowerView.ps1
+ -CustomURL <URL>		Specify the Server URL where you're hosting PowerView.ps1		-CustomURL http://yourserver.com/PowerView.ps1
  
  -Domain <domain FQDN>		The Domain to enumerate for. If not specified, the tool will enumerate for all the domains it can find
  
