@@ -471,8 +471,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempTargetDomain) {
-			$TempTargetDomain | Format-Table -AutoSize -Wrap
-			$HTMLTargetDomain = $TempTargetDomain | ConvertTo-Html -Fragment -PreContent "<h2>Target Domains</h2>"
+			$TempTargetDomain | Sort-Object Forest,Parent,Domain | Format-Table -AutoSize -Wrap
+			$HTMLTargetDomain = $TempTargetDomain | Sort-Object Forest,Parent,Domain | ConvertTo-Html -Fragment -PreContent "<h2>Target Domains</h2>"
 		}
 	}
 	
@@ -491,8 +491,8 @@ function Invoke-ADEnum
 			}
 		}
 		if($TempTargetDomains){
-			$TempTargetDomains | ft -Autosize -Wrap
-			$HTMLTargetDomain = $TempTargetDomains | ConvertTo-Html -Fragment -PreContent "<h2>Target Domains</h2>"
+			$TempTargetDomains | Sort-Object Forest,Parent,Domain | ft -Autosize -Wrap
+			$HTMLTargetDomain = $TempTargetDomains | Sort-Object Forest,Parent,Domain | ConvertTo-Html -Fragment -PreContent "<h2>Target Domains</h2>"
 		}
     }
 	
@@ -555,7 +555,7 @@ function Invoke-ADEnum
 		$KrbtgtAccount = Get-DomainObject -Identity krbtgt -Domain $Domain
         $KrbtgtAccount | Select-Object @{Name = 'Account'; Expression = {$_.samaccountname}}, @{Name = 'Service Principal Name'; Expression = {$_.serviceprincipalname}}, @{Name = 'SID'; Expression = {$_.objectsid}}, @{Name = 'Last Krbtgt Change'; Expression = {$_.whencreated}} | ft -Autosize -Wrap
 		if($KrbtgtAccount){
-			$HTMLKrbtgtAccount = $KrbtgtAccount | Select-Object @{Name = 'Account'; Expression = {$_.samaccountname}}, @{Name = 'Account SID'; Expression = {$_.objectsid}}, @{Name = 'Service Principal Name'; Expression = {$_.serviceprincipalname}}, @{Name = 'Last Krbtgt Change'; Expression = {$_.whencreated}} | ConvertTo-Html -Fragment -PreContent "<h2>Krbtgt Accounts</h2>"
+			$HTMLKrbtgtAccount = $KrbtgtAccount | Select-Object @{Name = 'Account'; Expression = {$_.samaccountname}}, @{Name = 'Account SID'; Expression = {$_.objectsid}}, @{Name = 'Service Principal Name'; Expression = {$_.serviceprincipalname}}, @{Name = 'Last Krbtgt Change'; Expression = {$_.whencreated}}, @{Name = 'Domain'; Expression = {$Domain}} | ConvertTo-Html -Fragment -PreContent "<h2>Krbtgt Accounts</h2>"
 		}
     }
     else{
@@ -567,11 +567,12 @@ function Invoke-ADEnum
 				"Account SID"  = $KrbtgtAccount.objectsid
 				"Service Principal Name" = $KrbtgtAccount.serviceprincipalname
 				"Last Krbtgt Change" = $KrbtgtAccount.whencreated
+				Domain = $AllDomain
 			}
 		}
 		if($TempKrbtgtAccount){
-			$TempKrbtgtAccount | ft -Autosize -Wrap
-			$HTMLKrbtgtAccount = $TempKrbtgtAccount | ConvertTo-Html -Fragment -PreContent "<h2>Krbtgt Accounts</h2>"
+			$TempKrbtgtAccount | Sort-Object Domain | ft -Autosize -Wrap
+			$HTMLKrbtgtAccount = $TempKrbtgtAccount | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2>Krbtgt Accounts</h2>"
 		}
     }
 	
@@ -582,7 +583,7 @@ function Invoke-ADEnum
 	Write-Host ""
     Write-Host "Domain Controllers:" -ForegroundColor Cyan
     if($Domain -AND $Server) {
-        $domainControllers = Get-DomainController -Domain $Domain | Sort-Object -Property Name
+        $domainControllers = Get-DomainController -Domain $Domain
     	$TempHTMLdc = foreach ($dc in $domainControllers) {
         	$isPrimaryDC = $dc.Roles -like "RidRole"
         	$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
@@ -596,13 +597,13 @@ function Invoke-ADEnum
 			}
     	}
 		if($TempHTMLdc){
-			$TempHTMLdc | ft -Autosize -Wrap
-			$HTMLdc = $TempHTMLdc | ConvertTo-Html -Fragment -PreContent "<h2>Domain Controllers</h2>"
+			$TempHTMLdc | Sort-Object Domain,"DC Name" | ft -Autosize -Wrap
+			$HTMLdc = $TempHTMLdc | Sort-Object Domain,"DC Name" | ConvertTo-Html -Fragment -PreContent "<h2>Domain Controllers</h2>"
 		}
     }
     else{
         $TempHTMLdc = foreach($AllDomain in $AllDomains){
-			$domainControllers = Get-DomainController -Domain $AllDomain | Sort-Object -Property Name
+			$domainControllers = Get-DomainController -Domain $AllDomain
         	foreach ($dc in $domainControllers) {
 				$isPrimaryDC = $dc.Roles -like "RidRole"
 				$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
@@ -616,8 +617,8 @@ function Invoke-ADEnum
         	}
 		}
 		if($TempHTMLdc ){
-			$TempHTMLdc | ft -Autosize -Wrap
-			$HTMLdc = $TempHTMLdc | ConvertTo-Html -Fragment -PreContent "<h2>Domain Controllers</h2>"
+			$TempHTMLdc | Sort-Object Domain,"DC Name" | ft -Autosize -Wrap
+			$HTMLdc = $TempHTMLdc | Sort-Object Domain,"DC Name" | ConvertTo-Html -Fragment -PreContent "<h2>Domain Controllers</h2>"
 		}
     }
 	
@@ -891,7 +892,7 @@ function Invoke-ADEnum
 	Write-Host ""
     Write-Host "Built-In Administrators:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$BuiltInAdministrators = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Administrators" | Sort-Object -Property MemberName
+		$BuiltInAdministrators = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Administrators"
 		$TempBuiltInAdministrators = foreach($BuiltInAdministrator in $BuiltInAdministrators){
 			
 			$domainObject = if ($BuiltInAdministrator.MemberName) { Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $Domain -Server $Server } else { $null }
@@ -912,13 +913,13 @@ function Invoke-ADEnum
 		}
 
 		if ($TempBuiltInAdministrators) {
-			$TempBuiltInAdministrators | ft -Autosize -Wrap
-			$HTMLEnterpriseAdmins = $TempBuiltInAdministrators | ConvertTo-Html -Fragment -PreContent "<h2>Built-In Administrators</h2>"
+			$TempBuiltInAdministrators  | Sort-Object "Group Domain","Member Name" | ft -Autosize -Wrap
+			$HTMLEnterpriseAdmins = $TempBuiltInAdministrators | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Built-In Administrators</h2>"
 		}
 	}
 	else {
 		$TempBuiltInAdministrators = foreach ($AllDomain in $AllDomains) {
-			$BuiltInAdministrators = Get-DomainGroupMember -Domain $AllDomain -Identity "Administrators" | Sort-Object -Property MemberName
+			$BuiltInAdministrators = Get-DomainGroupMember -Domain $AllDomain -Identity "Administrators"
 			foreach($BuiltInAdministrator in $BuiltInAdministrators){
 				
 				$domainObject = Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $AllDomain
@@ -942,8 +943,8 @@ function Invoke-ADEnum
 		}
 		
 		if ($TempBuiltInAdministrators) {
-			$TempBuiltInAdministrators | ft -Autosize -Wrap
-			$HTMLBuiltInAdministrators = $TempBuiltInAdministrators | ConvertTo-Html -Fragment -PreContent "<h2>Built-In Administrators</h2>"
+			$TempBuiltInAdministrators | Sort-Object "Group Domain","Member Name" | ft -Autosize -Wrap
+			$HTMLBuiltInAdministrators = $TempBuiltInAdministrators | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Built-In Administrators</h2>"
 		}
 	}
 	
@@ -954,7 +955,7 @@ function Invoke-ADEnum
 	Write-Host ""
     Write-Host "Enterprise Administrators:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$EnterpriseAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Enterprise Admins" -Recurse | Sort-Object -Property MemberName
+		$EnterpriseAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Enterprise Admins" -Recurse
 		$TempEnterpriseAdmins = foreach($EnterpriseAdmin in $EnterpriseAdmins){
 			
 			$domainObject = Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $Domain -Server $Server
@@ -975,13 +976,13 @@ function Invoke-ADEnum
 		}
 
 		if ($TempEnterpriseAdmins) {
-			$TempEnterpriseAdmins | ft -Autosize -Wrap
-			$HTMLEnterpriseAdmins = $TempEnterpriseAdmins | ConvertTo-Html -Fragment -PreContent "<h2>Enterprise Administrators</h2>"
+			$TempEnterpriseAdmins | Sort-Object "Group Domain","Member Name" | ft -Autosize -Wrap
+			$HTMLEnterpriseAdmins = $TempEnterpriseAdmins | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Enterprise Administrators</h2>"
 		}
 	}
 	else {
 		$TempEnterpriseAdmins = foreach ($AllDomain in $AllDomains) {
-			$EnterpriseAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Enterprise Admins" -Recurse | Sort-Object -Property MemberName
+			$EnterpriseAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Enterprise Admins" -Recurse
 			foreach($EnterpriseAdmin in $EnterpriseAdmins){
 				
 				$domainObject = Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $AllDomain
@@ -1002,8 +1003,8 @@ function Invoke-ADEnum
 		}
 		
 		if ($TempEnterpriseAdmins) {
-			$TempEnterpriseAdmins | ft -Autosize -Wrap
-			$HTMLEnterpriseAdmins = $TempEnterpriseAdmins | ConvertTo-Html -Fragment -PreContent "<h2>Enterprise Administrators</h2>"
+			$TempEnterpriseAdmins | Sort-Object "Group Domain","Member Name" | ft -Autosize -Wrap
+			$HTMLEnterpriseAdmins = $TempEnterpriseAdmins | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Enterprise Administrators</h2>"
 		}
 	}
 	
@@ -1014,7 +1015,7 @@ function Invoke-ADEnum
 	Write-Host ""
     Write-Host "Domain Administrators:" -ForegroundColor Cyan
     if ($Domain -and $Server) {
-		$DomainAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Domain Admins" -Recurse | Sort-Object -Property MemberName
+		$DomainAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Domain Admins" -Recurse
 		$TempDomainAdmins = foreach ($DomainAdmin in $DomainAdmins) {
 			
 			$domainObject = Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $Domain -Server $Server
@@ -1034,13 +1035,13 @@ function Invoke-ADEnum
 		}
 
 		if ($TempDomainAdmins) {
-			$TempDomainAdmins | ft -Autosize -Wrap
-			$HTMLDomainAdmins = $TempDomainAdmins | ConvertTo-Html -Fragment -PreContent "<h2>Domain Administrators</h2>"
+			$TempDomainAdmins | Sort-Object "Group Domain","Member Name" | ft -Autosize -Wrap
+			$HTMLDomainAdmins = $TempDomainAdmins | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Domain Administrators</h2>"
 		}
 	}
 	else {
 		$TempDomainAdmins = foreach ($AllDomain in $AllDomains) {
-			$DomainAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Domain Admins" -Recurse | Sort-Object -Property MemberName
+			$DomainAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Domain Admins" -Recurse
 			foreach ($DomainAdmin in $DomainAdmins) {
 				
 				$domainObject = Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $AllDomain
@@ -1060,8 +1061,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempDomainAdmins) {
-			$TempDomainAdmins | ft -Autosize -Wrap
-			$HTMLDomainAdmins = $TempDomainAdmins | ConvertTo-Html -Fragment -PreContent "<h2>Domain Administrators</h2>"
+			$TempDomainAdmins | Sort-Object "Group Domain","Member Name" | ft -Autosize -Wrap
+			$HTMLDomainAdmins = $TempDomainAdmins | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Domain Administrators</h2>"
 		}
 	}
 	
@@ -1074,7 +1075,7 @@ function Invoke-ADEnum
     Write-Host ""
     Write-Host "Current User: $env:USERNAME"
     if($Domain -AND $Server) {
-		$GetCurrUserGroups = Get-DomainGroup -Domain $Domain -Server $Server -UserName $env:USERNAME | Sort-Object -Property samaccountname | Where-Object { $_.samaccountname -notlike "Domain Users" }
+		$GetCurrUserGroups = Get-DomainGroup -Domain $Domain -Server $Server -UserName $env:USERNAME | Where-Object { $_.samaccountname -notlike "Domain Users" }
     	$TempGetCurrUserGroup = foreach($GetCurrUserGroup in $GetCurrUserGroups){
 			[PSCustomObject]@{
 				"Group Name" = $GetCurrUserGroup.samaccountname
@@ -1085,13 +1086,13 @@ function Invoke-ADEnum
 		}
 		
 		if($TempGetCurrUserGroup){
-			$TempGetCurrUserGroup | ft -Autosize -Wrap
-			$HTMLGetCurrUserGroup = $TempGetCurrUserGroup | ConvertTo-Html -Fragment -PreContent "<h2>Groups the current user is part of</h2>"
+			$TempGetCurrUserGroup | Sort-Object Domain,"Group Name" | ft -Autosize -Wrap
+			$HTMLGetCurrUserGroup = $TempGetCurrUserGroup | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Groups the current user is part of</h2>"
 		}
     }
     else{
     	$TempGetCurrUserGroup = foreach($AllDomain in $AllDomains){
-			$GetCurrUserGroups = Get-DomainGroup -Domain $AllDomain -UserName $env:USERNAME | Sort-Object -Property samaccountname | Where-Object { $_.samaccountname -notlike "Domain Users" }
+			$GetCurrUserGroups = Get-DomainGroup -Domain $AllDomain -UserName $env:USERNAME | Where-Object { $_.samaccountname -notlike "Domain Users" }
 			foreach($GetCurrUserGroup in $GetCurrUserGroups){
 				[PSCustomObject]@{
 					"Group Name" = $GetCurrUserGroup.samaccountname
@@ -1103,8 +1104,8 @@ function Invoke-ADEnum
 		}
 		
 		if($TempGetCurrUserGroup){
-			$TempGetCurrUserGroup | ft -Autosize -Wrap
-			$HTMLGetCurrUserGroup = $TempGetCurrUserGroup | ConvertTo-Html -Fragment -PreContent "<h2>Groups the current user is part of</h2>"
+			$TempGetCurrUserGroup | Sort-Object Domain,"Group Name" | ft -Autosize -Wrap
+			$HTMLGetCurrUserGroup = $TempGetCurrUserGroup | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Groups the current user is part of</h2>"
 		}
     }
 	
@@ -1123,7 +1124,7 @@ function Invoke-ADEnum
 
 		if ($Domain -and $Server) {
 			
-			$CertPublishers = Get-DomainGroupMember "Cert Publishers" -Domain $Domain -Server $Server | Sort-Object -Property MemberName | Select-Object MemberName,MemberSID,GroupName,GroupDomain
+			$CertPublishers = Get-DomainGroupMember "Cert Publishers" -Domain $Domain -Server $Server | Select-Object MemberName,MemberSID,GroupName,GroupDomain
 
 			$TempCertPublishers = foreach ($CertPublisher in $CertPublishers) {
 				
@@ -1154,8 +1155,8 @@ function Invoke-ADEnum
 			}
 			
 			if ($TempCertPublishers) {
-				$TempCertPublishers | Format-Table -AutoSize -Wrap
-				$HTMLCertPublishers = $TempCertPublishers | ConvertTo-Html -Fragment -PreContent "<h2>ADCS HTTP Endpoints</h2>"
+				$TempCertPublishers | Sort-Object Domain,"Member Name" | Format-Table -AutoSize -Wrap
+				$HTMLCertPublishers = $TempCertPublishers | Sort-Object Domain,"Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>ADCS HTTP Endpoints</h2>"
 			}
 			
 		}
@@ -1164,7 +1165,7 @@ function Invoke-ADEnum
 			
 			$TempCertPublishers = foreach ($AllDomain in $AllDomains) {
 			
-				$CertPublishers = Get-DomainGroupMember "Cert Publishers" -Domain $AllDomain | Sort-Object -Property MemberName | Select-Object MemberName,MemberSID,GroupName,GroupDomain
+				$CertPublishers = Get-DomainGroupMember "Cert Publishers" -Domain $AllDomain | Select-Object MemberName,MemberSID,GroupName,GroupDomain
 
 				foreach ($CertPublisher in $CertPublishers) {
 					
@@ -1197,8 +1198,8 @@ function Invoke-ADEnum
 			}
 			
 			if ($TempCertPublishers) {
-				$TempCertPublishers | Format-Table -AutoSize -Wrap
-				$HTMLCertPublishers = $TempCertPublishers | ConvertTo-Html -Fragment -PreContent "<h2>ADCS HTTP Endpoints</h2>"
+				$TempCertPublishers | Sort-Object Domain,"Member Name" | Format-Table -AutoSize -Wrap
+				$HTMLCertPublishers = $TempCertPublishers | Sort-Object Domain,"Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>ADCS HTTP Endpoints</h2>"
 			}
 
 		}
@@ -1347,7 +1348,7 @@ function Invoke-ADEnum
 	Write-Host "Unconstrained Delegation:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
 		$DCs = Get-DomainController -Domain $Domain -Server $Server
-		$Unconstrained = Get-NetComputer -Domain $Domain -Server $Server -Unconstrained | Where-Object { $DCs.Name -notcontains $_.dnshostname } | Sort-Object -Property samaccountname
+		$Unconstrained = Get-NetComputer -Domain $Domain -Server $Server -Unconstrained | Where-Object { $DCs.Name -notcontains $_.dnshostname }
 		$TempUnconstrained = foreach ($Computer in $Unconstrained) {
 			[PSCustomObject]@{
 				"Name" = $Computer.samaccountname
@@ -1361,8 +1362,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempUnconstrained) {
-			$TempUnconstrained | Format-Table -AutoSize -Wrap
-			$HTMLUnconstrained = $TempUnconstrained | ConvertTo-Html -Fragment -PreContent "<h2>Unconstrained Delegation</h2>"
+			$TempUnconstrained | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+			$HTMLUnconstrained = $TempUnconstrained | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Unconstrained Delegation</h2>"
 		}
 	}
 	
@@ -1370,7 +1371,7 @@ function Invoke-ADEnum
 		$TempUnconstrained = foreach ($AllDomain in $AllDomains) {
 			$Server = Get-DomainController -Domain $AllDomain | Where-Object {$_.Roles -like "RidRole"} | Select-Object -ExpandProperty Name
 			$DCs = Get-DomainController -Domain $AllDomain
-			$Unconstrained = Get-NetComputer -Domain $AllDomain -Unconstrained | Where-Object { $DCs.Name -notcontains $_.dnshostname } | Sort-Object -Property samaccountname
+			$Unconstrained = Get-NetComputer -Domain $AllDomain -Unconstrained | Where-Object { $DCs.Name -notcontains $_.dnshostname }
 			foreach ($Computer in $Unconstrained) {
 				[PSCustomObject]@{
 					"Name" = $Computer.samaccountname
@@ -1385,8 +1386,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempUnconstrained) {
-			$TempUnconstrained | Format-Table -AutoSize -Wrap
-			$HTMLUnconstrained = $TempUnconstrained | ConvertTo-Html -Fragment -PreContent "<h2>Unconstrained Delegation</h2>"
+			$TempUnconstrained | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+			$HTMLUnconstrained = $TempUnconstrained | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Unconstrained Delegation</h2>"
 		}
 	}
 
@@ -1398,7 +1399,7 @@ function Invoke-ADEnum
     Write-Host ""
 	Write-Host "Constrained Delegation (Computers):" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$ConstrainedDelegationComputers = Get-DomainComputer -Domain $Domain -Server $Server -TrustedToAuth | Sort-Object -Property samaccountname
+		$ConstrainedDelegationComputers = Get-DomainComputer -Domain $Domain -Server $Server -TrustedToAuth
 		$TempConstrainedDelegationComputers = foreach ($ConstrainedDelegationComputer in $ConstrainedDelegationComputers) {
 			[PSCustomObject]@{
 				"Name" = $ConstrainedDelegationComputer.samaccountname
@@ -1413,14 +1414,14 @@ function Invoke-ADEnum
 		}
 
 		if ($TempConstrainedDelegationComputers) {
-			$TempConstrainedDelegationComputers | Format-Table -AutoSize -Wrap
-			$HTMLConstrainedDelegationComputers = $TempConstrainedDelegationComputers | ConvertTo-Html -Fragment -PreContent "<h2>Constrained Delegation (Computers)</h2>"
+			$TempConstrainedDelegationComputers | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+			$HTMLConstrainedDelegationComputers = $TempConstrainedDelegationComputers | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Constrained Delegation (Computers)</h2>"
 		}
 	}
 	else {
 		$TempConstrainedDelegationComputers = foreach ($AllDomain in $AllDomains) {
 			$Server = Get-DomainController -Domain $AllDomain | Where-Object {$_.Roles -like "RidRole"} | Select-Object -ExpandProperty Name
-			$ConstrainedDelegationComputers = Get-DomainComputer -Domain $AllDomain -TrustedToAuth | Sort-Object -Property samaccountname
+			$ConstrainedDelegationComputers = Get-DomainComputer -Domain $AllDomain -TrustedToAuth
 			foreach ($ConstrainedDelegationComputer in $ConstrainedDelegationComputers) {
 				[PSCustomObject]@{
 					"Name" = $ConstrainedDelegationComputer.samaccountname
@@ -1436,8 +1437,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempConstrainedDelegationComputers) {
-			$TempConstrainedDelegationComputers | Format-Table -AutoSize -Wrap
-			$HTMLConstrainedDelegationComputers = $TempConstrainedDelegationComputers | ConvertTo-Html -Fragment -PreContent "<h2>Constrained Delegation (Computers)</h2>"
+			$TempConstrainedDelegationComputers | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+			$HTMLConstrainedDelegationComputers = $TempConstrainedDelegationComputers | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Constrained Delegation (Computers)</h2>"
 		}
 	}
 
@@ -1449,7 +1450,7 @@ function Invoke-ADEnum
     Write-Host ""
 	Write-Host "Constrained Delegation (Users):" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$ConstrainedDelegationUsers = Get-DomainUser -Domain $Domain -Server $Server -TrustedToAuth | Sort-Object -Property Name
+		$ConstrainedDelegationUsers = Get-DomainUser -Domain $Domain -Server $Server -TrustedToAuth
 		$TempConstrainedDelegationUsers = foreach ($ConstrainedDelegationUser in $ConstrainedDelegationUsers) {
 			[PSCustomObject]@{
 				"Name" = $ConstrainedDelegationUser.Name
@@ -1466,13 +1467,13 @@ function Invoke-ADEnum
 		}
 
 		if ($TempConstrainedDelegationUsers) {
-			$TempConstrainedDelegationUsers | Format-Table -AutoSize -Wrap
-			$HTMLConstrainedDelegationUsers = $TempConstrainedDelegationUsers | ConvertTo-Html -Fragment -PreContent "<h2>Constrained Delegation (Users)</h2>"
+			$TempConstrainedDelegationUsers | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+			$HTMLConstrainedDelegationUsers = $TempConstrainedDelegationUsers | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Constrained Delegation (Users)</h2>"
 		}
 	}
 	else {
 		$TempConstrainedDelegationUsers = foreach ($AllDomain in $AllDomains) {
-			$ConstrainedDelegationUsers = Get-DomainUser -Domain $AllDomain -TrustedToAuth | Sort-Object -Property Name
+			$ConstrainedDelegationUsers = Get-DomainUser -Domain $AllDomain -TrustedToAuth
 			foreach ($ConstrainedDelegationUser in $ConstrainedDelegationUsers) {
 				[PSCustomObject]@{
 					"Name" = $ConstrainedDelegationUser.Name
@@ -1490,8 +1491,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempConstrainedDelegationUsers) {
-			$TempConstrainedDelegationUsers | Format-Table -AutoSize -Wrap
-			$HTMLConstrainedDelegationUsers = $TempConstrainedDelegationUsers | ConvertTo-Html -Fragment -PreContent "<h2>Constrained Delegation (Users)</h2>"
+			$TempConstrainedDelegationUsers | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+			$HTMLConstrainedDelegationUsers = $TempConstrainedDelegationUsers | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Constrained Delegation (Users)</h2>"
 		}
 	}
 
@@ -1509,7 +1510,7 @@ function Invoke-ADEnum
 
 		$exclusionList = "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions"
 
-		$DomainComputers = Get-DomainComputer -Domain $Domain -Server $Server -Properties distinguishedname | Sort-Object -Property distinguishedname
+		$DomainComputers = Get-DomainComputer -Domain $Domain -Server $Server -Properties distinguishedname
 
 		$RBACDObjects = $DomainComputers | 
 			Get-DomainObjectAcl -Domain $Domain -Server $Server -ResolveGUIDs | 
@@ -1524,12 +1525,13 @@ function Invoke-ADEnum
 					"AD Rights" = $_.ActiveDirectoryRights
 					"Object Ace Type" = $_.ObjectAceType
 					"Account" = ([System.Security.Principal.SecurityIdentifier]$_.SecurityIdentifier).Translate([System.Security.Principal.NTAccount])
+					Domain = "$Domain"
 				}
 			}
 
 		if ($RBACDObjects) {
-			$RBACDObjects | Format-Table -AutoSize -Wrap
-			$HTMLRBACDObjects = $RBACDObjects | ConvertTo-Html -Fragment -PreContent "<h2>Resource Based Constrained Delegation</h2>"
+			$RBACDObjects | Sort-Object Domain,"Computer Object" | Format-Table -AutoSize -Wrap
+			$HTMLRBACDObjects = $RBACDObjects | Sort-Object Domain,"Computer Object" | ConvertTo-Html -Fragment -PreContent "<h2>Resource Based Constrained Delegation</h2>"
 		}
 	}
 	else {
@@ -1537,7 +1539,7 @@ function Invoke-ADEnum
 
 		$RBACDObjects = foreach ($AllDomain in $AllDomains) {
 			$domainSID = Get-DomainSID $AllDomain
-			$DomainComputers = Get-DomainComputer -Domain $AllDomain -Properties distinguishedname | Sort-Object -Property distinguishedname
+			$DomainComputers = Get-DomainComputer -Domain $AllDomain -Properties distinguishedname
 			
 			$DomainComputers | Get-DomainObjectAcl -ResolveGUIDs |
 				Where-Object { 
@@ -1551,13 +1553,14 @@ function Invoke-ADEnum
 						"AD Rights" = $_.ActiveDirectoryRights
 						"Object Ace Type" = $_.ObjectAceType
 						"Account" = ([System.Security.Principal.SecurityIdentifier]$_.SecurityIdentifier).Translate([System.Security.Principal.NTAccount])
+						Domain = $AllDomain
 					}
 				}
 		}
 
 		if ($RBACDObjects) {
-			$RBACDObjects | Format-Table -AutoSize -Wrap
-			$HTMLRBACDObjects = $RBACDObjects | ConvertTo-Html -Fragment -PreContent "<h2>Resource Based Constrained Delegation</h2>"
+			$RBACDObjects | Sort-Object Domain,"Computer Object" | Format-Table -AutoSize -Wrap
+			$HTMLRBACDObjects = $RBACDObjects | Sort-Object Domain,"Computer Object" | ConvertTo-Html -Fragment -PreContent "<h2>Resource Based Constrained Delegation</h2>"
 		}
 	}
 	
@@ -1570,7 +1573,7 @@ function Invoke-ADEnum
 	
 	if ($Domain -and $Server) {
 		
-		$PasswordSetUsers = Get-DomainUser -LDAPFilter '(userPassword=*)' -Domain $Domain -Server $Server | Sort-Object -Property samaccountname | % {Add-Member -InputObject $_ NoteProperty 'Password' "$([System.Text.Encoding]::ASCII.GetString($_.userPassword))" -PassThru}
+		$PasswordSetUsers = Get-DomainUser -LDAPFilter '(userPassword=*)' -Domain $Domain -Server $Server | % {Add-Member -InputObject $_ NoteProperty 'Password' "$([System.Text.Encoding]::ASCII.GetString($_.userPassword))" -PassThru}
 		
 		$TempPasswordSetUsers = foreach($PasswordSetUser in $PasswordSetUsers){
 			
@@ -1592,8 +1595,8 @@ function Invoke-ADEnum
 		}
 		
 		if ($TempPasswordSetUsers) {
-			$TempPasswordSetUsers | Format-Table -AutoSize -Wrap
-			$HTMLPasswordSetUsers = $TempPasswordSetUsers | ConvertTo-Html -Fragment -PreContent "<h2>Check if any user passwords are set</h2>"
+			$TempPasswordSetUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+			$HTMLPasswordSetUsers = $TempPasswordSetUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Check if any user passwords are set</h2>"
 		}
 	
 	}
@@ -1602,7 +1605,7 @@ function Invoke-ADEnum
 		
 		$TempPasswordSetUsers = foreach ($AllDomain in $AllDomains) {
 			
-			$PasswordSetUsers = Get-DomainUser -LDAPFilter '(userPassword=*)' -Domain $AllDomain | Sort-Object -Property samaccountname | % {Add-Member -InputObject $_ NoteProperty 'Password' "$([System.Text.Encoding]::ASCII.GetString($_.userPassword))" -PassThru}
+			$PasswordSetUsers = Get-DomainUser -LDAPFilter '(userPassword=*)' -Domain $AllDomain | % {Add-Member -InputObject $_ NoteProperty 'Password' "$([System.Text.Encoding]::ASCII.GetString($_.userPassword))" -PassThru}
 		
 			foreach($PasswordSetUser in $PasswordSetUsers){
 				
@@ -1626,8 +1629,8 @@ function Invoke-ADEnum
 		}
 		
 		if ($TempPasswordSetUsers) {
-			$TempPasswordSetUsers | Format-Table -AutoSize -Wrap
-			$HTMLPasswordSetUsers = $TempPasswordSetUsers | ConvertTo-Html -Fragment -PreContent "<h2>Check if any user passwords are set</h2>"
+			$TempPasswordSetUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+			$HTMLPasswordSetUsers = $TempPasswordSetUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Check if any user passwords are set</h2>"
 		}
 		
 	}
@@ -1641,7 +1644,7 @@ function Invoke-ADEnum
 	
 	if ($Domain -and $Server) {
 		
-		$EmptyPasswordUsers = Get-DomainUser -UACFilter PASSWD_NOTREQD -Domain $Domain -Server $Server | Sort-Object -Property samaccountname
+		$EmptyPasswordUsers = Get-DomainUser -UACFilter PASSWD_NOTREQD -Domain $Domain -Server $Server
 		
 		$TempEmptyPasswordUsers = foreach($EmptyPasswordUser in $EmptyPasswordUsers){
 			
@@ -1661,8 +1664,8 @@ function Invoke-ADEnum
 		}
 		
 		if ($TempEmptyPasswordUsers) {
-			$TempEmptyPasswordUsers | Format-Table -AutoSize -Wrap
-			$HTMLEmptyPasswordUsers = $TempEmptyPasswordUsers | ConvertTo-Html -Fragment -PreContent "<h2>Users that may have empty passwords or shorter passwords</h2>"
+			$TempEmptyPasswordUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+			$HTMLEmptyPasswordUsers = $TempEmptyPasswordUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users that may have empty passwords or shorter passwords</h2>"
 		}
 	
 	}
@@ -1671,7 +1674,7 @@ function Invoke-ADEnum
 		
 		$TempEmptyPasswordUsers = foreach ($AllDomain in $AllDomains) {
 			
-			$EmptyPasswordUsers = Get-DomainUser -UACFilter PASSWD_NOTREQD -Domain $AllDomain | Sort-Object -Property samaccountname
+			$EmptyPasswordUsers = Get-DomainUser -UACFilter PASSWD_NOTREQD -Domain $AllDomain
 		
 			foreach($EmptyPasswordUser in $EmptyPasswordUsers){
 				
@@ -1693,8 +1696,8 @@ function Invoke-ADEnum
 		}
 		
 		if ($TempEmptyPasswordUsers) {
-			$TempEmptyPasswordUsers | Format-Table -AutoSize -Wrap
-			$HTMLEmptyPasswordUsers = $TempEmptyPasswordUsers | ConvertTo-Html -Fragment -PreContent "<h2>Users that may have empty passwords or shorter passwords</h2>"
+			$TempEmptyPasswordUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+			$HTMLEmptyPasswordUsers = $TempEmptyPasswordUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users that may have empty passwords or shorter passwords</h2>"
 		}
 		
 	}
@@ -1708,7 +1711,7 @@ function Invoke-ADEnum
 	Write-Host "Members of Pre-Windows 2000 Compatible Access group:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
 		$PreWin2kCompatibleAccess = Get-DomainGroup -Domain $Domain -Server $Server -Identity "Pre-Windows 2000 Compatible Access"
-		$PreWin2kCompatibleAccessMembers = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Pre-Windows 2000 Compatible Access" -Recurse | Where-Object { $_.MemberName -ne "Authenticated Users" } | Sort-Object -Property MemberName
+		$PreWin2kCompatibleAccessMembers = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Pre-Windows 2000 Compatible Access" -Recurse | Where-Object { $_.MemberName -ne "Authenticated Users" }
 		$TempPreWin2kCompatibleAccess = foreach ($Member in $PreWin2kCompatibleAccessMembers) {
 			$memberName = $Member.MemberName.TrimEnd('$')
 			$computer = Get-DomainComputer -Identity $memberName -Domain $Domain -Server $Server
@@ -1727,15 +1730,15 @@ function Invoke-ADEnum
 		}
 
 		if ($TempPreWin2kCompatibleAccess) {
-			$TempPreWin2kCompatibleAccess | Format-Table -AutoSize -Wrap
-			$HTMLPreWin2kCompatibleAccess = $TempPreWin2kCompatibleAccess | ConvertTo-Html -Fragment -PreContent "<h2>Members of Pre-Windows 2000 Compatible Access group</h2>"
+			$TempPreWin2kCompatibleAccess | Sort-Object Domain,Member | Format-Table -AutoSize -Wrap
+			$HTMLPreWin2kCompatibleAccess = $TempPreWin2kCompatibleAccess | Sort-Object Domain,Member | ConvertTo-Html -Fragment -PreContent "<h2>Members of Pre-Windows 2000 Compatible Access group</h2>"
 		}
 	}
 	else {
 		$TempPreWin2kCompatibleAccess = foreach ($AllDomain in $AllDomains) {
 			$Server = Get-DomainController -Domain $AllDomain | Where-Object {$_.Roles -like "RidRole"} | Select-Object -ExpandProperty Name
 			$PreWin2kCompatibleAccess = Get-DomainGroup -Domain $AllDomain -Identity "Pre-Windows 2000 Compatible Access"
-			$PreWin2kCompatibleAccessMembers = Get-DomainGroupMember -Domain $AllDomain -Identity "Pre-Windows 2000 Compatible Access" -Recurse | Where-Object { $_.MemberName -ne "Authenticated Users" } | Sort-Object -Property MemberName
+			$PreWin2kCompatibleAccessMembers = Get-DomainGroupMember -Domain $AllDomain -Identity "Pre-Windows 2000 Compatible Access" -Recurse | Where-Object { $_.MemberName -ne "Authenticated Users" }
 			foreach ($Member in $PreWin2kCompatibleAccessMembers) {
 				$memberName = $Member.MemberName.TrimEnd('$')
 				$computer = Get-DomainComputer -Identity $memberName -Domain $AllDomain
@@ -1755,8 +1758,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempPreWin2kCompatibleAccess) {
-			$TempPreWin2kCompatibleAccess | Format-Table -AutoSize -Wrap
-			$HTMLPreWin2kCompatibleAccess = $TempPreWin2kCompatibleAccess | ConvertTo-Html -Fragment -PreContent "<h2>Members of Pre-Windows 2000 Compatible Access group</h2>"
+			$TempPreWin2kCompatibleAccess | Sort-Object Domain,Member | Format-Table -AutoSize -Wrap
+			$HTMLPreWin2kCompatibleAccess = $TempPreWin2kCompatibleAccess | Sort-Object Domain,Member | ConvertTo-Html -Fragment -PreContent "<h2>Members of Pre-Windows 2000 Compatible Access group</h2>"
 		}
 	}
 	
@@ -1796,13 +1799,14 @@ function Invoke-ADEnum
 						"GPO Name" = $gpoDisplayName
 						Setting = $settingValue
 						"LM Compatibility Level" = $policySetting
+						Domain = $Domain
 					}
 				}
 			}
 
 		if ($TempLMCompatibilityLevel) {
-			$TempLMCompatibilityLevel | Where-Object {$_.Setting -le 2} | Format-Table -AutoSize -Wrap
-			$HTMLLMCompatibilityLevel = $TempLMCompatibilityLevel | Where-Object {$_.Setting -le 2} | ConvertTo-Html -Fragment -PreContent "<h2>LM Compatibility Level</h2>"
+			$TempLMCompatibilityLevel | Where-Object {$_.Setting -le 2} | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
+			$HTMLLMCompatibilityLevel = $TempLMCompatibilityLevel | Where-Object {$_.Setting -le 2} | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>LM Compatibility Level</h2>"
 		}
 	} 
 	
@@ -1827,13 +1831,14 @@ function Invoke-ADEnum
 							"GPO Name" = $gpoDisplayName
 							Setting = $settingValue
 							"LM Compatibility Level" = $policySetting
+							Domain = $AllDomain
 						}
 					}
 				}
 
 			if ($TempLMCompatibilityLevel) {
-				$TempLMCompatibilityLevel | Where-Object {$_.Setting -le 2} | Format-Table -AutoSize -Wrap
-				$HTMLLMCompatibilityLevel = $TempLMCompatibilityLevel | Where-Object {$_.Setting -le 2} | ConvertTo-Html -Fragment -PreContent "<h2>LM Compatibility Level</h2>"
+				$TempLMCompatibilityLevel | Where-Object {$_.Setting -le 2} | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
+				$HTMLLMCompatibilityLevel = $TempLMCompatibilityLevel | Where-Object {$_.Setting -le 2} | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>LM Compatibility Level</h2>"
 			}
 		}
 	}
@@ -1856,8 +1861,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempMachineQuota | Where-Object {$_.Quota -ge 1}) {
-			$TempMachineQuota | Format-Table -AutoSize
-			$HTMLMachineQuota = $TempMachineQuota | ConvertTo-Html -Fragment -PreContent "<h2>Machine Account Quota</h2>"
+			$TempMachineQuota | Sort-Object Domain | Format-Table -AutoSize
+			$HTMLMachineQuota = $TempMachineQuota | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2>Machine Account Quota</h2>"
 		}
 	}
 	else {
@@ -1873,8 +1878,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempMachineQuota | Where-Object {$_.Quota -ge 1}) {
-			$TempMachineQuota | Format-Table -AutoSize
-			$HTMLMachineQuota = $TempMachineQuota | ConvertTo-Html -Fragment -PreContent "<h2>Machine Account Quota</h2>"
+			$TempMachineQuota | Sort-Object Domain | Format-Table -AutoSize
+			$HTMLMachineQuota = $TempMachineQuota | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2>Machine Account Quota</h2>"
 		}
 	}
 	
@@ -1900,7 +1905,7 @@ function Invoke-ADEnum
 				($_.OperatingSystem -like "Windows Server 2008*") -or
 				($_.OperatingSystem -like "Windows Server 2003*") -or
 				($_.OperatingSystem -like "Windows Server 2000*")
-			} | Sort-Object -Property DnsHostName
+			}
 
 			$TempUnsupportedHosts = foreach ($UnsupportedHost in $UnsupportedHosts) {
 				[PSCustomObject]@{
@@ -1915,8 +1920,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempUnsupportedHosts) {
-				$TempUnsupportedHosts | Format-Table -AutoSize -Wrap
-				$HTMLUnsupportedHosts = $TempUnsupportedHosts | ConvertTo-Html -Fragment -PreContent "<h2>Hosts running Unsupported OS</h2>"
+				$TempUnsupportedHosts | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+				$HTMLUnsupportedHosts = $TempUnsupportedHosts | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Hosts running Unsupported OS</h2>"
 			}
 		}
 		else {
@@ -1934,7 +1939,7 @@ function Invoke-ADEnum
 					($_.OperatingSystem -like "Windows Server 2008*") -or
 					($_.OperatingSystem -like "Windows Server 2003*") -or
 					($_.OperatingSystem -like "Windows Server 2000*")
-				} | Sort-Object -Property DnsHostName
+				}
 
 				foreach ($UnsupportedHost in $UnsupportedHosts) {
 					[PSCustomObject]@{
@@ -1950,8 +1955,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempUnsupportedHosts) {
-				$TempUnsupportedHosts | Format-Table -AutoSize -Wrap
-				$HTMLUnsupportedHosts = $TempUnsupportedHosts | ConvertTo-Html -Fragment -PreContent "<h2>Hosts running Unsupported OS</h2>"
+				$TempUnsupportedHosts | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+				$HTMLUnsupportedHosts = $TempUnsupportedHosts | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Hosts running Unsupported OS</h2>"
 			}
 		}
 
@@ -1990,8 +1995,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempReplicationUsers) {
-			$TempReplicationUsers | Sort-Object -Property "User or Group Name" | Format-Table -AutoSize -Wrap
-			$HTMLReplicationUsers = $TempReplicationUsers | Sort-Object -Property "User or Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Retrieve *most* users who can perform DCSync</h2>"
+			$TempReplicationUsers | Sort-Object Domain,"User or Group Name" | Format-Table -AutoSize -Wrap
+			$HTMLReplicationUsers = $TempReplicationUsers | Sort-Object Domain,"User or Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Retrieve *most* users who can perform DCSync</h2>"
 		}
 	}
 	else {
@@ -2018,8 +2023,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempReplicationUsers) {
-			$TempReplicationUsers | Sort-Object Domain, "User or Group Name" | Format-Table -AutoSize -Wrap
-			$HTMLReplicationUsers = $TempReplicationUsers | Sort-Object Domain, "User or Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Retrieve *most* users who can perform DCSync</h2>"
+			$TempReplicationUsers | Sort-Object Domain,"User or Group Name" | Format-Table -AutoSize -Wrap
+			$HTMLReplicationUsers = $TempReplicationUsers | Sort-Object Domain,"User or Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Retrieve *most* users who can perform DCSync</h2>"
 		}
 	}
 	
@@ -2031,7 +2036,7 @@ function Invoke-ADEnum
 	Write-Host ""
 	Write-Host "Service Accounts:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$ServiceAccounts = Get-DomainUser -SPN -Domain $Domain -Server $Server | Sort-Object -Property samaccountname
+		$ServiceAccounts = Get-DomainUser -SPN -Domain $Domain -Server $Server
 		$TempServiceAccounts = foreach ($Account in $ServiceAccounts) {
 			[PSCustomObject]@{
 				"Account" = $Account.samaccountname
@@ -2048,14 +2053,14 @@ function Invoke-ADEnum
 		}
 
 		if ($TempServiceAccounts) {
-			$TempServiceAccounts | Format-Table -AutoSize -Wrap
-			$HTMLServiceAccounts = $TempServiceAccounts | ConvertTo-Html -Fragment -PreContent "<h2>Service Accounts</h2>"
+			$TempServiceAccounts | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+			$HTMLServiceAccounts = $TempServiceAccounts | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Service Accounts</h2>"
 		}
 	}
 	
 	else {
 		$TempServiceAccounts = foreach ($AllDomain in $AllDomains) {
-			$ServiceAccounts = Get-DomainUser -SPN -Domain $AllDomain | Sort-Object -Property samaccountname
+			$ServiceAccounts = Get-DomainUser -SPN -Domain $AllDomain
 			foreach ($Account in $ServiceAccounts) {
 				[PSCustomObject]@{
 					"Account" = $Account.samaccountname
@@ -2073,8 +2078,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempServiceAccounts) {
-			$TempServiceAccounts | Format-Table -AutoSize -Wrap
-			$HTMLServiceAccounts = $TempServiceAccounts | ConvertTo-Html -Fragment -PreContent "<h2>Service Accounts</h2>"
+			$TempServiceAccounts | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+			$HTMLServiceAccounts = $TempServiceAccounts | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Service Accounts</h2>"
 		}
 	}
 	
@@ -2085,7 +2090,7 @@ function Invoke-ADEnum
     Write-Host ""
 	Write-Host "Group Managed Service Accounts (GMSA):" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$GMSAs = Get-DomainObject -Domain $Domain -Server $Server -LDAPFilter '(objectClass=msDS-GroupManagedServiceAccount)' | Sort-Object -Property samaccountname
+		$GMSAs = Get-DomainObject -Domain $Domain -Server $Server -LDAPFilter '(objectClass=msDS-GroupManagedServiceAccount)'
 		$TempGMSAs = foreach ($GMSA in $GMSAs) {
 			[PSCustomObject]@{
 				"Account" = $GMSA.samaccountname
@@ -2103,14 +2108,14 @@ function Invoke-ADEnum
 		}
 
 		if ($TempGMSAs) {
-			$TempGMSAs | Format-Table -AutoSize -Wrap
-			$HTMLGMSAs = $TempGMSAs | ConvertTo-Html -Fragment -PreContent "<h2>Group Managed Service Accounts (GMSA)</h2>"
+			$TempGMSAs | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+			$HTMLGMSAs = $TempGMSAs | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Group Managed Service Accounts (GMSA)</h2>"
 		}
 	}
 	
 	else {
 		$TempGMSAs = foreach ($AllDomain in $AllDomains) {
-			$GMSAs = Get-DomainObject -Domain $AllDomain -LDAPFilter '(objectClass=msDS-GroupManagedServiceAccount)' | Sort-Object -Property samaccountname
+			$GMSAs = Get-DomainObject -Domain $AllDomain -LDAPFilter '(objectClass=msDS-GroupManagedServiceAccount)'
 			foreach ($GMSA in $GMSAs) {
 				[PSCustomObject]@{
 					"Account" = $GMSA.samaccountname
@@ -2129,8 +2134,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempGMSAs) {
-			$TempGMSAs | Format-Table -AutoSize -Wrap
-			$HTMLGMSAs = $TempGMSAs | ConvertTo-Html -Fragment -PreContent "<h2>Group Managed Service Accounts (GMSA)</h2>"
+			$TempGMSAs | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+			$HTMLGMSAs = $TempGMSAs | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Group Managed Service Accounts (GMSA)</h2>"
 		}
 	}
 
@@ -2163,8 +2168,8 @@ function Invoke-ADEnum
     )
 	
     if ($Domain -and $Server) {
-	$excludedGroupsIdentities = foreach($excludedGroup in $excludedGroups){Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $excludedGroup | Select-Object -ExpandProperty MemberName | Sort-Object -Unique}
-		$UsersAdminCount = Get-DomainUser -Domain $Domain -Server $Server -AdminCount | Where-Object { $_.samaccountname -notin $excludedUsers -AND $_.samaccountname -notin $excludedGroupsIdentities } | Sort-Object -Property samaccountname
+		$excludedGroupsIdentities = foreach($excludedGroup in $excludedGroups){Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $excludedGroup | Select-Object -ExpandProperty MemberName | Sort-Object -Unique}
+		$UsersAdminCount = Get-DomainUser -Domain $Domain -Server $Server -AdminCount | Where-Object { $_.samaccountname -notin $excludedUsers -AND $_.samaccountname -notin $excludedGroupsIdentities }
 		$TempUsersAdminCount = foreach ($User in $UsersAdminCount) {
 			[PSCustomObject]@{
 				"User Name" = $User.samaccountname
@@ -2181,15 +2186,15 @@ function Invoke-ADEnum
 		}
 
 		if ($TempUsersAdminCount) {
-			$TempUsersAdminCount | Format-Table -AutoSize -Wrap
-			$HTMLUsersAdminCount = $TempUsersAdminCount | ConvertTo-Html -Fragment -PreContent "<h2>Users with AdminCount set to 1 (non-defaults)</h2>"
+			$TempUsersAdminCount | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+			$HTMLUsersAdminCount = $TempUsersAdminCount | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users with AdminCount set to 1 (non-defaults)</h2>"
 		}
 	}
 	
 	else {
 		$TempUsersAdminCount = foreach ($AllDomain in $AllDomains) {
 			$excludedGroupsIdentities = foreach($excludedGroup in $excludedGroups){Get-DomainGroupMember -Domain $AllDomain -Identity $excludedGroup | Select-Object -ExpandProperty MemberName | Sort-Object -Unique}
-			$UsersAdminCount = Get-DomainUser -Domain $AllDomain -AdminCount | Where-Object { $_.samaccountname -notin $excludedUsers -AND $_.samaccountname -notin $excludedGroupsIdentities } | Sort-Object -Property samaccountname
+			$UsersAdminCount = Get-DomainUser -Domain $AllDomain -AdminCount | Where-Object { $_.samaccountname -notin $excludedUsers -AND $_.samaccountname -notin $excludedGroupsIdentities }
 			foreach ($User in $UsersAdminCount) {
 				[PSCustomObject]@{
 					"User Name" = $User.samaccountname
@@ -2207,8 +2212,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempUsersAdminCount) {
-			$TempUsersAdminCount | Format-Table -AutoSize -Wrap
-			$HTMLUsersAdminCount = $TempUsersAdminCount | ConvertTo-Html -Fragment -PreContent "<h2>Users with AdminCount set to 1 (non-defaults)</h2>"
+			$TempUsersAdminCount | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+			$HTMLUsersAdminCount = $TempUsersAdminCount | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users with AdminCount set to 1 (non-defaults)</h2>"
 		}
 	}
 
@@ -2239,7 +2244,7 @@ function Invoke-ADEnum
     )
 	
     if ($Domain -and $Server) {
-		$GroupsAdminCount = Get-DomainGroup -Domain $Domain -Server $Server -AdminCount | Where-Object { $_.samaccountname -notin $excludedGroups } | Sort-Object -Property samaccountname
+		$GroupsAdminCount = Get-DomainGroup -Domain $Domain -Server $Server -AdminCount | Where-Object { $_.samaccountname -notin $excludedGroups }
 		$TempGroupsAdminCount = foreach ($Group in $GroupsAdminCount) {
 			[PSCustomObject]@{
 				"Group Name" = $Group.samaccountname
@@ -2250,14 +2255,14 @@ function Invoke-ADEnum
 		}
 
 		if ($TempGroupsAdminCount) {
-			$TempGroupsAdminCount | Format-Table -AutoSize -Wrap
-			$HTMLGroupsAdminCount = $TempGroupsAdminCount | ConvertTo-Html -Fragment -PreContent "<h2>Groups with AdminCount set to 1 (non-defaults)</h2>"
+			$TempGroupsAdminCount | Sort-Object Domain,"Group Name" | Format-Table -AutoSize -Wrap
+			$HTMLGroupsAdminCount = $TempGroupsAdminCount | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Groups with AdminCount set to 1 (non-defaults)</h2>"
 		}
 	}
 	
 	else {
 		$TempGroupsAdminCount = foreach ($AllDomain in $AllDomains) {
-			$GroupsAdminCount = Get-DomainGroup -Domain $AllDomain -AdminCount | Where-Object { $_.samaccountname -notin $excludedGroups } | Sort-Object -Property samaccountname
+			$GroupsAdminCount = Get-DomainGroup -Domain $AllDomain -AdminCount | Where-Object { $_.samaccountname -notin $excludedGroups }
 			foreach ($Group in $GroupsAdminCount) {
 				[PSCustomObject]@{
 					"Group Name" = $Group.samaccountname
@@ -2269,8 +2274,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempGroupsAdminCount) {
-			$TempGroupsAdminCount | Format-Table -AutoSize -Wrap
-			$HTMLGroupsAdminCount = $TempGroupsAdminCount | ConvertTo-Html -Fragment -PreContent "<h2>Groups with AdminCount set to 1 (non-defaults)</h2>"
+			$TempGroupsAdminCount | Sort-Object Domain,"Group Name" | Format-Table -AutoSize -Wrap
+			$HTMLGroupsAdminCount = $TempGroupsAdminCount | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Groups with AdminCount set to 1 (non-defaults)</h2>"
 		}
 	}
 	
@@ -2283,7 +2288,7 @@ function Invoke-ADEnum
 	if ($Domain -and $Server) {
 		$dcName = "DC=" + $Domain.Split(".")
 		$dcName = $dcName -replace " ", ",DC="
-		$ProtectedUsers = Get-DomainUser -Domain $Domain -Server $Server -LDAPFilter "(&(AdminCount=1)(memberof=CN=Protected Users,CN=Users,$dcName))" | Sort-Object -Property samaccountname
+		$ProtectedUsers = Get-DomainUser -Domain $Domain -Server $Server -LDAPFilter "(&(AdminCount=1)(memberof=CN=Protected Users,CN=Users,$dcName))"
 		$TempAdminsInProtectedUsersGroup = foreach ($ProtectedUser in $ProtectedUsers) {
 			[PSCustomObject]@{
 				"Account" = $ProtectedUser.samaccountname
@@ -2299,8 +2304,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempAdminsInProtectedUsersGroup) {
-			$TempAdminsInProtectedUsersGroup | Format-Table -AutoSize -Wrap
-			$HTMLAdminsInProtectedUsersGroup = $TempAdminsInProtectedUsersGroup | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users in 'Protected Users' Group</h2>"
+			$TempAdminsInProtectedUsersGroup | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+			$HTMLAdminsInProtectedUsersGroup = $TempAdminsInProtectedUsersGroup | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users in 'Protected Users' Group</h2>"
 		}
 	}
 	
@@ -2308,7 +2313,7 @@ function Invoke-ADEnum
 		$TempAdminsInProtectedUsersGroup = foreach ($AllDomain in $AllDomains) {
 			$dcName = "DC=" + $AllDomain.Split(".")
 			$dcName = $dcName -replace " ", ",DC="
-			$ProtectedUsers = Get-DomainUser -Domain $AllDomain -LDAPFilter "(&(AdminCount=1)(memberof=CN=Protected Users,CN=Users,$dcName))" | Sort-Object -Property samaccountname
+			$ProtectedUsers = Get-DomainUser -Domain $AllDomain -LDAPFilter "(&(AdminCount=1)(memberof=CN=Protected Users,CN=Users,$dcName))"
 			foreach ($ProtectedUser in $ProtectedUsers) {
 				[PSCustomObject]@{
 					"Account" = $ProtectedUser.samaccountname
@@ -2325,8 +2330,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempAdminsInProtectedUsersGroup) {
-			$TempAdminsInProtectedUsersGroup | Format-Table -AutoSize -Wrap
-			$HTMLAdminsInProtectedUsersGroup = $TempAdminsInProtectedUsersGroup | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users in 'Protected Users' Group</h2>"
+			$TempAdminsInProtectedUsersGroup | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+			$HTMLAdminsInProtectedUsersGroup = $TempAdminsInProtectedUsersGroup | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users in 'Protected Users' Group</h2>"
 		}
 	}
 	
@@ -2339,7 +2344,7 @@ function Invoke-ADEnum
 	if ($Domain -and $Server) {
 		$dcName = "DC=" + $Domain.Split(".")
 		$dcName = $dcName -replace " ", ",DC="
-		$ProtectedUsers = Get-DomainUser -Domain $Domain -Server $Server -LDAPFilter "(&(AdminCount=1)(!(memberof=CN=Protected Users,CN=Users,$dcName)))" | Sort-Object -Property samaccountname
+		$ProtectedUsers = Get-DomainUser -Domain $Domain -Server $Server -LDAPFilter "(&(AdminCount=1)(!(memberof=CN=Protected Users,CN=Users,$dcName)))"
 		$TempAdminsNotInProtectedUsersGroup = foreach ($ProtectedUser in $ProtectedUsers) {
 			[PSCustomObject]@{
 				"Account" = $ProtectedUser.samaccountname
@@ -2355,8 +2360,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempAdminsNotInProtectedUsersGroup) {
-			$TempAdminsNotInProtectedUsersGroup | Format-Table -AutoSize -Wrap
-			$HTMLAdminsNotInProtectedUsersGroup = $TempAdminsNotInProtectedUsersGroup | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users NOT in 'Protected Users' Group</h2>"
+			$TempAdminsNotInProtectedUsersGroup | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+			$HTMLAdminsNotInProtectedUsersGroup = $TempAdminsNotInProtectedUsersGroup | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users NOT in 'Protected Users' Group</h2>"
 		}
 	}
 	
@@ -2364,7 +2369,7 @@ function Invoke-ADEnum
 		$TempAdminsNotInProtectedUsersGroup = foreach ($AllDomain in $AllDomains) {
 			$dcName = "DC=" + $AllDomain.Split(".")
 			$dcName = $dcName -replace " ", ",DC="
-			$ProtectedUsers = Get-DomainUser -Domain $AllDomain -LDAPFilter "(&(AdminCount=1)(!(memberof=CN=Protected Users,CN=Users,$dcName)))" | Sort-Object -Property samaccountname
+			$ProtectedUsers = Get-DomainUser -Domain $AllDomain -LDAPFilter "(&(AdminCount=1)(!(memberof=CN=Protected Users,CN=Users,$dcName)))"
 			foreach ($ProtectedUser in $ProtectedUsers) {
 				[PSCustomObject]@{
 					"Account" = $ProtectedUser.samaccountname
@@ -2381,8 +2386,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempAdminsNotInProtectedUsersGroup) {
-			$TempAdminsNotInProtectedUsersGroup | Format-Table -AutoSize -Wrap
-			$HTMLAdminsNotInProtectedUsersGroup = $TempAdminsNotInProtectedUsersGroup | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users NOT in 'Protected Users' Group</h2>"
+			$TempAdminsNotInProtectedUsersGroup | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+			$HTMLAdminsNotInProtectedUsersGroup = $TempAdminsNotInProtectedUsersGroup | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users NOT in 'Protected Users' Group</h2>"
 		}
 	}
 	
@@ -2395,7 +2400,7 @@ function Invoke-ADEnum
 	if ($Domain -and $Server) {
 		$dcName = "DC=" + $Domain.Split(".")
 		$dcName = $dcName -replace " ", ",DC="
-		$ProtectedUsers = Get-DomainUser -Domain $Domain -Server $Server -LDAPFilter "(&(!(AdminCount=1))(memberof=CN=Protected Users,CN=Users,$dcName))" | Sort-Object -Property samaccountname
+		$ProtectedUsers = Get-DomainUser -Domain $Domain -Server $Server -LDAPFilter "(&(!(AdminCount=1))(memberof=CN=Protected Users,CN=Users,$dcName))"
 		$TempNonAdminsInProtectedUsersGroup = foreach ($ProtectedUser in $ProtectedUsers) {
 			[PSCustomObject]@{
 				"Account" = $ProtectedUser.samaccountname
@@ -2411,8 +2416,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempNonAdminsInProtectedUsersGroup) {
-			$TempNonAdminsInProtectedUsersGroup | Format-Table -AutoSize -Wrap
-			$HTMLNonAdminsInProtectedUsersGroup = $TempNonAdminsInProtectedUsersGroup | ConvertTo-Html -Fragment -PreContent "<h2>Non-Admin Users in 'Protected Users' Group</h2>"
+			$TempNonAdminsInProtectedUsersGroup | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+			$HTMLNonAdminsInProtectedUsersGroup = $TempNonAdminsInProtectedUsersGroup | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Non-Admin Users in 'Protected Users' Group</h2>"
 		}
 	}
 	
@@ -2420,7 +2425,7 @@ function Invoke-ADEnum
 		$TempNonAdminsInProtectedUsersGroup = foreach ($AllDomain in $AllDomains) {
 			$dcName = "DC=" + $AllDomain.Split(".")
 			$dcName = $dcName -replace " ", ",DC="
-			$ProtectedUsers = Get-DomainUser -Domain $AllDomain -LDAPFilter "(&(!(AdminCount=1))(memberof=CN=Protected Users,CN=Users,$dcName))" | Sort-Object -Property samaccountname
+			$ProtectedUsers = Get-DomainUser -Domain $AllDomain -LDAPFilter "(&(!(AdminCount=1))(memberof=CN=Protected Users,CN=Users,$dcName))"
 			foreach ($ProtectedUser in $ProtectedUsers) {
 				[PSCustomObject]@{
 					"Account" = $ProtectedUser.samaccountname
@@ -2437,8 +2442,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempNonAdminsInProtectedUsersGroup) {
-			$TempNonAdminsInProtectedUsersGroup | Format-Table -AutoSize -Wrap
-			$HTMLNonAdminsInProtectedUsersGroup = $TempNonAdminsInProtectedUsersGroup | ConvertTo-Html -Fragment -PreContent "<h2>Non-Admin Users in 'Protected Users' Group</h2>"
+			$TempNonAdminsInProtectedUsersGroup | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+			$HTMLNonAdminsInProtectedUsersGroup = $TempNonAdminsInProtectedUsersGroup | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Non-Admin Users in 'Protected Users' Group</h2>"
 		}
 	}
 	
@@ -2449,7 +2454,7 @@ function Invoke-ADEnum
 	Write-Host ""
 	Write-Host "Privileged users marked as 'sensitive and not allowed for delegation':" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$PrivilegedUsers = Get-DomainUser -Domain $Domain -Server $Server -DisallowDelegation -AdminCount | Sort-Object -Property samaccountname
+		$PrivilegedUsers = Get-DomainUser -Domain $Domain -Server $Server -DisallowDelegation -AdminCount
 		$TempPrivilegedSensitiveUsers = foreach ($PrivilegedUser in $PrivilegedUsers) {
 			[PSCustomObject]@{
 				"Account" = $PrivilegedUser.samaccountname
@@ -2465,14 +2470,14 @@ function Invoke-ADEnum
 		}
 
 		if ($TempPrivilegedSensitiveUsers) {
-			$TempPrivilegedSensitiveUsers | Format-Table -AutoSize -Wrap
-			$HTMLPrivilegedSensitiveUsers = $TempPrivilegedSensitiveUsers | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users marked as 'sensitive and not allowed for delegation'</h2>"
+			$TempPrivilegedSensitiveUsers | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+			$HTMLPrivilegedSensitiveUsers = $TempPrivilegedSensitiveUsers | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users marked as 'sensitive and not allowed for delegation'</h2>"
 		}
 	}
 	
 	else {
 		$TempPrivilegedSensitiveUsers = foreach ($AllDomain in $AllDomains) {
-			$PrivilegedUsers = Get-DomainUser -Domain $AllDomain -DisallowDelegation -AdminCount | Sort-Object -Property samaccountname
+			$PrivilegedUsers = Get-DomainUser -Domain $AllDomain -DisallowDelegation -AdminCount
 			foreach ($PrivilegedUser in $PrivilegedUsers) {
 				[PSCustomObject]@{
 					"Account" = $PrivilegedUser.samaccountname
@@ -2489,8 +2494,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempPrivilegedSensitiveUsers) {
-			$TempPrivilegedSensitiveUsers | Format-Table -AutoSize -Wrap
-			$HTMLPrivilegedSensitiveUsers = $TempPrivilegedSensitiveUsers | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users marked as 'sensitive and not allowed for delegation'</h2>"
+			$TempPrivilegedSensitiveUsers | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+			$HTMLPrivilegedSensitiveUsers = $TempPrivilegedSensitiveUsers | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users marked as 'sensitive and not allowed for delegation'</h2>"
 		}
 	}
 
@@ -2502,7 +2507,7 @@ function Invoke-ADEnum
     Write-Host ""
 	Write-Host "Privileged users NOT marked as 'sensitive and not allowed for delegation':" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$PrivilegedUsers = Get-DomainUser -Domain $Domain -Server $Server -AllowDelegation -AdminCount | Sort-Object -Property samaccountname
+		$PrivilegedUsers = Get-DomainUser -Domain $Domain -Server $Server -AllowDelegation -AdminCount
 		$TempPrivilegedNotSensitiveUsers = foreach ($PrivilegedUser in $PrivilegedUsers) {
 			[PSCustomObject]@{
 				"Account" = $PrivilegedUser.samaccountname
@@ -2518,14 +2523,14 @@ function Invoke-ADEnum
 		}
 
 		if ($TempPrivilegedNotSensitiveUsers) {
-			$TempPrivilegedNotSensitiveUsers | Format-Table -AutoSize -Wrap
-			$HTMLPrivilegedNotSensitiveUsers = $TempPrivilegedNotSensitiveUsers | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users NOT marked as 'sensitive and not allowed for delegation'</h2>"
+			$TempPrivilegedNotSensitiveUsers | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+			$HTMLPrivilegedNotSensitiveUsers = $TempPrivilegedNotSensitiveUsers | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users NOT marked as 'sensitive and not allowed for delegation'</h2>"
 		}
 	}
 	
 	else {
 		$TempPrivilegedNotSensitiveUsers = foreach ($AllDomain in $AllDomains) {
-			$PrivilegedUsers = Get-DomainUser -Domain $AllDomain -AllowDelegation -AdminCount | Sort-Object -Property samaccountname
+			$PrivilegedUsers = Get-DomainUser -Domain $AllDomain -AllowDelegation -AdminCount
 			foreach ($PrivilegedUser in $PrivilegedUsers) {
 				[PSCustomObject]@{
 					"Account" = $PrivilegedUser.samaccountname
@@ -2542,8 +2547,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempPrivilegedNotSensitiveUsers) {
-			$TempPrivilegedNotSensitiveUsers | Format-Table -AutoSize -Wrap
-			$HTMLPrivilegedNotSensitiveUsers = $TempPrivilegedNotSensitiveUsers | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users NOT marked as 'sensitive and not allowed for delegation'</h2>"
+			$TempPrivilegedNotSensitiveUsers | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+			$HTMLPrivilegedNotSensitiveUsers = $TempPrivilegedNotSensitiveUsers | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users NOT marked as 'sensitive and not allowed for delegation'</h2>"
 		}
 	}
 	
@@ -2554,7 +2559,7 @@ function Invoke-ADEnum
 	Write-Host ""
 	Write-Host "Non-Privileged users marked as 'sensitive and not allowed for delegation':" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$PrivilegedUsers = Get-DomainUser -Domain $Domain -Server $Server -DisallowDelegation -LDAPFilter "(&(!(AdminCount=1)))" | Sort-Object -Property samaccountname
+		$PrivilegedUsers = Get-DomainUser -Domain $Domain -Server $Server -DisallowDelegation -LDAPFilter "(&(!(AdminCount=1)))"
 		$TempNonPrivilegedSensitiveUsers = foreach ($PrivilegedUser in $PrivilegedUsers) {
 			[PSCustomObject]@{
 				"Account" = $PrivilegedUser.samaccountname
@@ -2570,14 +2575,14 @@ function Invoke-ADEnum
 		}
 
 		if ($TempNonPrivilegedSensitiveUsers) {
-			$TempNonPrivilegedSensitiveUsers | Format-Table -AutoSize -Wrap
-			$HTMLNonPrivilegedSensitiveUsers = $TempNonPrivilegedSensitiveUsers | ConvertTo-Html -Fragment -PreContent "<h2>Non-Privileged users marked as 'sensitive and not allowed for delegation'</h2>"
+			$TempNonPrivilegedSensitiveUsers | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+			$HTMLNonPrivilegedSensitiveUsers = $TempNonPrivilegedSensitiveUsers | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Non-Privileged users marked as 'sensitive and not allowed for delegation'</h2>"
 		}
 	}
 	
 	else {
 		$TempNonPrivilegedSensitiveUsers = foreach ($AllDomain in $AllDomains) {
-			$PrivilegedUsers = Get-DomainUser -Domain $AllDomain -DisallowDelegation -LDAPFilter "(&(!(AdminCount=1)))" | Sort-Object -Property samaccountname
+			$PrivilegedUsers = Get-DomainUser -Domain $AllDomain -DisallowDelegation -LDAPFilter "(&(!(AdminCount=1)))"
 			foreach ($PrivilegedUser in $PrivilegedUsers) {
 				[PSCustomObject]@{
 					"Account" = $PrivilegedUser.samaccountname
@@ -2594,8 +2599,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempNonPrivilegedSensitiveUsers) {
-			$TempNonPrivilegedSensitiveUsers | Format-Table -AutoSize -Wrap
-			$HTMLNonPrivilegedSensitiveUsers = $TempNonPrivilegedSensitiveUsers | ConvertTo-Html -Fragment -PreContent "<h2>Non-Privileged users marked as 'sensitive and not allowed for delegation'</h2>"
+			$TempNonPrivilegedSensitiveUsers | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+			$HTMLNonPrivilegedSensitiveUsers = $TempNonPrivilegedSensitiveUsers | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Non-Privileged users marked as 'sensitive and not allowed for delegation'</h2>"
 		}
 	}
 	
@@ -2606,7 +2611,7 @@ function Invoke-ADEnum
 	Write-Host ""
     Write-Host "Machine accounts in privileged groups:" -ForegroundColor Cyan
     if ($Domain -and $Server) {
-		$MachinePrivGroupMembers = Get-DomainGroup -Domain $Domain -Server $Server -AdminCount | Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse | Where-Object { $_.MemberName -like '*$' } | Sort-Object -Property MemberName -Unique
+		$MachinePrivGroupMembers = Get-DomainGroup -Domain $Domain -Server $Server -AdminCount | Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse | Where-Object { $_.MemberName -like '*$' } | Sort-Object -Unique
 		$TempMachineAccountsPriv = foreach ($GroupMember in $MachinePrivGroupMembers) {
 			$DomainComputerGroupMember = Get-DomainComputer -Identity $GroupMember.MemberName.TrimEnd('$') -Domain $Domain -Server $Server
 			[PSCustomObject]@{
@@ -2623,15 +2628,15 @@ function Invoke-ADEnum
 		}
 
 		if ($TempMachineAccountsPriv) {
-			$TempMachineAccountsPriv | Format-Table -AutoSize -Wrap
-			$HTMLMachineAccountsPriv = $TempMachineAccountsPriv | ConvertTo-Html -Fragment -PreContent "<h2>Machine accounts in privileged groups</h2>"
+			$TempMachineAccountsPriv | Sort-Object "Group Domain",Member | Format-Table -AutoSize -Wrap
+			$HTMLMachineAccountsPriv = $TempMachineAccountsPriv | Sort-Object "Group Domain",Member | ConvertTo-Html -Fragment -PreContent "<h2>Machine accounts in privileged groups</h2>"
 		}
 	}
 	
 	else {
 		$TempMachineAccountsPriv = foreach ($AllDomain in $AllDomains) {
 			$Server = Get-DomainController -Domain $AllDomain | Where-Object {$_.Roles -like "RidRole"} | Select-Object -ExpandProperty Name
-			$MachinePrivGroupMembers = Get-DomainGroup -Domain $AllDomain -AdminCount | Get-DomainGroupMember -Recurse | Where-Object { $_.MemberName -like '*$' } | Sort-Object -Property MemberName -Unique
+			$MachinePrivGroupMembers = Get-DomainGroup -Domain $AllDomain -AdminCount | Get-DomainGroupMember -Recurse | Where-Object { $_.MemberName -like '*$' } | Sort-Object -Unique
 			foreach ($GroupMember in $MachinePrivGroupMembers) {
 				$DomainComputerGroupMember = Get-DomainComputer -Identity $GroupMember.MemberName.TrimEnd('$') -Domain $AllDomain
 				[PSCustomObject]@{
@@ -2649,8 +2654,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempMachineAccountsPriv) {
-			$TempMachineAccountsPriv | Format-Table -AutoSize -Wrap
-			$HTMLMachineAccountsPriv = $TempMachineAccountsPriv | ConvertTo-Html -Fragment -PreContent "<h2>Machine accounts in privileged groups</h2>"
+			$TempMachineAccountsPriv | Sort-Object "Group Domain",Member | Format-Table -AutoSize -Wrap
+			$HTMLMachineAccountsPriv = $TempMachineAccountsPriv | Sort-Object "Group Domain",Member | ConvertTo-Html -Fragment -PreContent "<h2>Machine accounts in privileged groups</h2>"
 		}
 	}
 	
@@ -2661,7 +2666,7 @@ function Invoke-ADEnum
     Write-Host ""
 	Write-Host "Users without kerberos preauthentication set:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$nopreauthsetUsers = Get-DomainUser -Domain $Domain -Server $Server -PreauthNotRequired | Sort-Object -Property samaccountname
+		$nopreauthsetUsers = Get-DomainUser -Domain $Domain -Server $Server -PreauthNotRequired
 		$Tempnopreauthset = foreach ($User in $nopreauthsetUsers) {
 			[PSCustomObject]@{
 				"User Name" = $User.samaccountname
@@ -2677,14 +2682,14 @@ function Invoke-ADEnum
 		}
 
 		if ($Tempnopreauthset) {
-			$Tempnopreauthset | Format-Table -AutoSize -Wrap
-			$HTMLnopreauthset = $Tempnopreauthset | ConvertTo-Html -Fragment -PreContent "<h2>Users without kerberos preauthentication set</h2>"
+			$Tempnopreauthset | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+			$HTMLnopreauthset = $Tempnopreauthset | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users without kerberos preauthentication set</h2>"
 		}
 	}
 	
 	else {
 		$Tempnopreauthset = foreach ($AllDomain in $AllDomains) {
-			$nopreauthsetUsers = Get-DomainUser -Domain $AllDomain -PreauthNotRequired | Sort-Object -Property samaccountname
+			$nopreauthsetUsers = Get-DomainUser -Domain $AllDomain -PreauthNotRequired
 			foreach ($User in $nopreauthsetUsers) {
 				[PSCustomObject]@{
 					"User Name" = $User.samaccountname
@@ -2701,8 +2706,8 @@ function Invoke-ADEnum
 		}
 
 		if ($Tempnopreauthset) {
-			$Tempnopreauthset | Format-Table -AutoSize -Wrap
-			$HTMLnopreauthset = $Tempnopreauthset | ConvertTo-Html -Fragment -PreContent "<h2>Users without kerberos preauthentication set</h2>"
+			$Tempnopreauthset | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+			$HTMLnopreauthset = $Tempnopreauthset | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users without kerberos preauthentication set</h2>"
 		}
 	}
 	
@@ -2713,7 +2718,7 @@ function Invoke-ADEnum
     Write-Host ""
 	Write-Host "Users with sidHistory set:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$sidHistoryUsers = Get-DomainUser -Domain $Domain -Server $Server -LDAPFilter '(sidHistory=*)' | Sort-Object -Property samaccountname
+		$sidHistoryUsers = Get-DomainUser -Domain $Domain -Server $Server -LDAPFilter '(sidHistory=*)'
 		$TempsidHistoryUsers = foreach ($sidHistoryUser in $sidHistoryUsers) {
 			[PSCustomObject]@{
 				"User Name" = $sidHistoryUser.samaccountname
@@ -2729,14 +2734,14 @@ function Invoke-ADEnum
 		}
 
 		if ($TempsidHistoryUsers) {
-			$TempsidHistoryUsers | Format-Table -AutoSize -Wrap
-			$HTMLsidHistoryUsers = $TempsidHistoryUsers | ConvertTo-Html -Fragment -PreContent "<h2>Users with sidHistory set</h2>"
+			$TempsidHistoryUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+			$HTMLsidHistoryUsers = $TempsidHistoryUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users with sidHistory set</h2>"
 		}
 	}
 	
 	else {
 		$TempsidHistoryUsers = foreach ($AllDomain in $AllDomains) {
-			$sidHistoryUsers = Get-DomainUser -Domain $AllDomain -LDAPFilter '(sidHistory=*)' | Sort-Object -Property samaccountname
+			$sidHistoryUsers = Get-DomainUser -Domain $AllDomain -LDAPFilter '(sidHistory=*)'
 			foreach ($sidHistoryUser in $sidHistoryUsers) {
 				[PSCustomObject]@{
 					"User Name" = $sidHistoryUser.samaccountname
@@ -2753,8 +2758,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempsidHistoryUsers) {
-			$TempsidHistoryUsers | Format-Table -AutoSize -Wrap
-			$HTMLsidHistoryUsers = $TempsidHistoryUsers | ConvertTo-Html -Fragment -PreContent "<h2>Users with sidHistory set</h2>"
+			$TempsidHistoryUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+			$HTMLsidHistoryUsers = $TempsidHistoryUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users with sidHistory set</h2>"
 		}
 	}
 	
@@ -2767,7 +2772,7 @@ function Invoke-ADEnum
 
 	if ($Domain -and $Server) {
 		
-		$RevEncUsers = Get-DomainUser -Domain $Domain -Server $Server -LDAPFilter "(&(objectCategory=User)(userAccountControl:1.2.840.113556.1.4.803:=128))" | Sort-Object -Property samaccountname
+		$RevEncUsers = Get-DomainUser -Domain $Domain -Server $Server -LDAPFilter "(&(objectCategory=User)(userAccountControl:1.2.840.113556.1.4.803:=128))"
 		
 		$TempRevEncUsers = foreach ($RevEncUser in $RevEncUsers) {
 			[PSCustomObject]@{
@@ -2785,8 +2790,8 @@ function Invoke-ADEnum
 		}
 		
 		if ($TempRevEncUsers | Where-Object {$_.Name -ne $null}) {
-			$TempRevEncUsers | Where-Object {$_.Name -ne $null} | Format-Table -AutoSize
-			$HTMLRevEncUsers = $TempRevEncUsers | Where-Object {$_.Name -ne $null} | ConvertTo-Html -Fragment -PreContent "<h2>Users with Reversible Encryption</h2>"
+			$TempRevEncUsers | Where-Object {$_.Name -ne $null} | Sort-Object Domain,Name | Format-Table -AutoSize
+			$HTMLRevEncUsers = $TempRevEncUsers | Where-Object {$_.Name -ne $null} | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Users with Reversible Encryption</h2>"
 		}
 		
 	}
@@ -2794,7 +2799,7 @@ function Invoke-ADEnum
 	else{
 		
 		$TempRevEncUsers = foreach ($AllDomain in $AllDomains) {
-			$RevEncUsers = Get-DomainUser -Domain $AllDomain -LDAPFilter "(&(objectCategory=User)(userAccountControl:1.2.840.113556.1.4.803:=128))" | Sort-Object -Property samaccountname
+			$RevEncUsers = Get-DomainUser -Domain $AllDomain -LDAPFilter "(&(objectCategory=User)(userAccountControl:1.2.840.113556.1.4.803:=128))"
 			
 			foreach ($RevEncUser in $RevEncUsers) {
 				[PSCustomObject]@{
@@ -2813,8 +2818,8 @@ function Invoke-ADEnum
 		}
 		
 		if ($TempRevEncUsers | Where-Object {$_.Name -ne $null}) {
-			$TempRevEncUsers | Where-Object {$_.Name -ne $null} | Format-Table -AutoSize
-			$HTMLRevEncUsers = $TempRevEncUsers | Where-Object {$_.Name -ne $null} | ConvertTo-Html -Fragment -PreContent "<h2>Users with Reversible Encryption</h2>"
+			$TempRevEncUsers | Where-Object {$_.Name -ne $null} | Sort-Object Domain,Name | Format-Table -AutoSize
+			$HTMLRevEncUsers = $TempRevEncUsers | Where-Object {$_.Name -ne $null} | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Users with Reversible Encryption</h2>"
 		}
 	}
 	
@@ -2838,6 +2843,7 @@ function Invoke-ADEnum
 				}
 			}
 		}
+		
 		else {
 			$TempGPOCreators = foreach ($AllDomain in $AllDomains) {
 				$dcName = "DC=" + $AllDomain.Split(".")
@@ -2853,8 +2859,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempGPOCreators) {
-			$TempGPOCreators | Format-Table -AutoSize -Wrap
-			$HTMLGPOCreators = $TempGPOCreators | ConvertTo-Html -Fragment -PreContent "<h2>Who can create GPOs</h2>"
+			$TempGPOCreators | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+			$HTMLGPOCreators = $TempGPOCreators | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Who can create GPOs</h2>"
 		}
 
 
@@ -2870,25 +2876,29 @@ function Invoke-ADEnum
 			if ($jGPOIDRAW) {
 				$TempGPOsWhocanmodify = foreach ($jGPOID in $jGPOIDs) {
 					$jGPOIDSELECTs = ($jGPOIDRAW | ? { $_.ObjectDN -eq $jGPOID } | Select-Object -ExpandProperty SecurityIdentifier | Select-Object -ExpandProperty Value | Get-Unique)
-					$TargetsWhoCanEdit = foreach ($jGPOIDSELECT in $jGPOIDSELECTs) {
+					$TargetsWhoCanEdits = foreach ($jGPOIDSELECT in $jGPOIDSELECTs) {
 						$SID = New-Object System.Security.Principal.SecurityIdentifier("$jGPOIDSELECT")
 						$objUser = $SID.Translate([System.Security.Principal.NTAccount])
 						$objUser.Value
 					}
 					
 					$TempPolicyInfo = Get-DomainGPO -Domain $Domain -Server $Server -Identity $jGPOID
+					
+					foreach($TargetsWhoCanEdit in $TargetsWhoCanEdits){
 
-					[PSCustomObject]@{
-						"Who can edit" = $TargetsWhoCanEdit -Join " - "
-						"Policy Name" = $TempPolicyInfo.displayName
-						"Policy Path" = $TempPolicyInfo.gpcFileSysPath
-						"OUs the policy applies to" = (Get-DomainOU -Domain $Domain -Server $Server -GPLink "$jGPOID").name -Join " - "
+						[PSCustomObject]@{
+							"Policy Name" = $TempPolicyInfo.displayName
+							"Who can edit" = $TargetsWhoCanEdit
+							"Policy Path" = $TempPolicyInfo.gpcFileSysPath
+							Domain = $Domain
+							"OUs the policy applies to" = (Get-DomainOU -Domain $Domain -Server $Server -GPLink "$jGPOID").name -Join " - "
+						}
 					}
 				}
 
 				if ($TempGPOsWhocanmodify) {
-					$TempGPOsWhocanmodify | Format-Table -AutoSize -Wrap
-					$HTMLGPOsWhocanmodify = $TempGPOsWhocanmodify | ConvertTo-Html -Fragment -PreContent "<h2>Who can modify existing GPOs</h2>"
+					$TempGPOsWhocanmodify | Sort-Object Domain,"Policy Name","Who can edit" | Format-Table -AutoSize -Wrap
+					$HTMLGPOsWhocanmodify = $TempGPOsWhocanmodify | Sort-Object Domain,"Policy Name","Who can edit" | ConvertTo-Html -Fragment -PreContent "<h2>Who can modify existing GPOs</h2>"
 				}
 			}
 		}
@@ -2904,27 +2914,31 @@ function Invoke-ADEnum
 				if ($jGPOIDRAW) {
 					foreach ($jGPOID in $jGPOIDs) {
 						$jGPOIDSELECTs = ($jGPOIDRAW | ? { $_.ObjectDN -eq $jGPOID } | Select-Object -ExpandProperty SecurityIdentifier | Select-Object -ExpandProperty Value | Get-Unique)
-						$TargetsWhoCanEdit = foreach ($jGPOIDSELECT in $jGPOIDSELECTs) {
+						$TargetsWhoCanEdits = foreach ($jGPOIDSELECT in $jGPOIDSELECTs) {
 							$SID = New-Object System.Security.Principal.SecurityIdentifier("$jGPOIDSELECT")
 							$objUser = $SID.Translate([System.Security.Principal.NTAccount])
 							$objUser.Value
 						}
 						
 						$TempPolicyInfo = Get-DomainGPO -Domain $AllDomain -Identity $jGPOID
+						
+						foreach($TargetsWhoCanEdit in $TargetsWhoCanEdits){
 
-						[PSCustomObject]@{
-							"Who can edit" = $TargetsWhoCanEdit -Join " - "
-							"Policy Name" = $TempPolicyInfo.displayName
-							"Policy Path" = $TempPolicyInfo.gpcFileSysPath
-							"OUs the policy applies to" = (Get-DomainOU -Domain $AllDomain -GPLink "$jGPOID").name -Join " - "
+							[PSCustomObject]@{
+								"Policy Name" = $TempPolicyInfo.displayName
+								"Who can edit" = $TargetsWhoCanEdit
+								"Policy Path" = $TempPolicyInfo.gpcFileSysPath
+								Domain = $AllDomain
+								"OUs the policy applies to" = (Get-DomainOU -Domain $AllDomain -GPLink "$jGPOID").name -Join " - "
+							}
 						}
 					}
 				}
 			}
 
 			if ($TempGPOsWhocanmodify) {
-				$TempGPOsWhocanmodify | Format-Table -AutoSize -Wrap
-				$HTMLGPOsWhocanmodify = $TempGPOsWhocanmodify | ConvertTo-Html -Fragment -PreContent "<h2>Who can modify existing GPOs</h2>"
+				$TempGPOsWhocanmodify | Sort-Object Domain,"Policy Name","Who can edit" | Format-Table -AutoSize -Wrap
+				$HTMLGPOsWhocanmodify = $TempGPOsWhocanmodify | Sort-Object Domain,"Policy Name","Who can edit" | ConvertTo-Html -Fragment -PreContent "<h2>Who can modify existing GPOs</h2>"
 			}
 		}
 
@@ -2937,6 +2951,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"Who can link" = (ConvertFrom-SID -Domain $Domain -Server $Server $result.SecurityIdentifier)
 					"Security Identifier" = $result.SecurityIdentifier
+					Domain = $Domain
 					"Object DN" = $result.ObjectDN
 					"Active Directory Rights" = $result.ActiveDirectoryRights
 					"Object Ace Type" = $result.ObjectAceType
@@ -2944,8 +2959,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempGpoLinkResults) {
-				$TempGpoLinkResults | Format-Table -AutoSize -Wrap
-				$HTMLGpoLinkResults = $TempGpoLinkResults | ConvertTo-Html -Fragment -PreContent "<h2>Who can link GPOs</h2>"
+				$TempGpoLinkResults | Sort-Object Domain,"Who can link","Object DN" | Format-Table -AutoSize -Wrap
+				$HTMLGpoLinkResults = $TempGpoLinkResults | Sort-Object Domain,"Who can link","Object DN" | ConvertTo-Html -Fragment -PreContent "<h2>Who can link GPOs</h2>"
 			}
 		}
 		else {
@@ -2955,6 +2970,7 @@ function Invoke-ADEnum
 					[PSCustomObject]@{
 						"Who can link" = (ConvertFrom-SID -Domain $AllDomain $result.SecurityIdentifier)
 						"Security Identifier" = $result.SecurityIdentifier
+						Domain = $AllDomain
 						"Object DN" = $result.ObjectDN
 						"Active Directory Rights" = $result.ActiveDirectoryRights
 						"Object Ace Type" = $result.ObjectAceType
@@ -2963,8 +2979,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempGpoLinkResults) {
-				$TempGpoLinkResults | Format-Table -AutoSize -Wrap
-				$HTMLGpoLinkResults = $TempGpoLinkResults | ConvertTo-Html -Fragment -PreContent "<h2>Who can link GPOs</h2>"
+				$TempGpoLinkResults | Sort-Object Domain,"Who can link","Object DN" | Format-Table -AutoSize -Wrap
+				$HTMLGpoLinkResults = $TempGpoLinkResults | Sort-Object Domain,"Who can link","Object DN" | ConvertTo-Html -Fragment -PreContent "<h2>Who can link GPOs</h2>"
 			}
 		}
 
@@ -3003,6 +3019,7 @@ function Invoke-ADEnum
 					"Path Name" = $LAPSGPO.Name
 					"LAPS Admin" = $LAPSAdminresult
 					"GPC File Sys Path" = $LAPSGPO.GPCFileSysPath
+					Domain = $Domain
 				}
 				
 				$LAPSAdminresult = $null
@@ -3012,8 +3029,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempLAPSGPOs) {
-				$TempLAPSGPOs | Format-Table -AutoSize -Wrap
-				$HTMLLAPSGPOs = $TempLAPSGPOs | ConvertTo-Html -Fragment -PreContent "<h2>LAPS GPOs</h2>"
+				$TempLAPSGPOs | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
+				$HTMLLAPSGPOs = $TempLAPSGPOs | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>LAPS GPOs</h2>"
 			}
 		}
 		else {
@@ -3042,6 +3059,7 @@ function Invoke-ADEnum
 						"Path Name" = $LAPSGPO.Name
 						"LAPS Admin" = $LAPSAdminresult
 						"GPC File Sys Path" = $LAPSGPO.GPCFileSysPath
+						Domain = $AllDomain
 					}
 					
 					$LAPSAdminresult = $null
@@ -3052,8 +3070,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempLAPSGPOs) {
-				$TempLAPSGPOs | Format-Table -AutoSize -Wrap
-				$HTMLLAPSGPOs = $TempLAPSGPOs | ConvertTo-Html -Fragment -PreContent "<h2>LAPS GPOs</h2>"
+				$TempLAPSGPOs | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
+				$HTMLLAPSGPOs = $TempLAPSGPOs | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>LAPS GPOs</h2>"
 			}
 		}
 
@@ -3070,8 +3088,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null}) {
-				$TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | Format-Table -AutoSize -Wrap
-				$HTMLLAPSCanRead = $TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | ConvertTo-Html -Fragment -PreContent "<h2>Who can read LAPS</h2>"
+				$TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | Sort-Object Domain,"Delegated Groups","Target OU" | Format-Table -AutoSize -Wrap
+				$HTMLLAPSCanRead = $TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | Sort-Object Domain,"Delegated Groups","Target OU" | ConvertTo-Html -Fragment -PreContent "<h2>Who can read LAPS</h2>"
 			}
 		}
 		else {
@@ -3087,8 +3105,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null}) {
-				$TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | Format-Table -AutoSize -Wrap
-				$HTMLLAPSCanRead = $TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | ConvertTo-Html -Fragment -PreContent "<h2>Who can read LAPS</h2>"
+				$TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | Sort-Object Domain,"Delegated Groups","Target OU" | Format-Table -AutoSize -Wrap
+				$HTMLLAPSCanRead = $TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | Sort-Object Domain,"Delegated Groups","Target OU" | ConvertTo-Html -Fragment -PreContent "<h2>Who can read LAPS</h2>"
 			}
 		}
 		
@@ -3125,8 +3143,8 @@ function Invoke-ADEnum
 			}
 			
 			if ($TempLAPSExtended) {
-				$TempLAPSExtended | Format-Table -AutoSize -Wrap
-				$HTMLLAPSExtended = $TempLAPSExtended | ConvertTo-Html -Fragment -PreContent "<h2>LAPS Extended Rights</h2>"
+				$TempLAPSExtended | Sort-Object Domain,"Computer Name","Identity" | Format-Table -AutoSize -Wrap
+				$HTMLLAPSExtended = $TempLAPSExtended | Sort-Object Domain,"Computer Name","Identity" | ConvertTo-Html -Fragment -PreContent "<h2>LAPS Extended Rights</h2>"
 			}
 			
 		}
@@ -3164,8 +3182,8 @@ function Invoke-ADEnum
 			}
 			
 			if ($TempLAPSExtended) {
-				$TempLAPSExtended | Format-Table -AutoSize -Wrap
-				$HTMLLAPSExtended = $TempLAPSExtended | ConvertTo-Html -Fragment -PreContent "<h2>LAPS Extended Rights</h2>"
+				$TempLAPSExtended | Sort-Object Domain,"Computer Name","Identity" | Format-Table -AutoSize -Wrap
+				$HTMLLAPSExtended = $TempLAPSExtended | Sort-Object Domain,"Computer Name","Identity" | ConvertTo-Html -Fragment -PreContent "<h2>LAPS Extended Rights</h2>"
 			}
 			
 		}
@@ -3177,7 +3195,7 @@ function Invoke-ADEnum
 		Write-Host ""
 		Write-Host "Computer objects where LAPS is enabled:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$LapsEnabledComputers = Get-DomainComputer -Domain $Domain -Server $Server | Where-Object { $_."ms-Mcs-AdmPwdExpirationTime" -ne $null } | Sort-Object -Property samaccountname
+			$LapsEnabledComputers = Get-DomainComputer -Domain $Domain -Server $Server | Where-Object { $_."ms-Mcs-AdmPwdExpirationTime" -ne $null }
 			$TempLapsEnabledComputers = foreach ($LapsEnabledComputer in $LapsEnabledComputers) {
 				[PSCustomObject]@{
 					"Name" = $LapsEnabledComputer.samaccountname
@@ -3188,13 +3206,13 @@ function Invoke-ADEnum
 			}
 
 			if ($TempLapsEnabledComputers) {
-				$TempLapsEnabledComputers | Format-Table -AutoSize -Wrap
-				$HTMLLapsEnabledComputers = $TempLapsEnabledComputers | ConvertTo-Html -Fragment -PreContent "<h2>Computer objects where LAPS is enabled</h2>"
+				$TempLapsEnabledComputers | Sort-Object Domain,"Name" | Format-Table -AutoSize -Wrap
+				$HTMLLapsEnabledComputers = $TempLapsEnabledComputers | Sort-Object Domain,"Name" | ConvertTo-Html -Fragment -PreContent "<h2>Computer objects where LAPS is enabled</h2>"
 			}
 		}
 		else {
 			$TempLapsEnabledComputers = foreach ($AllDomain in $AllDomains) {
-				$LapsEnabledComputers = Get-DomainComputer -Domain $AllDomain | Where-Object { $_."ms-Mcs-AdmPwdExpirationTime" -ne $null } | Sort-Object -Property samaccountname
+				$LapsEnabledComputers = Get-DomainComputer -Domain $AllDomain | Where-Object { $_."ms-Mcs-AdmPwdExpirationTime" -ne $null }
 				foreach ($LapsEnabledComputer in $LapsEnabledComputers) {
 					[PSCustomObject]@{
 						"Name" = $LapsEnabledComputer.samaccountname
@@ -3206,8 +3224,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempLapsEnabledComputers) {
-				$TempLapsEnabledComputers | Format-Table -AutoSize -Wrap
-				$HTMLLapsEnabledComputers = $TempLapsEnabledComputers | ConvertTo-Html -Fragment -PreContent "<h2>Computer objects where LAPS is enabled</h2>"
+				$TempLapsEnabledComputers | Sort-Object Domain,"Name" | Format-Table -AutoSize -Wrap
+				$HTMLLapsEnabledComputers = $TempLapsEnabledComputers | Sort-Object Domain,"Name" | ConvertTo-Html -Fragment -PreContent "<h2>Computer objects where LAPS is enabled</h2>"
 			}
 		}
 	}
@@ -3221,34 +3239,36 @@ function Invoke-ADEnum
 		Write-Host ""
 		Write-Host "AppLocker GPOs:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$AppLockerGPOs = Get-DomainGPO -Domain $Domain -Server $Server | Where-Object { $_.DisplayName -like "*AppLocker*" } | Sort-Object -Property DisplayName
+			$AppLockerGPOs = Get-DomainGPO -Domain $Domain -Server $Server | Where-Object { $_.DisplayName -like "*AppLocker*" }
 			$TempAppLockerGPOs = foreach ($AppLockerGPO in $AppLockerGPOs) {
 				[PSCustomObject]@{
 					"Display Name" = $AppLockerGPO.DisplayName
 					"GPC File Sys Path" = $AppLockerGPO.GPCFileSysPath
+					Domain = $Domain
 				}
 			}
 
 			if ($TempAppLockerGPOs) {
-				$TempAppLockerGPOs | Format-Table -AutoSize -Wrap
-				$HTMLAppLockerGPOs = $TempAppLockerGPOs | ConvertTo-Html -Fragment -PreContent "<h2>AppLocker GPOs</h2>"
+				$TempAppLockerGPOs | Sort-Object Domain,"Display Name" | Format-Table -AutoSize -Wrap
+				$HTMLAppLockerGPOs = $TempAppLockerGPOs | Sort-Object Domain,"Display Name" | ConvertTo-Html -Fragment -PreContent "<h2>AppLocker GPOs</h2>"
 			}
 		}
 		
 		else {
 			$TempAppLockerGPOs = foreach ($AllDomain in $AllDomains) {
-				$AppLockerGPOs = Get-DomainGPO -Domain $AllDomain | Where-Object { $_.DisplayName -like "*AppLocker*" } | Sort-Object -Property DisplayName
+				$AppLockerGPOs = Get-DomainGPO -Domain $AllDomain | Where-Object { $_.DisplayName -like "*AppLocker*" }
 				foreach ($AppLockerGPO in $AppLockerGPOs) {
 					[PSCustomObject]@{
 						"Display Name" = $AppLockerGPO.DisplayName
 						"GPC File Sys Path" = $AppLockerGPO.GPCFileSysPath
+						Domain = $AllDomain
 					}
 				}
 			}
 
 			if ($TempAppLockerGPOs) {
-				$TempAppLockerGPOs | Format-Table -AutoSize -Wrap
-				$HTMLAppLockerGPOs = $TempAppLockerGPOs | ConvertTo-Html -Fragment -PreContent "<h2>AppLocker GPOs</h2>"
+				$TempAppLockerGPOs | Sort-Object Domain,"Display Name" | Format-Table -AutoSize -Wrap
+				$HTMLAppLockerGPOs = $TempAppLockerGPOs | Sort-Object Domain,"Display Name" | ConvertTo-Html -Fragment -PreContent "<h2>AppLocker GPOs</h2>"
 			}
 		}
 	}
@@ -3261,7 +3281,7 @@ function Invoke-ADEnum
         Write-Host ""
 		Write-Host "GPOs that modify local group memberships through Restricted Groups or Group Policy Preferences:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$GPOLocalGroups = Get-DomainGPOLocalGroup -Domain $Domain -Server $Server | Sort-Object -Property GPODisplayName
+			$GPOLocalGroups = Get-DomainGPOLocalGroup -Domain $Domain -Server $Server
 			$TempGPOLocalGroupsMembership = foreach ($GPOLocalGroup in $GPOLocalGroups) {
 				[PSCustomObject]@{
 					"GPO Display Name" = $GPOLocalGroup.GPODisplayName
@@ -3270,13 +3290,13 @@ function Invoke-ADEnum
 			}
 
 			if ($TempGPOLocalGroupsMembership) {
-				$TempGPOLocalGroupsMembership | Format-Table -AutoSize -Wrap
-				$HTMLGPOLocalGroupsMembership = $TempGPOLocalGroupsMembership | ConvertTo-Html -Fragment -PreContent "<h2>GPOs that modify local group memberships</h2>"
+				$TempGPOLocalGroupsMembership | Sort-Object Domain,"GPO Display Name","Group Name" | Format-Table -AutoSize -Wrap
+				$HTMLGPOLocalGroupsMembership = $TempGPOLocalGroupsMembership | Sort-Object Domain,"GPO Display Name","Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>GPOs that modify local group memberships</h2>"
 			}
 		}
 		else {
 			$TempGPOLocalGroupsMembership = foreach ($AllDomain in $AllDomains) {
-				$GPOLocalGroups = Get-DomainGPOLocalGroup -Domain $AllDomain | Sort-Object -Property GPODisplayName
+				$GPOLocalGroups = Get-DomainGPOLocalGroup -Domain $AllDomain
 				foreach ($GPOLocalGroup in $GPOLocalGroups) {
 					[PSCustomObject]@{
 						"GPO Display Name" = $GPOLocalGroup.GPODisplayName
@@ -3286,8 +3306,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempGPOLocalGroupsMembership) {
-				$TempGPOLocalGroupsMembership | Format-Table -AutoSize -Wrap
-				$HTMLGPOLocalGroupsMembership = $TempGPOLocalGroupsMembership | ConvertTo-Html -Fragment -PreContent "<h2>GPOs that modify local group memberships</h2>"
+				$TempGPOLocalGroupsMembership | Sort-Object Domain,"GPO Display Name","Group Name" | Format-Table -AutoSize -Wrap
+				$HTMLGPOLocalGroupsMembership = $TempGPOLocalGroupsMembership | Sort-Object Domain,"GPO Display Name","Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>GPOs that modify local group memberships</h2>"
 			}
 		}
     }
@@ -3300,7 +3320,7 @@ function Invoke-ADEnum
         Write-Host ""
 		Write-Host "Users which are in a local group of a machine using GPO:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$GPOComputerAdmins = Get-DomainComputer -Domain $Domain -Server $Server | Sort-Object -Property samaccountname | Find-GPOComputerAdmin -Domain $Domain -Server $Server
+			$GPOComputerAdmins = Get-DomainComputer -Domain $Domain -Server $Server | Find-GPOComputerAdmin -Domain $Domain -Server $Server
 			$TempGPOComputerAdmins = foreach ($GPOComputerAdmin in $GPOComputerAdmins) {
 				[PSCustomObject]@{
 					"Computer Name" = $GPOComputerAdmin.ComputerName
@@ -3309,17 +3329,18 @@ function Invoke-ADEnum
 					"Is Group" = $GPOComputerAdmin.IsGroup
 					"GPO Display Name" = $GPOComputerAdmin.GPODisplayName
 					"GPO Path" = $GPOComputerAdmin.GPOPath
+					Domain = $Domain
 				}
 			}
 
 			if ($TempGPOComputerAdmins) {
-				$TempGPOComputerAdmins | Format-Table -AutoSize -Wrap
-				$HTMLGPOComputerAdmins = $TempGPOComputerAdmins | ConvertTo-Html -Fragment -PreContent "<h2>Users which are in a local group of a machine using GPO</h2>"
+				$TempGPOComputerAdmins | Sort-Object Domain,"Computer Name" | Format-Table -AutoSize -Wrap
+				$HTMLGPOComputerAdmins = $TempGPOComputerAdmins | Sort-Object Domain,"Computer Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users which are in a local group of a machine using GPO</h2>"
 			}
 		}
 		else {
 			$TempGPOComputerAdmins = foreach ($AllDomain in $AllDomains) {
-				$GPOComputerAdmins = Get-DomainComputer -Domain $AllDomain | Sort-Object -Property samaccountname | Find-GPOComputerAdmin -Domain $AllDomain
+				$GPOComputerAdmins = Get-DomainComputer -Domain $AllDomain | Find-GPOComputerAdmin -Domain $AllDomain
 				foreach ($GPOComputerAdmin in $GPOComputerAdmins) {
 					[PSCustomObject]@{
 						"Computer Name" = $GPOComputerAdmin.ComputerName
@@ -3328,13 +3349,14 @@ function Invoke-ADEnum
 						"Is Group" = $GPOComputerAdmin.IsGroup
 						"GPO Display Name" = $GPOComputerAdmin.GPODisplayName
 						"GPO Path" = $GPOComputerAdmin.GPOPath
+						Domain = $AllDomain
 					}
 				}
 			}
 
 			if ($TempGPOComputerAdmins) {
-				$TempGPOComputerAdmins | Format-Table -AutoSize -Wrap
-				$HTMLGPOComputerAdmins = $TempGPOComputerAdmins | ConvertTo-Html -Fragment -PreContent "<h2>Users which are in a local group of a machine using GPO</h2>"
+				$TempGPOComputerAdmins | Sort-Object Domain,"Computer Name" | Format-Table -AutoSize -Wrap
+				$HTMLGPOComputerAdmins = $TempGPOComputerAdmins | Sort-Object Domain,"Computer Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users which are in a local group of a machine using GPO</h2>"
 			}
 		}
     }
@@ -3347,37 +3369,39 @@ function Invoke-ADEnum
 		Write-Host ""
 		Write-Host "Machines where a specific domain user/group is a member of the Administrators local group:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$GPOMappings = Get-DomainGPOUserLocalGroupMapping -Domain $Domain -Server $Server -LocalGroup Administrators | Sort-Object -Property ObjectName
+			$GPOMappings = Get-DomainGPOUserLocalGroupMapping -Domain $Domain -Server $Server -LocalGroup Administrators
 			$TempGPOMachinesAdminlocalgroup = foreach ($GPOMapping in $GPOMappings) {
 				[PSCustomObject]@{
 					"Object Name" = $GPOMapping.ObjectName
 					"GPO Display Name" = $GPOMapping.GPODisplayName
 					"Container Name" = $GPOMapping.ContainerName
 					"Computer Name" = $GPOMapping.ComputerName
+					Domain = $Domain
 				}
 			}
 
 			if ($TempGPOMachinesAdminlocalgroup) {
-				$TempGPOMachinesAdminlocalgroup | Format-Table -AutoSize -Wrap
-				$HTMLGPOMachinesAdminlocalgroup = $TempGPOMachinesAdminlocalgroup | ConvertTo-Html -Fragment -PreContent "<h2>Machines where a specific domain user/group is a member of the Administrators local group</h2>"
+				$TempGPOMachinesAdminlocalgroup | Sort-Object Domain,"Object Name" | Format-Table -AutoSize -Wrap
+				$HTMLGPOMachinesAdminlocalgroup = $TempGPOMachinesAdminlocalgroup | Sort-Object Domain,"Object Name" | ConvertTo-Html -Fragment -PreContent "<h2>Machines where a specific domain user/group is a member of the Administrators local group</h2>"
 			}
 		}
 		else {
 			$TempGPOMachinesAdminlocalgroup = foreach ($AllDomain in $AllDomains) {
-				$GPOMappings = Get-DomainGPOUserLocalGroupMapping -Domain $AllDomain -LocalGroup Administrators | Sort-Object -Property ObjectName
+				$GPOMappings = Get-DomainGPOUserLocalGroupMapping -Domain $AllDomain -LocalGroup Administrators
 				foreach ($GPOMapping in $GPOMappings) {
 					[PSCustomObject]@{
 						"Object Name" = $GPOMapping.ObjectName
 						"GPO Display Name" = $GPOMapping.GPODisplayName
 						"Container Name" = $GPOMapping.ContainerName
 						"Computer Name" = $GPOMapping.ComputerName
+						Domain = $AllDomain
 					}
 				}
 			}
 
 			if ($TempGPOMachinesAdminlocalgroup) {
-				$TempGPOMachinesAdminlocalgroup | Format-Table -AutoSize -Wrap
-				$HTMLGPOMachinesAdminlocalgroup = $TempGPOMachinesAdminlocalgroup | ConvertTo-Html -Fragment -PreContent "<h2>Machines where a specific domain user/group is a member of the Administrators local group</h2>"
+				$TempGPOMachinesAdminlocalgroup | Sort-Object Domain,"Object Name" | Format-Table -AutoSize -Wrap
+				$HTMLGPOMachinesAdminlocalgroup = $TempGPOMachinesAdminlocalgroup | Sort-Object Domain,"Object Name" | ConvertTo-Html -Fragment -PreContent "<h2>Machines where a specific domain user/group is a member of the Administrators local group</h2>"
 			}
 		}
 	}
@@ -3390,7 +3414,7 @@ function Invoke-ADEnum
 		Write-Host ""
 		Write-Host "Machines where a user is a member of a specific group:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$usersInGroup = Get-DomainUser -Domain $Domain -Server $Server | Sort-Object -Property samaccountname | Find-GPOLocation -Domain $Domain -Server $Server
+			$usersInGroup = Get-DomainUser -Domain $Domain -Server $Server | Find-GPOLocation -Domain $Domain -Server $Server
 			$TempUsersInGroup = foreach ($userInGroup in $usersInGroup) {
 				[PSCustomObject]@{
 					"Object Name" = $userInGroup.ObjectName
@@ -3403,13 +3427,13 @@ function Invoke-ADEnum
 			}
 
 			if ($TempUsersInGroup) {
-				$TempUsersInGroup | Format-Table -AutoSize -Wrap
-				$HTMLUsersInGroup = $TempUsersInGroup | ConvertTo-Html -Fragment -PreContent "<h2>Machines where a user is a member of a specific group</h2>"
+				$TempUsersInGroup | Sort-Object Domain,"Object Name" | Format-Table -AutoSize -Wrap
+				$HTMLUsersInGroup = $TempUsersInGroup | Sort-Object Domain,"Object Name" | ConvertTo-Html -Fragment -PreContent "<h2>Machines where a user is a member of a specific group</h2>"
 			}
 		}
 		else {
 			$TempUsersInGroup = foreach ($AllDomain in $AllDomains) {
-				$usersInGroup = Get-DomainUser -Domain $AllDomain | Sort-Object -Property samaccountname | Find-GPOLocation -Domain $AllDomain
+				$usersInGroup = Get-DomainUser -Domain $AllDomain | Find-GPOLocation -Domain $AllDomain
 				foreach ($userInGroup in $usersInGroup) {
 					[PSCustomObject]@{
 						"Object Name" = $userInGroup.ObjectName
@@ -3423,8 +3447,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempUsersInGroup) {
-				$TempUsersInGroup | Format-Table -AutoSize -Wrap
-				$HTMLUsersInGroup = $TempUsersInGroup | ConvertTo-Html -Fragment -PreContent "<h2>Machines where a user is a member of a specific group</h2>"
+				$TempUsersInGroup | Sort-Object Domain,"Object Name" | Format-Table -AutoSize -Wrap
+				$HTMLUsersInGroup = $TempUsersInGroup | Sort-Object Domain,"Object Name" | ConvertTo-Html -Fragment -PreContent "<h2>Machines where a user is a member of a specific group</h2>"
 			}
 		}
 
@@ -3449,8 +3473,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempFindLocalAdminAccess) {
-				$TempFindLocalAdminAccess | Format-Table -AutoSize -Wrap
-				$HTMLFindLocalAdminAccess = $TempFindLocalAdminAccess | ConvertTo-Html -Fragment -PreContent "<h2>Local Admin Access</h2>"
+				$TempFindLocalAdminAccess | Sort-Object Domain,Target | Format-Table -AutoSize -Wrap
+				$HTMLFindLocalAdminAccess = $TempFindLocalAdminAccess | Sort-Object Domain,Target | ConvertTo-Html -Fragment -PreContent "<h2>Local Admin Access</h2>"
 			}
 		}
 		else {
@@ -3467,8 +3491,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempFindLocalAdminAccess) {
-				$TempFindLocalAdminAccess | Format-Table -AutoSize -Wrap
-				$HTMLFindLocalAdminAccess = $TempFindLocalAdminAccess | ConvertTo-Html -Fragment -PreContent "<h2>Local Admin Access</h2>"
+				$TempFindLocalAdminAccess | Sort-Object Domain,Target | Format-Table -AutoSize -Wrap
+				$HTMLFindLocalAdminAccess = $TempFindLocalAdminAccess | Sort-Object Domain,Target | ConvertTo-Html -Fragment -PreContent "<h2>Local Admin Access</h2>"
 			}
 		}
     }
@@ -3496,8 +3520,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempFindDomainUserLocation) {
-				$TempFindDomainUserLocation | Format-Table -AutoSize -Wrap
-				$HTMLFindDomainUserLocation = $TempFindDomainUserLocation | ConvertTo-Html -Fragment -PreContent "<h2>Find Domain User Location</h2>"
+				$TempFindDomainUserLocation | Sort-Object "User Domain","User Name","Computer Name" | Format-Table -AutoSize -Wrap
+				$HTMLFindDomainUserLocation = $TempFindDomainUserLocation | Sort-Object "User Domain","User Name","Computer Name" | ConvertTo-Html -Fragment -PreContent "<h2>Find Domain User Location</h2>"
 			}
 		}
 		else {
@@ -3518,8 +3542,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempFindDomainUserLocation) {
-				$TempFindDomainUserLocation | Format-Table -AutoSize -Wrap
-				$HTMLFindDomainUserLocation = $TempFindDomainUserLocation | ConvertTo-Html -Fragment -PreContent "<h2>Find Domain User Location</h2>"
+				$TempFindDomainUserLocation | Sort-Object "User Domain","User Name","Computer Name" | Format-Table -AutoSize -Wrap
+				$HTMLFindDomainUserLocation = $TempFindDomainUserLocation | Sort-Object "User Domain","User Name","Computer Name" | ConvertTo-Html -Fragment -PreContent "<h2>Find Domain User Location</h2>"
 			}
 		}
 
@@ -3543,8 +3567,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempLoggedOnUsersServerOU) {
-				$TempLoggedOnUsersServerOU | Format-Table -AutoSize -Wrap
-				$HTMLLoggedOnUsersServerOU = $TempLoggedOnUsersServerOU | ConvertTo-Html -Fragment -PreContent "<h2>Logged on users for all machines in any Server OU</h2>"
+				$TempLoggedOnUsersServerOU | Sort-Object Domain,User | Format-Table -AutoSize -Wrap
+				$HTMLLoggedOnUsersServerOU = $TempLoggedOnUsersServerOU | Sort-Object Domain,User | ConvertTo-Html -Fragment -PreContent "<h2>Logged on users for all machines in any Server OU</h2>"
 			}
 		}
 		else {
@@ -3559,8 +3583,8 @@ function Invoke-ADEnum
 				}
 
 				if ($TempLoggedOnUsersServerOU) {
-					$TempLoggedOnUsersServerOU | Format-Table -AutoSize -Wrap
-					$HTMLLoggedOnUsersServerOU = $TempLoggedOnUsersServerOU | ConvertTo-Html -Fragment -PreContent "<h2>Logged on users for all machines in any Server OU</h2>"
+					$TempLoggedOnUsersServerOU | Sort-Object Domain,User | Format-Table -AutoSize -Wrap
+					$HTMLLoggedOnUsersServerOU = $TempLoggedOnUsersServerOU | Sort-Object Domain,User | ConvertTo-Html -Fragment -PreContent "<h2>Logged on users for all machines in any Server OU</h2>"
 				}
 			}
 		}
@@ -3578,14 +3602,15 @@ function Invoke-ADEnum
 			$TempDomainShares = foreach ($DomainShare in $DomainShares) {
 				[PSCustomObject]@{
 					"Name" = $DomainShare.Name
-					"ComputerName" = $DomainShare.ComputerName
+					"Computer Name" = $DomainShare.ComputerName
 					"Remark" = $DomainShare.Remark
+					Domain = $Domain
 				}
 			}
 
 			if ($TempDomainShares) {
-				$TempDomainShares | Format-Table -AutoSize -Wrap
-				$HTMLDomainShares = $TempDomainShares | ConvertTo-Html -Fragment -PreContent "<h2>Accessible Domain Shares</h2>"
+				$TempDomainShares | Sort-Object Domain,"Computer Name",Name | Format-Table -AutoSize -Wrap
+				$HTMLDomainShares = $TempDomainShares | Sort-Object Domain,"Computer Name",Name | ConvertTo-Html -Fragment -PreContent "<h2>Accessible Domain Shares</h2>"
 			}
 		}
 		
@@ -3595,15 +3620,16 @@ function Invoke-ADEnum
 				foreach ($DomainShare in $DomainShares) {
 					[PSCustomObject]@{
 						"Name" = $DomainShare.Name
-						"ComputerName" = $DomainShare.ComputerName
+						"Computer Name" = $DomainShare.ComputerName
 						"Remark" = $DomainShare.Remark
+						Domain = $AllDomain
 					}
 				}
 			}
 
 			if ($TempDomainShares) {
-				$TempDomainShares | Format-Table -AutoSize -Wrap
-				$HTMLDomainShares = $TempDomainShares | ConvertTo-Html -Fragment -PreContent "<h2>Accessible Domain Shares</h2>"
+				$TempDomainShares | Sort-Object Domain,"Computer Name",Name | Format-Table -AutoSize -Wrap
+				$HTMLDomainShares = $TempDomainShares | Sort-Object Domain,"Computer Name",Name | ConvertTo-Html -Fragment -PreContent "<h2>Accessible Domain Shares</h2>"
 			}
 		}
 
@@ -3621,8 +3647,8 @@ function Invoke-ADEnum
 			}
 			
 			if($TempDomainShareFiles){
-				$TempDomainShareFiles | Format-Table -AutoSize -Wrap
-				$HTMLDomainShareFiles = $TempDomainShareFiles | ConvertTo-Html -Fragment -PreContent "<h2>Domain Share Files</h2>"
+				$TempDomainShareFiles | Sort-Object Domain,Owner,Path | Format-Table -AutoSize -Wrap
+				$HTMLDomainShareFiles = $TempDomainShareFiles | Sort-Object Domain,Owner,Path | ConvertTo-Html -Fragment -PreContent "<h2>Domain Share Files</h2>"
 			}
 		}
 		else{
@@ -3638,8 +3664,8 @@ function Invoke-ADEnum
 			}
 			
 			if($TempDomainShareFiles){
-				$TempDomainShareFiles | Format-Table -AutoSize -Wrap
-				$HTMLDomainShareFiles = $TempDomainShareFiles | ConvertTo-Html -Fragment -PreContent "<h2>Domain Share Files</h2>"
+				$TempDomainShareFiles | Sort-Object Domain,Owner,Path | Format-Table -AutoSize -Wrap
+				$HTMLDomainShareFiles = $TempDomainShareFiles | Sort-Object Domain,Owner,Path | ConvertTo-Html -Fragment -PreContent "<h2>Domain Share Files</h2>"
 			}
 		}
 
@@ -3657,8 +3683,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempInterestingFiles) {
-				$TempInterestingFiles | Format-Table -AutoSize -Wrap
-				$HTMLInterestingFiles = $TempInterestingFiles | ConvertTo-Html -Fragment -PreContent "<h2>Domain Share Files (more file extensions)</h2>"
+				$TempInterestingFiles | Sort-Object Domain,Owner,Path | Format-Table -AutoSize -Wrap
+				$HTMLInterestingFiles = $TempInterestingFiles | Sort-Object Domain,Owner,Path | ConvertTo-Html -Fragment -PreContent "<h2>Domain Share Files (more file extensions)</h2>"
 			}
 		}
 		else {
@@ -3674,8 +3700,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempInterestingFiles) {
-				$TempInterestingFiles | Format-Table -AutoSize -Wrap
-				$HTMLInterestingFiles = $TempInterestingFiles | ConvertTo-Html -Fragment -PreContent "<h2>Domain Share Files (more file extensions)</h2>"
+				$TempInterestingFiles | Sort-Object Domain,Owner,Path | Format-Table -AutoSize -Wrap
+				$HTMLInterestingFiles = $TempInterestingFiles | Sort-Object Domain,Owner,Path | ConvertTo-Html -Fragment -PreContent "<h2>Domain Share Files (more file extensions)</h2>"
 			}
 		}
 
@@ -3701,8 +3727,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempACLScannerResults) {
-				$TempACLScannerResults | Sort-Object "Identity Reference Name" | Format-Table -AutoSize -Wrap
-				$HTMLACLScannerResults = $TempACLScannerResults | ConvertTo-Html -Fragment -PreContent "<h2>Interesting ACLs:</h2>"
+				$TempACLScannerResults | Sort-Object Domain,"Identity Reference Name","Object DN" | Format-Table -AutoSize -Wrap
+				$HTMLACLScannerResults = $TempACLScannerResults | Sort-Object Domain,"Identity Reference Name","Object DN" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting ACLs:</h2>"
 			}
 		}
 		else {
@@ -3720,8 +3746,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempACLScannerResults) {
-				$TempACLScannerResults | Sort-Object Domain, "Identity Reference Name" | Format-Table -AutoSize -Wrap
-				$HTMLACLScannerResults = $TempACLScannerResults | Sort-Object Domain, "Identity Reference Name" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting ACLs:</h2>"
+				$TempACLScannerResults | Sort-Object Domain,"Identity Reference Name","Object DN" | Format-Table -AutoSize -Wrap
+				$HTMLACLScannerResults = $TempACLScannerResults | Sort-Object Domain,"Identity Reference Name","Object DN" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting ACLs:</h2>"
 			}
 		}
 
@@ -3734,7 +3760,7 @@ function Invoke-ADEnum
 	Write-Host ""
 	Write-Host "Linked DA accounts using name correlation:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$LinkedDAAccounts = Get-DomainGroupMember 'Domain Admins' -Domain $Domain -Server $Server | Sort-Object -Property MemberName | ForEach-Object {
+		$LinkedDAAccounts = Get-DomainGroupMember 'Domain Admins' -Domain $Domain -Server $Server | ForEach-Object {
 			$user = Get-DomainUser $_.membername -Domain $Domain -Server $Server -LDAPFilter '(displayname=*)'
 			$nameParts = $user.displayname.split(' ')[0..1] -join ' '
 			$linkedAccounts = Get-DomainUser -Domain $Domain -Server $Server -LDAPFilter "(displayname=*$nameParts*)"
@@ -3755,13 +3781,13 @@ function Invoke-ADEnum
 		}
 
 		if ($LinkedDAAccounts) {
-			$LinkedDAAccounts | Format-Table -AutoSize -Wrap
-			$HTMLLinkedDAAccounts = $LinkedDAAccounts | ConvertTo-Html -Fragment -PreContent "<h2>Linked DA accounts using name correlation</h2>"
+			$LinkedDAAccounts | Sort-Object Domain,Account,"Display Name" | Format-Table -AutoSize -Wrap
+			$HTMLLinkedDAAccounts = $LinkedDAAccounts | Sort-Object Domain,Account,"Display Name" | ConvertTo-Html -Fragment -PreContent "<h2>Linked DA accounts using name correlation</h2>"
 		}
 	}
 	else {
 		$LinkedDAAccounts = foreach ($AllDomain in $AllDomains) {
-			$members = Get-DomainGroupMember 'Domain Admins' -Domain $AllDomain | Sort-Object -Property MemberName
+			$members = Get-DomainGroupMember 'Domain Admins' -Domain $AllDomain
 			foreach ($member in $members) {
 				$user = Get-DomainUser $member.membername -LDAPFilter '(displayname=*)'
 				$nameParts = $user.displayname.split(' ')[0..1] -join ' '
@@ -3784,8 +3810,8 @@ function Invoke-ADEnum
 		}
 
 		if ($LinkedDAAccounts) {
-			$LinkedDAAccounts | Format-Table -AutoSize -Wrap
-			$HTMLLinkedDAAccounts = $LinkedDAAccounts | ConvertTo-Html -Fragment -PreContent "<h2>Linked DA accounts using name correlation</h2>"
+			$LinkedDAAccounts | Sort-Object Domain,Account,"Display Name" | Format-Table -AutoSize -Wrap
+			$HTMLLinkedDAAccounts = $LinkedDAAccounts | Sort-Object Domain,Account,"Display Name" | ConvertTo-Html -Fragment -PreContent "<h2>Linked DA accounts using name correlation</h2>"
 		}
 	}
 	
@@ -3796,7 +3822,7 @@ function Invoke-ADEnum
 	Write-Host ""
 	Write-Host "Admin Groups (by keyword):" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$AdminGroups = Get-DomainGroup -Domain $Domain -Server $Server | Where-Object { $_.Name -like "*Admin*" } | Sort-Object -Property samaccountname
+		$AdminGroups = Get-DomainGroup -Domain $Domain -Server $Server | Where-Object { $_.Name -like "*Admin*" }
 		$TempAdminGroups = foreach ($AdminGroup in $AdminGroups) {
 			[PSCustomObject]@{
 				"Keyword" = "Admin"
@@ -3809,13 +3835,13 @@ function Invoke-ADEnum
 		}
 
 		if ($TempAdminGroups) {
-			$TempAdminGroups | Where-Object { $_.Members } | Format-Table -AutoSize -Wrap
-			$HTMLAdminGroups = $TempAdminGroups | Where-Object { $_.Members } | ConvertTo-Html -Fragment -PreContent "<h2>Admin Groups (by keyword)</h2>"
+			$TempAdminGroups | Where-Object { $_.Members } | Sort-Object Domain,Keyword,"Group Name" | Format-Table -AutoSize -Wrap
+			$HTMLAdminGroups = $TempAdminGroups | Where-Object { $_.Members } | Sort-Object Domain,Keyword,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Admin Groups (by keyword)</h2>"
 		}
 	}
 	else {
 		$TempAdminGroups = foreach ($AllDomain in $AllDomains) {
-			$AdminGroups = Get-DomainGroup -Domain $AllDomain | Where-Object { $_.Name -like "*Admin*" } | Sort-Object -Property samaccountname
+			$AdminGroups = Get-DomainGroup -Domain $AllDomain | Where-Object { $_.Name -like "*Admin*" }
 			foreach ($AdminGroup in $AdminGroups) {
 				[PSCustomObject]@{
 					"Keyword" = "Admin"
@@ -3829,8 +3855,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempAdminGroups) {
-			$TempAdminGroups | Where-Object { $_.Members } | Format-Table -AutoSize -Wrap
-			$HTMLAdminGroups = $TempAdminGroups | Where-Object { $_.Members } | ConvertTo-Html -Fragment -PreContent "<h2>Admin Groups (by keyword)</h2>"
+			$TempAdminGroups | Where-Object { $_.Members } | Sort-Object Domain,Keyword,"Group Name" | Format-Table -AutoSize -Wrap
+			$HTMLAdminGroups = $TempAdminGroups | Where-Object { $_.Members } | Sort-Object Domain,Keyword,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Admin Groups (by keyword)</h2>"
 		}
 	}
 	
@@ -3843,7 +3869,7 @@ function Invoke-ADEnum
 	if ($Domain -and $Server) {
 		$Keywords = @("Backup", "CCTV", "Cyber", "Desk", "Director", "Finance", "Hyper", "LAPS", "Management", "Password", "PSM", "Remote", "Security", "SQL", "VEEAM", "VMWare")
 		$TempGroupsByKeyword = foreach ($Keyword in $Keywords) {
-			Get-DomainGroup -Domain $Domain -Server $Server -Identity "*$Keyword*" | Sort-Object -Property samaccountname |
+			Get-DomainGroup -Domain $Domain -Server $Server -Identity "*$Keyword*" |
 			ForEach-Object {
 				$Group = $_
 				[PSCustomObject]@{
@@ -3857,16 +3883,15 @@ function Invoke-ADEnum
 		}
 
 		if ($TempGroupsByKeyword) {
-			$TempGroupsByKeyword2 = $TempGroupsByKeyword | Where-Object { $_.Members }
-			$TempGroupsByKeyword2 | Format-Table -AutoSize -Wrap
-			$HTMLGroupsByKeyword = $TempGroupsByKeyword2 | ConvertTo-Html -Fragment -PreContent "<h2>Other Groups (by keyword)</h2>"
+			$TempGroupsByKeyword | Where-Object { $_.Members } | Sort-Object Domain,Keyword,"Group Name" | Format-Table -AutoSize -Wrap
+			$HTMLGroupsByKeyword = $TempGroupsByKeyword | Where-Object { $_.Members } | Sort-Object Domain,Keyword,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Other Groups (by keyword)</h2>"
 		}
 	}
 	else {
 		$TempGroupsByKeyword = foreach ($AllDomain in $AllDomains) {
 			$Keywords = @("SQL", "Remote", "VEEAM", "Hyper", "VMWare", "PSM", "Password", "Management", "LAPS", "Backup", "Security", "Cyber", "Director", "Desk", "CCTV", "Finance")
 			foreach ($Keyword in $Keywords) {
-				Get-DomainGroup -Domain $AllDomain -Identity "*$Keyword*" | Sort-Object -Property samaccountname |
+				Get-DomainGroup -Domain $AllDomain -Identity "*$Keyword*" |
 				ForEach-Object {
 					$Group = $_
 					[PSCustomObject]@{
@@ -3881,9 +3906,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempGroupsByKeyword) {
-			$TempGroupsByKeyword2 = $TempGroupsByKeyword | Where-Object { $_.Members }
-			$TempGroupsByKeyword2 | Format-Table -AutoSize -Wrap
-			$HTMLGroupsByKeyword = $TempGroupsByKeyword2 | ConvertTo-Html -Fragment -PreContent "<h2>Other Groups (by keyword)</h2>"
+			$TempGroupsByKeyword | Where-Object { $_.Members } | Sort-Object Domain,Keyword,"Group Name" | Format-Table -AutoSize -Wrap
+			$HTMLGroupsByKeyword = $TempGroupsByKeyword | Where-Object { $_.Members } | Sort-Object Domain,Keyword,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Other Groups (by keyword)</h2>"
 		}
 	}
 	
@@ -4119,8 +4143,8 @@ function Invoke-ADEnum
 		}
 		
 		if ($TempOperatingSystemsAnalysis) {
-			$TempOperatingSystemsAnalysis | Format-Table -AutoSize
-			$HTMLOperatingSystemsAnalysis = $TempOperatingSystemsAnalysis | ConvertTo-Html -Fragment -PreContent "<h2>Operating Systems Analysis</h2>"
+			$TempOperatingSystemsAnalysis | Sort-Object Domain,'Operating System' | Format-Table -AutoSize
+			$HTMLOperatingSystemsAnalysis = $TempOperatingSystemsAnalysis | Sort-Object Domain,'Operating System' | ConvertTo-Html -Fragment -PreContent "<h2>Operating Systems Analysis</h2>"
 		}
 		
 	}
@@ -4146,8 +4170,8 @@ function Invoke-ADEnum
 		}
 		
 		if ($TempOperatingSystemsAnalysis) {
-			$TempOperatingSystemsAnalysis | Format-Table -AutoSize
-			$HTMLOperatingSystemsAnalysis = $TempOperatingSystemsAnalysis | ConvertTo-Html -Fragment -PreContent "<h2>Operating Systems Analysis</h2>"
+			$TempOperatingSystemsAnalysis | Sort-Object Domain,'Operating System' | Format-Table -AutoSize
+			$HTMLOperatingSystemsAnalysis = $TempOperatingSystemsAnalysis | Sort-Object Domain,'Operating System' | ConvertTo-Html -Fragment -PreContent "<h2>Operating Systems Analysis</h2>"
 		}
 	}
 	
@@ -4159,33 +4183,35 @@ function Invoke-ADEnum
         Write-Host ""
 		Write-Host "All Domain GPOs:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$DomainGPOs = Get-DomainGPO -Domain $Domain -Server $Server -Properties DisplayName, gpcfilesyspath | Sort-Object -Property DisplayName
+			$DomainGPOs = Get-DomainGPO -Domain $Domain -Server $Server -Properties DisplayName, gpcfilesyspath
 			$TempDomainGPOs = foreach ($DomainGPO in $DomainGPOs) {
 				[PSCustomObject]@{
 					"GPO Name" = $DomainGPO.DisplayName
 					"Path" = $DomainGPO.gpcfilesyspath
+					Domain = $Domain
 				}
 			}
 
 			if ($TempDomainGPOs) {
-				$TempDomainGPOs | Format-Table -AutoSize -Wrap
-				$HTMLDomainGPOs = $TempDomainGPOs | ConvertTo-Html -Fragment -PreContent "<h2>All Domain GPOs</h2>"
+				$TempDomainGPOs | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
+				$HTMLDomainGPOs = $TempDomainGPOs | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>All Domain GPOs</h2>"
 			}
 		}
 		else {
 			$TempDomainGPOs = foreach ($AllDomain in $AllDomains) {
-				$DomainGPOs = Get-DomainGPO -Domain $AllDomain -Properties DisplayName, gpcfilesyspath | Sort-Object -Property DisplayName
+				$DomainGPOs = Get-DomainGPO -Domain $AllDomain -Properties DisplayName, gpcfilesyspath
 				foreach ($DomainGPO in $DomainGPOs) {
 					[PSCustomObject]@{
 						"GPO Name" = $DomainGPO.DisplayName
 						"Path" = $DomainGPO.gpcfilesyspath
+						Domain = $AllDomain
 					}
 				}
 			}
 
 			if ($TempDomainGPOs) {
-				$TempDomainGPOs | Format-Table -AutoSize -Wrap
-				$HTMLDomainGPOs = $TempDomainGPOs | ConvertTo-Html -Fragment -PreContent "<h2>All Domain GPOs</h2>"
+				$TempDomainGPOs | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
+				$HTMLDomainGPOs = $TempDomainGPOs | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>All Domain GPOs</h2>"
 			}
 		}
 		
@@ -4200,7 +4226,7 @@ function Invoke-ADEnum
 		Write-Host ""
 		Write-Host "All Groups:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$OtherGroups = Get-DomainGroup -Domain $Domain -Server $Server | Sort-Object -Property samaccountname
+			$OtherGroups = Get-DomainGroup -Domain $Domain -Server $Server
 			$TempOtherGroups = foreach ($OtherGroup in $OtherGroups) {
 				[PSCustomObject]@{
 					"Group Name" = $OtherGroup.SamAccountName
@@ -4212,14 +4238,13 @@ function Invoke-ADEnum
 			}
 
 			if ($TempOtherGroups) {
-				$TempOtherGroups2 = $TempOtherGroups | Where-Object { $_.Members }
-				$TempOtherGroups2 | Format-Table -AutoSize -Wrap
-				$HTMLOtherGroups = $TempOtherGroups2  | Where-Object { $_.Members } | ConvertTo-Html -Fragment -PreContent "<h2>All Groups</h2>"
+				$TempOtherGroups | Where-Object { $_.Members } | Sort-Object Domain,"Group Name" | Format-Table -AutoSize -Wrap
+				$HTMLOtherGroups = $TempOtherGroups | Where-Object { $_.Members } | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>All Groups</h2>"
 			}
 		}
 		else {
 			$TempOtherGroups = foreach ($AllDomain in $AllDomains) {
-				$OtherGroups = Get-DomainGroup -Domain $AllDomain | Sort-Object -Property samaccountname
+				$OtherGroups = Get-DomainGroup -Domain $AllDomain
 				foreach ($OtherGroup in $OtherGroups) {
 					[PSCustomObject]@{
 						"Group Name" = $OtherGroup.SamAccountName
@@ -4232,9 +4257,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempOtherGroups) {
-				$TempOtherGroups2 = $TempOtherGroups | Where-Object { $_.Members }
-				$TempOtherGroups2 | Format-Table -AutoSize -Wrap
-				$HTMLOtherGroups = $TempOtherGroups2 | ConvertTo-Html -Fragment -PreContent "<h2>All Groups</h2>"
+				$TempOtherGroups | Where-Object { $_.Members } | Sort-Object Domain,"Group Name" | Format-Table -AutoSize -Wrap
+				$HTMLOtherGroups = $TempOtherGroups | Where-Object { $_.Members } | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>All Groups</h2>"
 			}
 		}
 	}
@@ -4248,7 +4272,7 @@ function Invoke-ADEnum
         Write-Host ""
 		Write-Host "Servers (Enabled):" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$ComputerServers = Get-DomainComputer -Domain $Domain -Server $Server -OperatingSystem "*Server*" -UACFilter NOT_ACCOUNTDISABLE | Sort-Object -Property samaccountname
+			$ComputerServers = Get-DomainComputer -Domain $Domain -Server $Server -OperatingSystem "*Server*" -UACFilter NOT_ACCOUNTDISABLE
 			$TempServersEnabled = foreach ($ComputerServer in $ComputerServers) {
 				[PSCustomObject]@{
 					"Name" = $ComputerServer.samaccountname
@@ -4263,13 +4287,13 @@ function Invoke-ADEnum
 			}
 
 			if ($TempServersEnabled) {
-				$TempServersEnabled | Format-Table -AutoSize -Wrap
-				$HTMLServersEnabled = $TempServersEnabled | ConvertTo-Html -Fragment -PreContent "<h2>Servers (Enabled)</h2>"
+				$TempServersEnabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+				$HTMLServersEnabled = $TempServersEnabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Servers (Enabled)</h2>"
 			}
 		}
 		else {
 			$TempServersEnabled = foreach ($AllDomain in $AllDomains) {
-				$ComputerServers = Get-DomainComputer -Domain $AllDomain -OperatingSystem "*Server*" -UACFilter NOT_ACCOUNTDISABLE | Sort-Object -Property samaccountname
+				$ComputerServers = Get-DomainComputer -Domain $AllDomain -OperatingSystem "*Server*" -UACFilter NOT_ACCOUNTDISABLE
 				foreach ($ComputerServer in $ComputerServers) {
 					[PSCustomObject]@{
 						"Name" = $ComputerServer.samaccountname
@@ -4285,8 +4309,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempServersEnabled) {
-				$TempServersEnabled | Format-Table -AutoSize -Wrap
-				$HTMLServersEnabled = $TempServersEnabled | ConvertTo-Html -Fragment -PreContent "<h2>Servers (Enabled)</h2>"
+				$TempServersEnabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+				$HTMLServersEnabled = $TempServersEnabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Servers (Enabled)</h2>"
 			}
 		}
 
@@ -4301,7 +4325,7 @@ function Invoke-ADEnum
         Write-Host ""
 		Write-Host "Servers (Disabled):" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$ComputerServers = Get-DomainComputer -Domain $Domain -Server $Server -OperatingSystem "*Server*" -UACFilter ACCOUNTDISABLE | Sort-Object -Property samaccountname
+			$ComputerServers = Get-DomainComputer -Domain $Domain -Server $Server -OperatingSystem "*Server*" -UACFilter ACCOUNTDISABLE
 			$TempServersDisabled = foreach ($ComputerServer in $ComputerServers) {
 				[PSCustomObject]@{
 					"Name" = $ComputerServer.samaccountname
@@ -4316,13 +4340,13 @@ function Invoke-ADEnum
 			}
 
 			if ($TempServersDisabled) {
-				$TempServersDisabled | Format-Table -AutoSize -Wrap
-				$HTMLServersDisabled = $TempServersDisabled | ConvertTo-Html -Fragment -PreContent "<h2>Servers (Disabled)</h2>"
+				$TempServersDisabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+				$HTMLServersDisabled = $TempServersDisabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Servers (Disabled)</h2>"
 			}
 		}
 		else {
 			$TempServersDisabled = foreach ($AllDomain in $AllDomains) {
-				$ComputerServers = Get-DomainComputer -Domain $AllDomain -OperatingSystem "*Server*" -UACFilter ACCOUNTDISABLE | Sort-Object -Property samaccountname
+				$ComputerServers = Get-DomainComputer -Domain $AllDomain -OperatingSystem "*Server*" -UACFilter ACCOUNTDISABLE
 				foreach ($ComputerServer in $ComputerServers) {
 					[PSCustomObject]@{
 						"Name" = $ComputerServer.samaccountname
@@ -4338,8 +4362,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempServersDisabled) {
-				$TempServersDisabled | Format-Table -AutoSize -Wrap
-				$HTMLServersDisabled = $TempServersDisabled | ConvertTo-Html -Fragment -PreContent "<h2>Servers (Disabled)</h2>"
+				$TempServersDisabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+				$HTMLServersDisabled = $TempServersDisabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Servers (Disabled)</h2>"
 			}
 		}
 
@@ -4353,7 +4377,7 @@ function Invoke-ADEnum
         Write-Host ""
 		Write-Host "Workstations (Enabled):" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$AllWorkstations = Get-DomainComputer -Domain $Domain -Server $Server -UACFilter NOT_ACCOUNTDISABLE | Where-Object { $_.OperatingSystem -notlike "*Server*" } | Sort-Object -Property samaccountname
+			$AllWorkstations = Get-DomainComputer -Domain $Domain -Server $Server -UACFilter NOT_ACCOUNTDISABLE | Where-Object { $_.OperatingSystem -notlike "*Server*" }
 			$TempWorkstationsEnabled = foreach ($Workstation in $AllWorkstations) {
 				[PSCustomObject]@{
 					"Name" = $Workstation.samaccountname
@@ -4368,13 +4392,13 @@ function Invoke-ADEnum
 			}
 
 			if ($TempWorkstationsEnabled) {
-				$TempWorkstationsEnabled | Format-Table -AutoSize -Wrap
-				$HTMLWorkstationsEnabled = $TempWorkstationsEnabled | ConvertTo-Html -Fragment -PreContent "<h2>Workstations (Enabled)</h2>"
+				$TempWorkstationsEnabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+				$HTMLWorkstationsEnabled = $TempWorkstationsEnabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Workstations (Enabled)</h2>"
 			}
 		}
 		else {
 			$TempWorkstationsEnabled = foreach ($AllDomain in $AllDomains) {
-				$AllWorkstations = Get-DomainComputer -Domain $AllDomain -UACFilter NOT_ACCOUNTDISABLE | Where-Object { $_.OperatingSystem -notlike "*Server*" } | Sort-Object -Property samaccountname
+				$AllWorkstations = Get-DomainComputer -Domain $AllDomain -UACFilter NOT_ACCOUNTDISABLE | Where-Object { $_.OperatingSystem -notlike "*Server*" }
 				foreach ($Workstation in $AllWorkstations) {
 					[PSCustomObject]@{
 						"Name" = $Workstation.samaccountname
@@ -4390,8 +4414,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempWorkstationsEnabled) {
-				$TempWorkstationsEnabled | Format-Table -AutoSize -Wrap
-				$HTMLWorkstationsEnabled = $TempWorkstationsEnabled | ConvertTo-Html -Fragment -PreContent "<h2>Workstations (Enabled)</h2>"
+				$TempWorkstationsEnabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+				$HTMLWorkstationsEnabled = $TempWorkstationsEnabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Workstations (Enabled)</h2>"
 			}
 		}
 
@@ -4405,7 +4429,7 @@ function Invoke-ADEnum
         Write-Host ""
 		Write-Host "Workstations (Disabled):" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$AllWorkstations = Get-DomainComputer -Domain $Domain -Server $Server -UACFilter ACCOUNTDISABLE | Where-Object { $_.OperatingSystem -notlike "*Server*" } | Sort-Object -Property samaccountname
+			$AllWorkstations = Get-DomainComputer -Domain $Domain -Server $Server -UACFilter ACCOUNTDISABLE | Where-Object { $_.OperatingSystem -notlike "*Server*" }
 			$TempWorkstationsDisabled = foreach ($Workstation in $AllWorkstations) {
 				[PSCustomObject]@{
 					"Name" = $Workstation.samaccountname
@@ -4420,13 +4444,13 @@ function Invoke-ADEnum
 			}
 
 			if ($TempWorkstationsDisabled) {
-				$TempWorkstationsDisabled | Format-Table -AutoSize -Wrap
-				$HTMLWorkstationsDisabled = $TempWorkstationsDisabled | ConvertTo-Html -Fragment -PreContent "<h2>Workstations (Disabled)</h2>"
+				$TempWorkstationsDisabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+				$HTMLWorkstationsDisabled = $TempWorkstationsDisabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Workstations (Disabled)</h2>"
 			}
 		}
 		else {
 			$TempWorkstationsDisabled = foreach ($AllDomain in $AllDomains) {
-				$AllWorkstations = Get-DomainComputer -Domain $AllDomain -UACFilter ACCOUNTDISABLE | Where-Object { $_.OperatingSystem -notlike "*Server*" } | Sort-Object -Property samaccountname
+				$AllWorkstations = Get-DomainComputer -Domain $AllDomain -UACFilter ACCOUNTDISABLE | Where-Object { $_.OperatingSystem -notlike "*Server*" }
 				foreach ($Workstation in $AllWorkstations) {
 					[PSCustomObject]@{
 						"Name" = $Workstation.samaccountname
@@ -4442,8 +4466,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempWorkstationsDisabled) {
-				$TempWorkstationsDisabled | Format-Table -AutoSize -Wrap
-				$HTMLWorkstationsDisabled = $TempWorkstationsDisabled | ConvertTo-Html -Fragment -PreContent "<h2>Workstations (Disabled)</h2>"
+				$TempWorkstationsDisabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+				$HTMLWorkstationsDisabled = $TempWorkstationsDisabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Workstations (Disabled)</h2>"
 			}
 		}
 
@@ -4458,7 +4482,7 @@ function Invoke-ADEnum
 		Write-Host "Users (Enabled):" -ForegroundColor Cyan
 		
 		if ($Domain -and $Server) {
-			$EnabledUsers = Get-DomainUser -UACFilter NOT_ACCOUNTDISABLE -Domain $Domain -Server $Server | Sort-Object -Property samaccountname
+			$EnabledUsers = Get-DomainUser -UACFilter NOT_ACCOUNTDISABLE -Domain $Domain -Server $Server
 			$TempEnabledUsers = foreach ($EnabledUser in $EnabledUsers) {
 				[PSCustomObject]@{
 					"User Name" = $EnabledUser.samaccountname
@@ -4470,13 +4494,13 @@ function Invoke-ADEnum
 			}
 
 			if ($TempEnabledUsers) {
-				$TempEnabledUsers | Format-Table -AutoSize -Wrap
-				$HTMLEnabledUsers = $TempEnabledUsers | ConvertTo-Html -Fragment -PreContent "<h2>Users (Enabled)</h2>"
+				$TempEnabledUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+				$HTMLEnabledUsers = $TempEnabledUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users (Enabled)</h2>"
 			}
 		}
 		else {
 			$TempEnabledUsers = foreach ($AllDomain in $AllDomains) {
-				$EnabledUsers = Get-DomainUser -UACFilter NOT_ACCOUNTDISABLE -Domain $AllDomain | Sort-Object -Property samaccountname
+				$EnabledUsers = Get-DomainUser -UACFilter NOT_ACCOUNTDISABLE -Domain $AllDomain
 				foreach ($EnabledUser in $EnabledUsers) {
 					[PSCustomObject]@{
 						"User Name" = $EnabledUser.samaccountname
@@ -4489,8 +4513,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempEnabledUsers) {
-				$TempEnabledUsers | Format-Table -AutoSize -Wrap
-				$HTMLEnabledUsers = $TempEnabledUsers | ConvertTo-Html -Fragment -PreContent "<h2>Users (Enabled)</h2>"
+				$TempEnabledUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+				$HTMLEnabledUsers = $TempEnabledUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users (Enabled)</h2>"
 			}
 		}
 	}
@@ -4505,7 +4529,7 @@ function Invoke-ADEnum
 		Write-Host "Users (Disabled):" -ForegroundColor Cyan
 		
 		if ($Domain -and $Server) {
-			$DisabledUsers = Get-DomainUser -UACFilter ACCOUNTDISABLE -Domain $Domain -Server $Server | Sort-Object -Property samaccountname
+			$DisabledUsers = Get-DomainUser -UACFilter ACCOUNTDISABLE -Domain $Domain -Server $Server
 			$TempDisabledUsers = foreach ($DisabledUser in $DisabledUsers) {
 				[PSCustomObject]@{
 					"User Name" = $DisabledUser.samaccountname
@@ -4517,13 +4541,13 @@ function Invoke-ADEnum
 			}
 
 			if ($TempDisabledUsers) {
-				$TempDisabledUsers | Format-Table -AutoSize -Wrap
-				$HTMLDisabledUsers = $TempDisabledUsers | ConvertTo-Html -Fragment -PreContent "<h2>Users (Disabled)</h2>"
+				$TempDisabledUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+				$HTMLDisabledUsers = $TempDisabledUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users (Disabled)</h2>"
 			}
 		}
 		else {
 			$TempDisabledUsers = foreach ($AllDomain in $AllDomains) {
-				$DisabledUsers = Get-DomainUser -UACFilter ACCOUNTDISABLE -Domain $AllDomain | Sort-Object -Property samaccountname
+				$DisabledUsers = Get-DomainUser -UACFilter ACCOUNTDISABLE -Domain $AllDomain
 				foreach ($DisabledUser in $DisabledUsers) {
 					[PSCustomObject]@{
 						"User Name" = $DisabledUser.samaccountname
@@ -4536,8 +4560,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempDisabledUsers) {
-				$TempDisabledUsers | Format-Table -AutoSize -Wrap
-				$HTMLDisabledUsers = $TempDisabledUsers | ConvertTo-Html -Fragment -PreContent "<h2>Users (Disabled)</h2>"
+				$TempDisabledUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+				$HTMLDisabledUsers = $TempDisabledUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users (Disabled)</h2>"
 			}
 		}
 	}
@@ -4551,7 +4575,7 @@ function Invoke-ADEnum
 		Write-Host "All Domain OUs:" -ForegroundColor Cyan
 
 		if($Domain -AND $Server) {
-			$TempAllDomainOUs = Get-DomainOU -Domain $Domain -Server $Server | Sort-Object -Property Name | ForEach-Object {
+			$TempAllDomainOUs = Get-DomainOU -Domain $Domain -Server $Server | ForEach-Object {
 				$ou = $_
 				$users = (Get-DomainUser -Domain $Domain -Server $Server -SearchBase "LDAP://$($_.DistinguishedName)").samaccountname
 				$computers = Get-DomainComputer -Domain $Domain -Server $Server -SearchBase "LDAP://$($_.DistinguishedName)"
@@ -4568,13 +4592,13 @@ function Invoke-ADEnum
 			}
 
 			if($TempAllDomainOUs) {
-				$TempAllDomainOUs | Format-Table -AutoSize -Wrap
-				$HTMLAllDomainOUs = $TempAllDomainOUs | ConvertTo-Html -Fragment -PreContent "<h2>All Domain OUs</h2>"
+				$TempAllDomainOUs | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+				$HTMLAllDomainOUs = $TempAllDomainOUs | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>All Domain OUs</h2>"
 			}
 		}
 		else{
 			$TempAllDomainOUs = foreach($AllDomain in $AllDomains){
-				Get-DomainOU -Domain $AllDomain | Sort-Object -Property Name | ForEach-Object {
+				Get-DomainOU -Domain $AllDomain | ForEach-Object {
 					$ou = $_
 					$users = (Get-DomainUser -Domain $AllDomain -SearchBase "LDAP://$($_.DistinguishedName)").samaccountname
 					$computers = Get-DomainComputer -Domain $AllDomain -SearchBase "LDAP://$($_.DistinguishedName)"
@@ -4592,8 +4616,8 @@ function Invoke-ADEnum
 			}
 
 			if($TempAllDomainOUs) {
-				$TempAllDomainOUs | Format-Table -AutoSize -Wrap
-				$HTMLAllDomainOUs = $TempAllDomainOUs | ConvertTo-Html -Fragment -PreContent "<h2>All Domain OUs</h2>"
+				$TempAllDomainOUs | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+				$HTMLAllDomainOUs = $TempAllDomainOUs | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>All Domain OUs</h2>"
 			}
 		}
 	}
