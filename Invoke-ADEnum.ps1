@@ -2018,8 +2018,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempReplicationUsers) {
-			$TempReplicationUsers | Sort-Object -Property "User or Group Name" | Format-Table -AutoSize -Wrap
-			$HTMLReplicationUsers = $TempReplicationUsers | Sort-Object -Property "User or Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Retrieve *most* users who can perform DCSync</h2>"
+			$TempReplicationUsers | Sort-Object Domain, "User or Group Name" | Format-Table -AutoSize -Wrap
+			$HTMLReplicationUsers = $TempReplicationUsers | Sort-Object Domain, "User or Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Retrieve *most* users who can perform DCSync</h2>"
 		}
 	}
 	
@@ -3689,7 +3689,7 @@ function Invoke-ADEnum
         Write-Host ""
 		Write-Host "Find interesting ACLs:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$ACLScannerResults = Invoke-ACLScanner -Domain $Domain -Server $Server -ResolveGUIDs | Where-Object { $_.IdentityReferenceName -notmatch "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions" } | Sort-Object -Property IdentityReferenceName
+			$ACLScannerResults = Invoke-ACLScanner -Domain $Domain -Server $Server -ResolveGUIDs | Where-Object { $_.IdentityReferenceName -notmatch "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions" }
 
 			$TempACLScannerResults = foreach ($Result in $ACLScannerResults) {
 				[PSCustomObject]@{
@@ -3701,13 +3701,13 @@ function Invoke-ADEnum
 			}
 
 			if ($TempACLScannerResults) {
-				$TempACLScannerResults | Format-Table -AutoSize -Wrap
+				$TempACLScannerResults | Sort-Object "Identity Reference Name" | Format-Table -AutoSize -Wrap
 				$HTMLACLScannerResults = $TempACLScannerResults | ConvertTo-Html -Fragment -PreContent "<h2>Interesting ACLs:</h2>"
 			}
 		}
 		else {
 			$TempACLScannerResults = foreach ($AllDomain in $AllDomains) {
-				$ACLScannerResults = Invoke-ACLScanner -Domain $AllDomain -ResolveGUIDs | Where-Object { $_.IdentityReferenceName -notmatch "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions" } | Sort-Object -Property IdentityReferenceName
+				$ACLScannerResults = Invoke-ACLScanner -Domain $AllDomain -ResolveGUIDs | Where-Object { $_.IdentityReferenceName -notmatch "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions" }
 
 				foreach ($Result in $ACLScannerResults) {
 					[PSCustomObject]@{
@@ -3720,8 +3720,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempACLScannerResults) {
-				$TempACLScannerResults | Format-Table -AutoSize -Wrap
-				$HTMLACLScannerResults = $TempACLScannerResults | ConvertTo-Html -Fragment -PreContent "<h2>Interesting ACLs:</h2>"
+				$TempACLScannerResults | Sort-Object Domain, "Identity Reference Name" | Format-Table -AutoSize -Wrap
+				$HTMLACLScannerResults = $TempACLScannerResults | Sort-Object Domain, "Identity Reference Name" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting ACLs:</h2>"
 			}
 		}
 
