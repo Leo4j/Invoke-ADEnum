@@ -2053,8 +2053,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempServiceAccounts) {
-			$TempServiceAccounts | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-			$HTMLServiceAccounts = $TempServiceAccounts | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Service Accounts</h2>"
+			$TempServiceAccounts | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+			$HTMLServiceAccounts = $TempServiceAccounts | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Service Accounts</h2>"
 		}
 	}
 	
@@ -2078,8 +2078,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempServiceAccounts) {
-			$TempServiceAccounts | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-			$HTMLServiceAccounts = $TempServiceAccounts | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Service Accounts</h2>"
+			$TempServiceAccounts | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+			$HTMLServiceAccounts = $TempServiceAccounts | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Service Accounts</h2>"
 		}
 	}
 	
@@ -2304,8 +2304,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempAdminsInProtectedUsersGroup) {
-			$TempAdminsInProtectedUsersGroup | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-			$HTMLAdminsInProtectedUsersGroup = $TempAdminsInProtectedUsersGroup | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users in 'Protected Users' Group</h2>"
+			$TempAdminsInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+			$HTMLAdminsInProtectedUsersGroup = $TempAdminsInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users in 'Protected Users' Group</h2>"
 		}
 	}
 	
@@ -2330,8 +2330,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempAdminsInProtectedUsersGroup) {
-			$TempAdminsInProtectedUsersGroup | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-			$HTMLAdminsInProtectedUsersGroup = $TempAdminsInProtectedUsersGroup | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users in 'Protected Users' Group</h2>"
+			$TempAdminsInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+			$HTMLAdminsInProtectedUsersGroup = $TempAdminsInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users in 'Protected Users' Group</h2>"
 		}
 	}
 	
@@ -2360,8 +2360,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempAdminsNotInProtectedUsersGroup) {
-			$TempAdminsNotInProtectedUsersGroup | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-			$HTMLAdminsNotInProtectedUsersGroup = $TempAdminsNotInProtectedUsersGroup | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users NOT in 'Protected Users' Group</h2>"
+			$TempAdminsNotInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+			$HTMLAdminsNotInProtectedUsersGroup = $TempAdminsNotInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users NOT in 'Protected Users' Group</h2>"
 		}
 	}
 	
@@ -2386,8 +2386,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempAdminsNotInProtectedUsersGroup) {
-			$TempAdminsNotInProtectedUsersGroup | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-			$HTMLAdminsNotInProtectedUsersGroup = $TempAdminsNotInProtectedUsersGroup | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users NOT in 'Protected Users' Group</h2>"
+			$TempAdminsNotInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+			$HTMLAdminsNotInProtectedUsersGroup = $TempAdminsNotInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users NOT in 'Protected Users' Group</h2>"
 		}
 	}
 	
@@ -2470,8 +2470,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempPrivilegedSensitiveUsers) {
-			$TempPrivilegedSensitiveUsers | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-			$HTMLPrivilegedSensitiveUsers = $TempPrivilegedSensitiveUsers | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users marked as 'sensitive and not allowed for delegation'</h2>"
+			$TempPrivilegedSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+			$HTMLPrivilegedSensitiveUsers = $TempPrivilegedSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users marked as 'sensitive and not allowed for delegation'</h2>"
 		}
 	}
 	
@@ -2494,8 +2494,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempPrivilegedSensitiveUsers) {
-			$TempPrivilegedSensitiveUsers | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-			$HTMLPrivilegedSensitiveUsers = $TempPrivilegedSensitiveUsers | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users marked as 'sensitive and not allowed for delegation'</h2>"
+			$TempPrivilegedSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+			$HTMLPrivilegedSensitiveUsers = $TempPrivilegedSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users marked as 'sensitive and not allowed for delegation'</h2>"
 		}
 	}
 
@@ -2523,8 +2523,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempPrivilegedNotSensitiveUsers) {
-			$TempPrivilegedNotSensitiveUsers | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-			$HTMLPrivilegedNotSensitiveUsers = $TempPrivilegedNotSensitiveUsers | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users NOT marked as 'sensitive and not allowed for delegation'</h2>"
+			$TempPrivilegedNotSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+			$HTMLPrivilegedNotSensitiveUsers = $TempPrivilegedNotSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users NOT marked as 'sensitive and not allowed for delegation'</h2>"
 		}
 	}
 	
@@ -2547,8 +2547,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempPrivilegedNotSensitiveUsers) {
-			$TempPrivilegedNotSensitiveUsers | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-			$HTMLPrivilegedNotSensitiveUsers = $TempPrivilegedNotSensitiveUsers | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users NOT marked as 'sensitive and not allowed for delegation'</h2>"
+			$TempPrivilegedNotSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+			$HTMLPrivilegedNotSensitiveUsers = $TempPrivilegedNotSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users NOT marked as 'sensitive and not allowed for delegation'</h2>"
 		}
 	}
 	
@@ -4541,8 +4541,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempDisabledUsers) {
-				$TempDisabledUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
-				$HTMLDisabledUsers = $TempDisabledUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users (Disabled)</h2>"
+				$TempDisabledUsers | Where-Object {$_."User Name" -ne "krbtgt"} | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+				$HTMLDisabledUsers = $TempDisabledUsers | Where-Object {$_."User Name" -ne "krbtgt"} | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users (Disabled)</h2>"
 			}
 		}
 		else {
@@ -4560,8 +4560,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempDisabledUsers) {
-				$TempDisabledUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
-				$HTMLDisabledUsers = $TempDisabledUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users (Disabled)</h2>"
+				$TempDisabledUsers | Where-Object {$_."User Name" -ne "krbtgt"} | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+				$HTMLDisabledUsers = $TempDisabledUsers | Where-Object {$_."User Name" -ne "krbtgt"} | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users (Disabled)</h2>"
 			}
 		}
 	}
@@ -4644,7 +4644,7 @@ function Invoke-ADEnum
     (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'TerminatingError' } | Set-Content $OutputFilePath
     (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Parameter name: binaryForm""' } | Set-Content $OutputFilePath
     (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'PSEdition:' } | Set-Content $OutputFilePath
-	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'PSRemotingProtocolVersion:' } | Set-Content $OutputFilePath
+    (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'PSRemotingProtocolVersion:' } | Set-Content $OutputFilePath
     (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'PSCompatibleVersions:' } | Set-Content $OutputFilePath
     (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'BuildVersion:' } | Set-Content $OutputFilePath
     (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'CLRVersion:' } | Set-Content $OutputFilePath
