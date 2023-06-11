@@ -1966,6 +1966,7 @@ function Invoke-ADEnum
 	Write-Host ""
 	Write-Host "Interesting Data" -ForegroundColor Red
 	Write-Host ""
+	$Keywords = @("Backup", "CCTV", "Cyber", "Desk", "Director", "Finance", "Hyper", "JEA", "LAPS", "Management", "Mgmt", "Password", "PAM", "PAW", "PPL", "PSM", "Remote", "Security", "SQL", "VEEAM", "VMWare")
 	
 	##################################
     ########### DCSync ###############
@@ -2827,12 +2828,11 @@ function Invoke-ADEnum
     ########### GPO Rights ################
 	#######################################
 	
-	if($NoGPOs){}
+    if($NoGPOs){}
     else{
         
         Write-Host ""
 	Write-Host "Interesting GPOs by name:" -ForegroundColor Cyan
-	$Keywords = @("Backup", "CCTV", "Cyber", "Desk", "Director", "Finance", "Hyper", "JEA", "LAPS", "Management", "Mgmt", "Password", "PAM", "PAW", "PPL", "PSM", "Remote", "Security", "SQL", "VEEAM", "VMWare")
 	if ($Domain -and $Server) {
 		$TempKeywordDomainGPOs = foreach($Keyword in $Keywords){
 			$KeywordDomainGPOs = Get-DomainGPO -Domain $Domain -Server $Server -Identity "*$Keyword*" -Properties DisplayName, gpcfilesyspath
@@ -3992,7 +3992,6 @@ function Invoke-ADEnum
 	
 	Write-Host ""
 	Write-Host "Other Groups (by keyword):" -ForegroundColor Cyan
-	$Keywords = @("Backup", "CCTV", "Cyber", "Desk", "Director", "Finance", "Hyper", "JEA", "LAPS", "Management", "Mgmt", "Password", "PAM", "PAW", "PPL", "PSM", "Remote", "Security", "SQL", "VEEAM", "VMWare")
 	if ($Domain -and $Server) {
 		$TempGroupsByKeyword = foreach ($Keyword in $Keywords) {
 			Get-DomainGroup -Domain $Domain -Server $Server -Identity "*$Keyword*" |
