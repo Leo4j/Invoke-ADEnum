@@ -1966,7 +1966,7 @@ function Invoke-ADEnum
 	Write-Host ""
 	Write-Host "Interesting Data" -ForegroundColor Red
 	Write-Host ""
-	$Keywords = @("Backup", "CCTV", "Cyber", "Desk", "Director", "Finance", "Hyper", "JEA", "LAPS", "Management", "Mgmt", "Password", "PAM", "PAW", "PPL", "PSM", "Remote", "Security", "SQL", "VEEAM", "VMWare")
+	$Keywords = @("Admin", "Backup", "CCTV", "Cyber", "Desk", "Director", "Finance", "Hyper", "JEA", "LAPS", "Management", "Mgmt", "Password", "PAM", "PAW", "PPL", "PSM", "Remote", "Security", "SQL", "VEEAM", "VMWare")
 	
 	##################################
     ########### DCSync ###############
@@ -3716,169 +3716,6 @@ function Invoke-ADEnum
 		}
 	}
 	
-	#######################################
-    ######### Domain Shares ###############
-	#######################################
-	
-	if($Shares -OR $AllEnum){
-        Write-Host ""
-		Write-Host "Accessible Domain Shares:" -ForegroundColor Cyan
-		if ($Domain -and $Server) {
-			$DomainShares = Find-DomainShare -ComputerDomain $Domain -Server $Server -CheckShareAccess -Threads 100 -Delay 1
-			$TempDomainShares = foreach ($DomainShare in $DomainShares) {
-				[PSCustomObject]@{
-					"Name" = $DomainShare.Name
-					"Computer Name" = $DomainShare.ComputerName
-					"Remark" = $DomainShare.Remark
-					Domain = $Domain
-				}
-			}
-
-			if ($TempDomainShares) {
-				$TempDomainShares | Sort-Object Domain,"Computer Name",Name | Format-Table -AutoSize -Wrap
-				$HTMLDomainShares = $TempDomainShares | Sort-Object Domain,"Computer Name",Name | ConvertTo-Html -Fragment -PreContent "<h2>Accessible Domain Shares</h2>"
-			}
-		}
-		
-		else {
-			$TempDomainShares = foreach ($AllDomain in $AllDomains) {
-				$DomainShares = Find-DomainShare -ComputerDomain $AllDomain -CheckShareAccess -Threads 100 -Delay 1
-				foreach ($DomainShare in $DomainShares) {
-					[PSCustomObject]@{
-						"Name" = $DomainShare.Name
-						"Computer Name" = $DomainShare.ComputerName
-						"Remark" = $DomainShare.Remark
-						Domain = $AllDomain
-					}
-				}
-			}
-
-			if ($TempDomainShares) {
-				$TempDomainShares | Sort-Object Domain,"Computer Name",Name | Format-Table -AutoSize -Wrap
-				$HTMLDomainShares = $TempDomainShares | Sort-Object Domain,"Computer Name",Name | ConvertTo-Html -Fragment -PreContent "<h2>Accessible Domain Shares</h2>"
-			}
-		}
-
-
-        Write-Host ""
-		Write-Host "Domain Share Files:" -ForegroundColor Cyan
-		if($Domain -AND $Server) {
-			$DomainShareFiles = Find-InterestingDomainShareFile -Server $Server -Threads 100 -Delay 1 | Select Owner,CreationTime,LastAccessTime,LastWriteTime,Path
-			$TempDomainShareFiles = foreach ($DomainShareFile in $DomainShareFiles) {
-				[PSCustomObject]@{
-					"Owner" = $DomainShareFile.Owner
-					"Path" = $DomainShareFile.Path
-					"Domain" = $Domain
-				}
-			}
-			
-			if($TempDomainShareFiles){
-				$TempDomainShareFiles | Sort-Object Domain,Owner,Path | Format-Table -AutoSize -Wrap
-				$HTMLDomainShareFiles = $TempDomainShareFiles | Sort-Object Domain,Owner,Path | ConvertTo-Html -Fragment -PreContent "<h2>Domain Share Files</h2>"
-			}
-		}
-		else{
-			$TempDomainShareFiles = foreach($AllDomain in $AllDomains){
-				$DomainShareFiles = Find-InterestingDomainShareFile -ComputerDomain $AllDomain -Threads 100 -Delay 1 | Select Owner,CreationTime,LastAccessTime,LastWriteTime,Path
-				foreach($DomainShareFile in $DomainShareFiles){
-					[PSCustomObject]@{
-						"Owner" = $DomainShareFile.Owner
-						"Path" = $DomainShareFile.Path
-						"Domain" = $AllDomain
-					}
-				}
-			}
-			
-			if($TempDomainShareFiles){
-				$TempDomainShareFiles | Sort-Object Domain,Owner,Path | Format-Table -AutoSize -Wrap
-				$HTMLDomainShareFiles = $TempDomainShareFiles | Sort-Object Domain,Owner,Path | ConvertTo-Html -Fragment -PreContent "<h2>Domain Share Files</h2>"
-			}
-		}
-
-        
-        Write-Host ""
-		Write-Host "Domain Share Files (more file extensions):" -ForegroundColor Cyan
-		if ($Domain -and $Server) {
-			$InterestingFiles = Find-InterestingDomainShareFile -Server $Server -Include *.doc*, *.txt*, *.xls*, *.csv, *.ppt*, *.msi*, *.wim* -Threads 100 -Delay 1 
-			$TempInterestingFiles = foreach ($File in $InterestingFiles) {
-				[PSCustomObject]@{
-					"Owner" = $File.Owner
-					"Path" = $File.Path
-					"Domain" = $Domain
-				}
-			}
-
-			if ($TempInterestingFiles) {
-				$TempInterestingFiles | Sort-Object Domain,Owner,Path | Format-Table -AutoSize -Wrap
-				$HTMLInterestingFiles = $TempInterestingFiles | Sort-Object Domain,Owner,Path | ConvertTo-Html -Fragment -PreContent "<h2>Domain Share Files (more file extensions)</h2>"
-			}
-		}
-		else {
-			$TempInterestingFiles = foreach ($AllDomain in $AllDomains) {
-				$InterestingFiles = Find-InterestingDomainShareFile -ComputerDomain $AllDomain -Include *.doc*, *.txt*, *.xls*, *.csv, *.ppt*, *.msi*, *.wim* -Threads 100 -Delay 1
-				foreach ($File in $InterestingFiles) {
-					[PSCustomObject]@{
-						"Owner" = $File.Owner
-						"Path" = $File.Path
-						"Domain" = $AllDomain
-					}
-				}
-			}
-
-			if ($TempInterestingFiles) {
-				$TempInterestingFiles | Sort-Object Domain,Owner,Path | Format-Table -AutoSize -Wrap
-				$HTMLInterestingFiles = $TempInterestingFiles | Sort-Object Domain,Owner,Path | ConvertTo-Html -Fragment -PreContent "<h2>Domain Share Files (more file extensions)</h2>"
-			}
-		}
-
-    }
-	
-	#####################################
-    ######### Domain ACLs ###############
-	#####################################
-    
-    if($DomainACLs -OR $AllEnum){
-        Write-Host ""
-		Write-Host "Find interesting ACLs:" -ForegroundColor Cyan
-		if ($Domain -and $Server) {
-			$ACLScannerResults = Invoke-ACLScanner -Domain $Domain -Server $Server -ResolveGUIDs | Where-Object { $_.IdentityReferenceName -notmatch "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions" }
-
-			$TempACLScannerResults = foreach ($Result in $ACLScannerResults) {
-				[PSCustomObject]@{
-					"Identity Reference Name" = $Result.IdentityReferenceName
-					"Object DN" = $Result.ObjectDN
-					"Active Directory Rights" = $Result.ActiveDirectoryRights
-					"Domain" = $Domain
-				}
-			}
-
-			if ($TempACLScannerResults) {
-				$TempACLScannerResults | Sort-Object Domain,"Identity Reference Name","Object DN" | Format-Table -AutoSize -Wrap
-				$HTMLACLScannerResults = $TempACLScannerResults | Sort-Object Domain,"Identity Reference Name","Object DN" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting ACLs:</h2>"
-			}
-		}
-		else {
-			$TempACLScannerResults = foreach ($AllDomain in $AllDomains) {
-				$ACLScannerResults = Invoke-ACLScanner -Domain $AllDomain -ResolveGUIDs | Where-Object { $_.IdentityReferenceName -notmatch "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions" }
-
-				foreach ($Result in $ACLScannerResults) {
-					[PSCustomObject]@{
-						"Identity Reference Name" = $Result.IdentityReferenceName
-						"Object DN" = $Result.ObjectDN
-						"Active Directory Rights" = $Result.ActiveDirectoryRights
-						"Domain" = $AllDomain
-					}
-				}
-			}
-
-			if ($TempACLScannerResults) {
-				$TempACLScannerResults | Sort-Object Domain,"Identity Reference Name","Object DN" | Format-Table -AutoSize -Wrap
-				$HTMLACLScannerResults = $TempACLScannerResults | Sort-Object Domain,"Identity Reference Name","Object DN" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting ACLs:</h2>"
-			}
-		}
-
-    }
-	
 	#############################################
     ######### DA Name Correlation ###############
 	#############################################
@@ -3941,57 +3778,12 @@ function Invoke-ADEnum
 		}
 	}
 	
-	########################################
-    ########### Admin Groups ###############
-	########################################
-	
-	Write-Host ""
-	Write-Host "Admin Groups (by keyword):" -ForegroundColor Cyan
-	if ($Domain -and $Server) {
-		$AdminGroups = Get-DomainGroup -Domain $Domain -Server $Server | Where-Object { $_.Name -like "*Admin*" }
-		$TempAdminGroups = foreach ($AdminGroup in $AdminGroups) {
-			[PSCustomObject]@{
-				"Keyword" = "Admin"
-				"Group Name" = $AdminGroup.SamAccountName
-				"Group SID" = $AdminGroup.ObjectSID
-				"Domain" = $Domain
-				"Members" = ((Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity $AdminGroup.SamAccountName).MemberName | Sort-Object -Unique) -join ' - '
-				#Description = $AdminGroup.description
-			} | Where-Object { $_.Members }
-		}
-
-		if ($TempAdminGroups) {
-			$TempAdminGroups | Where-Object { $_.Members } | Sort-Object Domain,Keyword,"Group Name" | Format-Table -AutoSize -Wrap
-			$HTMLAdminGroups = $TempAdminGroups | Where-Object { $_.Members } | Sort-Object Domain,Keyword,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Admin Groups (by keyword)</h2>"
-		}
-	}
-	else {
-		$TempAdminGroups = foreach ($AllDomain in $AllDomains) {
-			$AdminGroups = Get-DomainGroup -Domain $AllDomain | Where-Object { $_.Name -like "*Admin*" }
-			foreach ($AdminGroup in $AdminGroups) {
-				[PSCustomObject]@{
-					"Keyword" = "Admin"
-					"Group Name" = $AdminGroup.SamAccountName
-					"Group SID" = $AdminGroup.ObjectSID
-					"Domain" = $AllDomain
-					"Members" = ((Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity $AdminGroup.SamAccountName).MemberName | Sort-Object -Unique) -join ' - '
-					#Description = $AdminGroup.description
-				} | Where-Object { $_.Members }
-			}
-		}
-
-		if ($TempAdminGroups) {
-			$TempAdminGroups | Where-Object { $_.Members } | Sort-Object Domain,Keyword,"Group Name" | Format-Table -AutoSize -Wrap
-			$HTMLAdminGroups = $TempAdminGroups | Where-Object { $_.Members } | Sort-Object Domain,Keyword,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Admin Groups (by keyword)</h2>"
-		}
-	}
-	
 	#########################################
     ########### Groups by keyword ###########
 	#########################################
 	
 	Write-Host ""
-	Write-Host "Other Groups (by keyword):" -ForegroundColor Cyan
+	Write-Host "Groups (by keyword):" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
 		$TempGroupsByKeyword = foreach ($Keyword in $Keywords) {
 			Get-DomainGroup -Domain $Domain -Server $Server -Identity "*$Keyword*" |
@@ -4000,6 +3792,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"Keyword" = $Keyword
 					"Group Name" = $Group.SamAccountName
+					"Group SID" = $Group.ObjectSID
 					"Domain" = $Domain
 					"Members" = ((Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $Group.distinguishedname -Recurse).membername | Sort-Object -Unique) -join ' - '
 					#Description = $Group.description
@@ -4009,7 +3802,7 @@ function Invoke-ADEnum
 
 		if ($TempGroupsByKeyword) {
 			$TempGroupsByKeyword | Where-Object { $_.Members } | Sort-Object Domain,Keyword,"Group Name" | Format-Table -AutoSize -Wrap
-			$HTMLGroupsByKeyword = $TempGroupsByKeyword | Where-Object { $_.Members } | Sort-Object Domain,Keyword,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Other Groups (by keyword)</h2>"
+			$HTMLGroupsByKeyword = $TempGroupsByKeyword | Where-Object { $_.Members } | Sort-Object Domain,Keyword,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Groups (by keyword)</h2>"
 		}
 	}
 	else {
@@ -4021,6 +3814,7 @@ function Invoke-ADEnum
 					[PSCustomObject]@{
 						"Keyword" = $Keyword
 						"Group Name" = $Group.SamAccountName
+						"Group SID" = $Group.ObjectSID
 						"Domain" = $AllDomain
 						"Members" = ((Get-DomainGroupMember -Identity $Group.distinguishedname -Domain $AllDomain -Recurse).membername | Sort-Object -Unique) -join ' - '
 						#Description = $Group.description
@@ -4031,9 +3825,232 @@ function Invoke-ADEnum
 
 		if ($TempGroupsByKeyword) {
 			$TempGroupsByKeyword | Where-Object { $_.Members } | Sort-Object Domain,Keyword,"Group Name" | Format-Table -AutoSize -Wrap
-			$HTMLGroupsByKeyword = $TempGroupsByKeyword | Where-Object { $_.Members } | Sort-Object Domain,Keyword,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Other Groups (by keyword)</h2>"
+			$HTMLGroupsByKeyword = $TempGroupsByKeyword | Where-Object { $_.Members } | Sort-Object Domain,Keyword,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Groups (by keyword)</h2>"
 		}
 	}
+	
+	#############################################
+    ########### Domain OUs by Keyword ###########
+	#############################################
+	
+	Write-Host ""
+	Write-Host "Domain OUs (by Keyword):" -ForegroundColor Cyan
+
+	if($Domain -AND $Server) {
+		$TempDomainOUsByKeyword = foreach ($Keyword in $Keywords) {
+				Get-DomainOU -Domain $Domain -Server $Server -Identity "*$Keyword*" | ForEach-Object {
+				$ou = $_
+				$users = (Get-DomainUser -Domain $Domain -Server $Server -SearchBase "LDAP://$($_.DistinguishedName)").samaccountname
+				$computers = Get-DomainComputer -Domain $Domain -Server $Server -SearchBase "LDAP://$($_.DistinguishedName)"
+
+				$members = @()
+				if ($users) { $members += $users }
+				if ($computers) { $members += $computers.Name }
+
+				[PSCustomObject]@{
+					"Keyword" = $Keyword
+					Name = $ou.Name
+					Domain = $Domain
+					Members = $members -join ' - '
+				}
+			}
+		}
+
+		if($TempDomainOUsByKeyword) {
+			$TempDomainOUsByKeyword | Sort-Object Domain,Keyword,Name | Format-Table -AutoSize -Wrap
+			$HTMLDomainOUsByKeyword = $TempDomainOUsByKeyword | Sort-Object Domain,Keyword,Name | ConvertTo-Html -Fragment -PreContent "<h2>Domain OUs (by Keyword)</h2>"
+		}
+	}
+	else{
+		$TempDomainOUsByKeyword = foreach($AllDomain in $AllDomains){
+			foreach ($Keyword in $Keywords) {
+				Get-DomainOU -Domain $AllDomain -Identity "*$Keyword*" | ForEach-Object {
+					$ou = $_
+					$users = (Get-DomainUser -Domain $AllDomain -SearchBase "LDAP://$($_.DistinguishedName)").samaccountname
+					$computers = Get-DomainComputer -Domain $AllDomain -SearchBase "LDAP://$($_.DistinguishedName)"
+
+					$members = @()
+					if ($users) { $members += $users }
+					if ($computers) { $members += $computers.Name }
+
+					[PSCustomObject]@{
+						"Keyword" = $Keyword
+						Name = $ou.Name
+						Domain = $AllDomain
+						Members = $members -join ' - '
+					}
+				}
+			}
+		}
+
+		if($TempDomainOUsByKeyword) {
+			$TempDomainOUsByKeyword | Sort-Object Domain,Keyword,Name | Format-Table -AutoSize -Wrap
+			$HTMLDomainOUsByKeyword = $TempDomainOUsByKeyword | Sort-Object Domain,Keyword,Name | ConvertTo-Html -Fragment -PreContent "<h2>Domain OUs (by Keyword)</h2>"
+		}
+	}
+	
+	#######################################
+    ######### Domain Shares ###############
+	#######################################
+	
+	if($Shares -OR $AllEnum){
+        	Write-Host ""
+		Write-Host "Accessible Domain Shares:" -ForegroundColor Cyan
+		if ($Domain -and $Server) {
+			$DomainShares = Find-DomainShare -ComputerDomain $Domain -Server $Server -CheckShareAccess -Threads 100 -Delay 1
+			$TempDomainShares = foreach ($DomainShare in $DomainShares) {
+				[PSCustomObject]@{
+					"Name" = $DomainShare.Name
+					"Computer Name" = $DomainShare.ComputerName
+					"Remark" = $DomainShare.Remark
+					Domain = $Domain
+				}
+			}
+
+			if ($TempDomainShares) {
+				$TempDomainShares | Sort-Object Domain,"Computer Name",Name | Format-Table -AutoSize -Wrap
+				$HTMLDomainShares = $TempDomainShares | Sort-Object Domain,"Computer Name",Name | ConvertTo-Html -Fragment -PreContent "<h2>Accessible Domain Shares</h2>"
+			}
+		}
+		
+		else {
+			$TempDomainShares = foreach ($AllDomain in $AllDomains) {
+				$DomainShares = Find-DomainShare -ComputerDomain $AllDomain -CheckShareAccess -Threads 100 -Delay 1
+				foreach ($DomainShare in $DomainShares) {
+					[PSCustomObject]@{
+						"Name" = $DomainShare.Name
+						"Computer Name" = $DomainShare.ComputerName
+						"Remark" = $DomainShare.Remark
+						Domain = $AllDomain
+					}
+				}
+			}
+
+			if ($TempDomainShares) {
+				$TempDomainShares | Sort-Object Domain,"Computer Name",Name | Format-Table -AutoSize -Wrap
+				$HTMLDomainShares = $TempDomainShares | Sort-Object Domain,"Computer Name",Name | ConvertTo-Html -Fragment -PreContent "<h2>Accessible Domain Shares</h2>"
+			}
+		}
+
+
+        	Write-Host ""
+		Write-Host "Domain Share Files:" -ForegroundColor Cyan
+		if($Domain -AND $Server) {
+			$DomainShareFiles = Find-InterestingDomainShareFile -Server $Server -Threads 100 -Delay 1 | Select Owner,CreationTime,LastAccessTime,LastWriteTime,Path
+			$TempDomainShareFiles = foreach ($DomainShareFile in $DomainShareFiles) {
+				[PSCustomObject]@{
+					"Owner" = $DomainShareFile.Owner
+					"Path" = $DomainShareFile.Path
+					"Domain" = $Domain
+				}
+			}
+			
+			if($TempDomainShareFiles){
+				$TempDomainShareFiles | Sort-Object Domain,Owner,Path | Format-Table -AutoSize -Wrap
+				$HTMLDomainShareFiles = $TempDomainShareFiles | Sort-Object Domain,Owner,Path | ConvertTo-Html -Fragment -PreContent "<h2>Domain Share Files</h2>"
+			}
+		}
+		else{
+			$TempDomainShareFiles = foreach($AllDomain in $AllDomains){
+				$DomainShareFiles = Find-InterestingDomainShareFile -ComputerDomain $AllDomain -Threads 100 -Delay 1 | Select Owner,CreationTime,LastAccessTime,LastWriteTime,Path
+				foreach($DomainShareFile in $DomainShareFiles){
+					[PSCustomObject]@{
+						"Owner" = $DomainShareFile.Owner
+						"Path" = $DomainShareFile.Path
+						"Domain" = $AllDomain
+					}
+				}
+			}
+			
+			if($TempDomainShareFiles){
+				$TempDomainShareFiles | Sort-Object Domain,Owner,Path | Format-Table -AutoSize -Wrap
+				$HTMLDomainShareFiles = $TempDomainShareFiles | Sort-Object Domain,Owner,Path | ConvertTo-Html -Fragment -PreContent "<h2>Domain Share Files</h2>"
+			}
+		}
+
+        
+        	Write-Host ""
+		Write-Host "Domain Share Files (more file extensions):" -ForegroundColor Cyan
+		if ($Domain -and $Server) {
+			$InterestingFiles = Find-InterestingDomainShareFile -Server $Server -Include *.doc*, *.txt*, *.xls*, *.csv, *.ppt*, *.msi*, *.wim* -Threads 100 -Delay 1 
+			$TempInterestingFiles = foreach ($File in $InterestingFiles) {
+				[PSCustomObject]@{
+					"Owner" = $File.Owner
+					"Path" = $File.Path
+					"Domain" = $Domain
+				}
+			}
+
+			if ($TempInterestingFiles) {
+				$TempInterestingFiles | Sort-Object Domain,Owner,Path | Format-Table -AutoSize -Wrap
+				$HTMLInterestingFiles = $TempInterestingFiles | Sort-Object Domain,Owner,Path | ConvertTo-Html -Fragment -PreContent "<h2>Domain Share Files (more file extensions)</h2>"
+			}
+		}
+		else {
+			$TempInterestingFiles = foreach ($AllDomain in $AllDomains) {
+				$InterestingFiles = Find-InterestingDomainShareFile -ComputerDomain $AllDomain -Include *.doc*, *.txt*, *.xls*, *.csv, *.ppt*, *.msi*, *.wim* -Threads 100 -Delay 1
+				foreach ($File in $InterestingFiles) {
+					[PSCustomObject]@{
+						"Owner" = $File.Owner
+						"Path" = $File.Path
+						"Domain" = $AllDomain
+					}
+				}
+			}
+
+			if ($TempInterestingFiles) {
+				$TempInterestingFiles | Sort-Object Domain,Owner,Path | Format-Table -AutoSize -Wrap
+				$HTMLInterestingFiles = $TempInterestingFiles | Sort-Object Domain,Owner,Path | ConvertTo-Html -Fragment -PreContent "<h2>Domain Share Files (more file extensions)</h2>"
+			}
+		}
+
+    	}
+	
+	#####################################
+    ######### Domain ACLs ###############
+	#####################################
+    
+    	if($DomainACLs -OR $AllEnum){
+        	Write-Host ""
+		Write-Host "Find interesting ACLs:" -ForegroundColor Cyan
+		if ($Domain -and $Server) {
+			$ACLScannerResults = Invoke-ACLScanner -Domain $Domain -Server $Server -ResolveGUIDs | Where-Object { $_.IdentityReferenceName -notmatch "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions" }
+
+			$TempACLScannerResults = foreach ($Result in $ACLScannerResults) {
+				[PSCustomObject]@{
+					"Identity Reference Name" = $Result.IdentityReferenceName
+					"Object DN" = $Result.ObjectDN
+					"Active Directory Rights" = $Result.ActiveDirectoryRights
+					"Domain" = $Domain
+				}
+			}
+
+			if ($TempACLScannerResults) {
+				$TempACLScannerResults | Sort-Object Domain,"Identity Reference Name","Object DN" | Format-Table -AutoSize -Wrap
+				$HTMLACLScannerResults = $TempACLScannerResults | Sort-Object Domain,"Identity Reference Name","Object DN" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting ACLs:</h2>"
+			}
+		}
+		else {
+			$TempACLScannerResults = foreach ($AllDomain in $AllDomains) {
+				$ACLScannerResults = Invoke-ACLScanner -Domain $AllDomain -ResolveGUIDs | Where-Object { $_.IdentityReferenceName -notmatch "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions" }
+
+				foreach ($Result in $ACLScannerResults) {
+					[PSCustomObject]@{
+						"Identity Reference Name" = $Result.IdentityReferenceName
+						"Object DN" = $Result.ObjectDN
+						"Active Directory Rights" = $Result.ActiveDirectoryRights
+						"Domain" = $AllDomain
+					}
+				}
+			}
+
+			if ($TempACLScannerResults) {
+				$TempACLScannerResults | Sort-Object Domain,"Identity Reference Name","Object DN" | Format-Table -AutoSize -Wrap
+				$HTMLACLScannerResults = $TempACLScannerResults | Sort-Object Domain,"Identity Reference Name","Object DN" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting ACLs:</h2>"
+			}
+		}
+
+    	}
 	
 	$AnalysisBanner = "<h3>Active Directory Domain Analysis</h3>"
 	Write-Host ""
@@ -4754,7 +4771,7 @@ function Invoke-ADEnum
     # Stop capturing the output and display it on the console
     Stop-Transcript | Out-Null
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLPreWin2kCompatibleAccess $HTMLLMCompatibilityLevel $HTMLMachineQuota $HTMLUnsupportedHosts $InterestingDataBanner $HTMLReplicationUsers $HTMLServiceAccounts $HTMLGMSAs $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLnopreauthset $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLKeywordDomainGPOs $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $HTMLLinkedDAAccounts $HTMLAdminGroups $HTMLGroupsByKeyword $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLDomainGPOs $HTMLOtherGroups $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $UsersEnumBanner $HTMLEnabledUsers $HTMLDisabledUsers $HTMLAllDomainOUs" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLPreWin2kCompatibleAccess $HTMLLMCompatibilityLevel $HTMLMachineQuota $HTMLUnsupportedHosts $InterestingDataBanner $HTMLReplicationUsers $HTMLServiceAccounts $HTMLGMSAs $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLnopreauthset $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLKeywordDomainGPOs $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLLinkedDAAccounts $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLDomainGPOs $HTMLOtherGroups $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $UsersEnumBanner $HTMLEnabledUsers $HTMLDisabledUsers $HTMLAllDomainOUs" -Title "Active Directory Audit" -Head $header
 	$HTMLOutputFilePath = $OutputFilePath.Replace(".txt", ".html")
 	$Report | Out-File $HTMLOutputFilePath
 	
