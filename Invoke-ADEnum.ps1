@@ -3314,46 +3314,46 @@ function Invoke-ADEnum
 			
 		}
 		
-	}
-	
-	if($LAPSComputers -OR $AllEnum){
+		if($LAPSComputers -OR $AllEnum){
 
-		Write-Host ""
-		Write-Host "Computer objects where LAPS is enabled:" -ForegroundColor Cyan
-		if ($Domain -and $Server) {
-			$LapsEnabledComputers = Get-DomainComputer -Domain $Domain -Server $Server | Where-Object { $_."ms-Mcs-AdmPwdExpirationTime" -ne $null }
-			$TempLapsEnabledComputers = foreach ($LapsEnabledComputer in $LapsEnabledComputers) {
-				[PSCustomObject]@{
-					"Name" = $LapsEnabledComputer.samaccountname
-					"IP Address" = Resolve-DnsName -Name $LapsEnabledComputer.name -Type A -Server $Server | Select-Object -ExpandProperty IPAddress
-					"Account SID" = $LapsEnabledComputer.objectsid
-					Domain = $Domain
-				}
-			}
-
-			if ($TempLapsEnabledComputers) {
-				$TempLapsEnabledComputers | Sort-Object Domain,"Name" | Format-Table -AutoSize -Wrap
-				$HTMLLapsEnabledComputers = $TempLapsEnabledComputers | Sort-Object Domain,"Name" | ConvertTo-Html -Fragment -PreContent "<h2>Computer objects where LAPS is enabled</h2>"
-			}
-		}
-		else {
-			$TempLapsEnabledComputers = foreach ($AllDomain in $AllDomains) {
-				$LapsEnabledComputers = Get-DomainComputer -Domain $AllDomain | Where-Object { $_."ms-Mcs-AdmPwdExpirationTime" -ne $null }
-				foreach ($LapsEnabledComputer in $LapsEnabledComputers) {
+			Write-Host ""
+			Write-Host "Computer objects where LAPS is enabled:" -ForegroundColor Cyan
+			if ($Domain -and $Server) {
+				$LapsEnabledComputers = Get-DomainComputer -Domain $Domain -Server $Server | Where-Object { $_."ms-Mcs-AdmPwdExpirationTime" -ne $null }
+				$TempLapsEnabledComputers = foreach ($LapsEnabledComputer in $LapsEnabledComputers) {
 					[PSCustomObject]@{
 						"Name" = $LapsEnabledComputer.samaccountname
 						"IP Address" = Resolve-DnsName -Name $LapsEnabledComputer.name -Type A -Server $Server | Select-Object -ExpandProperty IPAddress
 						"Account SID" = $LapsEnabledComputer.objectsid
-						Domain = $AllDomain
+						Domain = $Domain
 					}
 				}
-			}
 
-			if ($TempLapsEnabledComputers) {
-				$TempLapsEnabledComputers | Sort-Object Domain,"Name" | Format-Table -AutoSize -Wrap
-				$HTMLLapsEnabledComputers = $TempLapsEnabledComputers | Sort-Object Domain,"Name" | ConvertTo-Html -Fragment -PreContent "<h2>Computer objects where LAPS is enabled</h2>"
+				if ($TempLapsEnabledComputers) {
+					$TempLapsEnabledComputers | Sort-Object Domain,"Name" | Format-Table -AutoSize -Wrap
+					$HTMLLapsEnabledComputers = $TempLapsEnabledComputers | Sort-Object Domain,"Name" | ConvertTo-Html -Fragment -PreContent "<h2>Computer objects where LAPS is enabled</h2>"
+				}
+			}
+			else {
+				$TempLapsEnabledComputers = foreach ($AllDomain in $AllDomains) {
+					$LapsEnabledComputers = Get-DomainComputer -Domain $AllDomain | Where-Object { $_."ms-Mcs-AdmPwdExpirationTime" -ne $null }
+					foreach ($LapsEnabledComputer in $LapsEnabledComputers) {
+						[PSCustomObject]@{
+							"Name" = $LapsEnabledComputer.samaccountname
+							"IP Address" = Resolve-DnsName -Name $LapsEnabledComputer.name -Type A -Server $Server | Select-Object -ExpandProperty IPAddress
+							"Account SID" = $LapsEnabledComputer.objectsid
+							Domain = $AllDomain
+						}
+					}
+				}
+
+				if ($TempLapsEnabledComputers) {
+					$TempLapsEnabledComputers | Sort-Object Domain,"Name" | Format-Table -AutoSize -Wrap
+					$HTMLLapsEnabledComputers = $TempLapsEnabledComputers | Sort-Object Domain,"Name" | ConvertTo-Html -Fragment -PreContent "<h2>Computer objects where LAPS is enabled</h2>"
+				}
 			}
 		}
+		
 	}
 	
 	##########################################
