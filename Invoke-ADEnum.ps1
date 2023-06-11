@@ -2848,7 +2848,7 @@ function Invoke-ADEnum
 
 		if ($TempKeywordDomainGPOs) {
 			$TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | Format-Table -AutoSize -Wrap
-			$HTMLKeywordDomainGPOs = $TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>All Domain GPOs</h2>"
+			$HTMLKeywordDomainGPOs = $TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting GPOs by name</h2>"
 		}
 	}
 	else {
@@ -2868,7 +2868,7 @@ function Invoke-ADEnum
 
 		if ($TempKeywordDomainGPOs) {
 			$TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | Format-Table -AutoSize -Wrap
-			$HTMLKeywordDomainGPOs = $TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>All Domain GPOs</h2>"
+			$HTMLKeywordDomainGPOs = $TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting GPOs by name</h2>"
 		}
 	}
 	
@@ -3114,6 +3114,90 @@ function Invoke-ADEnum
 			if ($TempLAPSGPOs) {
 				$TempLAPSGPOs | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
 				$HTMLLAPSGPOs = $TempLAPSGPOs | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>LAPS GPOs</h2>"
+			}
+		}
+		
+		Write-Host ""
+		Write-Host "Other GPOs where a LAPS Admin seems to be set:" -ForegroundColor Cyan
+		if ($Domain -and $Server) {
+			$LAPSAdminGPOs = Get-DomainGPO -Domain $Domain -Server $Server | Where-Object { $_.DisplayName -notlike "*laps*" }
+			$TempLAPSAdminGPOs = foreach ($LAPSGPO in $LAPSAdminGPOs) {
+				
+				$LAPSGPOLocation = $LAPSGPO | select-object -ExpandProperty GPCFileSysPath
+				
+				foreach($LAPSGPOLoc in $LAPSGPOLocation){
+					$inputString = (type $LAPSGPOLoc\Machine\Registry.pol | Out-String)
+					$splitString = $inputString.Substring($inputString.IndexOf('['), $inputString.LastIndexOf(']') - $inputString.IndexOf('[') + 1)
+					$splitString = ($splitString -split '\[|\]').Where{$_ -ne ''}
+					$splitString = ($splitString | Out-String) -split "`n"
+					$splitString = $splitString.Trim()
+					$splitString = $splitString | Where-Object { $_ -ne "" }
+					$splitString = $splitString | ForEach-Object {$_.Trim() -replace '[^A-Za-z0-9\s;]', ''}
+					$adminAccountRow = $splitString | Where-Object {$_ -match 'AdminAccountName'}
+					if ($adminAccountRow) {
+						$LAPSAdminresult = ($adminAccountRow -split ';')[4]
+					}
+				}
+				
+				[PSCustomObject]@{
+					"GPO Name" = $LAPSGPO.DisplayName
+					"Path Name" = $LAPSGPO.Name
+					"LAPS Admin" = $LAPSAdminresult
+					"GPC File Sys Path" = $LAPSGPO.GPCFileSysPath
+					Domain = $Domain
+				}
+				
+				$LAPSAdminresult = $null
+				$LAPSGPOLocation = $null
+				$inputString = $null
+				$splitString = $null
+			}
+
+			if ($TempLAPSAdminGPOs) {
+				$TempLAPSAdminGPOs | Where-Object {$_."LAPS Admin"} | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
+				$HTMLLAPSAdminGPOs = $TempLAPSAdminGPOs | Where-Object {$_."LAPS Admin"} | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>Other GPOs where a LAPS Admin seems to be set</h2>"
+			}
+		}
+		
+		else {
+			$TempLAPSAdminGPOs = foreach ($AllDomain in $AllDomains) {
+				$LAPSAdminGPOs = Get-DomainGPO -Domain $AllDomain | Where-Object { $_.DisplayName -notlike "*laps*" }
+				foreach ($LAPSGPO in $LAPSAdminGPOs) {
+					
+					$LAPSGPOLocation = $LAPSGPO | select-object -ExpandProperty GPCFileSysPath
+				
+					foreach($LAPSGPOLoc in $LAPSGPOLocation){
+						$inputString = (type $LAPSGPOLoc\Machine\Registry.pol | Out-String)
+						$splitString = $inputString.Substring($inputString.IndexOf('['), $inputString.LastIndexOf(']') - $inputString.IndexOf('[') + 1)
+						$splitString = ($splitString -split '\[|\]').Where{$_ -ne ''}
+						$splitString = ($splitString | Out-String) -split "`n"
+						$splitString = $splitString.Trim()
+						$splitString = $splitString | Where-Object { $_ -ne "" }
+						$splitString = $splitString | ForEach-Object {$_.Trim() -replace '[^A-Za-z0-9\s;]', ''}
+						$adminAccountRow = $splitString | Where-Object {$_ -match 'AdminAccountName'}
+						if ($adminAccountRow) {
+							$LAPSAdminresult = ($adminAccountRow -split ';')[4]
+						}
+					}
+					
+					[PSCustomObject]@{
+						"GPO Name" = $LAPSGPO.DisplayName
+						"Path Name" = $LAPSGPO.Name
+						"LAPS Admin" = $LAPSAdminresult
+						"GPC File Sys Path" = $LAPSGPO.GPCFileSysPath
+						Domain = $AllDomain
+					}
+					
+					$LAPSAdminresult = $null
+					$LAPSGPOLocation = $null
+					$inputString = $null
+					$splitString = $null
+				}
+			}
+
+			if ($TempLAPSAdminGPOs) {
+				$TempLAPSAdminGPOs | Where-Object {$_."LAPS Admin"} | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
+				$HTMLLAPSAdminGPOs = $TempLAPSAdminGPOs | Where-Object {$_."LAPS Admin"} | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>Other GPOs where a LAPS Admin seems to be set</h2>"
 			}
 		}
 
@@ -4671,7 +4755,7 @@ function Invoke-ADEnum
     # Stop capturing the output and display it on the console
     Stop-Transcript | Out-Null
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLPreWin2kCompatibleAccess $HTMLLMCompatibilityLevel $HTMLMachineQuota $HTMLUnsupportedHosts $InterestingDataBanner $HTMLReplicationUsers $HTMLServiceAccounts $HTMLGMSAs $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLnopreauthset $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLKeywordDomainGPOs $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $HTMLLinkedDAAccounts $HTMLAdminGroups $HTMLGroupsByKeyword $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLDomainGPOs $HTMLOtherGroups $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $UsersEnumBanner $HTMLEnabledUsers $HTMLDisabledUsers $HTMLAllDomainOUs" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLPreWin2kCompatibleAccess $HTMLLMCompatibilityLevel $HTMLMachineQuota $HTMLUnsupportedHosts $InterestingDataBanner $HTMLReplicationUsers $HTMLServiceAccounts $HTMLGMSAs $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLnopreauthset $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLKeywordDomainGPOs $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $HTMLLinkedDAAccounts $HTMLAdminGroups $HTMLGroupsByKeyword $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLDomainGPOs $HTMLOtherGroups $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $UsersEnumBanner $HTMLEnabledUsers $HTMLDisabledUsers $HTMLAllDomainOUs" -Title "Active Directory Audit" -Head $header
 	$HTMLOutputFilePath = $OutputFilePath.Replace(".txt", ".html")
 	$Report | Out-File $HTMLOutputFilePath
 	
