@@ -2832,7 +2832,7 @@ function Invoke-ADEnum
     else{
         
         Write-Host ""
-	Write-Host "Interesting GPOs by name:" -ForegroundColor Cyan
+	Write-Host "Interesting GPOs (by Keyword):" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
 		$TempKeywordDomainGPOs = foreach($Keyword in $Keywords){
 			$KeywordDomainGPOs = Get-DomainGPO -Domain $Domain -Server $Server -Identity "*$Keyword*" -Properties DisplayName, gpcfilesyspath
@@ -2848,7 +2848,7 @@ function Invoke-ADEnum
 
 		if ($TempKeywordDomainGPOs) {
 			$TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | Format-Table -AutoSize -Wrap
-			$HTMLKeywordDomainGPOs = $TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting GPOs by name</h2>"
+			$HTMLKeywordDomainGPOs = $TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting GPOs (by Keyword)</h2>"
 		}
 	}
 	else {
@@ -2868,7 +2868,7 @@ function Invoke-ADEnum
 
 		if ($TempKeywordDomainGPOs) {
 			$TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | Format-Table -AutoSize -Wrap
-			$HTMLKeywordDomainGPOs = $TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting GPOs by name</h2>"
+			$HTMLKeywordDomainGPOs = $TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting GPOs (by Keyword)</h2>"
 		}
 	}
 	
@@ -3783,7 +3783,7 @@ function Invoke-ADEnum
 	#########################################
 	
 	Write-Host ""
-	Write-Host "Groups (by keyword):" -ForegroundColor Cyan
+	Write-Host "Interesting Groups (by Keyword):" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
 		$TempGroupsByKeyword = foreach ($Keyword in $Keywords) {
 			Get-DomainGroup -Domain $Domain -Server $Server -Identity "*$Keyword*" |
@@ -3802,7 +3802,7 @@ function Invoke-ADEnum
 
 		if ($TempGroupsByKeyword) {
 			$TempGroupsByKeyword | Where-Object { $_.Members } | Sort-Object Domain,Keyword,"Group Name" | Format-Table -AutoSize -Wrap
-			$HTMLGroupsByKeyword = $TempGroupsByKeyword | Where-Object { $_.Members } | Sort-Object Domain,Keyword,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Groups (by keyword)</h2>"
+			$HTMLGroupsByKeyword = $TempGroupsByKeyword | Where-Object { $_.Members } | Sort-Object Domain,Keyword,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting Groups (by Keyword)</h2>"
 		}
 	}
 	else {
@@ -3825,7 +3825,7 @@ function Invoke-ADEnum
 
 		if ($TempGroupsByKeyword) {
 			$TempGroupsByKeyword | Where-Object { $_.Members } | Sort-Object Domain,Keyword,"Group Name" | Format-Table -AutoSize -Wrap
-			$HTMLGroupsByKeyword = $TempGroupsByKeyword | Where-Object { $_.Members } | Sort-Object Domain,Keyword,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Groups (by keyword)</h2>"
+			$HTMLGroupsByKeyword = $TempGroupsByKeyword | Where-Object { $_.Members } | Sort-Object Domain,Keyword,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting Groups (by Keyword)</h2>"
 		}
 	}
 	
@@ -3834,7 +3834,7 @@ function Invoke-ADEnum
 	#############################################
 	
 	Write-Host ""
-	Write-Host "Domain OUs (by Keyword):" -ForegroundColor Cyan
+	Write-Host "Interesting OUs (by Keyword):" -ForegroundColor Cyan
 
 	if($Domain -AND $Server) {
 		$TempDomainOUsByKeyword = foreach ($Keyword in $Keywords) {
@@ -3858,7 +3858,7 @@ function Invoke-ADEnum
 
 		if($TempDomainOUsByKeyword) {
 			$TempDomainOUsByKeyword | Sort-Object Domain,Keyword,Name | Format-Table -AutoSize -Wrap
-			$HTMLDomainOUsByKeyword = $TempDomainOUsByKeyword | Sort-Object Domain,Keyword,Name | ConvertTo-Html -Fragment -PreContent "<h2>Domain OUs (by Keyword)</h2>"
+			$HTMLDomainOUsByKeyword = $TempDomainOUsByKeyword | Sort-Object Domain,Keyword,Name | ConvertTo-Html -Fragment -PreContent "<h2>Interesting OUs (by Keyword)</h2>"
 		}
 	}
 	else{
@@ -3885,7 +3885,7 @@ function Invoke-ADEnum
 
 		if($TempDomainOUsByKeyword) {
 			$TempDomainOUsByKeyword | Sort-Object Domain,Keyword,Name | Format-Table -AutoSize -Wrap
-			$HTMLDomainOUsByKeyword = $TempDomainOUsByKeyword | Sort-Object Domain,Keyword,Name | ConvertTo-Html -Fragment -PreContent "<h2>Domain OUs (by Keyword)</h2>"
+			$HTMLDomainOUsByKeyword = $TempDomainOUsByKeyword | Sort-Object Domain,Keyword,Name | ConvertTo-Html -Fragment -PreContent "<h2>Interesting OUs (by Keyword)</h2>"
 		}
 	}
 	
@@ -4012,7 +4012,7 @@ function Invoke-ADEnum
     
     	if($DomainACLs -OR $AllEnum){
         	Write-Host ""
-		Write-Host "Find interesting ACLs:" -ForegroundColor Cyan
+		Write-Host "Interesting ACLs:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
 			$ACLScannerResults = Invoke-ACLScanner -Domain $Domain -Server $Server -ResolveGUIDs | Where-Object { $_.IdentityReferenceName -notmatch "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions" }
 
