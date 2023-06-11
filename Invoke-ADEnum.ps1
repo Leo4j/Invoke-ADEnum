@@ -3153,7 +3153,7 @@ function Invoke-ADEnum
 				$splitString = $null
 			}
 
-			if ($TempLAPSAdminGPOs) {
+			if ($TempLAPSAdminGPOs | Where-Object {$_."LAPS Admin"}) {
 				$TempLAPSAdminGPOs | Where-Object {$_."LAPS Admin"} | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
 				$HTMLLAPSAdminGPOs = $TempLAPSAdminGPOs | Where-Object {$_."LAPS Admin"} | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>Other GPOs where a LAPS Admin seems to be set</h2>"
 			}
@@ -3195,7 +3195,7 @@ function Invoke-ADEnum
 				}
 			}
 
-			if ($TempLAPSAdminGPOs) {
+			if ($TempLAPSAdminGPOs | Where-Object {$_."LAPS Admin"}) {
 				$TempLAPSAdminGPOs | Where-Object {$_."LAPS Admin"} | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
 				$HTMLLAPSAdminGPOs = $TempLAPSAdminGPOs | Where-Object {$_."LAPS Admin"} | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>Other GPOs where a LAPS Admin seems to be set</h2>"
 			}
