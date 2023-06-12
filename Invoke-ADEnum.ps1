@@ -243,6 +243,8 @@ function Invoke-ADEnum
  
  -AllGPOs			List all domain GPOs
  
+ -Debugging			Will print errors on screen
+ 
  -DomainACLs			Enumerate for Domain ACLs
  
  -DomainOUs			Enumerate for Organizational Units
@@ -262,6 +264,8 @@ function Invoke-ADEnum
  -MoreOUs			More enumeration leveraging Organizational Units
  
  -NoAppLocker			Do not enumerate for AppLocker GPO
+ 
+ -NoClear			Do not clear terminal before running
  
  -NoGPOs			Do not enumerate for GPOs and Who can Modify/Link them
  
