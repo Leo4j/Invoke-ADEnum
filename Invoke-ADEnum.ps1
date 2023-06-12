@@ -372,9 +372,9 @@ function Invoke-ADEnum
 	$TopLevelBanner = "<h1>Active Directory Audit</h1>"
 	
 	$EnvironmentTable = [PSCustomObject]@{
-		"Run as User" = "$env:USERDOMAIN\$env:USERNAME"
+		"Ran as User" = "$env:USERDOMAIN\$env:USERNAME"
 		Domain = $env:USERDNSDOMAIN
-		Machine = $env:computername + '.' + $env:USERDNSDOMAIN
+		"Ran on Host" = $env:computername + '.' + $env:USERDNSDOMAIN
 		"Date and Time" = Get-Date
 	}
 	
