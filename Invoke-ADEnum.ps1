@@ -1815,35 +1815,35 @@ function Invoke-ADEnum
 	} 
 	
 	else {
-		foreach ($AllDomain in $AllDomains) {
-			$TempLMCompatibilityLevel = Get-DomainGPO -Domain $AllDomain -LDAPFilter "(name=*)" -Properties gpcfilesyspath, displayname |
-				ForEach-Object {
-					$gpoPath = $_.gpcfilesyspath.TrimStart("[").TrimEnd("]")
-					$gpoDisplayName = $_.displayname
-					$gpoSetting = (Get-Content -Path "$gpoPath\MACHINE\Microsoft\Windows NT\SecEdit\GptTmpl.inf" -Raw | Select-String -Pattern "LmCompatibilityLevel" | Select-Object -Last 1).Line
-					$gpoSetting = ($gpoSetting | Out-String) -split "`n"
-					$gpoSetting = $gpoSetting | Select-String -Pattern "LmCompatibilityLevel"
-					$gpoSetting = ($gpoSetting | Out-String) -split "`n"
-					$gpoSetting = $gpoSetting.Trim()
-					$gpoSetting = $gpoSetting | Where-Object { $_ -ne "" }
+		$TempLMCompatibilityLevel = foreach ($AllDomain in $AllDomains) {
+			Get-DomainGPO -Domain $AllDomain -LDAPFilter "(name=*)" -Properties gpcfilesyspath, displayname |
+			ForEach-Object {
+				$gpoPath = $_.gpcfilesyspath.TrimStart("[").TrimEnd("]")
+				$gpoDisplayName = $_.displayname
+				$gpoSetting = (Get-Content -Path "$gpoPath\MACHINE\Microsoft\Windows NT\SecEdit\GptTmpl.inf" -Raw | Select-String -Pattern "LmCompatibilityLevel" | Select-Object -Last 1).Line
+				$gpoSetting = ($gpoSetting | Out-String) -split "`n"
+				$gpoSetting = $gpoSetting | Select-String -Pattern "LmCompatibilityLevel"
+				$gpoSetting = ($gpoSetting | Out-String) -split "`n"
+				$gpoSetting = $gpoSetting.Trim()
+				$gpoSetting = $gpoSetting | Where-Object { $_ -ne "" }
 
-					if ($gpoSetting) {
-						$settingValue = ($gpoSetting -split "=")[-1].Trim().Split(",")[-1].Trim()
-						$policySetting = $policySettings[$settingValue]
+				if ($gpoSetting) {
+					$settingValue = ($gpoSetting -split "=")[-1].Trim().Split(",")[-1].Trim()
+					$policySetting = $policySettings[$settingValue]
 
-						[PSCustomObject]@{
-							"GPO Name" = $gpoDisplayName
-							Setting = $settingValue
-							"LM Compatibility Level" = $policySetting
-							Domain = $AllDomain
-						}
+					[PSCustomObject]@{
+						"GPO Name" = $gpoDisplayName
+						Setting = $settingValue
+						"LM Compatibility Level" = $policySetting
+						Domain = $AllDomain
 					}
 				}
-
-			if ($TempLMCompatibilityLevel) {
-				$TempLMCompatibilityLevel | Where-Object {$_.Setting -le 2} | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
-				$HTMLLMCompatibilityLevel = $TempLMCompatibilityLevel | Where-Object {$_.Setting -le 2} | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>LM Compatibility Level</h2>"
 			}
+		}
+		
+		if ($TempLMCompatibilityLevel) {
+			$TempLMCompatibilityLevel | Where-Object {$_.Setting -le 2} | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
+			$HTMLLMCompatibilityLevel = $TempLMCompatibilityLevel | Where-Object {$_.Setting -le 2} | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>LM Compatibility Level</h2>"
 		}
 	}
 	
