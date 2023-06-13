@@ -559,7 +559,7 @@ function Invoke-ADEnum
 		$KrbtgtAccount = Get-DomainObject -Identity krbtgt -Domain $Domain
         $KrbtgtAccount | Select-Object @{Name = 'Account'; Expression = {$_.samaccountname}}, @{Name = 'Service Principal Name'; Expression = {$_.serviceprincipalname}}, @{Name = 'SID'; Expression = {$_.objectsid}}, @{Name = 'Last Krbtgt Change'; Expression = {$_.whencreated}} | ft -Autosize -Wrap
 		if($KrbtgtAccount){
-			$HTMLKrbtgtAccount = $KrbtgtAccount | Select-Object @{Name = 'Account'; Expression = {$_.samaccountname}}, @{Name = 'Account SID'; Expression = {$_.objectsid}}, @{Name = 'Service Principal Name'; Expression = {$_.serviceprincipalname}}, @{Name = 'Last Krbtgt Change'; Expression = {$_.whencreated}}, @{Name = 'Domain'; Expression = {$Domain}} | ConvertTo-Html -Fragment -PreContent "<h2>Krbtgt Accounts</h2>"
+			$HTMLKrbtgtAccount = $KrbtgtAccount | Select-Object @{Name = 'Account'; Expression = {$_.samaccountname}}, @{Name = 'Account SID'; Expression = {$_.objectsid}}, @{Name = 'Service Principal Name'; Expression = {$_.serviceprincipalname}}, @{Name = 'When Created'; Expression = {$_.whencreated}}, @{Name = 'When Changed'; Expression = {$_.whenchanged}}, @{Name = 'Domain'; Expression = {$Domain}} | ConvertTo-Html -Fragment -PreContent "<h2>Krbtgt Accounts</h2>"
 		}
     }
     else{
@@ -570,7 +570,8 @@ function Invoke-ADEnum
 				Account = $KrbtgtAccount.samaccountname
 				"Account SID"  = $KrbtgtAccount.objectsid
 				"Service Principal Name" = $KrbtgtAccount.serviceprincipalname
-				"Last Krbtgt Change" = $KrbtgtAccount.whencreated
+				"When Created" = $KrbtgtAccount.whencreated
+				"When Changed" = $KrbtgtAccount.whenchanged
 				Domain = $AllDomain
 			}
 		}
