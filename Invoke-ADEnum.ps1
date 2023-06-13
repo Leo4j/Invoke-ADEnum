@@ -903,7 +903,7 @@ function Invoke-ADEnum
 			$domainObject = if ($BuiltInAdministrator.MemberName) { Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $Domain -Server $Server } else { $null }
 
 			$lastLogonTimestamp = $domainObject.lastlogontimestamp
-			$isActive = if ($lastLogonTimestamp -ge $inactiveThreshold) { "Yes" } elseif ($lastLogonTimestamp -eq $null) { "" } else { "No" }
+			$isActive = if ($lastLogonTimestamp -ge $inactiveThreshold) { "True" } elseif ($lastLogonTimestamp -eq $null) { "" } else { "False" }
 
 			[PSCustomObject]@{
 				"Member Name" = if ($BuiltInAdministrator.MemberName) { $BuiltInAdministrator.MemberName } else { ConvertFrom-SID $BuiltInAdministrator.MemberSID }
@@ -932,7 +932,7 @@ function Invoke-ADEnum
 				$isEnabled = if ($BuiltInAdministrator.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
 
-				$isActive = if ($lastLogon -ge $inactiveThreshold) { "Yes" } elseif ($lastLogon -eq $null) { "" } else { "No" }
+				$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
 
 				[PSCustomObject]@{
 					"Member Name" = $memberName
@@ -966,7 +966,7 @@ function Invoke-ADEnum
 			$domainObject = Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $Domain -Server $Server
 			$memberName = if ($EnterpriseAdmin.MemberName) { $EnterpriseAdmin.MemberName } else { ConvertFrom-SID $EnterpriseAdmin.MemberSID }
 			$isEnabled = if ($EnterpriseAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
-			$isActive = if ($domainObject.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } elseif ($domainObject.lastlogontimestamp -eq $null) { "" } else { "No" }
+			$isActive = if ($domainObject.lastlogontimestamp -ge $inactiveThreshold) { "True" } elseif ($domainObject.lastlogontimestamp -eq $null) { "" } else { "False" }
 
 			[PSCustomObject]@{
 				"Member Name" = $memberName
@@ -993,7 +993,7 @@ function Invoke-ADEnum
 				$domainObject = Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $AllDomain
 				$memberName = if ($EnterpriseAdmin.MemberName) { $EnterpriseAdmin.MemberName } else { ConvertFrom-SID $EnterpriseAdmin.MemberSID }
 				$isEnabled = if ($EnterpriseAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
-				$isActive = if ($domainObject.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } elseif ($domainObject.lastlogontimestamp -eq $null) { "" } else { "No" }
+				$isActive = if ($domainObject.lastlogontimestamp -ge $inactiveThreshold) { "True" } elseif ($domainObject.lastlogontimestamp -eq $null) { "" } else { "False" }
 
 				[PSCustomObject]@{
 					"Member Name" = $memberName
@@ -1025,7 +1025,7 @@ function Invoke-ADEnum
 			
 			$domainObject = Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $Domain -Server $Server
 			$lastLogonTimestamp = $domainObject.lastlogontimestamp
-			$isActive = if ($lastLogonTimestamp -ge $inactiveThreshold) { "Yes" } elseif ($lastLogonTimestamp -eq $null) { "" } else { "No" }
+			$isActive = if ($lastLogonTimestamp -ge $inactiveThreshold) { "True" } elseif ($lastLogonTimestamp -eq $null) { "" } else { "False" }
 
 			[PSCustomObject]@{
 				"Member Name" = if ($DomainAdmin.MemberName) { $DomainAdmin.MemberName } else { ConvertFrom-SID $DomainAdmin.MemberSID }
@@ -1051,7 +1051,7 @@ function Invoke-ADEnum
 				
 				$domainObject = Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $AllDomain
 				$lastLogonTimestamp = $domainObject.lastlogontimestamp
-				$isActive = if ($lastLogonTimestamp -ge $inactiveThreshold) { "Yes" } elseif ($lastLogonTimestamp -eq $null) { "" } else { "No" }
+				$isActive = if ($lastLogonTimestamp -ge $inactiveThreshold) { "True" } elseif ($lastLogonTimestamp -eq $null) { "" } else { "False" }
 
 				[PSCustomObject]@{
 					"Member Name" = if ($DomainAdmin.MemberName) { $DomainAdmin.MemberName } else { ConvertFrom-SID $DomainAdmin.MemberSID }
@@ -1358,7 +1358,7 @@ function Invoke-ADEnum
 			[PSCustomObject]@{
 				"Name" = $Computer.samaccountname
 				"Enabled" = if ($Computer.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ($Computer.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+				"Active" = if ($Computer.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 				"IP Address" = Resolve-DnsName -Name $Computer.name -Type A -Server $Server | Select-Object -ExpandProperty IPAddress
 				"Account SID" = $Computer.objectsid
 				"Operating System" = $Computer.operatingsystem
@@ -1381,7 +1381,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"Name" = $Computer.samaccountname
 					"Enabled" = if ($Computer.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($Computer.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ($Computer.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 					"IP Address" = Resolve-DnsName -Name $Computer.name -Type A -Server $Server | Select-Object -ExpandProperty IPAddress
 					"Account SID" = $Computer.objectsid
 					"Operating System" = $Computer.operatingsystem
@@ -1409,7 +1409,7 @@ function Invoke-ADEnum
 			[PSCustomObject]@{
 				"Name" = $ConstrainedDelegationComputer.samaccountname
 				"Enabled" = if ($ConstrainedDelegationComputer.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ($ConstrainedDelegationComputer.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+				"Active" = if ($ConstrainedDelegationComputer.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 				"IP Address" = Resolve-DnsName -Name $ConstrainedDelegationComputer.name -Type A -Server $Server | Select-Object -ExpandProperty IPAddress
 				"Account SID" = $ConstrainedDelegationComputer.objectsid
 				"Operating System" = $ConstrainedDelegationComputer.operatingsystem
@@ -1431,7 +1431,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"Name" = $ConstrainedDelegationComputer.samaccountname
 					"Enabled" = if ($ConstrainedDelegationComputer.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($ConstrainedDelegationComputer.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ($ConstrainedDelegationComputer.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 					"IP Address" = Resolve-DnsName -Name $ConstrainedDelegationComputer.name -Type A -Server $Server | Select-Object -ExpandProperty IPAddress
 					"Account SID" = $ConstrainedDelegationComputer.objectsid
 					"Operating System" = $ConstrainedDelegationComputer.operatingsystem
@@ -1460,7 +1460,7 @@ function Invoke-ADEnum
 			[PSCustomObject]@{
 				"Name" = $ConstrainedDelegationUser.Name
 				"Enabled" = if ($ConstrainedDelegationUser.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ($ConstrainedDelegationUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+				"Active" = if ($ConstrainedDelegationUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 				"Adm" = if ($ConstrainedDelegationUser.memberof -match 'Administrators') { "YES" } else { "NO" }
 				"DA" = if ($ConstrainedDelegationUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 				"EA" = if ($ConstrainedDelegationUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -1483,7 +1483,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"Name" = $ConstrainedDelegationUser.Name
 					"Enabled" = if ($ConstrainedDelegationUser.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($ConstrainedDelegationUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ($ConstrainedDelegationUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 					"Adm" = if ($ConstrainedDelegationUser.memberof -match 'Administrators') { "YES" } else { "NO" }
 					"DA" = if ($ConstrainedDelegationUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 					"EA" = if ($ConstrainedDelegationUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -1585,7 +1585,7 @@ function Invoke-ADEnum
 			[PSCustomObject]@{
 				"User Name" = $PasswordSetUser.samaccountname
 				"Enabled" = if ($PasswordSetUser.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ($PasswordSetUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+				"Active" = if ($PasswordSetUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 				"Adm" = if ($PasswordSetUser.memberof -match 'Administrators') { "YES" } else { "NO" }
 				"DA" = if ($PasswordSetUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 				"EA" = if ($PasswordSetUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -1617,7 +1617,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"User Name" = $PasswordSetUser.samaccountname
 					"Enabled" = if ($PasswordSetUser.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($PasswordSetUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ($PasswordSetUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 					"Adm" = if ($PasswordSetUser.memberof -match 'Administrators') { "YES" } else { "NO" }
 					"DA" = if ($PasswordSetUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 					"EA" = if ($PasswordSetUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -1656,7 +1656,7 @@ function Invoke-ADEnum
 			[PSCustomObject]@{
 				"User Name" = $EmptyPasswordUser.samaccountname
 				"Enabled" = if ($EmptyPasswordUser.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ($EmptyPasswordUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+				"Active" = if ($EmptyPasswordUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 				"Adm" = if ($EmptyPasswordUser.memberof -match 'Administrators') { "YES" } else { "NO" }
 				"DA" = if ($EmptyPasswordUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 				"EA" = if ($EmptyPasswordUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -1686,7 +1686,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"User Name" = $EmptyPasswordUser.samaccountname
 					"Enabled" = if ($EmptyPasswordUser.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($EmptyPasswordUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ($EmptyPasswordUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 					"Adm" = if ($EmptyPasswordUser.memberof -match 'Administrators') { "YES" } else { "NO" }
 					"DA" = if ($EmptyPasswordUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 					"EA" = if ($EmptyPasswordUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -1725,7 +1725,7 @@ function Invoke-ADEnum
 			[PSCustomObject]@{
 				"Member" = $Member.MemberName
 				"Enabled" = if ($Member.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ($computer.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+				"Active" = if ($computer.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 				"IP Address" = $ipAddress
 				"Member SID" = $Member.MemberSID
 				"Operating System" = $computer.operatingsystem
@@ -1752,7 +1752,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"Member" = $Member.MemberName
 					"Enabled" = if ($Member.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($computer.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ($computer.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 					"IP Address" = $ipAddress
 					"Member SID" = $Member.MemberSID
 					"Operating System" = $computer.operatingsystem
@@ -1916,7 +1916,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"Name" = $UnsupportedHost.samaccountname
 					"Enabled" = if ($UnsupportedHost.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($UnsupportedHost.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ($UnsupportedHost.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 					"IP Address" = (Resolve-DnsName -Name $UnsupportedHost.DnsHostName -Type A).IPAddress
 					"Account SID" = $UnsupportedHost.objectsid
 					"Operating System" = $UnsupportedHost.operatingsystem
@@ -1950,7 +1950,7 @@ function Invoke-ADEnum
 					[PSCustomObject]@{
 						"Name" = $UnsupportedHost.samaccountname
 						"Enabled" = if ($UnsupportedHost.useraccountcontrol -band 2) { "False" } else { "True" }
-						"Active" = if ($UnsupportedHost.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+						"Active" = if ($UnsupportedHost.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 						"IP Address" = (Resolve-DnsName -Name $UnsupportedHost.DnsHostName -Type A).IPAddress
 						"Account SID" = $UnsupportedHost.objectsid
 						"Operating System" = $UnsupportedHost.operatingsystem
@@ -2047,7 +2047,7 @@ function Invoke-ADEnum
 			[PSCustomObject]@{
 				"Account" = $Account.samaccountname
 				"Enabled" = if ($Account.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ($Account.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+				"Active" = if ($Account.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 				"Adm" = if ($Account.memberof -match 'Administrators') { "YES" } else { "NO" }
 				"DA" = if ($Account.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 				"EA" = if ($Account.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -2071,7 +2071,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"Account" = $Account.samaccountname
 					"Enabled" = if ($Account.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($Account.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ($Account.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 					"Adm" = if ($Account.memberof -match 'Administrators') { "YES" } else { "NO" }
 					"DA" = if ($Account.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 					"EA" = if ($Account.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -2101,7 +2101,7 @@ function Invoke-ADEnum
 			[PSCustomObject]@{
 				"Account" = $GMSA.samaccountname
 				"Enabled" = if ($GMSA.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ($GMSA.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+				"Active" = if ($GMSA.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 				"Adm" = if ($GMSA.memberof -match 'Administrators') { "YES" } else { "NO" }
 				"DA" = if ($GMSA.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 				"EA" = if ($GMSA.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -2126,7 +2126,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"Account" = $GMSA.samaccountname
 					"Enabled" = if ($GMSA.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($GMSA.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ($GMSA.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 					"Adm" = if ($GMSA.memberof -match 'Administrators') { "YES" } else { "NO" }
 					"DA" = if ($GMSA.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 					"EA" = if ($GMSA.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -2180,7 +2180,7 @@ function Invoke-ADEnum
 			[PSCustomObject]@{
 				"User Name" = $User.samaccountname
 				"Enabled" = if ($User.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ($User.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+				"Active" = if ($User.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 				"Adm" = if ($User.memberof -match 'Administrators') { "YES" } else { "NO" }
 				"DA" = if ($User.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 				"EA" = if ($User.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -2205,7 +2205,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"User Name" = $User.samaccountname
 					"Enabled" = if ($User.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($User.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ($User.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 					"Adm" = if ($User.memberof -match 'Administrators') { "YES" } else { "NO" }
 					"DA" = if ($User.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 					"EA" = if ($User.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -2299,7 +2299,7 @@ function Invoke-ADEnum
 			[PSCustomObject]@{
 				"Account" = $ProtectedUser.samaccountname
 				"Enabled" = if ($ProtectedUser.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ($ProtectedUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+				"Active" = if ($ProtectedUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 				"Adm" = if ($ProtectedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
 				"DA" = if ($ProtectedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 				"EA" = if ($ProtectedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -2324,7 +2324,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"Account" = $ProtectedUser.samaccountname
 					"Enabled" = if ($ProtectedUser.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($ProtectedUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ($ProtectedUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 					"Adm" = if ($ProtectedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
 					"DA" = if ($ProtectedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 					"EA" = if ($ProtectedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -2355,7 +2355,7 @@ function Invoke-ADEnum
 			[PSCustomObject]@{
 				"Account" = $ProtectedUser.samaccountname
 				"Enabled" = if ($ProtectedUser.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ($ProtectedUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+				"Active" = if ($ProtectedUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 				"Adm" = if ($ProtectedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
 				"DA" = if ($ProtectedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 				"EA" = if ($ProtectedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -2380,7 +2380,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"Account" = $ProtectedUser.samaccountname
 					"Enabled" = if ($ProtectedUser.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($ProtectedUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ($ProtectedUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 					"Adm" = if ($ProtectedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
 					"DA" = if ($ProtectedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 					"EA" = if ($ProtectedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -2411,7 +2411,7 @@ function Invoke-ADEnum
 			[PSCustomObject]@{
 				"Account" = $ProtectedUser.samaccountname
 				"Enabled" = if ($ProtectedUser.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ($ProtectedUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+				"Active" = if ($ProtectedUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 				"Adm" = if ($ProtectedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
 				"DA" = if ($ProtectedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 				"EA" = if ($ProtectedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -2436,7 +2436,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"Account" = $ProtectedUser.samaccountname
 					"Enabled" = if ($ProtectedUser.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($ProtectedUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ($ProtectedUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 					"Adm" = if ($ProtectedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
 					"DA" = if ($ProtectedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 					"EA" = if ($ProtectedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -2465,7 +2465,7 @@ function Invoke-ADEnum
 			[PSCustomObject]@{
 				"Account" = $PrivilegedUser.samaccountname
 				"Enabled" = if ($PrivilegedUser.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ($PrivilegedUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+				"Active" = if ($PrivilegedUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 				"Adm" = if ($PrivilegedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
 				"DA" = if ($PrivilegedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 				"EA" = if ($PrivilegedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -2488,7 +2488,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"Account" = $PrivilegedUser.samaccountname
 					"Enabled" = if ($PrivilegedUser.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($PrivilegedUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ($PrivilegedUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 					"Adm" = if ($PrivilegedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
 					"DA" = if ($PrivilegedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 					"EA" = if ($PrivilegedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -2518,7 +2518,7 @@ function Invoke-ADEnum
 			[PSCustomObject]@{
 				"Account" = $PrivilegedUser.samaccountname
 				"Enabled" = if ($PrivilegedUser.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ($PrivilegedUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+				"Active" = if ($PrivilegedUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 				"Adm" = if ($PrivilegedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
 				"DA" = if ($PrivilegedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 				"EA" = if ($PrivilegedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -2541,7 +2541,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"Account" = $PrivilegedUser.samaccountname
 					"Enabled" = if ($PrivilegedUser.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($PrivilegedUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ($PrivilegedUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 					"Adm" = if ($PrivilegedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
 					"DA" = if ($PrivilegedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 					"EA" = if ($PrivilegedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -2570,7 +2570,7 @@ function Invoke-ADEnum
 			[PSCustomObject]@{
 				"Account" = $PrivilegedUser.samaccountname
 				"Enabled" = if ($PrivilegedUser.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ($PrivilegedUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+				"Active" = if ($PrivilegedUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 				"Adm" = if ($PrivilegedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
 				"DA" = if ($PrivilegedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 				"EA" = if ($PrivilegedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -2593,7 +2593,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"Account" = $PrivilegedUser.samaccountname
 					"Enabled" = if ($PrivilegedUser.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($PrivilegedUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ($PrivilegedUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 					"Adm" = if ($PrivilegedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
 					"DA" = if ($PrivilegedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 					"EA" = if ($PrivilegedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -2623,7 +2623,7 @@ function Invoke-ADEnum
 			[PSCustomObject]@{
 				"Member" = $GroupMember.MemberName
 				"Enabled" = if ($GroupMember.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ($DomainComputerGroupMember.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+				"Active" = if ($DomainComputerGroupMember.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 				"IP Address" = Resolve-DnsName -Name ($GroupMember.MemberName.TrimEnd('$')) -Type A -Server $Server | Select-Object -ExpandProperty IPAddress
 				"Member SID" = $GroupMember.MemberSID
 				"Operating System" = $DomainComputerGroupMember.operatingsystem
@@ -2648,7 +2648,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"Member" = $GroupMember.MemberName
 					"Enabled" = if ($GroupMember.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($DomainComputerGroupMember.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ($DomainComputerGroupMember.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 					"IP Address" = Resolve-DnsName -Name ($GroupMember.MemberName.TrimEnd('$')) -Type A -Server $Server | Select-Object -ExpandProperty IPAddress
 					"Member SID" = $GroupMember.MemberSID
 					"Operating System" = $DomainComputerGroupMember.operatingsystem
@@ -2677,7 +2677,7 @@ function Invoke-ADEnum
 			[PSCustomObject]@{
 				"User Name" = $User.samaccountname
 				"Enabled" = if ($User.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ($User.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+				"Active" = if ($User.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 				"Adm" = if ($User.memberof -match 'Administrators') { "YES" } else { "NO" }
 				"DA" = if ($User.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 				"EA" = if ($User.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -2700,7 +2700,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"User Name" = $User.samaccountname
 					"Enabled" = if ($User.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($User.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ($User.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 					"Adm" = if ($User.memberof -match 'Administrators') { "YES" } else { "NO" }
 					"DA" = if ($User.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 					"EA" = if ($User.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -2729,7 +2729,7 @@ function Invoke-ADEnum
 			[PSCustomObject]@{
 				"User Name" = $sidHistoryUser.samaccountname
 				"Enabled" = if ($sidHistoryUser.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ($sidHistoryUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+				"Active" = if ($sidHistoryUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 				"Adm" = if ($sidHistoryUser.memberof -match 'Administrators') { "YES" } else { "NO" }
 				"DA" = if ($sidHistoryUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 				"EA" = if ($sidHistoryUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -2752,7 +2752,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"User Name" = $sidHistoryUser.samaccountname
 					"Enabled" = if ($sidHistoryUser.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($sidHistoryUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ($sidHistoryUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 					"Adm" = if ($sidHistoryUser.memberof -match 'Administrators') { "YES" } else { "NO" }
 					"DA" = if ($sidHistoryUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 					"EA" = if ($sidHistoryUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -2784,7 +2784,7 @@ function Invoke-ADEnum
 			[PSCustomObject]@{
 					"Name" = $RevEncUser.samaccountname
 					"Enabled" = if ($RevEncUser.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($RevEncUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ($RevEncUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 					"Adm" = if ($RevEncUser.memberof -match 'Administrators') { "YES" } else { "NO" }
 					"DA" = if ($RevEncUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 					"EA" = if ($RevEncUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -2811,7 +2811,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"Name" = $RevEncUser.samaccountname
 					"Enabled" = if ($RevEncUser.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($RevEncUser.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ($RevEncUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 					"Adm" = if ($RevEncUser.memberof -match 'Administrators') { "YES" } else { "NO" }
 					"DA" = if ($RevEncUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 					"EA" = if ($RevEncUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -3737,7 +3737,7 @@ function Invoke-ADEnum
 					"Account" = $account.samaccountname
 					"Display Name" = $account.displayname
 					"Enabled" = if ($account.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($account.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ($account.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 					"Adm" = if ($account.memberof -match 'Administrators') { "YES" } else { "NO" }
 					"DA" = if ($account.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 					"EA" = if ($account.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -3765,7 +3765,7 @@ function Invoke-ADEnum
 						"Account" = $account.samaccountname
 						"Display Name" = $account.displayname
 						"Enabled" = if ($account.useraccountcontrol -band 2) { "False" } else { "True" }
-						"Active" = if ($account.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+						"Active" = if ($account.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 						"Adm" = if ($account.memberof -match 'Administrators') { "YES" } else { "NO" }
 						"DA" = if ($account.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 						"EA" = if ($account.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -4423,7 +4423,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"Name" = $ComputerServer.samaccountname
 					"Enabled" = if ($ComputerServer.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($ComputerServer.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ($ComputerServer.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 					"IP Address" = (Resolve-DnsName -Name $ComputerServer.DnsHostName -Type A).IPAddress
 					"Account SID" = $ComputerServer.objectsid
 					"Operating System" = $ComputerServer.operatingsystem
@@ -4444,7 +4444,7 @@ function Invoke-ADEnum
 					[PSCustomObject]@{
 						"Name" = $ComputerServer.samaccountname
 						"Enabled" = if ($ComputerServer.useraccountcontrol -band 2) { "False" } else { "True" }
-						"Active" = if ($ComputerServer.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+						"Active" = if ($ComputerServer.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 						"IP Address" = (Resolve-DnsName -Name $ComputerServer.DnsHostName -Type A).IPAddress
 						"Account SID" = $ComputerServer.objectsid
 						"Operating System" = $ComputerServer.operatingsystem
@@ -4476,7 +4476,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"Name" = $ComputerServer.samaccountname
 					"Enabled" = if ($ComputerServer.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($ComputerServer.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ($ComputerServer.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 					"IP Address" = (Resolve-DnsName -Name $ComputerServer.DnsHostName -Type A).IPAddress
 					"Account SID" = $ComputerServer.objectsid
 					"Operating System" = $ComputerServer.operatingsystem
@@ -4497,7 +4497,7 @@ function Invoke-ADEnum
 					[PSCustomObject]@{
 						"Name" = $ComputerServer.samaccountname
 						"Enabled" = if ($ComputerServer.useraccountcontrol -band 2) { "False" } else { "True" }
-						"Active" = if ($ComputerServer.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+						"Active" = if ($ComputerServer.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 						"IP Address" = (Resolve-DnsName -Name $ComputerServer.DnsHostName -Type A).IPAddress
 						"Account SID" = $ComputerServer.objectsid
 						"Operating System" = $ComputerServer.operatingsystem
@@ -4528,7 +4528,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"Name" = $Workstation.samaccountname
 					"Enabled" = if ($Workstation.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($Workstation.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ($Workstation.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 					"IP Address" = (Resolve-DnsName -Name $Workstation.DnsHostName -Type A).IPAddress
 					"Account SID" = $Workstation.objectsid
 					"Operating System" = $Workstation.operatingsystem
@@ -4549,7 +4549,7 @@ function Invoke-ADEnum
 					[PSCustomObject]@{
 						"Name" = $Workstation.samaccountname
 						"Enabled" = if ($Workstation.useraccountcontrol -band 2) { "False" } else { "True" }
-						"Active" = if ($Workstation.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+						"Active" = if ($Workstation.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 						"IP Address" = (Resolve-DnsName -Name $Workstation.DnsHostName -Type A).IPAddress
 						"Account SID" = $Workstation.objectsid
 						"Operating System" = $Workstation.operatingsystem
@@ -4580,7 +4580,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"Name" = $Workstation.samaccountname
 					"Enabled" = if ($Workstation.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($Workstation.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+					"Active" = if ($Workstation.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 					"IP Address" = (Resolve-DnsName -Name $Workstation.DnsHostName -Type A).IPAddress
 					"Account SID" = $Workstation.objectsid
 					"Operating System" = $Workstation.operatingsystem
@@ -4601,7 +4601,7 @@ function Invoke-ADEnum
 					[PSCustomObject]@{
 						"Name" = $Workstation.samaccountname
 						"Enabled" = if ($Workstation.useraccountcontrol -band 2) { "False" } else { "True" }
-						"Active" = if ($Workstation.lastlogontimestamp -ge $inactiveThreshold) { "Yes" } else { "No" }
+						"Active" = if ($Workstation.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
 						"IP Address" = (Resolve-DnsName -Name $Workstation.DnsHostName -Type A).IPAddress
 						"Account SID" = $Workstation.objectsid
 						"Operating System" = $Workstation.operatingsystem
