@@ -4376,9 +4376,12 @@ function Invoke-ADEnum
 		if ($Domain -and $Server) {
 			$DomainGPOs = Get-DomainGPO -Domain $Domain -Server $Server -Properties DisplayName, gpcfilesyspath
 			$TempDomainGPOs = foreach ($DomainGPO in $DomainGPOs) {
+   				$GPOGuid = ($DomainGPO.gpcfilesyspath -split "}")[-2].split("{")[-1]  # Extracting the GPO's GUID
+       				$OUs = (Get-DomainOU -GPLink "*$GPOGuid*").name -Join " - "
 				[PSCustomObject]@{
 					"GPO Name" = $DomainGPO.DisplayName
 					"Path" = $DomainGPO.gpcfilesyspath
+     					"OUs the policy applies to" = $OUs
 					Domain = $Domain
 				}
 			}
@@ -4392,9 +4395,12 @@ function Invoke-ADEnum
 			$TempDomainGPOs = foreach ($AllDomain in $AllDomains) {
 				$DomainGPOs = Get-DomainGPO -Domain $AllDomain -Properties DisplayName, gpcfilesyspath
 				foreach ($DomainGPO in $DomainGPOs) {
+    					$GPOGuid = ($DomainGPO.gpcfilesyspath -split "}")[-2].split("{")[-1]  # Extracting the GPO's GUID
+	 				$OUs = (Get-DomainOU -GPLink "*$GPOGuid*").name -Join " - "
 					[PSCustomObject]@{
 						"GPO Name" = $DomainGPO.DisplayName
 						"Path" = $DomainGPO.gpcfilesyspath
+      						"OUs the policy applies to" = $OUs
 						Domain = $AllDomain
 					}
 				}
