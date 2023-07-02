@@ -2879,8 +2879,9 @@ function Invoke-ADEnum
         Write-Host ""
 	Write-Host "Interesting GPOs (by Keyword):" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
+ 		$GetAllGPOsFirst = Get-DomainGPO -Domain $Domain -Server $Server -Properties DisplayName, gpcfilesyspath
 		$TempKeywordDomainGPOs = foreach($Keyword in $Keywords){
-			$KeywordDomainGPOs = Get-DomainGPO -Domain $Domain -Server $Server -Identity "*$Keyword*" -Properties DisplayName, gpcfilesyspath
+			$KeywordDomainGPOs = $GetAllGPOsFirst | Where-Object { $_.DisplayName -like "*$Keyword*" }
 			foreach ($DomainGPO in $KeywordDomainGPOs) {
 				[PSCustomObject]@{
 					Keyword = $Keyword
@@ -2898,8 +2899,9 @@ function Invoke-ADEnum
 	}
 	else {
 		$TempKeywordDomainGPOs = foreach ($AllDomain in $AllDomains) {
+  			$GetAllGPOsFirst = Get-DomainGPO -Domain $AllDomain -Properties DisplayName, gpcfilesyspath
 			foreach($Keyword in $Keywords){
-				$KeywordDomainGPOs = Get-DomainGPO -Domain $AllDomain -Identity "*$Keyword*" -Properties DisplayName, gpcfilesyspath
+				$KeywordDomainGPOs = $GetAllGPOsFirst | Where-Object { $_.DisplayName -like "*$Keyword*" }
 				foreach ($DomainGPO in $KeywordDomainGPOs) {
 					[PSCustomObject]@{
 						Keyword = $Keyword
@@ -3830,10 +3832,10 @@ function Invoke-ADEnum
 	Write-Host ""
 	Write-Host "Interesting Groups (by Keyword):" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
+ 		$findallgroupsfirst = Get-DomainGroup -Domain $Domain -Server $Server
 		$TempGroupsByKeyword = foreach ($Keyword in $Keywords) {
-			Get-DomainGroup -Domain $Domain -Server $Server -Identity "*$Keyword*" |
-			ForEach-Object {
-				$Group = $_
+  			$filteredGroups = $findallgroupsfirst | Where-Object { $_.SamAccountName -like "*$Keyword*" }
+			foreach ($Group in $filteredGroups) {
 				[PSCustomObject]@{
 					"Keyword" = $Keyword
 					"Group Name" = $Group.SamAccountName
@@ -3852,10 +3854,10 @@ function Invoke-ADEnum
 	}
 	else {
 		$TempGroupsByKeyword = foreach ($AllDomain in $AllDomains) {
+  			$findallgroupsfirst = Get-DomainGroup -Domain $AllDomain
 			foreach ($Keyword in $Keywords) {
-				Get-DomainGroup -Domain $AllDomain -Identity "*$Keyword*" |
-				ForEach-Object {
-					$Group = $_
+   				$filteredGroups = $findallgroupsfirst | Where-Object { $_.SamAccountName -like "*$Keyword*" }
+				foreach ($Group in $filteredGroups) {
 					[PSCustomObject]@{
 						"Keyword" = $Keyword
 						"Group Name" = $Group.SamAccountName
@@ -3882,11 +3884,12 @@ function Invoke-ADEnum
 	Write-Host "Interesting OUs (by Keyword):" -ForegroundColor Cyan
 
 	if($Domain -AND $Server) {
+ 		$GetAllOUsFirst = Get-DomainOU -Domain $Domain -Server $Server
 		$TempDomainOUsByKeyword = foreach ($Keyword in $Keywords) {
-				Get-DomainOU -Domain $Domain -Server $Server -Identity "*$Keyword*" | ForEach-Object {
-				$ou = $_
-				#$users = (Get-DomainUser -Domain $Domain -Server $Server -SearchBase "LDAP://$($_.DistinguishedName)").samaccountname
-				#$computers = Get-DomainComputer -Domain $Domain -Server $Server -SearchBase "LDAP://$($_.DistinguishedName)"
+  			$GetFilteredOUs = $GetAllOUsFirst | Where-Object {$_.name -like "*$Keyword*"}
+			foreach ($ou in $GetFilteredOUs) {
+				#$users = (Get-DomainUser -Domain $Domain -Server $Server -SearchBase "LDAP://$($ou.DistinguishedName)").samaccountname
+				#$computers = Get-DomainComputer -Domain $Domain -Server $Server -SearchBase "LDAP://$($ou.DistinguishedName)"
 
 				#$members = @()
 				#if ($users) { $members += $users }
@@ -3908,11 +3911,13 @@ function Invoke-ADEnum
 	}
 	else{
 		$TempDomainOUsByKeyword = foreach($AllDomain in $AllDomains){
+  			$GetAllOUsFirst = Get-DomainOU -Domain $AllDomain
 			foreach ($Keyword in $Keywords) {
-				Get-DomainOU -Domain $AllDomain -Identity "*$Keyword*" | ForEach-Object {
+   				$GetFilteredOUs = $GetAllOUsFirst | Where-Object {$_.name -like "*$Keyword*"}
+				foreach ($ou in $GetFilteredOUs) {
 					$ou = $_
-					#$users = (Get-DomainUser -Domain $AllDomain -SearchBase "LDAP://$($_.DistinguishedName)").samaccountname
-					#$computers = Get-DomainComputer -Domain $AllDomain -SearchBase "LDAP://$($_.DistinguishedName)"
+					#$users = (Get-DomainUser -Domain $AllDomain -SearchBase "LDAP://$($ou.DistinguishedName)").samaccountname
+					#$computers = Get-DomainComputer -Domain $AllDomain -SearchBase "LDAP://$($ou.DistinguishedName)"
 
 					#$members = @()
 					#if ($users) { $members += $users }
