@@ -4697,7 +4697,7 @@ function Invoke-ADEnum
 						"User Name" = $EnabledUser.samaccountname
 						"Object SID" = $EnabledUser.objectsid
 						"Domain" = $AllDomain
-						"Groups" = (Get-DomainGroup -Domain $AllDomain -UserName $EnabledUser.samaccountname).Name -join ' - '
+						#"Groups" = (Get-DomainGroup -Domain $AllDomain -UserName $EnabledUser.samaccountname).Name -join ' - '
 						"Description" = $EnabledUser.description
 					}
 				}
@@ -4726,7 +4726,7 @@ function Invoke-ADEnum
 					"User Name" = $DisabledUser.samaccountname
 					"Object SID" = $DisabledUser.objectsid
 					"Domain" = $Domain
-					"Groups" = (Get-DomainGroup -Domain $Domain -Server $Server -UserName $DisabledUser.samaccountname).Name -join ' - '
+					#"Groups" = (Get-DomainGroup -Domain $Domain -Server $Server -UserName $DisabledUser.samaccountname).Name -join ' - '
 					"Description" = $DisabledUser.description
 				}
 			}
