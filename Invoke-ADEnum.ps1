@@ -4364,54 +4364,6 @@ function Invoke-ADEnum
 			$HTMLOperatingSystemsAnalysis = $TempOperatingSystemsAnalysis | Sort-Object Domain,'Operating System' | ConvertTo-Html -Fragment -PreContent "<h2>Operating Systems Analysis</h2>"
 		}
 	}
-	
-	###########################################
-    ########### All Domain GPOs ###############
-	###########################################
-	
-	if($AllGPOs -OR $AllEnum){
-        Write-Host ""
-		Write-Host "All Domain GPOs:" -ForegroundColor Cyan
-		if ($Domain -and $Server) {
-			$DomainGPOs = Get-DomainGPO -Domain $Domain -Server $Server -Properties DisplayName, gpcfilesyspath
-			$TempDomainGPOs = foreach ($DomainGPO in $DomainGPOs) {
-   				$GPOGuid = ($DomainGPO.gpcfilesyspath -split "}")[-2].split("{")[-1]  # Extracting the GPO's GUID
-       				$OUs = (Get-DomainOU -GPLink "*$GPOGuid*").name -Join " - "
-				[PSCustomObject]@{
-					"GPO Name" = $DomainGPO.DisplayName
-					"Path" = $DomainGPO.gpcfilesyspath
-     					"OUs the policy applies to" = $OUs
-					Domain = $Domain
-				}
-			}
-
-			if ($TempDomainGPOs) {
-				$TempDomainGPOs | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
-				$HTMLDomainGPOs = $TempDomainGPOs | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>All Domain GPOs</h2>"
-			}
-		}
-		else {
-			$TempDomainGPOs = foreach ($AllDomain in $AllDomains) {
-				$DomainGPOs = Get-DomainGPO -Domain $AllDomain -Properties DisplayName, gpcfilesyspath
-				foreach ($DomainGPO in $DomainGPOs) {
-    					$GPOGuid = ($DomainGPO.gpcfilesyspath -split "}")[-2].split("{")[-1]  # Extracting the GPO's GUID
-	 				$OUs = (Get-DomainOU -GPLink "*$GPOGuid*").name -Join " - "
-					[PSCustomObject]@{
-						"GPO Name" = $DomainGPO.DisplayName
-						"Path" = $DomainGPO.gpcfilesyspath
-      						"OUs the policy applies to" = $OUs
-						Domain = $AllDomain
-					}
-				}
-			}
-
-			if ($TempDomainGPOs) {
-				$TempDomainGPOs | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
-				$HTMLDomainGPOs = $TempDomainGPOs | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>All Domain GPOs</h2>"
-			}
-		}
-		
-	}
 
 	
 	##################################
@@ -4761,6 +4713,54 @@ function Invoke-ADEnum
 			}
 		}
 	}
+
+ 	###########################################
+    ########### All Domain GPOs ###############
+	###########################################
+	
+	if($AllGPOs -OR $AllEnum){
+        Write-Host ""
+		Write-Host "All Domain GPOs:" -ForegroundColor Cyan
+		if ($Domain -and $Server) {
+			$DomainGPOs = Get-DomainGPO -Domain $Domain -Server $Server -Properties DisplayName, gpcfilesyspath
+			$TempDomainGPOs = foreach ($DomainGPO in $DomainGPOs) {
+   				$GPOGuid = ($DomainGPO.gpcfilesyspath -split "}")[-2].split("{")[-1]  # Extracting the GPO's GUID
+       				$OUs = (Get-DomainOU -GPLink "*$GPOGuid*").name -Join " - "
+				[PSCustomObject]@{
+					"GPO Name" = $DomainGPO.DisplayName
+					"Path" = $DomainGPO.gpcfilesyspath
+     					"OUs the policy applies to" = $OUs
+					Domain = $Domain
+				}
+			}
+
+			if ($TempDomainGPOs) {
+				$TempDomainGPOs | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
+				$HTMLDomainGPOs = $TempDomainGPOs | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>All Domain GPOs</h2>"
+			}
+		}
+		else {
+			$TempDomainGPOs = foreach ($AllDomain in $AllDomains) {
+				$DomainGPOs = Get-DomainGPO -Domain $AllDomain -Properties DisplayName, gpcfilesyspath
+				foreach ($DomainGPO in $DomainGPOs) {
+    					$GPOGuid = ($DomainGPO.gpcfilesyspath -split "}")[-2].split("{")[-1]  # Extracting the GPO's GUID
+	 				$OUs = (Get-DomainOU -GPLink "*$GPOGuid*").name -Join " - "
+					[PSCustomObject]@{
+						"GPO Name" = $DomainGPO.DisplayName
+						"Path" = $DomainGPO.gpcfilesyspath
+      						"OUs the policy applies to" = $OUs
+						Domain = $AllDomain
+					}
+				}
+			}
+
+			if ($TempDomainGPOs) {
+				$TempDomainGPOs | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
+				$HTMLDomainGPOs = $TempDomainGPOs | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>All Domain GPOs</h2>"
+			}
+		}
+		
+	}
 	
 	######################################
     ########### Domain OUs ###########
@@ -4826,7 +4826,7 @@ function Invoke-ADEnum
     # Stop capturing the output and display it on the console
     Stop-Transcript | Out-Null
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLPreWin2kCompatibleAccess $HTMLLMCompatibilityLevel $HTMLMachineQuota $HTMLUnsupportedHosts $InterestingDataBanner $HTMLReplicationUsers $HTMLServiceAccounts $HTMLGMSAs $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLnopreauthset $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLKeywordDomainGPOs $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLLinkedDAAccounts $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLDomainGPOs $HTMLOtherGroups $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLAllDomainOUs" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLPreWin2kCompatibleAccess $HTMLLMCompatibilityLevel $HTMLMachineQuota $HTMLUnsupportedHosts $InterestingDataBanner $HTMLReplicationUsers $HTMLServiceAccounts $HTMLGMSAs $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLnopreauthset $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLKeywordDomainGPOs $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLLinkedDAAccounts $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLOtherGroups $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLDomainGPOs $HTMLAllDomainOUs" -Title "Active Directory Audit" -Head $header
 	$HTMLOutputFilePath = $OutputFilePath.Replace(".txt", ".html")
 	$Report | Out-File $HTMLOutputFilePath
 	
