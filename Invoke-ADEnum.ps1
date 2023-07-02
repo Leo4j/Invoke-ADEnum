@@ -501,6 +501,46 @@ function Invoke-ADEnum
     }
 	
 	if($TargetsOnly){
+
+		    Write-Host ""
+		    Write-Host "Domain Controllers:" -ForegroundColor Cyan
+		    if($Domain -AND $Server) {
+		        $domainControllers = Get-DomainController -Domain $Domain
+		    	$TempHTMLdc = foreach ($dc in $domainControllers) {
+		        	$isPrimaryDC = $dc.Roles -like "RidRole"
+		        	$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
+		        	
+					[PSCustomObject]@{
+						"DC Name" = $dc.Name
+						Forest = $dc.Forest
+						Domain = $dc.Domain
+						"IP Address" = $dc.IPAddress
+						"Primary DC" = $primaryDC
+					}
+		    	}
+				if($TempHTMLdc){
+					$TempHTMLdc | Sort-Object Domain,"DC Name" | ft -Autosize -Wrap
+				}
+		    }
+		    else{
+		        $TempHTMLdc = foreach($AllDomain in $AllDomains){
+					$domainControllers = Get-DomainController -Domain $AllDomain
+		        	foreach ($dc in $domainControllers) {
+						$isPrimaryDC = $dc.Roles -like "RidRole"
+						$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
+						[PSCustomObject]@{
+							"DC Name" = $dc.Name
+							Forest = $dc.Forest
+							Domain = $dc.Domain
+							"IP Address" = $dc.IPAddress
+							"Primary DC" = $primaryDC
+						}
+		        	}
+				}
+				if($TempHTMLdc ){
+					$TempHTMLdc | Sort-Object Domain,"DC Name" | ft -Autosize -Wrap
+				}
+		    }
 		
 		Write-Host ""
 		Write-Host "Accounts Analysis:" -ForegroundColor Cyan
