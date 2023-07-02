@@ -678,7 +678,7 @@ function Invoke-ADEnum
 		[PSCustomObject]@{
 			"Domain" = $GetForestDomain.Name
 			"Forest" = $GetForestDomain.Forest
-			"Domain Controllers" = $GetForestDomain.DomainControllers -join ', '
+			#"Domain Controllers" = $GetForestDomain.DomainControllers -join ', '
 			"Parent" = $GetForestDomain.Parent
 			"Children" = $GetForestDomain.Children -join ', '
 			"Domain Mode" = $GetForestDomain.DomainMode
