@@ -4429,8 +4429,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempOtherGroups) {
-				$TempOtherGroups | Where-Object { $_.Members } | Sort-Object Domain,"Group Name" | Format-Table -AutoSize -Wrap
-				$HTMLOtherGroups = $TempOtherGroups | Where-Object { $_.Members } | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>All Groups</h2>"
+				$TempOtherGroups | Sort-Object Domain,"Group Name" | Format-Table -AutoSize -Wrap
+				$HTMLOtherGroups = $TempOtherGroups | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>All Groups</h2>"
 			}
 		}
 		else {
@@ -4448,8 +4448,8 @@ function Invoke-ADEnum
 			}
 
 			if ($TempOtherGroups) {
-				$TempOtherGroups | Where-Object { $_.Members } | Sort-Object Domain,"Group Name" | Format-Table -AutoSize -Wrap
-				$HTMLOtherGroups = $TempOtherGroups | Where-Object { $_.Members } | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>All Groups</h2>"
+				$TempOtherGroups | Sort-Object Domain,"Group Name" | Format-Table -AutoSize -Wrap
+				$HTMLOtherGroups = $TempOtherGroups | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>All Groups</h2>"
 			}
 		}
 	}
