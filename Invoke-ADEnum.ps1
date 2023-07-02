@@ -1633,7 +1633,7 @@ function Invoke-ADEnum
 				"Hex User Password" = ($PasswordSetUser.userPassword) -join ' '
 				"Last Logon" = $PasswordSetUser.lastlogontimestamp
 				"SID" = $PasswordSetUser.objectSID
-				"Groups Membership" = (Get-DomainGroup -Domain $Domain -Server $Server -UserName $PasswordSetUser.samaccountname).Name -join ' - '
+				#"Groups Membership" = (Get-DomainGroup -Domain $Domain -Server $Server -UserName $PasswordSetUser.samaccountname).Name -join ' - '
 				"Domain" = $Domain
 			}
 			
@@ -1665,7 +1665,7 @@ function Invoke-ADEnum
 					"Hex User Password" = ($PasswordSetUser.userPassword) -join ' '
 					"Last Logon" = $PasswordSetUser.lastlogontimestamp
 					"SID" = $PasswordSetUser.objectSID
-					"Groups Membership" = (Get-DomainGroup -Domain $AllDomain -UserName $PasswordSetUser.samaccountname).Name -join ' - '
+					#"Groups Membership" = (Get-DomainGroup -Domain $AllDomain -UserName $PasswordSetUser.samaccountname).Name -join ' - '
 					"Domain" = $AllDomain
 				}
 				
@@ -1702,7 +1702,7 @@ function Invoke-ADEnum
 				"EA" = if ($EmptyPasswordUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 				"Last Logon" = $EmptyPasswordUser.lastlogontimestamp
 				"SID" = $EmptyPasswordUser.objectSID
-				"Groups Membership" = (Get-DomainGroup -Domain $Domain -Server $Server -UserName $EmptyPasswordUser.samaccountname).Name -join ' - '
+				#"Groups Membership" = (Get-DomainGroup -Domain $Domain -Server $Server -UserName $EmptyPasswordUser.samaccountname).Name -join ' - '
 				"Domain" = $Domain
 			}
 			
@@ -1732,7 +1732,7 @@ function Invoke-ADEnum
 					"EA" = if ($EmptyPasswordUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 					"Last Logon" = $EmptyPasswordUser.lastlogontimestamp
 					"SID" = $EmptyPasswordUser.objectSID
-					"Groups Membership" = (Get-DomainGroup -Domain $AllDomain -UserName $EmptyPasswordUser.samaccountname).Name -join ' - '
+					#"Groups Membership" = (Get-DomainGroup -Domain $AllDomain -UserName $EmptyPasswordUser.samaccountname).Name -join ' - '
 					"Domain" = $AllDomain
 				}
 				
@@ -2094,7 +2094,7 @@ function Invoke-ADEnum
 				"Last Logon" = $Account.lastlogontimestamp
 				"SID" = $Account.objectSID
 				"Domain" = $Domain
-				"Groups Membership" = (Get-DomainGroup -Domain $Domain -Server $Server -UserName $Account.samaccountname).Name -join ' - '
+				#"Groups Membership" = (Get-DomainGroup -Domain $Domain -Server $Server -UserName $Account.samaccountname).Name -join ' - '
 			}
 		}
 
@@ -2118,7 +2118,7 @@ function Invoke-ADEnum
 					"Last Logon" = $Account.lastlogontimestamp
 					"SID" = $Account.objectSID
 					"Domain" = $AllDomain
-					"Groups Membership" = (Get-DomainGroup -Domain $AllDomain -UserName $Account.samaccountname).Name -join ' - '
+					#"Groups Membership" = (Get-DomainGroup -Domain $AllDomain -UserName $Account.samaccountname).Name -join ' - '
 				}
 			}
 		}
@@ -2227,7 +2227,7 @@ function Invoke-ADEnum
 				"Last Logon" = $User.lastlogontimestamp
 				"SID" = $User.objectSID
 				"Domain" = $Domain
-				"Group Membership" = (Get-DomainGroup -Domain $Domain -Server $Server -UserName $User.samaccountname).Name -join ' - '
+				#"Group Membership" = (Get-DomainGroup -Domain $Domain -Server $Server -UserName $User.samaccountname).Name -join ' - '
 			}
 		}
 
@@ -2252,7 +2252,7 @@ function Invoke-ADEnum
 					"Last Logon" = $User.lastlogontimestamp
 					"SID" = $User.objectSID
 					"Domain" = $AllDomain
-					"Group Membership" = (Get-DomainGroup -Domain $AllDomain -UserName $User.samaccountname).Name -join ' - '
+					#"Group Membership" = (Get-DomainGroup -Domain $AllDomain -UserName $User.samaccountname).Name -join ' - '
 				}
 			}
 		}
@@ -2296,7 +2296,7 @@ function Invoke-ADEnum
 				"Group Name" = $Group.samaccountname
 				"Group SID" = $Group.objectsid
 				"Domain" = $Domain
-				"Members" = (Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $Group.samaccountname -Recurse | Select-Object -ExpandProperty MemberName) -join ' - '
+				#"Members" = (Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $Group.samaccountname -Recurse | Select-Object -ExpandProperty MemberName) -join ' - '
 			}
 		}
 
@@ -2314,7 +2314,7 @@ function Invoke-ADEnum
 					"Group Name" = $Group.samaccountname
 					"Group SID" = $Group.objectsid
 					"Domain" = $AllDomain
-					"Members" = (Get-DomainGroupMember -Domain $AllDomain -Identity $Group.samaccountname -Recurse | Select-Object -ExpandProperty MemberName) -join ' - '
+					#"Members" = (Get-DomainGroupMember -Domain $AllDomain -Identity $Group.samaccountname -Recurse | Select-Object -ExpandProperty MemberName) -join ' - '
 				}
 			}
 		}
@@ -2978,7 +2978,7 @@ function Invoke-ADEnum
 							"Who can edit" = $TargetsWhoCanEdit
 							"Policy Path" = $TempPolicyInfo.gpcFileSysPath
 							Domain = $Domain
-							"OUs the policy applies to" = (Get-DomainOU -Domain $Domain -Server $Server -GPLink "$jGPOID").name -Join " - "
+       							"OUs the policy applies to" = ((Get-DomainOU -Domain $Domain -Server $Server -GPLink "$jGPOID").name | Sort-Object -Unique) -join " - "
 						}
 					}
 				}
@@ -3016,7 +3016,7 @@ function Invoke-ADEnum
 								"Who can edit" = $TargetsWhoCanEdit
 								"Policy Path" = $TempPolicyInfo.gpcFileSysPath
 								Domain = $AllDomain
-								"OUs the policy applies to" = (Get-DomainOU -Domain $AllDomain -GPLink "$jGPOID").name -Join " - "
+								"OUs the policy applies to" = ((Get-DomainOU -Domain $AllDomain -GPLink "$jGPOID").name | Sort-Object -Unique) -join " - "
 							}
 						}
 					}
@@ -3839,7 +3839,7 @@ function Invoke-ADEnum
 					"Group Name" = $Group.SamAccountName
 					"Group SID" = $Group.ObjectSID
 					"Domain" = $Domain
-					"Members" = ((Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $Group.distinguishedname -Recurse).membername | Sort-Object -Unique) -join ' - '
+					#"Members" = ((Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $Group.distinguishedname -Recurse).membername | Sort-Object -Unique) -join ' - '
 					#Description = $Group.description
 				}
 			}
@@ -3861,7 +3861,7 @@ function Invoke-ADEnum
 						"Group Name" = $Group.SamAccountName
 						"Group SID" = $Group.ObjectSID
 						"Domain" = $AllDomain
-						"Members" = ((Get-DomainGroupMember -Identity $Group.distinguishedname -Domain $AllDomain -Recurse).membername | Sort-Object -Unique) -join ' - '
+						#"Members" = ((Get-DomainGroupMember -Identity $Group.distinguishedname -Domain $AllDomain -Recurse).membername | Sort-Object -Unique) -join ' - '
 						#Description = $Group.description
 					}
 				}
@@ -3885,18 +3885,18 @@ function Invoke-ADEnum
 		$TempDomainOUsByKeyword = foreach ($Keyword in $Keywords) {
 				Get-DomainOU -Domain $Domain -Server $Server -Identity "*$Keyword*" | ForEach-Object {
 				$ou = $_
-				$users = (Get-DomainUser -Domain $Domain -Server $Server -SearchBase "LDAP://$($_.DistinguishedName)").samaccountname
-				$computers = Get-DomainComputer -Domain $Domain -Server $Server -SearchBase "LDAP://$($_.DistinguishedName)"
+				#$users = (Get-DomainUser -Domain $Domain -Server $Server -SearchBase "LDAP://$($_.DistinguishedName)").samaccountname
+				#$computers = Get-DomainComputer -Domain $Domain -Server $Server -SearchBase "LDAP://$($_.DistinguishedName)"
 
-				$members = @()
-				if ($users) { $members += $users }
-				if ($computers) { $members += $computers.Name }
+				#$members = @()
+				#if ($users) { $members += $users }
+				#if ($computers) { $members += $computers.Name }
 
 				[PSCustomObject]@{
 					"Keyword" = $Keyword
 					Name = $ou.Name
 					Domain = $Domain
-					Members = $members -join ' - '
+					#Members = $members -join ' - '
 				}
 			}
 		}
@@ -3911,18 +3911,18 @@ function Invoke-ADEnum
 			foreach ($Keyword in $Keywords) {
 				Get-DomainOU -Domain $AllDomain -Identity "*$Keyword*" | ForEach-Object {
 					$ou = $_
-					$users = (Get-DomainUser -Domain $AllDomain -SearchBase "LDAP://$($_.DistinguishedName)").samaccountname
-					$computers = Get-DomainComputer -Domain $AllDomain -SearchBase "LDAP://$($_.DistinguishedName)"
+					#$users = (Get-DomainUser -Domain $AllDomain -SearchBase "LDAP://$($_.DistinguishedName)").samaccountname
+					#$computers = Get-DomainComputer -Domain $AllDomain -SearchBase "LDAP://$($_.DistinguishedName)"
 
-					$members = @()
-					if ($users) { $members += $users }
-					if ($computers) { $members += $computers.Name }
+					#$members = @()
+					#if ($users) { $members += $users }
+					#if ($computers) { $members += $computers.Name }
 
 					[PSCustomObject]@{
 						"Keyword" = $Keyword
 						Name = $ou.Name
 						Domain = $AllDomain
-						Members = $members -join ' - '
+						#Members = $members -join ' - '
 					}
 				}
 			}
