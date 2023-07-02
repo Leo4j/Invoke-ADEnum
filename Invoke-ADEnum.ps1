@@ -3915,7 +3915,6 @@ function Invoke-ADEnum
 			foreach ($Keyword in $Keywords) {
    				$GetFilteredOUs = $GetAllOUsFirst | Where-Object {$_.name -like "*$Keyword*"}
 				foreach ($ou in $GetFilteredOUs) {
-					$ou = $_
 					#$users = (Get-DomainUser -Domain $AllDomain -SearchBase "LDAP://$($ou.DistinguishedName)").samaccountname
 					#$computers = Get-DomainComputer -Domain $AllDomain -SearchBase "LDAP://$($ou.DistinguishedName)"
 
