@@ -2980,7 +2980,7 @@ function Invoke-ADEnum
 							"Who can edit" = $TargetsWhoCanEdit
 							"Policy Path" = $TempPolicyInfo.gpcFileSysPath
 							Domain = $Domain
-       							"OUs the policy applies to" = ((Get-DomainOU -Domain $Domain -Server $Server -GPLink "$jGPOID").name | Sort-Object -Unique) -join " - "
+       							#"OUs the policy applies to" = ((Get-DomainOU -Domain $Domain -Server $Server -GPLink "$jGPOID").name | Sort-Object -Unique) -join " - "
 						}
 					}
 				}
@@ -3018,7 +3018,7 @@ function Invoke-ADEnum
 								"Who can edit" = $TargetsWhoCanEdit
 								"Policy Path" = $TempPolicyInfo.gpcFileSysPath
 								Domain = $AllDomain
-								"OUs the policy applies to" = ((Get-DomainOU -Domain $AllDomain -GPLink "$jGPOID").name | Sort-Object -Unique) -join " - "
+								#"OUs the policy applies to" = ((Get-DomainOU -Domain $AllDomain -GPLink "$jGPOID").name | Sort-Object -Unique) -join " - "
 							}
 						}
 					}
