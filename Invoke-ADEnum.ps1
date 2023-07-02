@@ -2027,6 +2027,10 @@ function Invoke-ADEnum
 			Select-Object -Unique SecurityIdentifier
 
 		$TempReplicationUsers = foreach ($replicationUser in $replicationUsers) {
+  			$userSID = $null
+     			$user = $null
+			$enabled = $null
+   			$members = $null
 			$userSID = ConvertFrom-SID -Domain $Domain $replicationUser.SecurityIdentifier
 			$user = Get-DomainUser -Domain $Domain -Server $Server -Identity $userSID -Properties useraccountcontrol
 			$enabled = if ($user.useraccountcontrol -band 2) { "False" } elseif ($user.useraccountcontrol -eq $null) { "" } else { "True" }
@@ -2054,6 +2058,10 @@ function Invoke-ADEnum
 				Select-Object -Unique SecurityIdentifier
 
 			foreach ($replicationUser in $replicationUsers) {
+   				$userSID = $null
+     				$user = $null
+				$enabled = $null
+   				$members = $null
 				$userSID = ConvertFrom-SID $replicationUser.SecurityIdentifier -Domain $AllDomain
 				$user = Get-DomainUser -Domain $AllDomain -Identity $userSID -Properties useraccountcontrol
 				$enabled = if ($user.useraccountcontrol -band 2) { "False" } elseif ($user.useraccountcontrol -eq $null) { "" } else { "True" }
