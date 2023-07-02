@@ -3848,8 +3848,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempGroupsByKeyword) {
-			$TempGroupsByKeyword | Where-Object { $_.Members } | Sort-Object Domain,Keyword,"Group Name" | Format-Table -AutoSize -Wrap
-			$HTMLGroupsByKeyword = $TempGroupsByKeyword | Where-Object { $_.Members } | Sort-Object Domain,Keyword,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting Groups (by Keyword)</h2>"
+			$TempGroupsByKeyword | Sort-Object Domain,Keyword,"Group Name" | Format-Table -AutoSize -Wrap
+			$HTMLGroupsByKeyword = $TempGroupsByKeyword | Sort-Object Domain,Keyword,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting Groups (by Keyword)</h2>"
 		}
 	}
 	else {
@@ -3871,8 +3871,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempGroupsByKeyword) {
-			$TempGroupsByKeyword | Where-Object { $_.Members } | Sort-Object Domain,Keyword,"Group Name" | Format-Table -AutoSize -Wrap
-			$HTMLGroupsByKeyword = $TempGroupsByKeyword | Where-Object { $_.Members } | Sort-Object Domain,Keyword,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting Groups (by Keyword)</h2>"
+			$TempGroupsByKeyword | Sort-Object Domain,Keyword,"Group Name" | Format-Table -AutoSize -Wrap
+			$HTMLGroupsByKeyword = $TempGroupsByKeyword | Sort-Object Domain,Keyword,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting Groups (by Keyword)</h2>"
 		}
 	}
 	
