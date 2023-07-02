@@ -470,7 +470,7 @@ function Invoke-ADEnum
 				"Forest" = $TDomain.Forest
 				"Parent" = $TDomain.Parent
 				"Children" = ($TDomain.Children -join ', ')
-				"Domain Controllers" = ($TDomain.DomainControllers -join ', ')
+				#"Domain Controllers" = ($TDomain.DomainControllers -join ', ')
 			}
 		}
 
@@ -491,7 +491,7 @@ function Invoke-ADEnum
 				Forest = $TargetDomain.Forest
 				Parent = $TargetDomain.Parent
 				Children = $TargetDomain.Children -join ' - '
-				"Domain Controllers" = $TargetDomain.DomainControllers -join ' - '
+				#"Domain Controllers" = $TargetDomain.DomainControllers -join ' - '
 			}
 		}
 		if($TempTargetDomains){
