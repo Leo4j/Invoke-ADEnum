@@ -4372,52 +4372,6 @@ function Invoke-ADEnum
 			$HTMLOperatingSystemsAnalysis = $TempOperatingSystemsAnalysis | Sort-Object Domain,'Operating System' | ConvertTo-Html -Fragment -PreContent "<h2>Operating Systems Analysis</h2>"
 		}
 	}
-
-	
-	##################################
-    ########### All Groups ###########
-	##################################
-	
-	if($AllGroups -OR $AllEnum){
-		Write-Host ""
-		Write-Host "All Groups:" -ForegroundColor Cyan
-		if ($Domain -and $Server) {
-			$OtherGroups = Get-DomainGroup -Domain $Domain -Server $Server
-			$TempOtherGroups = foreach ($OtherGroup in $OtherGroups) {
-				[PSCustomObject]@{
-					"Group Name" = $OtherGroup.SamAccountName
-					"Group SID" = $OtherGroup.objectsid
-					"Domain" = $Domain
-					"Members" = ((Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity $OtherGroup.SamAccountName).MemberName | Sort-Object -Unique) -join ' - '
-					#Description = $OtherGroup.description
-				}
-			}
-
-			if ($TempOtherGroups) {
-				$TempOtherGroups | Sort-Object Domain,"Group Name" | Format-Table -AutoSize -Wrap
-				$HTMLOtherGroups = $TempOtherGroups | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>All Groups</h2>"
-			}
-		}
-		else {
-			$TempOtherGroups = foreach ($AllDomain in $AllDomains) {
-				$OtherGroups = Get-DomainGroup -Domain $AllDomain
-				foreach ($OtherGroup in $OtherGroups) {
-					[PSCustomObject]@{
-						"Group Name" = $OtherGroup.SamAccountName
-						"Group SID" = $OtherGroup.objectsid
-						"Domain" = $AllDomain
-						"Members" = ((Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity $OtherGroup.SamAccountName).MemberName | Sort-Object -Unique) -join ' - '
-						#Description = $OtherGroup.description
-					}
-				}
-			}
-
-			if ($TempOtherGroups) {
-				$TempOtherGroups | Sort-Object Domain,"Group Name" | Format-Table -AutoSize -Wrap
-				$HTMLOtherGroups = $TempOtherGroups | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>All Groups</h2>"
-			}
-		}
-	}
 	
 	############################################
     ########### Servers (Enabled)###############
@@ -4722,6 +4676,51 @@ function Invoke-ADEnum
 		}
 	}
 
+ 	##################################
+    ########### All Groups ###########
+	##################################
+	
+	if($AllGroups -OR $AllEnum){
+		Write-Host ""
+		Write-Host "All Groups:" -ForegroundColor Cyan
+		if ($Domain -and $Server) {
+			$OtherGroups = Get-DomainGroup -Domain $Domain -Server $Server
+			$TempOtherGroups = foreach ($OtherGroup in $OtherGroups) {
+				[PSCustomObject]@{
+					"Group Name" = $OtherGroup.SamAccountName
+					"Group SID" = $OtherGroup.objectsid
+					"Domain" = $Domain
+					"Members" = ((Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity $OtherGroup.SamAccountName).MemberName | Sort-Object -Unique) -join ' - '
+					#Description = $OtherGroup.description
+				}
+			}
+
+			if ($TempOtherGroups) {
+				$TempOtherGroups | Sort-Object Domain,"Group Name" | Format-Table -AutoSize -Wrap
+				$HTMLOtherGroups = $TempOtherGroups | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>All Groups</h2>"
+			}
+		}
+		else {
+			$TempOtherGroups = foreach ($AllDomain in $AllDomains) {
+				$OtherGroups = Get-DomainGroup -Domain $AllDomain
+				foreach ($OtherGroup in $OtherGroups) {
+					[PSCustomObject]@{
+						"Group Name" = $OtherGroup.SamAccountName
+						"Group SID" = $OtherGroup.objectsid
+						"Domain" = $AllDomain
+						"Members" = ((Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity $OtherGroup.SamAccountName).MemberName | Sort-Object -Unique) -join ' - '
+						#Description = $OtherGroup.description
+					}
+				}
+			}
+
+			if ($TempOtherGroups) {
+				$TempOtherGroups | Sort-Object Domain,"Group Name" | Format-Table -AutoSize -Wrap
+				$HTMLOtherGroups = $TempOtherGroups | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>All Groups</h2>"
+			}
+		}
+	}
+
  	###########################################
     ########### All Domain GPOs ###############
 	###########################################
@@ -4834,7 +4833,7 @@ function Invoke-ADEnum
     # Stop capturing the output and display it on the console
     Stop-Transcript | Out-Null
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLPreWin2kCompatibleAccess $HTMLLMCompatibilityLevel $HTMLMachineQuota $HTMLUnsupportedHosts $InterestingDataBanner $HTMLReplicationUsers $HTMLServiceAccounts $HTMLGMSAs $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLnopreauthset $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLKeywordDomainGPOs $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLLinkedDAAccounts $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLOtherGroups $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLDomainGPOs $HTMLAllDomainOUs" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLPreWin2kCompatibleAccess $HTMLLMCompatibilityLevel $HTMLMachineQuota $HTMLUnsupportedHosts $InterestingDataBanner $HTMLReplicationUsers $HTMLServiceAccounts $HTMLGMSAs $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLnopreauthset $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLKeywordDomainGPOs $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLLinkedDAAccounts $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs" -Title "Active Directory Audit" -Head $header
 	$HTMLOutputFilePath = $OutputFilePath.Replace(".txt", ".html")
 	$Report | Out-File $HTMLOutputFilePath
 	
