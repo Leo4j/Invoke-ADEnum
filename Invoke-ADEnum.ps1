@@ -2113,11 +2113,6 @@ function Invoke-ADEnum
 				#"Groups Membership" = (Get-DomainGroup -Domain $Domain -Server $Server -UserName $Account.samaccountname).Name -join ' - '
 			}
 		}
-
-		if ($TempServiceAccounts) {
-			$TempServiceAccounts | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-			$HTMLServiceAccounts = $TempServiceAccounts | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Service Accounts</h2>"
-		}
 	}
 	
 	else {
@@ -2138,11 +2133,15 @@ function Invoke-ADEnum
 				}
 			}
 		}
+	}
 
-		if ($TempServiceAccounts) {
-			$TempServiceAccounts | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-			$HTMLServiceAccounts = $TempServiceAccounts | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Service Accounts</h2>"
-		}
+ 	if ($TempServiceAccounts) {
+		$TempServiceAccounts | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+		$HTMLServiceAccounts = $TempServiceAccounts | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Service Accounts</h2>"
+		$HTMLServiceAccounts = $HTMLServiceAccounts -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
+		$HTMLServiceAccounts = $HTMLServiceAccounts -replace '<td>NO</td>','<td class="NoStatus">NO</td>'
+		$HTMLServiceAccounts = $HTMLServiceAccounts -replace '<td>False</td>','<td class="YesStatus">False</td>'
+		$HTMLServiceAccounts = $HTMLServiceAccounts -replace '<td>True</td>','<td class="NoStatus">True</td>'
 	}
 	
 	##########################################################
