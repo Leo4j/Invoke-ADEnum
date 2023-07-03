@@ -2167,11 +2167,6 @@ function Invoke-ADEnum
 				"Domain" = $Domain
 			}
 		}
-
-		if ($TempGMSAs) {
-			$TempGMSAs | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-			$HTMLGMSAs = $TempGMSAs | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Group Managed Service Accounts (GMSA)</h2>"
-		}
 	}
 	
 	else {
@@ -2193,11 +2188,15 @@ function Invoke-ADEnum
 				}
 			}
 		}
+	}
 
-		if ($TempGMSAs) {
-			$TempGMSAs | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-			$HTMLGMSAs = $TempGMSAs | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Group Managed Service Accounts (GMSA)</h2>"
-		}
+ 	if ($TempGMSAs) {
+		$TempGMSAs | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+		$HTMLGMSAs = $TempGMSAs | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Group Managed Service Accounts (GMSA)</h2>"
+		$HTMLGMSAs = $HTMLGMSAs -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
+		$HTMLGMSAs = $HTMLGMSAs -replace '<td>NO</td>','<td class="NoStatus">NO</td>'
+		$HTMLGMSAs = $HTMLGMSAs -replace '<td>False</td>','<td class="YesStatus">False</td>'
+		$HTMLGMSAs = $HTMLGMSAs -replace '<td>True</td>','<td class="NoStatus">True</td>'
 	}
 
 	##################################################
