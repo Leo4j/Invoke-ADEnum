@@ -2136,8 +2136,8 @@ function Invoke-ADEnum
 		$HTMLServiceAccounts = $TempServiceAccounts | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Service Accounts (Kerberoastable)</h2>"
 		$HTMLServiceAccounts = $HTMLServiceAccounts -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
 		$HTMLServiceAccounts = $HTMLServiceAccounts -replace '<td>NO</td>','<td class="NoStatus">NO</td>'
-		$HTMLServiceAccounts = $HTMLServiceAccounts -replace '<td>False</td>','<td class="YesStatus">False</td>'
-		$HTMLServiceAccounts = $HTMLServiceAccounts -replace '<td>True</td>','<td class="NoStatus">True</td>'
+		#$HTMLServiceAccounts = $HTMLServiceAccounts -replace '<td>False</td>','<td class="YesStatus">False</td>'
+		#$HTMLServiceAccounts = $HTMLServiceAccounts -replace '<td>True</td>','<td class="NoStatus">True</td>'
 	}
 	
 	##########################################################
@@ -2191,8 +2191,8 @@ function Invoke-ADEnum
 		$HTMLGMSAs = $TempGMSAs | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Group Managed Service Accounts (GMSA)</h2>"
 		$HTMLGMSAs = $HTMLGMSAs -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
 		$HTMLGMSAs = $HTMLGMSAs -replace '<td>NO</td>','<td class="NoStatus">NO</td>'
-		$HTMLGMSAs = $HTMLGMSAs -replace '<td>False</td>','<td class="YesStatus">False</td>'
-		$HTMLGMSAs = $HTMLGMSAs -replace '<td>True</td>','<td class="NoStatus">True</td>'
+		#$HTMLGMSAs = $HTMLGMSAs -replace '<td>False</td>','<td class="YesStatus">False</td>'
+		#$HTMLGMSAs = $HTMLGMSAs -replace '<td>True</td>','<td class="NoStatus">True</td>'
 	}
 
  	################################################
@@ -2242,8 +2242,8 @@ function Invoke-ADEnum
 		$HTMLnopreauthset = $Tempnopreauthset | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users without kerberos preauthentication set (AS-REProastable)</h2>"
   		$HTMLnopreauthset = $HTMLnopreauthset -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
 		$HTMLnopreauthset = $HTMLnopreauthset -replace '<td>NO</td>','<td class="NoStatus">NO</td>'
-		$HTMLnopreauthset = $HTMLnopreauthset -replace '<td>False</td>','<td class="YesStatus">False</td>'
-		$HTMLnopreauthset = $HTMLnopreauthset -replace '<td>True</td>','<td class="NoStatus">True</td>'
+		#$HTMLnopreauthset = $HTMLnopreauthset -replace '<td>False</td>','<td class="YesStatus">False</td>'
+		#$HTMLnopreauthset = $HTMLnopreauthset -replace '<td>True</td>','<td class="NoStatus">True</td>'
 	}
 
 	##################################################
