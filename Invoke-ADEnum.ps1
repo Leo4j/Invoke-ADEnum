@@ -1008,7 +1008,7 @@ function Invoke-ADEnum
 	Write-Host ""
     Write-Host "Enterprise Administrators:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$EnterpriseAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Enterprise Admins" -Recurse
+		$EnterpriseAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Enterprise Admins" -Recurse | Sort-Object -Unique
 		$TempEnterpriseAdmins = foreach($EnterpriseAdmin in $EnterpriseAdmins){
 			
 			$domainObject = Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $Domain -Server $Server
@@ -1035,7 +1035,7 @@ function Invoke-ADEnum
 	}
 	else {
 		$TempEnterpriseAdmins = foreach ($AllDomain in $AllDomains) {
-			$EnterpriseAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Enterprise Admins" -Recurse
+			$EnterpriseAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Enterprise Admins" -Recurse | Sort-Object -Unique
 			foreach($EnterpriseAdmin in $EnterpriseAdmins){
 				
 				$domainObject = Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $AllDomain
@@ -1068,7 +1068,7 @@ function Invoke-ADEnum
 	Write-Host ""
     Write-Host "Domain Administrators:" -ForegroundColor Cyan
     if ($Domain -and $Server) {
-		$DomainAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Domain Admins" -Recurse
+		$DomainAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Domain Admins" -Recurse | Sort-Object -Unique
 		$TempDomainAdmins = foreach ($DomainAdmin in $DomainAdmins) {
 			
 			$domainObject = Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $Domain -Server $Server
@@ -1094,7 +1094,7 @@ function Invoke-ADEnum
 	}
 	else {
 		$TempDomainAdmins = foreach ($AllDomain in $AllDomains) {
-			$DomainAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Domain Admins" -Recurse
+			$DomainAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Domain Admins" -Recurse | Sort-Object -Unique
 			foreach ($DomainAdmin in $DomainAdmins) {
 				
 				$domainObject = Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $AllDomain
