@@ -945,7 +945,7 @@ function Invoke-ADEnum
 	Write-Host ""
     Write-Host "Built-In Administrators:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$BuiltInAdministrators = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Administrators"
+		$BuiltInAdministrators = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Administrators" -Recurse | Sort-Object -Unique -Property MemberName
 		$TempBuiltInAdministrators = foreach($BuiltInAdministrator in $BuiltInAdministrators){
 			
 			$domainObject = if ($BuiltInAdministrator.MemberName) { Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $Domain -Server $Server } else { $null }
@@ -972,7 +972,7 @@ function Invoke-ADEnum
 	}
 	else {
 		$TempBuiltInAdministrators = foreach ($AllDomain in $AllDomains) {
-			$BuiltInAdministrators = Get-DomainGroupMember -Domain $AllDomain -Identity "Administrators"
+			$BuiltInAdministrators = Get-DomainGroupMember -Domain $AllDomain -Identity "Administrators" -Recurse | Sort-Object -Unique -Property MemberName
 			foreach($BuiltInAdministrator in $BuiltInAdministrators){
 				
 				$domainObject = Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $AllDomain
@@ -1008,7 +1008,7 @@ function Invoke-ADEnum
 	Write-Host ""
     Write-Host "Enterprise Administrators:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$EnterpriseAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Enterprise Admins" -Recurse | Sort-Object -Unique
+		$EnterpriseAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Enterprise Admins" -Recurse | Sort-Object -Unique -Property MemberName
 		$TempEnterpriseAdmins = foreach($EnterpriseAdmin in $EnterpriseAdmins){
 			
 			$domainObject = Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $Domain -Server $Server
@@ -1035,7 +1035,7 @@ function Invoke-ADEnum
 	}
 	else {
 		$TempEnterpriseAdmins = foreach ($AllDomain in $AllDomains) {
-			$EnterpriseAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Enterprise Admins" -Recurse | Sort-Object -Unique
+			$EnterpriseAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Enterprise Admins" -Recurse | Sort-Object -Unique -Property MemberName
 			foreach($EnterpriseAdmin in $EnterpriseAdmins){
 				
 				$domainObject = Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $AllDomain
@@ -1068,7 +1068,7 @@ function Invoke-ADEnum
 	Write-Host ""
     Write-Host "Domain Administrators:" -ForegroundColor Cyan
     if ($Domain -and $Server) {
-		$DomainAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Domain Admins" -Recurse | Sort-Object -Unique
+		$DomainAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Domain Admins" -Recurse | Sort-Object -Unique -Property MemberName
 		$TempDomainAdmins = foreach ($DomainAdmin in $DomainAdmins) {
 			
 			$domainObject = Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $Domain -Server $Server
@@ -1094,7 +1094,7 @@ function Invoke-ADEnum
 	}
 	else {
 		$TempDomainAdmins = foreach ($AllDomain in $AllDomains) {
-			$DomainAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Domain Admins" -Recurse | Sort-Object -Unique
+			$DomainAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Domain Admins" -Recurse | Sort-Object -Unique -Property MemberName
 			foreach ($DomainAdmin in $DomainAdmins) {
 				
 				$domainObject = Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $AllDomain
