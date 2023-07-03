@@ -2018,7 +2018,7 @@ function Invoke-ADEnum
 	##################################
 
     Write-Host ""
-	Write-Host "Retrieve *most* users who can perform DCSync:" -ForegroundColor Cyan
+	Write-Host "Principals with DCSync permissions:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
 		$dcName = "DC=" + $Domain.Split(".")
 		$dcName = $dcName -replace " ", ",DC="
@@ -2032,13 +2032,13 @@ function Invoke-ADEnum
 			$enabled = $null
    			$members = $null
 			$userSID = ConvertFrom-SID -Domain $Domain $replicationUser.SecurityIdentifier
-			$user = Get-DomainUser -Domain $Domain -Server $Server -Identity $userSID -Properties useraccountcontrol
-			$enabled = if ($user.useraccountcontrol -band 2) { "False" } elseif ($user.useraccountcontrol -eq $null) { "" } else { "True" }
+			#$user = Get-DomainUser -Domain $Domain -Server $Server -Identity $userSID -Properties useraccountcontrol
+			#$enabled = if ($user.useraccountcontrol -band 2) { "False" } elseif ($user.useraccountcontrol -eq $null) { "" } else { "True" }
 			$members = (Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity $userSID | Select-Object -ExpandProperty MemberName | Sort-Object -Unique) -Join ' - '
 
 			[PSCustomObject]@{
 				"User or Group Name" = $userSID
-				"Enabled" = $enabled
+				#"Enabled" = $enabled
 				"Domain" = $Domain
 				"Members" = $members
 			}
@@ -2046,7 +2046,7 @@ function Invoke-ADEnum
 
 		if ($TempReplicationUsers) {
 			$TempReplicationUsers | Sort-Object Domain,"User or Group Name" | Format-Table -AutoSize -Wrap
-			$HTMLReplicationUsers = $TempReplicationUsers | Sort-Object Domain,"User or Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Retrieve *most* users who can perform DCSync</h2>"
+			$HTMLReplicationUsers = $TempReplicationUsers | Sort-Object Domain,"User or Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Principals with DCSync permissions</h2>"
 		}
 	}
 	else {
@@ -2063,13 +2063,13 @@ function Invoke-ADEnum
 				$enabled = $null
    				$members = $null
 				$userSID = ConvertFrom-SID $replicationUser.SecurityIdentifier -Domain $AllDomain
-				$user = Get-DomainUser -Domain $AllDomain -Identity $userSID -Properties useraccountcontrol
-				$enabled = if ($user.useraccountcontrol -band 2) { "False" } elseif ($user.useraccountcontrol -eq $null) { "" } else { "True" }
+				#$user = Get-DomainUser -Domain $AllDomain -Identity $userSID -Properties useraccountcontrol
+				#$enabled = if ($user.useraccountcontrol -band 2) { "False" } elseif ($user.useraccountcontrol -eq $null) { "" } else { "True" }
 				$members = (Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity $userSID | Select-Object -ExpandProperty MemberName | Sort-Object -Unique) -Join ' - '
 
 				[PSCustomObject]@{
 					"User or Group Name" = $userSID
-					"Enabled" = $enabled
+					#"Enabled" = $enabled
 					"Domain" = $AllDomain
 					"Members" = $members
 				}
@@ -2078,7 +2078,7 @@ function Invoke-ADEnum
 
 		if ($TempReplicationUsers) {
 			$TempReplicationUsers | Sort-Object Domain,"User or Group Name" | Format-Table -AutoSize -Wrap
-			$HTMLReplicationUsers = $TempReplicationUsers | Sort-Object Domain,"User or Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Retrieve *most* users who can perform DCSync</h2>"
+			$HTMLReplicationUsers = $TempReplicationUsers | Sort-Object Domain,"User or Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Principals with DCSync permissions</h2>"
 		}
 	}
 	
