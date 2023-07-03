@@ -1682,6 +1682,7 @@ function Invoke-ADEnum
 		$TempPasswordSetUsers."User Password" | ForEach-Object {
 			$HTMLPasswordSetUsers = $HTMLPasswordSetUsers -replace "<td>$_</td>","<td class=`"YesStatus`">$_</td>"
 		}
+  		$HTMLPasswordSetUsers = $HTMLPasswordSetUsers -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
 	}
 	
 	#################################################################################################
