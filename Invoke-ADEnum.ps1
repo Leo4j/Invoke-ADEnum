@@ -2091,7 +2091,7 @@ function Invoke-ADEnum
 	
 	
 	Write-Host ""
-	Write-Host "Service Accounts:" -ForegroundColor Cyan
+	Write-Host "Service Accounts (Kerberoastable):" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
 		$ServiceAccounts = Get-DomainUser -SPN -Domain $Domain -Server $Server
 		$TempServiceAccounts = foreach ($Account in $ServiceAccounts) {
@@ -2132,7 +2132,7 @@ function Invoke-ADEnum
 
  	if ($TempServiceAccounts) {
 		$TempServiceAccounts | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-		$HTMLServiceAccounts = $TempServiceAccounts | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Service Accounts</h2>"
+		$HTMLServiceAccounts = $TempServiceAccounts | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Service Accounts (Kerberoastable)</h2>"
 		$HTMLServiceAccounts = $HTMLServiceAccounts -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
 		$HTMLServiceAccounts = $HTMLServiceAccounts -replace '<td>NO</td>','<td class="NoStatus">NO</td>'
 		$HTMLServiceAccounts = $HTMLServiceAccounts -replace '<td>False</td>','<td class="YesStatus">False</td>'
@@ -2192,6 +2192,57 @@ function Invoke-ADEnum
 		$HTMLGMSAs = $HTMLGMSAs -replace '<td>NO</td>','<td class="NoStatus">NO</td>'
 		$HTMLGMSAs = $HTMLGMSAs -replace '<td>False</td>','<td class="YesStatus">False</td>'
 		$HTMLGMSAs = $HTMLGMSAs -replace '<td>True</td>','<td class="NoStatus">True</td>'
+	}
+
+ 	################################################
+    ########### No preauthentication ###############
+	################################################
+    
+    Write-Host ""
+	Write-Host "Users without kerberos preauthentication set (AS-REProastable):" -ForegroundColor Cyan
+	if ($Domain -and $Server) {
+		$nopreauthsetUsers = Get-DomainUser -Domain $Domain -Server $Server -PreauthNotRequired
+		$Tempnopreauthset = foreach ($User in $nopreauthsetUsers) {
+			[PSCustomObject]@{
+				"User Name" = $User.samaccountname
+				"Enabled" = if ($User.useraccountcontrol -band 2) { "False" } else { "True" }
+				"Active" = if ($User.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
+				"Adm" = if ($User.memberof -match 'Administrators') { "YES" } else { "NO" }
+				"DA" = if ($User.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+				"EA" = if ($User.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+				"Last Logon" = $User.lastlogontimestamp
+				"SID" = $User.objectSID
+				"Domain" = $Domain
+			}
+		}
+	}
+	
+	else {
+		$Tempnopreauthset = foreach ($AllDomain in $AllDomains) {
+			$nopreauthsetUsers = Get-DomainUser -Domain $AllDomain -PreauthNotRequired
+			foreach ($User in $nopreauthsetUsers) {
+				[PSCustomObject]@{
+					"User Name" = $User.samaccountname
+					"Enabled" = if ($User.useraccountcontrol -band 2) { "False" } else { "True" }
+					"Active" = if ($User.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
+					"Adm" = if ($User.memberof -match 'Administrators') { "YES" } else { "NO" }
+					"DA" = if ($User.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					"EA" = if ($User.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+					"Last Logon" = $User.lastlogontimestamp
+					"SID" = $User.objectSID
+					"Domain" = $AllDomain
+				}
+			}
+		}
+	}
+
+ 	if ($Tempnopreauthset) {
+		$Tempnopreauthset | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+		$HTMLnopreauthset = $Tempnopreauthset | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users without kerberos preauthentication set (AS-REProastable)</h2>"
+  		$HTMLnopreauthset = $HTMLnopreauthset -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
+		$HTMLnopreauthset = $HTMLnopreauthset -replace '<td>NO</td>','<td class="NoStatus">NO</td>'
+		$HTMLnopreauthset = $HTMLnopreauthset -replace '<td>False</td>','<td class="YesStatus">False</td>'
+		$HTMLnopreauthset = $HTMLnopreauthset -replace '<td>True</td>','<td class="NoStatus">True</td>'
 	}
 
 	##################################################
@@ -2711,58 +2762,6 @@ function Invoke-ADEnum
 		if ($TempMachineAccountsPriv) {
 			$TempMachineAccountsPriv | Sort-Object "Group Domain",Member | Format-Table -AutoSize -Wrap
 			$HTMLMachineAccountsPriv = $TempMachineAccountsPriv | Sort-Object "Group Domain",Member | ConvertTo-Html -Fragment -PreContent "<h2>Machine accounts in privileged groups</h2>"
-		}
-	}
-	
-	################################################
-    ########### No preauthentication ###############
-	################################################
-    
-    Write-Host ""
-	Write-Host "Users without kerberos preauthentication set:" -ForegroundColor Cyan
-	if ($Domain -and $Server) {
-		$nopreauthsetUsers = Get-DomainUser -Domain $Domain -Server $Server -PreauthNotRequired
-		$Tempnopreauthset = foreach ($User in $nopreauthsetUsers) {
-			[PSCustomObject]@{
-				"User Name" = $User.samaccountname
-				"Enabled" = if ($User.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ($User.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if ($User.memberof -match 'Administrators') { "YES" } else { "NO" }
-				"DA" = if ($User.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-				"EA" = if ($User.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
-				"Last Logon" = $User.lastlogontimestamp
-				"SID" = $User.objectSID
-				"Domain" = $Domain
-			}
-		}
-
-		if ($Tempnopreauthset) {
-			$Tempnopreauthset | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
-			$HTMLnopreauthset = $Tempnopreauthset | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users without kerberos preauthentication set</h2>"
-		}
-	}
-	
-	else {
-		$Tempnopreauthset = foreach ($AllDomain in $AllDomains) {
-			$nopreauthsetUsers = Get-DomainUser -Domain $AllDomain -PreauthNotRequired
-			foreach ($User in $nopreauthsetUsers) {
-				[PSCustomObject]@{
-					"User Name" = $User.samaccountname
-					"Enabled" = if ($User.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($User.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-					"Adm" = if ($User.memberof -match 'Administrators') { "YES" } else { "NO" }
-					"DA" = if ($User.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-					"EA" = if ($User.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
-					"Last Logon" = $User.lastlogontimestamp
-					"SID" = $User.objectSID
-					"Domain" = $AllDomain
-				}
-			}
-		}
-
-		if ($Tempnopreauthset) {
-			$Tempnopreauthset | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
-			$HTMLnopreauthset = $Tempnopreauthset | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users without kerberos preauthentication set</h2>"
 		}
 	}
 	
@@ -4834,7 +4833,7 @@ function Invoke-ADEnum
     # Stop capturing the output and display it on the console
     Stop-Transcript | Out-Null
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLPreWin2kCompatibleAccess $HTMLLMCompatibilityLevel $HTMLMachineQuota $HTMLUnsupportedHosts $InterestingDataBanner $HTMLReplicationUsers $HTMLServiceAccounts $HTMLGMSAs $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLnopreauthset $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLKeywordDomainGPOs $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLLinkedDAAccounts $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLPreWin2kCompatibleAccess $HTMLLMCompatibilityLevel $HTMLMachineQuota $HTMLUnsupportedHosts $InterestingDataBanner $HTMLReplicationUsers $HTMLServiceAccounts $HTMLGMSAs $HTMLnopreauthset $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLKeywordDomainGPOs $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLLinkedDAAccounts $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs" -Title "Active Directory Audit" -Head $header
 	$HTMLOutputFilePath = $OutputFilePath.Replace(".txt", ".html")
 	$Report | Out-File $HTMLOutputFilePath
 	
