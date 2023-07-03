@@ -365,6 +365,14 @@ function Invoke-ADEnum
 				font-size: 12px;
 
 			}
+
+   			.YesStatus {
+				color: #ff0000;
+			}
+
+			.NoStatus {
+				color: #008000;
+			}
 			
 		</style>
 	"
