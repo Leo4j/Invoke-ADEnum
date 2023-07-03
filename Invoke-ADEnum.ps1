@@ -1646,12 +1646,6 @@ function Invoke-ADEnum
 			}
 			
 		}
-		
-		if ($TempPasswordSetUsers) {
-			$TempPasswordSetUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
-			$HTMLPasswordSetUsers = $TempPasswordSetUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Check if any user passwords are set</h2>"
-		}
-	
 	}
 	
 	else {
@@ -1680,12 +1674,14 @@ function Invoke-ADEnum
 			}
 			
 		}
-		
-		if ($TempPasswordSetUsers) {
-			$TempPasswordSetUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
-			$HTMLPasswordSetUsers = $TempPasswordSetUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Check if any user passwords are set</h2>"
+	}
+
+ 	if ($TempPasswordSetUsers) {
+		$TempPasswordSetUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+		$HTMLPasswordSetUsers = $TempPasswordSetUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Check if any user passwords are set</h2>"
+		$TempPasswordSetUsers."User Password" | ForEach-Object {
+			$HTMLPasswordSetUsers = $HTMLPasswordSetUsers -replace "<td>$_</td>","<td class=`"YesStatus`">$_</td>"
 		}
-		
 	}
 	
 	#################################################################################################
@@ -1856,11 +1852,6 @@ function Invoke-ADEnum
 					}
 				}
 			}
-
-		if ($TempLMCompatibilityLevel) {
-			$TempLMCompatibilityLevel | Where-Object {$_.Setting -le 2} | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
-			$HTMLLMCompatibilityLevel = $TempLMCompatibilityLevel | Where-Object {$_.Setting -le 2} | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>LM Compatibility Level</h2>"
-		}
 	} 
 	
 	else {
@@ -1889,11 +1880,17 @@ function Invoke-ADEnum
 				}
 			}
 		}
-		
-		if ($TempLMCompatibilityLevel) {
-			$TempLMCompatibilityLevel | Where-Object {$_.Setting -le 2} | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
-			$HTMLLMCompatibilityLevel = $TempLMCompatibilityLevel | Where-Object {$_.Setting -le 2} | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>LM Compatibility Level</h2>"
-		}
+	}
+
+ 	if ($TempLMCompatibilityLevel) {
+		$TempLMCompatibilityLevel | Where-Object {$_.Setting -le 2} | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
+		$HTMLLMCompatibilityLevel = $TempLMCompatibilityLevel | Where-Object {$_.Setting -le 2} | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>LM Compatibility Level</h2>"
+		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send NTLM response only</td>','<td class="YesStatus">Send NTLM response only</td>'
+		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>2</td>','<td class="YesStatus">2</td>'
+		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send LM & NTLM - use NTLMv2 session security if negotiated</td>','<td class="YesStatus">Send LM & NTLM - use NTLMv2 session security if negotiated</td>'
+		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>1</td>','<td class="YesStatus">1</td>'
+		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send LM & NTLM responses</td>','<td class="YesStatus">Send LM & NTLM responses</td>'
+		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>0</td>','<td class="YesStatus">0</td>'
 	}
 	
 	#################################################
@@ -1912,11 +1909,6 @@ function Invoke-ADEnum
 			'Domain' = $Domain
 			'Quota' = if ($Quota -eq $null) { "10" } else { $Quota }
 		}
-
-		if ($TempMachineQuota | Where-Object {$_.Quota -ge 1}) {
-			$TempMachineQuota | Sort-Object Domain | Format-Table -AutoSize
-			$HTMLMachineQuota = $TempMachineQuota | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2>Machine Account Quota</h2>"
-		}
 	}
 	else {
 		$TempMachineQuota = foreach ($AllDomain in $AllDomains) {
@@ -1929,10 +1921,13 @@ function Invoke-ADEnum
 				'Quota' = if ($Quota -eq $null) { "10" } else { $Quota }
 			}
 		}
+	}
 
-		if ($TempMachineQuota | Where-Object {$_.Quota -ge 1}) {
-			$TempMachineQuota | Sort-Object Domain | Format-Table -AutoSize
-			$HTMLMachineQuota = $TempMachineQuota | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2>Machine Account Quota</h2>"
+ 	if ($TempMachineQuota | Where-Object {$_.Quota -ge 1}) {
+		$TempMachineQuota | Sort-Object Domain | Format-Table -AutoSize
+		$HTMLMachineQuota = $TempMachineQuota | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2>Machine Account Quota</h2>"
+		$TempMachineQuota.Quota | ForEach-Object {
+			$HTMLMachineQuota = $HTMLMachineQuota -replace "<td>$_</td>","<td class=`"YesStatus`">$_</td>"
 		}
 	}
 	
