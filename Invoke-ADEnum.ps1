@@ -130,7 +130,11 @@ function Invoke-ADEnum
 		
 	[Parameter (Mandatory=$False, Position = 28, ValueFromPipeline=$true)]
         [Switch]
-        $Help
+        $Help,
+
+ 	[Parameter (Mandatory=$False, Position = 29, ValueFromPipeline=$true)]
+        [Switch]
+        $NoDelegation
 
     )
 	
@@ -266,6 +270,8 @@ function Invoke-ADEnum
  -NoAppLocker			Do not enumerate for AppLocker GPO
  
  -NoClear			Do not clear terminal before running
+
+ -NoDelegation			Do enumerate for Unconstrained, Constrained or Resource-Based Constrained Delegation
  
  -NoGPOs			Do not enumerate for GPOs and Who can Modify/Link them
  
@@ -1392,40 +1398,21 @@ function Invoke-ADEnum
 			}
 		}
 	}
-	
-	####################################################
-    ########### Unconstrained Delegation ###############
-	####################################################
-	
-	Write-Host ""
-	Write-Host "Unconstrained Delegation:" -ForegroundColor Cyan
-	if ($Domain -and $Server) {
-		$DCs = Get-DomainController -Domain $Domain -Server $Server
-		$Unconstrained = Get-NetComputer -Domain $Domain -Server $Server -Unconstrained | Where-Object { $DCs.Name -notcontains $_.dnshostname }
-		$TempUnconstrained = foreach ($Computer in $Unconstrained) {
-			[PSCustomObject]@{
-				"Name" = $Computer.samaccountname
-				"Enabled" = if ($Computer.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ($Computer.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-				"IP Address" = Resolve-DnsName -Name $Computer.name -Type A -Server $Server | Select-Object -ExpandProperty IPAddress
-				"Account SID" = $Computer.objectsid
-				"Operating System" = $Computer.operatingsystem
-				"Domain" = $Domain
-			}
-		}
 
-		if ($TempUnconstrained) {
-			$TempUnconstrained | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-			$HTMLUnconstrained = $TempUnconstrained | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Unconstrained Delegation</h2>"
-		}
-	}
+
+ 	if($NoDelegation){}
+  	else{
 	
-	else {
-		$TempUnconstrained = foreach ($AllDomain in $AllDomains) {
-			$Server = Get-DomainController -Domain $AllDomain | Where-Object {$_.Roles -like "RidRole"} | Select-Object -ExpandProperty Name
-			$DCs = Get-DomainController -Domain $AllDomain
-			$Unconstrained = Get-NetComputer -Domain $AllDomain -Unconstrained | Where-Object { $DCs.Name -notcontains $_.dnshostname }
-			foreach ($Computer in $Unconstrained) {
+		####################################################
+	    ########### Unconstrained Delegation ###############
+		####################################################
+		
+		Write-Host ""
+		Write-Host "Unconstrained Delegation:" -ForegroundColor Cyan
+		if ($Domain -and $Server) {
+			$DCs = Get-DomainController -Domain $Domain -Server $Server
+			$Unconstrained = Get-NetComputer -Domain $Domain -Server $Server -Unconstrained | Where-Object { $DCs.Name -notcontains $_.dnshostname }
+			$TempUnconstrained = foreach ($Computer in $Unconstrained) {
 				[PSCustomObject]@{
 					"Name" = $Computer.samaccountname
 					"Enabled" = if ($Computer.useraccountcontrol -band 2) { "False" } else { "True" }
@@ -1433,49 +1420,50 @@ function Invoke-ADEnum
 					"IP Address" = Resolve-DnsName -Name $Computer.name -Type A -Server $Server | Select-Object -ExpandProperty IPAddress
 					"Account SID" = $Computer.objectsid
 					"Operating System" = $Computer.operatingsystem
-					"Domain" = $AllDomain
+					"Domain" = $Domain
 				}
 			}
-		}
-
-		if ($TempUnconstrained) {
-			$TempUnconstrained | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-			$HTMLUnconstrained = $TempUnconstrained | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Unconstrained Delegation</h2>"
-		}
-	}
-
 	
-	#############################################################
-    ########### Constrained Delegation (Computers)###############
-	#############################################################
-
-    Write-Host ""
-	Write-Host "Constrained Delegation (Computers):" -ForegroundColor Cyan
-	if ($Domain -and $Server) {
-		$ConstrainedDelegationComputers = Get-DomainComputer -Domain $Domain -Server $Server -TrustedToAuth
-		$TempConstrainedDelegationComputers = foreach ($ConstrainedDelegationComputer in $ConstrainedDelegationComputers) {
-			[PSCustomObject]@{
-				"Name" = $ConstrainedDelegationComputer.samaccountname
-				"Enabled" = if ($ConstrainedDelegationComputer.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ($ConstrainedDelegationComputer.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-				"IP Address" = Resolve-DnsName -Name $ConstrainedDelegationComputer.name -Type A -Server $Server | Select-Object -ExpandProperty IPAddress
-				"Account SID" = $ConstrainedDelegationComputer.objectsid
-				"Operating System" = $ConstrainedDelegationComputer.operatingsystem
-				Domain = $Domain
-				"msds-AllowedToDelegateTo" = $ConstrainedDelegationComputer."msds-AllowedToDelegateTo" -join " - "
+			if ($TempUnconstrained) {
+				$TempUnconstrained | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+				$HTMLUnconstrained = $TempUnconstrained | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Unconstrained Delegation</h2>"
 			}
 		}
-
-		if ($TempConstrainedDelegationComputers) {
-			$TempConstrainedDelegationComputers | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-			$HTMLConstrainedDelegationComputers = $TempConstrainedDelegationComputers | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Constrained Delegation (Computers)</h2>"
+		
+		else {
+			$TempUnconstrained = foreach ($AllDomain in $AllDomains) {
+				$Server = Get-DomainController -Domain $AllDomain | Where-Object {$_.Roles -like "RidRole"} | Select-Object -ExpandProperty Name
+				$DCs = Get-DomainController -Domain $AllDomain
+				$Unconstrained = Get-NetComputer -Domain $AllDomain -Unconstrained | Where-Object { $DCs.Name -notcontains $_.dnshostname }
+				foreach ($Computer in $Unconstrained) {
+					[PSCustomObject]@{
+						"Name" = $Computer.samaccountname
+						"Enabled" = if ($Computer.useraccountcontrol -band 2) { "False" } else { "True" }
+						"Active" = if ($Computer.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
+						"IP Address" = Resolve-DnsName -Name $Computer.name -Type A -Server $Server | Select-Object -ExpandProperty IPAddress
+						"Account SID" = $Computer.objectsid
+						"Operating System" = $Computer.operatingsystem
+						"Domain" = $AllDomain
+					}
+				}
+			}
+	
+			if ($TempUnconstrained) {
+				$TempUnconstrained | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+				$HTMLUnconstrained = $TempUnconstrained | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Unconstrained Delegation</h2>"
+			}
 		}
-	}
-	else {
-		$TempConstrainedDelegationComputers = foreach ($AllDomain in $AllDomains) {
-			$Server = Get-DomainController -Domain $AllDomain | Where-Object {$_.Roles -like "RidRole"} | Select-Object -ExpandProperty Name
-			$ConstrainedDelegationComputers = Get-DomainComputer -Domain $AllDomain -TrustedToAuth
-			foreach ($ConstrainedDelegationComputer in $ConstrainedDelegationComputers) {
+	
+		
+		#############################################################
+	    ########### Constrained Delegation (Computers)###############
+		#############################################################
+	
+	    Write-Host ""
+		Write-Host "Constrained Delegation (Computers):" -ForegroundColor Cyan
+		if ($Domain -and $Server) {
+			$ConstrainedDelegationComputers = Get-DomainComputer -Domain $Domain -Server $Server -TrustedToAuth
+			$TempConstrainedDelegationComputers = foreach ($ConstrainedDelegationComputer in $ConstrainedDelegationComputers) {
 				[PSCustomObject]@{
 					"Name" = $ConstrainedDelegationComputer.samaccountname
 					"Enabled" = if ($ConstrainedDelegationComputer.useraccountcontrol -band 2) { "False" } else { "True" }
@@ -1483,51 +1471,50 @@ function Invoke-ADEnum
 					"IP Address" = Resolve-DnsName -Name $ConstrainedDelegationComputer.name -Type A -Server $Server | Select-Object -ExpandProperty IPAddress
 					"Account SID" = $ConstrainedDelegationComputer.objectsid
 					"Operating System" = $ConstrainedDelegationComputer.operatingsystem
-					Domain = $AllDomain
+					Domain = $Domain
 					"msds-AllowedToDelegateTo" = $ConstrainedDelegationComputer."msds-AllowedToDelegateTo" -join " - "
 				}
 			}
-		}
-
-		if ($TempConstrainedDelegationComputers) {
-			$TempConstrainedDelegationComputers | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-			$HTMLConstrainedDelegationComputers = $TempConstrainedDelegationComputers | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Constrained Delegation (Computers)</h2>"
-		}
-	}
-
 	
-	#########################################################
-    ########### Constrained Delegation (Users)###############
-	#########################################################
-
-    Write-Host ""
-	Write-Host "Constrained Delegation (Users):" -ForegroundColor Cyan
-	if ($Domain -and $Server) {
-		$ConstrainedDelegationUsers = Get-DomainUser -Domain $Domain -Server $Server -TrustedToAuth
-		$TempConstrainedDelegationUsers = foreach ($ConstrainedDelegationUser in $ConstrainedDelegationUsers) {
-			[PSCustomObject]@{
-				"Name" = $ConstrainedDelegationUser.Name
-				"Enabled" = if ($ConstrainedDelegationUser.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ($ConstrainedDelegationUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if ($ConstrainedDelegationUser.memberof -match 'Administrators') { "YES" } else { "NO" }
-				"DA" = if ($ConstrainedDelegationUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-				"EA" = if ($ConstrainedDelegationUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
-				"Last Logon" = $ConstrainedDelegationUser.lastlogontimestamp
-				"SID" = $ConstrainedDelegationUser.objectSID
-				Domain = $Domain
-				"msds-AllowedToDelegateTo" = $ConstrainedDelegationUser."msds-AllowedToDelegateTo" -join " - "
+			if ($TempConstrainedDelegationComputers) {
+				$TempConstrainedDelegationComputers | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+				$HTMLConstrainedDelegationComputers = $TempConstrainedDelegationComputers | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Constrained Delegation (Computers)</h2>"
 			}
 		}
-
-		if ($TempConstrainedDelegationUsers) {
-			$TempConstrainedDelegationUsers | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-			$HTMLConstrainedDelegationUsers = $TempConstrainedDelegationUsers | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Constrained Delegation (Users)</h2>"
+		else {
+			$TempConstrainedDelegationComputers = foreach ($AllDomain in $AllDomains) {
+				$Server = Get-DomainController -Domain $AllDomain | Where-Object {$_.Roles -like "RidRole"} | Select-Object -ExpandProperty Name
+				$ConstrainedDelegationComputers = Get-DomainComputer -Domain $AllDomain -TrustedToAuth
+				foreach ($ConstrainedDelegationComputer in $ConstrainedDelegationComputers) {
+					[PSCustomObject]@{
+						"Name" = $ConstrainedDelegationComputer.samaccountname
+						"Enabled" = if ($ConstrainedDelegationComputer.useraccountcontrol -band 2) { "False" } else { "True" }
+						"Active" = if ($ConstrainedDelegationComputer.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
+						"IP Address" = Resolve-DnsName -Name $ConstrainedDelegationComputer.name -Type A -Server $Server | Select-Object -ExpandProperty IPAddress
+						"Account SID" = $ConstrainedDelegationComputer.objectsid
+						"Operating System" = $ConstrainedDelegationComputer.operatingsystem
+						Domain = $AllDomain
+						"msds-AllowedToDelegateTo" = $ConstrainedDelegationComputer."msds-AllowedToDelegateTo" -join " - "
+					}
+				}
+			}
+	
+			if ($TempConstrainedDelegationComputers) {
+				$TempConstrainedDelegationComputers | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+				$HTMLConstrainedDelegationComputers = $TempConstrainedDelegationComputers | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Constrained Delegation (Computers)</h2>"
+			}
 		}
-	}
-	else {
-		$TempConstrainedDelegationUsers = foreach ($AllDomain in $AllDomains) {
-			$ConstrainedDelegationUsers = Get-DomainUser -Domain $AllDomain -TrustedToAuth
-			foreach ($ConstrainedDelegationUser in $ConstrainedDelegationUsers) {
+	
+		
+		#########################################################
+	    ########### Constrained Delegation (Users)###############
+		#########################################################
+	
+	    Write-Host ""
+		Write-Host "Constrained Delegation (Users):" -ForegroundColor Cyan
+		if ($Domain -and $Server) {
+			$ConstrainedDelegationUsers = Get-DomainUser -Domain $Domain -Server $Server -TrustedToAuth
+			$TempConstrainedDelegationUsers = foreach ($ConstrainedDelegationUser in $ConstrainedDelegationUsers) {
 				[PSCustomObject]@{
 					"Name" = $ConstrainedDelegationUser.Name
 					"Enabled" = if ($ConstrainedDelegationUser.useraccountcontrol -band 2) { "False" } else { "True" }
@@ -1537,85 +1524,109 @@ function Invoke-ADEnum
 					"EA" = if ($ConstrainedDelegationUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 					"Last Logon" = $ConstrainedDelegationUser.lastlogontimestamp
 					"SID" = $ConstrainedDelegationUser.objectSID
-					Domain = $AllDomain
+					Domain = $Domain
 					"msds-AllowedToDelegateTo" = $ConstrainedDelegationUser."msds-AllowedToDelegateTo" -join " - "
 				}
 			}
-		}
-
-		if ($TempConstrainedDelegationUsers) {
-			$TempConstrainedDelegationUsers | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-			$HTMLConstrainedDelegationUsers = $TempConstrainedDelegationUsers | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Constrained Delegation (Users)</h2>"
-		}
-	}
-
 	
-	###########################################################
-    ######## Resource Based Constrained Delegation ############
-	###########################################################
-    
-    Write-Host ""
-	Write-Host "Resource Based Constrained Delegation:" -ForegroundColor Cyan
-	if ($Domain -and $Server) {
-		$domainSID = Get-DomainSID $Domain -Server $Server
-
-		$sidPattern = "$domainSID-[\d]{4,10}"
-
-		$exclusionList = "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions"
-
-		$DomainComputers = Get-DomainComputer -Domain $Domain -Server $Server -Properties distinguishedname
-
-		$RBACDObjects = $DomainComputers | 
-			Get-DomainObjectAcl -Domain $Domain -Server $Server -ResolveGUIDs | 
-			Where-Object { 
-				$_.ActiveDirectoryRights -match "WriteProperty|GenericWrite|GenericAll|WriteDacl" -and 
-				$_.SecurityIdentifier -match $sidPattern -and 
-				$_.SecurityIdentifier.Translate([System.Security.Principal.NTAccount]) -notmatch $exclusionList 
-			} | 
-			ForEach-Object {
-				[PSCustomObject]@{
-					"Computer Object" = ([System.Security.Principal.SecurityIdentifier]$_.ObjectSID).Translate([System.Security.Principal.NTAccount])
-					"AD Rights" = $_.ActiveDirectoryRights
-					"Object Ace Type" = $_.ObjectAceType
-					"Account" = ([System.Security.Principal.SecurityIdentifier]$_.SecurityIdentifier).Translate([System.Security.Principal.NTAccount])
-					Domain = "$Domain"
+			if ($TempConstrainedDelegationUsers) {
+				$TempConstrainedDelegationUsers | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+				$HTMLConstrainedDelegationUsers = $TempConstrainedDelegationUsers | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Constrained Delegation (Users)</h2>"
+			}
+		}
+		else {
+			$TempConstrainedDelegationUsers = foreach ($AllDomain in $AllDomains) {
+				$ConstrainedDelegationUsers = Get-DomainUser -Domain $AllDomain -TrustedToAuth
+				foreach ($ConstrainedDelegationUser in $ConstrainedDelegationUsers) {
+					[PSCustomObject]@{
+						"Name" = $ConstrainedDelegationUser.Name
+						"Enabled" = if ($ConstrainedDelegationUser.useraccountcontrol -band 2) { "False" } else { "True" }
+						"Active" = if ($ConstrainedDelegationUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
+						"Adm" = if ($ConstrainedDelegationUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+						"DA" = if ($ConstrainedDelegationUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+						"EA" = if ($ConstrainedDelegationUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+						"Last Logon" = $ConstrainedDelegationUser.lastlogontimestamp
+						"SID" = $ConstrainedDelegationUser.objectSID
+						Domain = $AllDomain
+						"msds-AllowedToDelegateTo" = $ConstrainedDelegationUser."msds-AllowedToDelegateTo" -join " - "
+					}
 				}
 			}
-
-		if ($RBACDObjects) {
-			$RBACDObjects | Sort-Object Domain,"Computer Object" | Format-Table -AutoSize -Wrap
-			$HTMLRBACDObjects = $RBACDObjects | Sort-Object Domain,"Computer Object" | ConvertTo-Html -Fragment -PreContent "<h2>Resource Based Constrained Delegation</h2>"
+	
+			if ($TempConstrainedDelegationUsers) {
+				$TempConstrainedDelegationUsers | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+				$HTMLConstrainedDelegationUsers = $TempConstrainedDelegationUsers | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Constrained Delegation (Users)</h2>"
+			}
 		}
-	}
-	else {
-		$ExcludedAccounts = "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions"
-
-		$RBACDObjects = foreach ($AllDomain in $AllDomains) {
-			$domainSID = Get-DomainSID $AllDomain
-			$DomainComputers = Get-DomainComputer -Domain $AllDomain -Properties distinguishedname
-			
-			$DomainComputers | Get-DomainObjectAcl -ResolveGUIDs |
+	
+		
+		###########################################################
+	    ######## Resource Based Constrained Delegation ############
+		###########################################################
+	    
+	    Write-Host ""
+		Write-Host "Resource Based Constrained Delegation:" -ForegroundColor Cyan
+		if ($Domain -and $Server) {
+			$domainSID = Get-DomainSID $Domain -Server $Server
+	
+			$sidPattern = "$domainSID-[\d]{4,10}"
+	
+			$exclusionList = "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions"
+	
+			$DomainComputers = Get-DomainComputer -Domain $Domain -Server $Server -Properties distinguishedname
+	
+			$RBACDObjects = $DomainComputers | 
+				Get-DomainObjectAcl -Domain $Domain -Server $Server -ResolveGUIDs | 
 				Where-Object { 
 					$_.ActiveDirectoryRights -match "WriteProperty|GenericWrite|GenericAll|WriteDacl" -and 
-					$_.SecurityIdentifier -match "$domainSID-[\d]{4,10}" -and 
-					$_.SecurityIdentifier.Translate([System.Security.Principal.NTAccount]) -notmatch $ExcludedAccounts
-				} |
+					$_.SecurityIdentifier -match $sidPattern -and 
+					$_.SecurityIdentifier.Translate([System.Security.Principal.NTAccount]) -notmatch $exclusionList 
+				} | 
 				ForEach-Object {
 					[PSCustomObject]@{
 						"Computer Object" = ([System.Security.Principal.SecurityIdentifier]$_.ObjectSID).Translate([System.Security.Principal.NTAccount])
 						"AD Rights" = $_.ActiveDirectoryRights
 						"Object Ace Type" = $_.ObjectAceType
 						"Account" = ([System.Security.Principal.SecurityIdentifier]$_.SecurityIdentifier).Translate([System.Security.Principal.NTAccount])
-						Domain = $AllDomain
+						Domain = "$Domain"
 					}
 				}
+	
+			if ($RBACDObjects) {
+				$RBACDObjects | Sort-Object Domain,"Computer Object" | Format-Table -AutoSize -Wrap
+				$HTMLRBACDObjects = $RBACDObjects | Sort-Object Domain,"Computer Object" | ConvertTo-Html -Fragment -PreContent "<h2>Resource Based Constrained Delegation</h2>"
+			}
 		}
-
-		if ($RBACDObjects) {
-			$RBACDObjects | Sort-Object Domain,"Computer Object" | Format-Table -AutoSize -Wrap
-			$HTMLRBACDObjects = $RBACDObjects | Sort-Object Domain,"Computer Object" | ConvertTo-Html -Fragment -PreContent "<h2>Resource Based Constrained Delegation</h2>"
+		else {
+			$ExcludedAccounts = "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions"
+	
+			$RBACDObjects = foreach ($AllDomain in $AllDomains) {
+				$domainSID = Get-DomainSID $AllDomain
+				$DomainComputers = Get-DomainComputer -Domain $AllDomain -Properties distinguishedname
+				
+				$DomainComputers | Get-DomainObjectAcl -ResolveGUIDs |
+					Where-Object { 
+						$_.ActiveDirectoryRights -match "WriteProperty|GenericWrite|GenericAll|WriteDacl" -and 
+						$_.SecurityIdentifier -match "$domainSID-[\d]{4,10}" -and 
+						$_.SecurityIdentifier.Translate([System.Security.Principal.NTAccount]) -notmatch $ExcludedAccounts
+					} |
+					ForEach-Object {
+						[PSCustomObject]@{
+							"Computer Object" = ([System.Security.Principal.SecurityIdentifier]$_.ObjectSID).Translate([System.Security.Principal.NTAccount])
+							"AD Rights" = $_.ActiveDirectoryRights
+							"Object Ace Type" = $_.ObjectAceType
+							"Account" = ([System.Security.Principal.SecurityIdentifier]$_.SecurityIdentifier).Translate([System.Security.Principal.NTAccount])
+							Domain = $AllDomain
+						}
+					}
+			}
+	
+			if ($RBACDObjects) {
+				$RBACDObjects | Sort-Object Domain,"Computer Object" | Format-Table -AutoSize -Wrap
+				$HTMLRBACDObjects = $RBACDObjects | Sort-Object Domain,"Computer Object" | ConvertTo-Html -Fragment -PreContent "<h2>Resource Based Constrained Delegation</h2>"
+			}
 		}
-	}
+  	}
 	
 	###############################################################
     ########### Check if any user passwords are set ###############
