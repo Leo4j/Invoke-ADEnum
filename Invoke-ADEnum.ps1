@@ -508,8 +508,8 @@ function Invoke-ADEnum
 		$TempTargetDomains = [PSCustomObject]@{
 				Domain = $TargetDomain.Name
 				"NetBIOS Name" = ([ADSI]"LDAP://$Domain").dc -Join " - "
-    				"Functional Level" = $domainFunctionalLevelName
 				"Domain SID" = Get-DomainSID -Domain $TargetDomain.Name
+    				"Functional Level" = $domainFunctionalLevelName
 				Forest = $TargetDomain.Forest
 				Parent = $TargetDomain.Parent
 				Children = $TargetDomain.Children -join ' - '
@@ -527,8 +527,8 @@ function Invoke-ADEnum
 			[PSCustomObject]@{
 				Domain = $TargetDomain.Name
 				"NetBIOS Name" = ([ADSI]"LDAP://$AllDomain").dc -Join " - "
-    				"Functional Level" = $domainFunctionalLevelName
 				"Domain SID" = Get-DomainSID -Domain $TargetDomain.Name
+    				"Functional Level" = $domainFunctionalLevelName
 				Forest = $TargetDomain.Forest
 				Parent = $TargetDomain.Parent
 				Children = $TargetDomain.Children -join ' - '
