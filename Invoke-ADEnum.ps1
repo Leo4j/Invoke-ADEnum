@@ -5620,25 +5620,25 @@ function Invoke-ADEnum
 		Write-Host ""
 		Write-Host "All Descriptions:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$AllDescriptions = Get-DomainObject -Properties description,name -Domain $Domain -Server $Server | Where-Object {$_.description -ne $null}
-			$TempAllDescriptions = foreach($AllDescription in $AllDescriptions){
+			$Descriptions = Get-DomainObject -Properties description,name -Domain $Domain -Server $Server | Where-Object {$_.description -ne $null}
+			$TempAllDescriptions = foreach($Description in $Descriptions){
 	
 				[PSCustomObject]@{
-					"Domain Object" = $AllDescription.name
+					"Domain Object" = $Description.name
 					"Domain" = $Domain
-					"Description" = $AllDescription.description
+					"Description" = $Description.description
 				}
 			}
 		}
 		else {
 			$TempAllDescriptions = foreach ($AllDomain in $AllDomains) {
-				$AllDescriptions = Get-DomainObject -Properties description,name -Domain $AllDomain | Where-Object {$_.description -ne $null}
-				foreach($AllDescription in $AllDescriptions){
+				$Descriptions = Get-DomainObject -Properties description,name -Domain $AllDomain | Where-Object {$_.description -ne $null}
+				foreach($Description in $Descriptions){
 	
 					[PSCustomObject]@{
-						"Domain Object" = $AllDescription.name
+						"Domain Object" = $Description.name
 						"Domain" = $AllDomain
-						"Description" = $AllDescription.description
+						"Description" = $Description.description
 					}
 				}
 			}
