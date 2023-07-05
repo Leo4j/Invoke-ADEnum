@@ -534,7 +534,7 @@ function Invoke-ADEnum
 					}
 		    	}
 				if($TempHTMLdc){
-					$TempHTMLdc | Sort-Object Domain,"DC Name" | ft -Autosize -Wrap
+					$TempHTMLdc | Sort-Object Forest,Domain,"DC Name" | ft -Autosize -Wrap
 				}
 		    }
 		    else{
@@ -554,7 +554,7 @@ function Invoke-ADEnum
 		        	}
 				}
 				if($TempHTMLdc ){
-					$TempHTMLdc | Sort-Object Domain,"DC Name" | ft -Autosize -Wrap
+					$TempHTMLdc | Sort-Object Forest,Domain,"DC Name" | ft -Autosize -Wrap
 				}
 		    }
 		
@@ -613,10 +613,15 @@ function Invoke-ADEnum
     Write-Host "Krbtgt Accounts" -ForegroundColor Cyan
     if($Domain -AND $Server) {
 		$KrbtgtAccount = Get-DomainObject -Identity krbtgt -Domain $Domain
-        $KrbtgtAccount | Select-Object @{Name = 'Account'; Expression = {$_.samaccountname}}, @{Name = 'Service Principal Name'; Expression = {$_.serviceprincipalname}}, @{Name = 'SID'; Expression = {$_.objectsid}}, @{Name = 'Last Krbtgt Change'; Expression = {$_.whencreated}} | ft -Autosize -Wrap
-		if($KrbtgtAccount){
-			$HTMLKrbtgtAccount = $KrbtgtAccount | Select-Object @{Name = 'Account'; Expression = {$_.samaccountname}}, @{Name = 'Account SID'; Expression = {$_.objectsid}}, @{Name = 'When Created'; Expression = {$_.whencreated}}, @{Name = 'When Changed'; Expression = {$_.whenchanged}}, @{Name = 'Service Principal Name'; Expression = {$_.serviceprincipalname}}, @{Name = 'Domain'; Expression = {$Domain}} | ConvertTo-Html -Fragment -PreContent "<h2>Krbtgt Accounts</h2>"
-		}
+
+		$TempKrbtgtAccount = [PSCustomObject]@{
+				Account = $KrbtgtAccount.samaccountname
+				"Account SID"  = $KrbtgtAccount.objectsid
+				"When Created" = $KrbtgtAccount.whencreated
+				"When Changed" = $KrbtgtAccount.whenchanged
+				"Service Principal Name" = $KrbtgtAccount.serviceprincipalname
+				Domain = $Domain
+			}
     }
     else{
 		$TempKrbtgtAccount = foreach($AllDomain in $AllDomains){
@@ -631,11 +636,12 @@ function Invoke-ADEnum
 				Domain = $AllDomain
 			}
 		}
-		if($TempKrbtgtAccount){
-			$TempKrbtgtAccount | Sort-Object Domain | ft -Autosize -Wrap
-			$HTMLKrbtgtAccount = $TempKrbtgtAccount | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2>Krbtgt Accounts</h2>"
-		}
     }
+
+    if($TempKrbtgtAccount){
+		$TempKrbtgtAccount | Sort-Object Domain | ft -Autosize -Wrap
+		$HTMLKrbtgtAccount = $TempKrbtgtAccount | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2>Krbtgt Accounts</h2>"
+	}
 	
 	#############################################
     ########## Domain Controllers ###############
@@ -659,8 +665,8 @@ function Invoke-ADEnum
 			}
     	}
 		if($TempHTMLdc){
-			$TempHTMLdc | Sort-Object Domain,"DC Name" | ft -Autosize -Wrap
-			$HTMLdc = $TempHTMLdc | Sort-Object Domain,"DC Name" | ConvertTo-Html -Fragment -PreContent "<h2>Domain Controllers</h2>"
+			$TempHTMLdc | Sort-Object Forest,Domain,"DC Name" | ft -Autosize -Wrap
+			$HTMLdc = $TempHTMLdc | Sort-Object Forest,Domain,"DC Name" | ConvertTo-Html -Fragment -PreContent "<h2>Domain Controllers</h2>"
 		}
     }
     else{
@@ -680,8 +686,8 @@ function Invoke-ADEnum
         	}
 		}
 		if($TempHTMLdc ){
-			$TempHTMLdc | Sort-Object Domain,"DC Name" | ft -Autosize -Wrap
-			$HTMLdc = $TempHTMLdc | Sort-Object Domain,"DC Name" | ConvertTo-Html -Fragment -PreContent "<h2>Domain Controllers</h2>"
+			$TempHTMLdc | Sort-Object Forest,Domain,"DC Name" | ft -Autosize -Wrap
+			$HTMLdc = $TempHTMLdc | Sort-Object Forest,Domain,"DC Name" | ConvertTo-Html -Fragment -PreContent "<h2>Domain Controllers</h2>"
 		}
     }
 	
@@ -708,8 +714,8 @@ function Invoke-ADEnum
 	}
 
 	if ($TempForestDomain) {
-		$TempForestDomain | Format-Table -AutoSize -Wrap
-		$HTMLForestDomain = $TempForestDomain | ConvertTo-Html -Fragment -PreContent "<h2>Domains for the current forest</h2>"
+		$TempForestDomain | Sort-Object Domain | Format-Table -AutoSize -Wrap
+		$HTMLForestDomain = $TempForestDomain | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2>Domains for the current forest</h2>"
 	}
 
     #############################################
@@ -730,8 +736,8 @@ function Invoke-ADEnum
 	}
 
 	if ($TempForestGlobalCatalog) {
-		$TempForestGlobalCatalog | Format-Table -AutoSize -Wrap
-		$HTMLForestGlobalCatalog = $TempForestGlobalCatalog | ConvertTo-Html -Fragment -PreContent "<h2>Forest Global Catalog</h2>"
+		$TempForestGlobalCatalog | Sort-Object Forest,Domain,"DC Name" | Format-Table -AutoSize -Wrap
+		$HTMLForestGlobalCatalog = $TempForestGlobalCatalog | Sort-Object Forest,Domain,"DC Name" | ConvertTo-Html -Fragment -PreContent "<h2>Forest Global Catalog</h2>"
 	}
 
 
