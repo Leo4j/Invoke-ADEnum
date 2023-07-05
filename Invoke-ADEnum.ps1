@@ -483,14 +483,32 @@ function Invoke-ADEnum
     ############# Target Domains ################
 	#############################################
 	
-	Write-Host ""
+    Write-Host ""
     Write-Host ""
     Write-Host "Target Domains:" -ForegroundColor Cyan
+
+    $functionalLevelMapping = @{
+	    0 = 'Windows 2000 Native'
+	    1 = 'Windows Server 2003 Interim'
+	    2 = 'Windows Server 2003'
+	    3 = 'Windows Server 2008'
+	    4 = 'Windows Server 2008 R2'
+	    5 = 'Windows Server 2012'
+	    6 = 'Windows Server 2012 R2'
+	    7 = 'Windows Server 2016'
+	    8 = 'Windows Server 2019'
+	}
+    
     if ($Domain -and $Server) {
 		$TargetDomain = Get-NetDomain -Domain $Domain
+  		$domainRootDSE = [ADSI]("LDAP://" + $TargetDomain + "/RootDSE")
+		$domainFunctionalLevel = $domainRootDSE.Get("domainFunctionality")
+  		$domainFunctionalLevelName = $functionalLevelMapping[[int]$domainFunctionalLevel]
+    
 		$TempTargetDomains = [PSCustomObject]@{
 				Domain = $TargetDomain.Name
 				"NetBIOS Name" = ([ADSI]"LDAP://$Domain").dc -Join " - "
+    				"Functional Level" = $domainFunctionalLevelName
 				"Domain SID" = Get-DomainSID -Domain $TargetDomain.Name
 				Forest = $TargetDomain.Forest
 				Parent = $TargetDomain.Parent
@@ -502,10 +520,14 @@ function Invoke-ADEnum
     else{
 		$TempTargetDomains = foreach($AllDomain in $AllDomains){
 			$TargetDomain = Get-NetDomain -Domain $AllDomain
+   			$domainRootDSE = [ADSI]("LDAP://" + $TargetDomain + "/RootDSE")
+      			$domainFunctionalLevel = $domainRootDSE.Get("domainFunctionality")
+	 		$domainFunctionalLevelName = $functionalLevelMapping[[int]$domainFunctionalLevel]
 			
 			[PSCustomObject]@{
 				Domain = $TargetDomain.Name
 				"NetBIOS Name" = ([ADSI]"LDAP://$AllDomain").dc -Join " - "
+    				"Functional Level" = $domainFunctionalLevelName
 				"Domain SID" = Get-DomainSID -Domain $TargetDomain.Name
 				Forest = $TargetDomain.Forest
 				Parent = $TargetDomain.Parent
