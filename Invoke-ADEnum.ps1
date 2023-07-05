@@ -1890,7 +1890,8 @@ function Invoke-ADEnum
 
 
 	}
-	
+
+ 	<#
 	############################################################
     ############# Current User Group Membership ################
 	############################################################
@@ -1933,6 +1934,8 @@ function Invoke-ADEnum
 			$HTMLGetCurrUserGroup = $TempGetCurrUserGroup | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Groups the current user is part of</h2>"
 		}
     }
+
+    #>
 	
 	$MisconfigurationsBanner = "<h3>Configuration Flaws with Potential for Exploitation</h3>"
 	Write-Host ""
