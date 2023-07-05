@@ -529,6 +529,7 @@ function Invoke-ADEnum
 						Forest = $dc.Forest
 						Domain = $dc.Domain
 						"IP Address" = $dc.IPAddress
+      						"OS Version" = $dc.OSVersion
 						"Primary DC" = $primaryDC
 					}
 		    	}
@@ -547,6 +548,7 @@ function Invoke-ADEnum
 							Forest = $dc.Forest
 							Domain = $dc.Domain
 							"IP Address" = $dc.IPAddress
+       							"OS Version" = $dc.OSVersion
 							"Primary DC" = $primaryDC
 						}
 		        	}
@@ -652,6 +654,7 @@ function Invoke-ADEnum
 				Forest = $dc.Forest
 				Domain = $dc.Domain
 				"IP Address" = $dc.IPAddress
+    				"OS Version" = $dc.OSVersion
 				"Primary DC" = $primaryDC
 			}
     	}
@@ -671,6 +674,7 @@ function Invoke-ADEnum
 					Forest = $dc.Forest
 					Domain = $dc.Domain
 					"IP Address" = $dc.IPAddress
+     					"OS Version" = $dc.OSVersion
 					"Primary DC" = $primaryDC
 				}
         	}
