@@ -480,19 +480,14 @@ function Invoke-ADEnum
 			[PSCustomObject]@{
 				"Domain" = $TDomain.Name
 				"NetBIOS Name" = ([ADSI]"LDAP://$TDomain").dc -Join " - "
-				"DomainSID" = (Get-DomainSID -Domain $TDomain.Name)
+				"Domain SID" = (Get-DomainSID -Domain $TDomain.Name)
 				"Forest" = $TDomain.Forest
 				"Parent" = $TDomain.Parent
 				"Children" = ($TDomain.Children -join ', ')
 				#"Domain Controllers" = ($TDomain.DomainControllers -join ', ')
 			}
 		}
-
-		if ($TempTargetDomain) {
-			$TempTargetDomain | Sort-Object Forest,Parent,Domain | Format-Table -AutoSize -Wrap
-			$HTMLTargetDomain = $TempTargetDomain | Sort-Object Forest,Parent,Domain | ConvertTo-Html -Fragment -PreContent "<h2>Target Domains</h2>"
-		}
-	}
+    }
 	
     else{
 		$TempTargetDomains = foreach($AllDomain in $AllDomains){
@@ -508,10 +503,11 @@ function Invoke-ADEnum
 				#"Domain Controllers" = $TargetDomain.DomainControllers -join ' - '
 			}
 		}
-		if($TempTargetDomains){
-			$TempTargetDomains | Sort-Object Forest,Parent,Domain | ft -Autosize -Wrap
-			$HTMLTargetDomain = $TempTargetDomains | Sort-Object Forest,Parent,Domain | ConvertTo-Html -Fragment -PreContent "<h2>Target Domains</h2>"
-		}
+    }
+
+    if($TempTargetDomains){
+		$TempTargetDomains | Sort-Object Forest,Parent,Domain | ft -Autosize -Wrap
+		$HTMLTargetDomain = $TempTargetDomains | Sort-Object Forest,Parent,Domain | ConvertTo-Html -Fragment -PreContent "<h2>Target Domains</h2>"
     }
 	
 	if($TargetsOnly){
@@ -964,28 +960,25 @@ function Invoke-ADEnum
 		$BuiltInAdministrators = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Administrators" -Recurse | Sort-Object -Unique -Property MemberName
 		$TempBuiltInAdministrators = foreach($BuiltInAdministrator in $BuiltInAdministrators){
 			
-			$domainObject = if ($BuiltInAdministrator.MemberName) { Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $Domain -Server $Server } else { $null }
-
-			$lastLogonTimestamp = $domainObject.lastlogontimestamp
-			$isActive = if ($lastLogonTimestamp -ge $inactiveThreshold) { "True" } elseif ($lastLogonTimestamp -eq $null) { "" } else { "False" }
+			$domainObject = Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $Domain -Server $Server
+			$memberName = if ($BuiltInAdministrator.MemberName) { $BuiltInAdministrator.MemberName } else { ConvertFrom-SID $BuiltInAdministrator.MemberSID }
+			$isEnabled = if ($BuiltInAdministrator.useraccountcontrol -band 2) { "False" } else { "True" }
+			$lastLogon = $domainObject.lastlogontimestamp
+   			$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
 
 			[PSCustomObject]@{
-				"Member Name" = if ($BuiltInAdministrator.MemberName) { $BuiltInAdministrator.MemberName } else { ConvertFrom-SID $BuiltInAdministrator.MemberSID }
-				"Enabled" = if ($BuiltInAdministrator.useraccountcontrol -band 2) { "False" } else { "True" }
+				"Member Name" = $memberName
+				"Enabled" = $isEnabled
 				"Active" = $isActive
-				"Last Logon" = $lastLogonTimestamp
+				"Last Logon" = $lastLogon
 				"Member SID" = $BuiltInAdministrator.MemberSID
 				"Group Domain" = $BuiltInAdministrator.GroupDomain
 				"Description" = $domainObject.description
 			}
 
 		}
-
-		if ($TempBuiltInAdministrators) {
-			$TempBuiltInAdministrators  | Sort-Object "Group Domain","Member Name" | ft -Autosize -Wrap
-			$HTMLEnterpriseAdmins = $TempBuiltInAdministrators | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Built-In Administrators</h2>"
-		}
 	}
+ 
 	else {
 		$TempBuiltInAdministrators = foreach ($AllDomain in $AllDomains) {
 			$BuiltInAdministrators = Get-DomainGroupMember -Domain $AllDomain -Identity "Administrators" -Recurse | Sort-Object -Unique -Property MemberName
@@ -1010,11 +1003,11 @@ function Invoke-ADEnum
 
 			}
 		}
-		
-		if ($TempBuiltInAdministrators) {
-			$TempBuiltInAdministrators | Sort-Object "Group Domain","Member Name" | ft -Autosize -Wrap
-			$HTMLBuiltInAdministrators = $TempBuiltInAdministrators | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Built-In Administrators</h2>"
-		}
+	}
+
+ 	if ($TempBuiltInAdministrators) {
+		$TempBuiltInAdministrators | Sort-Object "Group Domain","Member Name" | ft -Autosize -Wrap
+		$HTMLBuiltInAdministrators = $TempBuiltInAdministrators | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Built-In Administrators</h2>"
 	}
 	
 	######################################################
