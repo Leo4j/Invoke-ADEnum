@@ -1411,7 +1411,7 @@ function Invoke-ADEnum
 		Write-Host ""
 		Write-Host "Unconstrained Delegation:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$DCs = Get-DomainController -Domain $Domain -Server $Server
+			$DCs = Get-DomainController -Domain $Domain
 			$Unconstrained = Get-NetComputer -Domain $Domain -Server $Server -Unconstrained | Where-Object { $DCs.Name -notcontains $_.dnshostname }
 			$TempUnconstrained = foreach ($Computer in $Unconstrained) {
 				[PSCustomObject]@{
