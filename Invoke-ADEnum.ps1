@@ -476,17 +476,15 @@ function Invoke-ADEnum
     Write-Host "Target Domains:" -ForegroundColor Cyan
     if ($Domain -and $Server) {
 		$TargetDomain = Get-NetDomain -Domain $Domain
-		$TempTargetDomain = foreach ($TDomain in $TargetDomain) {
-			[PSCustomObject]@{
-				"Domain" = $TDomain.Name
-				"NetBIOS Name" = ([ADSI]"LDAP://$TDomain").dc -Join " - "
-				"Domain SID" = (Get-DomainSID -Domain $TDomain.Name)
-				"Forest" = $TDomain.Forest
-				"Parent" = $TDomain.Parent
-				"Children" = ($TDomain.Children -join ', ')
-				#"Domain Controllers" = ($TDomain.DomainControllers -join ', ')
+		$TempTargetDomains = [PSCustomObject]@{
+				Domain = $TargetDomain.Name
+				"NetBIOS Name" = ([ADSI]"LDAP://$Domain").dc -Join " - "
+				"Domain SID" = Get-DomainSID -Domain $TargetDomain.Name
+				Forest = $TargetDomain.Forest
+				Parent = $TargetDomain.Parent
+				Children = $TargetDomain.Children -join ' - '
+				#"Domain Controllers" = $TargetDomain.DomainControllers -join ' - '
 			}
-		}
     }
 	
     else{
@@ -496,7 +494,7 @@ function Invoke-ADEnum
 			[PSCustomObject]@{
 				Domain = $TargetDomain.Name
 				"NetBIOS Name" = ([ADSI]"LDAP://$AllDomain").dc -Join " - "
-				"Domain SID"  = Get-DomainSID -Domain $TargetDomain.Name
+				"Domain SID" = Get-DomainSID -Domain $TargetDomain.Name
 				Forest = $TargetDomain.Forest
 				Parent = $TargetDomain.Parent
 				Children = $TargetDomain.Children -join ' - '
