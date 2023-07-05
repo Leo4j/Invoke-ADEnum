@@ -134,7 +134,11 @@ function Invoke-ADEnum
 
  	[Parameter (Mandatory=$False, Position = 29, ValueFromPipeline=$true)]
         [Switch]
-        $NoDelegation
+        $NoDelegation,
+
+ 	[Parameter (Mandatory=$False, Position = 30, ValueFromPipeline=$true)]
+        [Switch]
+        $SecurityGroups
 
     )
 	
@@ -282,6 +286,8 @@ function Invoke-ADEnum
  -NoUnsupportedOS		Do not enumerate for machines running unsupported OS
  
  -NoVulnCertTemplates		Do not enumerate for Misconfigured Certificate Templates
+
+ -SecurityGroups		Enumerate for Security Groups (e.g.: Account Operators, Server Operators, and more...)
  
  -Shares			Enumerate for Shares
  
@@ -1124,6 +1130,765 @@ function Invoke-ADEnum
 			$TempDomainAdmins | Sort-Object "Group Domain","Member Name" | ft -Autosize -Wrap
 			$HTMLDomainAdmins = $TempDomainAdmins | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Domain Administrators</h2>"
 		}
+	}
+
+ 	if($SecurityGroups -OR $AllEnum){
+		
+		#################################################### 
+		########### Account Operators ################
+		####################################################
+
+		Write-Host ""
+		Write-Host "Account Operators:" -ForegroundColor Cyan
+		if ($Domain -and $Server) {
+			$AccountOperators = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Account Operators" -Recurse | Sort-Object -Unique -Property MemberName
+			$TempAccountOperators = foreach($AccountOperator in $AccountOperators){
+				
+				$domainObject = Get-DomainObject -Identity $AccountOperator.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description,memberof
+				$memberName = if ($AccountOperator.MemberName) { $AccountOperator.MemberName } else { ConvertFrom-SID $AccountOperator.MemberSID }
+				$isEnabled = if ($AccountOperator.useraccountcontrol -band 2) { "False" } else { "True" }
+				$lastLogon = $domainObject.lastlogontimestamp
+				$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
+
+				[PSCustomObject]@{
+					"Member Name" = $memberName
+					"Enabled" = $isEnabled
+					"Active" = $isActive
+					"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+					"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+					"Last Logon" = $lastLogon
+					"Member SID" = $AccountOperator.MemberSID
+					"Group Domain" = $AccountOperator.GroupDomain
+					"Description" = $domainObject.description
+				}
+			}
+		}
+		else {
+			$TempAccountOperators = foreach ($AllDomain in $AllDomains) {
+				$AccountOperators = Get-DomainGroupMember -Domain $AllDomain -Identity "Account Operators" -Recurse | Sort-Object -Unique -Property MemberName
+				foreach($AccountOperator in $AccountOperators){
+					
+					$domainObject = Get-DomainObject -Identity $AccountOperator.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description,memberof
+					$memberName = if ($AccountOperator.MemberName) { $AccountOperator.MemberName } else { ConvertFrom-SID $AccountOperator.MemberSID }
+					$isEnabled = if ($AccountOperator.useraccountcontrol -band 2) { "False" } else { "True" }
+					$lastLogon = $domainObject.lastlogontimestamp
+					$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
+
+					[PSCustomObject]@{
+						"Member Name" = $memberName
+						"Enabled" = $isEnabled
+						"Active" = $isActive
+						"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+						"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+						"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+						"Last Logon" = $lastLogon
+						"Member SID" = $AccountOperator.MemberSID
+						"Group Domain" = $AccountOperator.GroupDomain
+						"Description" = $domainObject.description
+					}
+				}
+			}
+		}
+
+		if ($TempAccountOperators) {
+			$TempAccountOperators | Sort-Object "Group Domain","Member Name" | Format-Table -Autosize -Wrap
+			$HTMLAccountOperators = $TempAccountOperators | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Account Operators</h2>"
+		}
+		
+		#################################################### 
+		########### Backup Operators ################
+		####################################################
+		
+		Write-Host ""
+		Write-Host "Backup Operators:" -ForegroundColor Cyan
+		if ($Domain -and $Server) {
+			$BackupOperators = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Backup Operators" -Recurse | Sort-Object -Unique -Property MemberName
+			$TempBackupOperators = foreach($BackupOperator in $BackupOperators){
+				
+				$domainObject = Get-DomainObject -Identity $BackupOperator.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description,memberof
+				$memberName = if ($BackupOperator.MemberName) { $BackupOperator.MemberName } else { ConvertFrom-SID $BackupOperator.MemberSID }
+				$isEnabled = if ($BackupOperator.useraccountcontrol -band 2) { "False" } else { "True" }
+				$lastLogon = $domainObject.lastlogontimestamp
+				$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
+
+				[PSCustomObject]@{
+					"Member Name" = $memberName
+					"Enabled" = $isEnabled
+					"Active" = $isActive
+					"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+					"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+					"Last Logon" = $lastLogon
+					"Member SID" = $BackupOperator.MemberSID
+					"Group Domain" = $BackupOperator.GroupDomain
+					"Description" = $domainObject.description
+				}
+			}
+		}
+		else {
+			$TempBackupOperators = foreach ($AllDomain in $AllDomains) {
+				$BackupOperators = Get-DomainGroupMember -Domain $AllDomain -Identity "Backup Operators" -Recurse | Sort-Object -Unique -Property MemberName
+				foreach($BackupOperator in $BackupOperators){
+					
+					$domainObject = Get-DomainObject -Identity $BackupOperator.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description,memberof
+					$memberName = if ($BackupOperator.MemberName) { $BackupOperator.MemberName } else { ConvertFrom-SID $BackupOperator.MemberSID }
+					$isEnabled = if ($BackupOperator.useraccountcontrol -band 2) { "False" } else { "True" }
+					$lastLogon = $domainObject.lastlogontimestamp
+
+					$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
+
+					[PSCustomObject]@{
+						"Member Name" = $memberName
+						"Enabled" = $isEnabled
+						"Active" = $isActive
+						"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+						"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+						"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+						"Last Logon" = $lastLogon
+						"Member SID" = $BackupOperator.MemberSID
+						"Group Domain" = $BackupOperator.GroupDomain
+						"Description" = $domainObject.description
+					}
+				}
+			}
+		}
+
+		if ($TempBackupOperators) {
+			$TempBackupOperators | Sort-Object "Group Domain","Member Name" | Format-Table -Autosize -Wrap
+			$HTMLBackupOperators = $TempBackupOperators | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Backup Operators</h2>"
+		}
+		
+		#################################################### 
+		########### Cert Publishers ################
+		####################################################
+		
+		Write-Host ""
+		Write-Host "Cert Publishers:" -ForegroundColor Cyan
+		if ($Domain -and $Server) {
+			$CertPublishers = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Cert Publishers" -Recurse | Sort-Object -Unique -Property MemberName
+			$TempCertPublishers = foreach($CertPublisher in $CertPublishers){
+				
+				$domainObject = Get-DomainObject -Identity $CertPublisher.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description,memberof
+				$memberName = if ($CertPublisher.MemberName) { $CertPublisher.MemberName } else { ConvertFrom-SID $CertPublisher.MemberSID }
+				$isEnabled = if ($CertPublisher.useraccountcontrol -band 2) { "False" } else { "True" }
+				$lastLogon = $domainObject.lastlogontimestamp
+				$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
+
+				[PSCustomObject]@{
+					"Member Name" = $memberName
+					"Enabled" = $isEnabled
+					"Active" = $isActive
+					"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+					"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+					"Last Logon" = $lastLogon
+					"Member SID" = $CertPublisher.MemberSID
+					"Group Domain" = $CertPublisher.GroupDomain
+					"Description" = $domainObject.description
+				}
+			}
+		}
+		else {
+			$TempCertPublishers = foreach ($AllDomain in $AllDomains) {
+				$CertPublishers = Get-DomainGroupMember -Domain $AllDomain -Identity "Cert Publishers" -Recurse | Sort-Object -Unique -Property MemberName
+				foreach($CertPublisher in $CertPublishers){
+					
+					$domainObject = Get-DomainObject -Identity $CertPublisher.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description,memberof
+					$memberName = if ($CertPublisher.MemberName) { $CertPublisher.MemberName } else { ConvertFrom-SID $CertPublisher.MemberSID }
+					$isEnabled = if ($CertPublisher.useraccountcontrol -band 2) { "False" } else { "True" }
+					$lastLogon = $domainObject.lastlogontimestamp
+					$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
+
+					[PSCustomObject]@{
+						"Member Name" = $memberName
+						"Enabled" = $isEnabled
+						"Active" = $isActive
+						"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+						"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+						"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+						"Last Logon" = $lastLogon
+						"Member SID" = $CertPublisher.MemberSID
+						"Group Domain" = $CertPublisher.GroupDomain
+						"Description" = $domainObject.description
+					}
+				}
+			}
+		}
+
+		if ($TempCertPublishers) {
+			$TempCertPublishers | Sort-Object "Group Domain","Member Name" | Format-Table -Autosize -Wrap
+			$HTMLCertPublishers = $TempCertPublishers | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Cert Publishers</h2>"
+		}
+		
+		#################################################### 
+		########### DNS Admins ################
+		####################################################
+		
+		Write-Host ""
+		Write-Host "DNS Admins:" -ForegroundColor Cyan
+		if ($Domain -and $Server) {
+			$DNSAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "DNSAdmins" -Recurse | Sort-Object -Unique -Property MemberName
+			$TempDNSAdmins = foreach($DNSAdmin in $DNSAdmins){
+				
+				$domainObject = Get-DomainObject -Identity $DNSAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description,memberof
+				$memberName = if ($DNSAdmin.MemberName) { $DNSAdmin.MemberName } else { ConvertFrom-SID $DNSAdmin.MemberSID }
+				$isEnabled = if ($DNSAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
+				$lastLogon = $domainObject.lastlogontimestamp
+				$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
+
+				[PSCustomObject]@{
+					"Member Name" = $memberName
+					"Enabled" = $isEnabled
+					"Active" = $isActive
+					"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+					"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+					"Last Logon" = $lastLogon
+					"Member SID" = $DNSAdmin.MemberSID
+					"Group Domain" = $DNSAdmin.GroupDomain
+					"Description" = $domainObject.description
+				}
+			}
+		}
+		else {
+			$TempDNSAdmins = foreach ($AllDomain in $AllDomains) {
+				$DNSAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "DNSAdmins" -Recurse | Sort-Object -Unique -Property MemberName
+				foreach($DNSAdmin in $DNSAdmins){
+					
+					$domainObject = Get-DomainObject -Identity $DNSAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description,memberof
+					$memberName = if ($DNSAdmin.MemberName) { $DNSAdmin.MemberName } else { ConvertFrom-SID $DNSAdmin.MemberSID }
+					$isEnabled = if ($DNSAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
+					$lastLogon = $domainObject.lastlogontimestamp
+					$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
+
+					[PSCustomObject]@{
+						"Member Name" = $memberName
+						"Enabled" = $isEnabled
+						"Active" = $isActive
+						"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+						"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+						"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+						"Last Logon" = $lastLogon
+						"Member SID" = $DNSAdmin.MemberSID
+						"Group Domain" = $DNSAdmin.GroupDomain
+						"Description" = $domainObject.description
+					}
+				}
+			}
+		}
+
+		if ($TempDNSAdmins) {
+			$TempDNSAdmins | Sort-Object "Group Domain","Member Name" | Format-Table -Autosize -Wrap
+			$HTMLDNSAdmins = $TempDNSAdmins | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>DNS Admins</h2>"
+		}
+		
+		#################################################### 
+		########### Enterprise Key Admins ################
+		####################################################
+		
+		Write-Host ""
+		Write-Host "Enterprise Key Admins:" -ForegroundColor Cyan
+		if ($Domain -and $Server) {
+			$EnterpriseKeyAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Enterprise Key Admins" -Recurse | Sort-Object -Unique -Property MemberName
+			$TempEnterpriseKeyAdmins = foreach($EnterpriseKeyAdmin in $EnterpriseKeyAdmins){
+				
+				$domainObject = Get-DomainObject -Identity $EnterpriseKeyAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description,memberof
+				$memberName = if ($EnterpriseKeyAdmin.MemberName) { $EnterpriseKeyAdmin.MemberName } else { ConvertFrom-SID $EnterpriseKeyAdmin.MemberSID }
+				$isEnabled = if ($EnterpriseKeyAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
+				$lastLogon = $domainObject.lastlogontimestamp
+				$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
+
+				[PSCustomObject]@{
+					"Member Name" = $memberName
+					"Enabled" = $isEnabled
+					"Active" = $isActive
+					"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+					"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+					"Last Logon" = $lastLogon
+					"Member SID" = $EnterpriseKeyAdmin.MemberSID
+					"Group Domain" = $EnterpriseKeyAdmin.GroupDomain
+					"Description" = $domainObject.description
+				}
+			}
+		}
+		else {
+			$TempEnterpriseKeyAdmins = foreach ($AllDomain in $AllDomains) {
+				$EnterpriseKeyAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Enterprise Key Admins" -Recurse | Sort-Object -Unique -Property MemberName
+				foreach($EnterpriseKeyAdmin in $EnterpriseKeyAdmins){
+					
+					$domainObject = Get-DomainObject -Identity $EnterpriseKeyAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description,memberof
+					$memberName = if ($EnterpriseKeyAdmin.MemberName) { $EnterpriseKeyAdmin.MemberName } else { ConvertFrom-SID $EnterpriseKeyAdmin.MemberSID }
+					$isEnabled = if ($EnterpriseKeyAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
+					$lastLogon = $domainObject.lastlogontimestamp
+					$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
+
+					[PSCustomObject]@{
+						"Member Name" = $memberName
+						"Enabled" = $isEnabled
+						"Active" = $isActive
+						"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+						"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+						"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+						"Last Logon" = $lastLogon
+						"Member SID" = $EnterpriseKeyAdmin.MemberSID
+						"Group Domain" = $EnterpriseKeyAdmin.GroupDomain
+						"Description" = $domainObject.description
+					}
+				}
+			}
+		}
+
+		if ($TempEnterpriseKeyAdmins) {
+			$TempEnterpriseKeyAdmins | Sort-Object "Group Domain","Member Name" | Format-Table -Autosize -Wrap
+			$HTMLEnterpriseKeyAdmins = $TempEnterpriseKeyAdmins | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Enterprise Key Admins</h2>"
+		}
+		
+		#################################################### 
+		########### Enterprise Read-Only Domain Controllers ################
+		####################################################
+		
+		Write-Host ""
+		Write-Host "Enterprise Read-Only Domain Controllers:" -ForegroundColor Cyan
+		if ($Domain -and $Server) {
+			$EnterpriseRODCs = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Enterprise Read-Only Domain Controllers" -Recurse | Sort-Object -Unique -Property MemberName
+			$TempEnterpriseRODCs = foreach($EnterpriseRODC in $EnterpriseRODCs){
+				
+				$domainObject = Get-DomainObject -Identity $EnterpriseRODC.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description,memberof
+				$memberName = if ($EnterpriseRODC.MemberName) { $EnterpriseRODC.MemberName } else { ConvertFrom-SID $EnterpriseRODC.MemberSID }
+				$isEnabled = if ($EnterpriseRODC.useraccountcontrol -band 2) { "False" } else { "True" }
+				$lastLogon = $domainObject.lastlogontimestamp
+				$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
+
+				[PSCustomObject]@{
+					"Member Name" = $memberName
+					"Enabled" = $isEnabled
+					"Active" = $isActive
+					"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+					"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+					"Last Logon" = $lastLogon
+					"Member SID" = $EnterpriseRODC.MemberSID
+					"Group Domain" = $EnterpriseRODC.GroupDomain
+					"Description" = $domainObject.description
+				}
+			}
+		}
+		else {
+			$TempEnterpriseRODCs = foreach ($AllDomain in $AllDomains) {
+				$EnterpriseRODCs = Get-DomainGroupMember -Domain $AllDomain -Identity "Enterprise Read-Only Domain Controllers" -Recurse | Sort-Object -Unique -Property MemberName
+				foreach($EnterpriseRODC in $EnterpriseRODCs){
+					
+					$domainObject = Get-DomainObject -Identity $EnterpriseRODC.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description,memberof
+					$memberName = if ($EnterpriseRODC.MemberName) { $EnterpriseRODC.MemberName } else { ConvertFrom-SID $EnterpriseRODC.MemberSID }
+					$isEnabled = if ($EnterpriseRODC.useraccountcontrol -band 2) { "False" } else { "True" }
+					$lastLogon = $domainObject.lastlogontimestamp
+					$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
+
+					[PSCustomObject]@{
+						"Member Name" = $memberName
+						"Enabled" = $isEnabled
+						"Active" = $isActive
+						"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+						"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+						"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+						"Last Logon" = $lastLogon
+						"Member SID" = $EnterpriseRODC.MemberSID
+						"Group Domain" = $EnterpriseRODC.GroupDomain
+						"Description" = $domainObject.description
+					}
+				}
+			}
+		}
+
+		if ($TempEnterpriseRODCs) {
+			$TempEnterpriseRODCs | Sort-Object "Group Domain","Member Name" | Format-Table -Autosize -Wrap
+			$HTMLEnterpriseRODCs = $TempEnterpriseRODCs | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Enterprise Read-Only Domain Controllers</h2>"
+		}
+
+		
+		#################################################### 
+		########### Group Policy Creator Owners ################
+		####################################################
+		
+		Write-Host ""
+		Write-Host "Group Policy Creator Owners:" -ForegroundColor Cyan
+		if ($Domain -and $Server) {
+			$GPCreatorOwners = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Group Policy Creator Owners" -Recurse | Sort-Object -Unique -Property MemberName
+			$TempGPCreatorOwners = foreach($GPCreatorOwner in $GPCreatorOwners){
+				
+				$domainObject = Get-DomainObject -Identity $GPCreatorOwner.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description,memberof
+				$memberName = if ($GPCreatorOwner.MemberName) { $GPCreatorOwner.MemberName } else { ConvertFrom-SID $GPCreatorOwner.MemberSID }
+				$isEnabled = if ($GPCreatorOwner.useraccountcontrol -band 2) { "False" } else { "True" }
+				$lastLogon = $domainObject.lastlogontimestamp
+				$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
+
+				[PSCustomObject]@{
+					"Member Name" = $memberName
+					"Enabled" = $isEnabled
+					"Active" = $isActive
+					"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+					"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+					"Last Logon" = $lastLogon
+					"Member SID" = $GPCreatorOwner.MemberSID
+					"Group Domain" = $GPCreatorOwner.GroupDomain
+					"Description" = $domainObject.description
+				}
+			}
+		}
+		else {
+			$TempGPCreatorOwners = foreach ($AllDomain in $AllDomains) {
+				$GPCreatorOwners = Get-DomainGroupMember -Domain $AllDomain -Identity "Group Policy Creator Owners" -Recurse | Sort-Object -Unique -Property MemberName
+				foreach($GPCreatorOwner in $GPCreatorOwners){
+					
+					$domainObject = Get-DomainObject -Identity $GPCreatorOwner.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description,memberof
+					$memberName = if ($GPCreatorOwner.MemberName) { $GPCreatorOwner.MemberName } else { ConvertFrom-SID $GPCreatorOwner.MemberSID }
+					$isEnabled = if ($GPCreatorOwner.useraccountcontrol -band 2) { "False" } else { "True" }
+					$lastLogon = $domainObject.lastlogontimestamp
+					$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
+
+					[PSCustomObject]@{
+						"Member Name" = $memberName
+						"Enabled" = $isEnabled
+						"Active" = $isActive
+						"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+						"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+						"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+						"Last Logon" = $lastLogon
+						"Member SID" = $GPCreatorOwner.MemberSID
+						"Group Domain" = $GPCreatorOwner.GroupDomain
+						"Description" = $domainObject.description
+					}
+				}
+			}
+		}
+
+		if ($TempGPCreatorOwners) {
+			$TempGPCreatorOwners | Sort-Object "Group Domain","Member Name" | Format-Table -Autosize -Wrap
+			$HTMLGPCreatorOwners = $TempGPCreatorOwners | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Group Policy Creator Owners</h2>"
+		}
+
+		#################################################### 
+		########### Key Admins ################
+		####################################################
+		
+		Write-Host ""
+		Write-Host "Key Admins:" -ForegroundColor Cyan
+		if ($Domain -and $Server) {
+			$KeyAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Key Admins" -Recurse | Sort-Object -Unique -Property MemberName
+			$TempKeyAdmins = foreach($KeyAdmin in $KeyAdmins){
+				
+				$domainObject = Get-DomainObject -Identity $KeyAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description,memberof
+				$memberName = if ($KeyAdmin.MemberName) { $KeyAdmin.MemberName } else { ConvertFrom-SID $KeyAdmin.MemberSID }
+				$isEnabled = if ($KeyAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
+				$lastLogon = $domainObject.lastlogontimestamp
+				$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
+
+				[PSCustomObject]@{
+					"Member Name" = $memberName
+					"Enabled" = $isEnabled
+					"Active" = $isActive
+					"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+					"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+					"Last Logon" = $lastLogon
+					"Member SID" = $KeyAdmin.MemberSID
+					"Group Domain" = $KeyAdmin.GroupDomain
+					"Description" = $domainObject.description
+				}
+			}
+		}
+		else {
+			$TempKeyAdmins = foreach ($AllDomain in $AllDomains) {
+				$KeyAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Key Admins" -Recurse | Sort-Object -Unique -Property MemberName
+				foreach($KeyAdmin in $KeyAdmins){
+					
+					$domainObject = Get-DomainObject -Identity $KeyAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description,memberof
+					$memberName = if ($KeyAdmin.MemberName) { $KeyAdmin.MemberName } else { ConvertFrom-SID $KeyAdmin.MemberSID }
+					$isEnabled = if ($KeyAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
+					$lastLogon = $domainObject.lastlogontimestamp
+					$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
+
+					[PSCustomObject]@{
+						"Member Name" = $memberName
+						"Enabled" = $isEnabled
+						"Active" = $isActive
+						"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+						"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+						"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+						"Last Logon" = $lastLogon
+						"Member SID" = $KeyAdmin.MemberSID
+						"Group Domain" = $KeyAdmin.GroupDomain
+						"Description" = $domainObject.description
+					}
+				}
+			}
+		}
+
+		if ($TempKeyAdmins) {
+			$TempKeyAdmins | Sort-Object "Group Domain","Member Name" | Format-Table -Autosize -Wrap
+			$HTMLKeyAdmins = $TempKeyAdmins | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Key Admins</h2>"
+		}
+		
+		#################################################### 
+		########### Protected Users ################
+		####################################################
+		
+		Write-Host ""
+		Write-Host "Protected Users:" -ForegroundColor Cyan
+		if ($Domain -and $Server) {
+			$ProtectedUsers = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Protected Users" -Recurse | Sort-Object -Unique -Property MemberName
+			$TempProtectedUsers = foreach($ProtectedUser in $ProtectedUsers){
+				
+				$domainObject = Get-DomainObject -Identity $ProtectedUser.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description,memberof
+				$memberName = if ($ProtectedUser.MemberName) { $ProtectedUser.MemberName } else { ConvertFrom-SID $ProtectedUser.MemberSID }
+				$isEnabled = if ($ProtectedUser.useraccountcontrol -band 2) { "False" } else { "True" }
+				$lastLogon = $domainObject.lastlogontimestamp
+				$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
+
+				[PSCustomObject]@{
+					"Member Name" = $memberName
+					"Enabled" = $isEnabled
+					"Active" = $isActive
+					"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+					"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+					"Last Logon" = $lastLogon
+					"Member SID" = $ProtectedUser.MemberSID
+					"Group Domain" = $ProtectedUser.GroupDomain
+					"Description" = $domainObject.description
+				}
+			}
+		}
+		else {
+			$TempProtectedUsers = foreach ($AllDomain in $AllDomains) {
+				$ProtectedUsers = Get-DomainGroupMember -Domain $AllDomain -Identity "Protected Users" -Recurse | Sort-Object -Unique -Property MemberName
+				foreach($ProtectedUser in $ProtectedUsers){
+					
+					$domainObject = Get-DomainObject -Identity $ProtectedUser.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description,memberof
+					$memberName = if ($ProtectedUser.MemberName) { $ProtectedUser.MemberName } else { ConvertFrom-SID $ProtectedUser.MemberSID }
+					$isEnabled = if ($ProtectedUser.useraccountcontrol -band 2) { "False" } else { "True" }
+					$lastLogon = $domainObject.lastlogontimestamp
+					$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
+
+					[PSCustomObject]@{
+						"Member Name" = $memberName
+						"Enabled" = $isEnabled
+						"Active" = $isActive
+						"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+						"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+						"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+						"Last Logon" = $lastLogon
+						"Member SID" = $ProtectedUser.MemberSID
+						"Group Domain" = $ProtectedUser.GroupDomain
+						"Description" = $domainObject.description
+					}
+				}
+			}
+		}
+
+		if ($TempProtectedUsers) {
+			$TempProtectedUsers | Sort-Object "Group Domain","Member Name" | Format-Table -Autosize -Wrap
+			$HTMLProtectedUsers = $TempProtectedUsers | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Protected Users</h2>"
+		}
+
+		
+		#################################################### 
+		########### Read-Only Domain Controllers ################
+		####################################################
+		
+		Write-Host ""
+		Write-Host "Read-Only Domain Controllers:" -ForegroundColor Cyan
+		if ($Domain -and $Server) {
+			$RODCs = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Read-Only Domain Controllers" -Recurse | Sort-Object -Unique -Property MemberName
+			$TempRODCs = foreach($RODC in $RODCs){
+				
+				$domainObject = Get-DomainObject -Identity $RODC.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description,memberof
+				$memberName = if ($RODC.MemberName) { $RODC.MemberName } else { ConvertFrom-SID $RODC.MemberSID }
+				$isEnabled = if ($RODC.useraccountcontrol -band 2) { "False" } else { "True" }
+				$lastLogon = $domainObject.lastlogontimestamp
+				$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
+
+				[PSCustomObject]@{
+					"Member Name" = $memberName
+					"Enabled" = $isEnabled
+					"Active" = $isActive
+					"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+					"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+					"Last Logon" = $lastLogon
+					"Member SID" = $RODC.MemberSID
+					"Group Domain" = $RODC.GroupDomain
+					"Description" = $domainObject.description
+				}
+			}
+		}
+		else {
+			$TempRODCs = foreach ($AllDomain in $AllDomains) {
+				$RODCs = Get-DomainGroupMember -Domain $AllDomain -Identity "Read-Only Domain Controllers" -Recurse | Sort-Object -Unique -Property MemberName
+				foreach($RODC in $RODCs){
+					
+					$domainObject = Get-DomainObject -Identity $RODC.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description,memberof
+					$memberName = if ($RODC.MemberName) { $RODC.MemberName } else { ConvertFrom-SID $RODC.MemberSID }
+					$isEnabled = if ($RODC.useraccountcontrol -band 2) { "False" } else { "True" }
+					$lastLogon = $domainObject.lastlogontimestamp
+					$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
+
+					[PSCustomObject]@{
+						"Member Name" = $memberName
+						"Enabled" = $isEnabled
+						"Active" = $isActive
+						"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+						"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+						"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+						"Last Logon" = $lastLogon
+						"Member SID" = $RODC.MemberSID
+						"Group Domain" = $RODC.GroupDomain
+						"Description" = $domainObject.description
+					}
+				}
+			}
+		}
+
+		if ($TempRODCs) {
+			$TempRODCs | Sort-Object "Group Domain","Member Name" | Format-Table -Autosize -Wrap
+			$HTMLRODCs = $TempRODCs | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Read-Only Domain Controllers</h2>"
+		}
+		
+		
+		
+		#################################################### 
+		########### Schema Admins ################
+		####################################################
+		
+		Write-Host ""
+		Write-Host "Schema Admins:" -ForegroundColor Cyan
+		if ($Domain -and $Server) {
+			$SchemaAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Schema Admins" -Recurse | Sort-Object -Unique -Property MemberName
+			$TempSchemaAdmins = foreach($SchemaAdmin in $SchemaAdmins){
+				
+				$domainObject = Get-DomainObject -Identity $SchemaAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description,memberof
+				$memberName = if ($SchemaAdmin.MemberName) { $SchemaAdmin.MemberName } else { ConvertFrom-SID $SchemaAdmin.MemberSID }
+				$isEnabled = if ($SchemaAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
+				$lastLogon = $domainObject.lastlogontimestamp
+				$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
+
+				[PSCustomObject]@{
+					"Member Name" = $memberName
+					"Enabled" = $isEnabled
+					"Active" = $isActive
+					"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+					"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+					"Last Logon" = $lastLogon
+					"Member SID" = $SchemaAdmin.MemberSID
+					"Group Domain" = $SchemaAdmin.GroupDomain
+					"Description" = $domainObject.description
+				}
+
+			}
+		}
+	 
+		else {
+			$TempSchemaAdmins = foreach ($AllDomain in $AllDomains) {
+				$SchemaAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Schema Admins" -Recurse | Sort-Object -Unique -Property MemberName
+				foreach($SchemaAdmin in $SchemaAdmins){
+					
+					$domainObject = Get-DomainObject -Identity $SchemaAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description,memberof
+					$memberName = if ($SchemaAdmin.MemberName) { $SchemaAdmin.MemberName } else { ConvertFrom-SID $SchemaAdmin.MemberSID }
+					$isEnabled = if ($SchemaAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
+					$lastLogon = $domainObject.lastlogontimestamp
+
+					$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
+
+					[PSCustomObject]@{
+						"Member Name" = $memberName
+						"Enabled" = $isEnabled
+						"Active" = $isActive
+						"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+						"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+						"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+						"Last Logon" = $lastLogon
+						"Member SID" = $SchemaAdmin.MemberSID
+						"Group Domain" = $SchemaAdmin.GroupDomain
+						"Description" = $domainObject.description
+					}
+
+				}
+			}
+		}
+
+		if ($TempSchemaAdmins) {
+			$TempSchemaAdmins | Sort-Object "Group Domain","Member Name" | ft -Autosize -Wrap
+			$HTMLSchemaAdmins = $TempSchemaAdmins | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Schema Admins</h2>"
+		}
+		
+		#################################################### 
+		########### Server Operators ################
+		####################################################
+		
+		Write-Host ""
+		Write-Host "Server Operators:" -ForegroundColor Cyan
+		if ($Domain -and $Server) {
+			$ServerOperators = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Server Operators" -Recurse | Sort-Object -Unique -Property MemberName
+			$TempServerOperators = foreach($ServerOperator in $ServerOperators){
+				
+				$domainObject = Get-DomainObject -Identity $ServerOperator.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description,memberof
+				$memberName = if ($ServerOperator.MemberName) { $ServerOperator.MemberName } else { ConvertFrom-SID $ServerOperator.MemberSID }
+				$isEnabled = if ($ServerOperator.useraccountcontrol -band 2) { "False" } else { "True" }
+				$lastLogon = $domainObject.lastlogontimestamp
+				$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
+
+				[PSCustomObject]@{
+					"Member Name" = $memberName
+					"Enabled" = $isEnabled
+					"Active" = $isActive
+					"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+					"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+					"Last Logon" = $lastLogon
+					"Member SID" = $ServerOperator.MemberSID
+					"Group Domain" = $ServerOperator.GroupDomain
+					"Description" = $domainObject.description
+				}
+			}
+		}
+		else {
+			$TempServerOperators = foreach ($AllDomain in $AllDomains) {
+				$ServerOperators = Get-DomainGroupMember -Domain $AllDomain -Identity "Server Operators" -Recurse | Sort-Object -Unique -Property MemberName
+				foreach($ServerOperator in $ServerOperators){
+					
+					$domainObject = Get-DomainObject -Identity $ServerOperator.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description,memberof
+					$memberName = if ($ServerOperator.MemberName) { $ServerOperator.MemberName } else { ConvertFrom-SID $ServerOperator.MemberSID }
+					$isEnabled = if ($ServerOperator.useraccountcontrol -band 2) { "False" } else { "True" }
+					$lastLogon = $domainObject.lastlogontimestamp
+					$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
+
+					[PSCustomObject]@{
+						"Member Name" = $memberName
+						"Enabled" = $isEnabled
+						"Active" = $isActive
+						"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+						"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+						"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+						"Last Logon" = $lastLogon
+						"Member SID" = $ServerOperator.MemberSID
+						"Group Domain" = $ServerOperator.GroupDomain
+						"Description" = $domainObject.description
+					}
+				}
+			}
+		}
+
+		if ($TempServerOperators) {
+			$TempServerOperators | Sort-Object "Group Domain","Member Name" | Format-Table -Autosize -Wrap
+			$HTMLServerOperators = $TempServerOperators | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Server Operators</h2>"
+		}
+
+
+
 	}
 	
 	############################################################
@@ -4846,7 +5611,7 @@ function Invoke-ADEnum
     # Stop capturing the output and display it on the console
     Stop-Transcript | Out-Null
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLPreWin2kCompatibleAccess $HTMLLMCompatibilityLevel $HTMLMachineQuota $HTMLUnsupportedHosts $InterestingDataBanner $HTMLReplicationUsers $HTMLServiceAccounts $HTMLGMSAs $HTMLnopreauthset $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLKeywordDomainGPOs $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLLinkedDAAccounts $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishers $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLProtectedUsers $HTMLRODCs $HTMLSchemaAdmins $HTMLServerOperators $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLPreWin2kCompatibleAccess $HTMLLMCompatibilityLevel $HTMLMachineQuota $HTMLUnsupportedHosts $InterestingDataBanner $HTMLReplicationUsers $HTMLServiceAccounts $HTMLGMSAs $HTMLnopreauthset $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLKeywordDomainGPOs $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLLinkedDAAccounts $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs" -Title "Active Directory Audit" -Head $header
 	$HTMLOutputFilePath = $OutputFilePath.Replace(".txt", ".html")
 	$Report | Out-File $HTMLOutputFilePath
 	
