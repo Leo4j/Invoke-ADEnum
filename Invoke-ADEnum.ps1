@@ -2739,12 +2739,15 @@ function Invoke-ADEnum
 	}
 
  	if ($TempMachineQuota) {
-		$TempMachineQuota | Sort-Object Domain | Format-Table -AutoSize
-		$HTMLMachineQuota = $TempMachineQuota | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2>Machine Account Quota</h2>"
-		$TempMachineQuota | Sort-Object Quota | Select-Object Quota | ForEach-Object {
-  			if($_ -eq 0){$HTMLMachineQuota = $HTMLMachineQuota -replace "<td>$_</td>","<td class=`"NoStatus`">$_</td>"}
-     			else{$HTMLMachineQuota = $HTMLMachineQuota -replace "<td>$_</td>","<td class=`"YesStatus`">$_</td>"}
-		}
+	    $TempMachineQuota | Sort-Object Domain | Format-Table -AutoSize
+	    $HTMLMachineQuota = $TempMachineQuota | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2>Machine Account Quota</h2>"
+	    $TempMachineQuota | Sort-Object Quota | Select-Object Quota | ForEach-Object {
+	        if (${_}.Quota -eq 0) {
+	            $HTMLMachineQuota = $HTMLMachineQuota -replace "<td>${_}.Quota</td>", "<td class=`"NoStatus`">${_}.Quota</td>"
+	        } else {
+	            $HTMLMachineQuota = $HTMLMachineQuota -replace "<td>${_}.Quota</td>", "<td class=`"YesStatus`">${_}.Quota</td>"
+	        }
+	    }
 	}
 	
 	########################################################
