@@ -2634,7 +2634,7 @@ function Invoke-ADEnum
 		"2" = "Send NTLM response only"
 		"3" = "Send NTLMv2 response only"
 		"4" = "Send NTLMv2 response only. Refuse LM"
-		"5" = "Send NTLMv2 response only. Refuse LM & NTLM"
+		"5" = "Send NTLMv2 response only. Refuse LM and NTLM"
 	}
 
 	if ($Domain -and $Server) {
@@ -2705,7 +2705,7 @@ function Invoke-ADEnum
 	  	$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>5</td>','<td class="NoStatus">5</td>'
     	  	$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send NTLMv2 response only</td>','<td class="NoStatus">Send NTLMv2 response only</td>'
 		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send NTLMv2 response only. Refuse LM</td>','<td class="NoStatus">Send NTLMv2 response only. Refuse LM</td>'
-     	  	$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send NTLMv2 response only. Refuse LM & NTLM</td>','<td class="NoStatus">Send NTLMv2 response only. Refuse LM & NTLM</td>'
+     	  	$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send NTLMv2 response only. Refuse LM and NTLM</td>','<td class="NoStatus">Send NTLMv2 response only. Refuse LM and NTLM</td>'
 	}
 	
 	#################################################
