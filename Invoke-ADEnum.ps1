@@ -2743,9 +2743,10 @@ function Invoke-ADEnum
 	    $HTMLMachineQuota = $TempMachineQuota | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2>Machine Account Quota</h2>"
 	    $TempMachineQuota | Sort-Object Quota | Select-Object Quota | ForEach-Object {
 	        if (${_}.Quota -eq 0) {
-	            $HTMLMachineQuota = $HTMLMachineQuota -replace "<td>${_}.Quota</td>", "<td class=`"NoStatus`">${_}.Quota</td>"
+	            $HTMLMachineQuota = $HTMLMachineQuota -replace "<td>0</td>", "<td class=`"NoStatus`">0</td>"
 	        } else {
-	            $HTMLMachineQuota = $HTMLMachineQuota -replace "<td>${_}.Quota</td>", "<td class=`"YesStatus`">${_}.Quota</td>"
+	            $TempQuota = $_.Quota
+	            $HTMLMachineQuota = $HTMLMachineQuota -replace "<td>$TempQuota</td>", "<td class=`"YesStatus`">$TempQuota</td>"
 	        }
 	    }
 	}
