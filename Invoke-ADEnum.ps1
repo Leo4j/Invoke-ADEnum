@@ -70,7 +70,7 @@ function Invoke-ADEnum
         
         [Parameter (Mandatory=$False, Position = 13, ValueFromPipeline=$true)]
         [Switch]
-        $NoGPOs,
+        $EnumGPOs,
 		
 	[Parameter (Mandatory=$False, Position = 14, ValueFromPipeline=$true)]
         [Switch]
@@ -268,6 +268,8 @@ function Invoke-ADEnum
  -DomainOUs			Enumerate for Organizational Units
  
  -DomainUsers			Enumerate for Users
+
+ -EnumGPOs			Enumerate for Users Who can Create/Modify/Link GPOs
  
  -FindDomainUserLocation	Enumerate for Machines where Domain Admins are Logged into
  
@@ -286,8 +288,6 @@ function Invoke-ADEnum
  -NoClear			Do not clear terminal before running
 
  -NoDelegation			Do enumerate for Unconstrained, Constrained or Resource-Based Constrained Delegation
- 
- -NoGPOs			Do not enumerate for GPOs and Who can Modify/Link them
  
  -NoLAPS			Do not enumerate for LAPS GPO
  
@@ -3708,9 +3708,6 @@ function Invoke-ADEnum
 	#######################################
     ########### GPO Rights ################
 	#######################################
-	
-    if($NoGPOs){}
-    else{
         
         Write-Host ""
 	Write-Host "Interesting GPOs (by Keyword):" -ForegroundColor Cyan
@@ -3754,6 +3751,8 @@ function Invoke-ADEnum
 			$HTMLKeywordDomainGPOs = $TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting GPOs (by Keyword)</h2>"
 		}
 	}
+
+    if($EnumGPOs){
 	
 	Write-Host ""
 		Write-Host "Who can create GPOs:" -ForegroundColor Cyan
