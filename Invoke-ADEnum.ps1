@@ -269,7 +269,7 @@ function Invoke-ADEnum
  
  -DomainUsers			Enumerate for Users
 
- -GPOsRights			Enumerate GPOs Rights Who can Create/Modify/Link GPOs
+ -GPOsRights			Enumerate GPOs Rights | Who can Create/Modify/Link GPOs
  
  -FindDomainUserLocation	Enumerate for Machines where Domain Admins are Logged into
  
@@ -3709,7 +3709,7 @@ function Invoke-ADEnum
     ########### GPO Rights ################
 	#######################################
 
-    if($GPOsRights){
+    if($GPOsRights -OR $AllEnum){
 	
 	Write-Host ""
 		Write-Host "Who can create GPOs:" -ForegroundColor Cyan
