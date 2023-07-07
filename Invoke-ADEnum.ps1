@@ -2381,17 +2381,17 @@ function Invoke-ADEnum
 				} | 
 				ForEach-Object {
 					[PSCustomObject]@{
+     						"Account" = ([System.Security.Principal.SecurityIdentifier]$_.SecurityIdentifier).Translate([System.Security.Principal.NTAccount])
 						"Computer Object" = ([System.Security.Principal.SecurityIdentifier]$_.ObjectSID).Translate([System.Security.Principal.NTAccount])
 						"AD Rights" = $_.ActiveDirectoryRights
 						"Object Ace Type" = $_.ObjectAceType
-						"Account" = ([System.Security.Principal.SecurityIdentifier]$_.SecurityIdentifier).Translate([System.Security.Principal.NTAccount])
 						Domain = "$Domain"
 					}
 				}
 	
 			if ($RBACDObjects) {
-				$RBACDObjects | Sort-Object Domain,"Computer Object" | Format-Table -AutoSize -Wrap
-				$HTMLRBACDObjects = $RBACDObjects | Sort-Object Domain,"Computer Object" | ConvertTo-Html -Fragment -PreContent "<h2>Resource Based Constrained Delegation</h2>"
+				$RBACDObjects | Sort-Object Domain,Account,"Computer Object" | Format-Table -AutoSize -Wrap
+				$HTMLRBACDObjects = $RBACDObjects | Sort-Object Domain,Account,"Computer Object" | ConvertTo-Html -Fragment -PreContent "<h2>Resource Based Constrained Delegation</h2>"
 			}
 		}
 		else {
@@ -2409,18 +2409,18 @@ function Invoke-ADEnum
 					} |
 					ForEach-Object {
 						[PSCustomObject]@{
+      							"Account" = ([System.Security.Principal.SecurityIdentifier]$_.SecurityIdentifier).Translate([System.Security.Principal.NTAccount])
 							"Computer Object" = ([System.Security.Principal.SecurityIdentifier]$_.ObjectSID).Translate([System.Security.Principal.NTAccount])
 							"AD Rights" = $_.ActiveDirectoryRights
 							"Object Ace Type" = $_.ObjectAceType
-							"Account" = ([System.Security.Principal.SecurityIdentifier]$_.SecurityIdentifier).Translate([System.Security.Principal.NTAccount])
 							Domain = $AllDomain
 						}
 					}
 			}
 	
 			if ($RBACDObjects) {
-				$RBACDObjects | Sort-Object Domain,"Computer Object" | Format-Table -AutoSize -Wrap
-				$HTMLRBACDObjects = $RBACDObjects | Sort-Object Domain,"Computer Object" | ConvertTo-Html -Fragment -PreContent "<h2>Resource Based Constrained Delegation</h2>"
+				$RBACDObjects | Sort-Object Domain,Account,"Computer Object" | Format-Table -AutoSize -Wrap
+				$HTMLRBACDObjects = $RBACDObjects | Sort-Object Domain,Account,"Computer Object" | ConvertTo-Html -Fragment -PreContent "<h2>Resource Based Constrained Delegation</h2>"
 			}
 		}
   	}
