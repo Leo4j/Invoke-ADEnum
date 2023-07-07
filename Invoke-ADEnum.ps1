@@ -3704,6 +3704,68 @@ function Invoke-ADEnum
 			$HTMLRevEncUsers = $TempRevEncUsers | Where-Object {$_.Name -ne $null} | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Users with Reversible Encryption</h2>"
 		}
 	}
+
+ 	#############################################
+    ######### DA Name Correlation ###############
+	#############################################
+	
+	Write-Host ""
+	Write-Host "Linked DA accounts using name correlation:" -ForegroundColor Cyan
+	if ($Domain -and $Server) {
+		$LinkedDAAccounts = Get-DomainGroupMember 'Domain Admins' -Domain $Domain -Server $Server | ForEach-Object {
+			$user = Get-DomainUser $_.membername -Domain $Domain -Server $Server -LDAPFilter '(displayname=*)'
+			$nameParts = $user.displayname.split(' ')[0..1] -join ' '
+			$linkedAccounts = Get-DomainUser -Domain $Domain -Server $Server -LDAPFilter "(displayname=*$nameParts*)"
+			foreach ($account in $linkedAccounts) {
+				[PSCustomObject]@{
+					"Account" = $account.samaccountname
+					"Display Name" = $account.displayname
+					"Enabled" = if ($account.useraccountcontrol -band 2) { "False" } else { "True" }
+					"Active" = if ($account.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
+					"Adm" = if ($account.memberof -match 'Administrators') { "YES" } else { "NO" }
+					"DA" = if ($account.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					"EA" = if ($account.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+					"Last Logon" = $account.lastlogontimestamp
+					"SID" = $account.objectSID
+					"Domain" = $Domain
+				}
+			}
+		}
+
+		if ($LinkedDAAccounts) {
+			$LinkedDAAccounts | Sort-Object Domain,Account,"Display Name" | Format-Table -AutoSize -Wrap
+			$HTMLLinkedDAAccounts = $LinkedDAAccounts | Sort-Object Domain,Account,"Display Name" | ConvertTo-Html -Fragment -PreContent "<h2>Linked DA accounts using name correlation</h2>"
+		}
+	}
+	else {
+		$LinkedDAAccounts = foreach ($AllDomain in $AllDomains) {
+			$members = Get-DomainGroupMember 'Domain Admins' -Domain $AllDomain
+			foreach ($member in $members) {
+				$user = Get-DomainUser $member.membername -LDAPFilter '(displayname=*)'
+				$nameParts = $user.displayname.split(' ')[0..1] -join ' '
+				$linkedAccounts = Get-DomainUser -Domain $AllDomain -LDAPFilter "(displayname=*$nameParts*)"
+				foreach ($account in $linkedAccounts) {
+					[PSCustomObject]@{
+						"Account" = $account.samaccountname
+						"Display Name" = $account.displayname
+						"Enabled" = if ($account.useraccountcontrol -band 2) { "False" } else { "True" }
+						"Active" = if ($account.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
+						"Adm" = if ($account.memberof -match 'Administrators') { "YES" } else { "NO" }
+						"DA" = if ($account.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+						"EA" = if ($account.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+						"Last Logon" = $account.lastlogontimestamp
+						"SID" = $account.objectSID
+						"Domain" = $AllDomain
+					}
+				}
+			}
+		}
+
+		if ($LinkedDAAccounts) {
+			$LinkedDAAccounts | Sort-Object Domain,Account,"Display Name" | Format-Table -AutoSize -Wrap
+			$HTMLLinkedDAAccounts = $LinkedDAAccounts | Sort-Object Domain,Account,"Display Name" | ConvertTo-Html -Fragment -PreContent "<h2>Linked DA accounts using name correlation</h2>"
+		}
+	}
 	
 	#######################################
     ########### GPO Rights ################
@@ -4554,66 +4616,51 @@ function Invoke-ADEnum
 			}
 		}
 	}
-	
-	#############################################
-    ######### DA Name Correlation ###############
-	#############################################
-	
-	Write-Host ""
-	Write-Host "Linked DA accounts using name correlation:" -ForegroundColor Cyan
+
+ 	#######################################
+    ########### GPOs by Keyword ################
+	#######################################
+        
+        Write-Host ""
+	Write-Host "Interesting GPOs (by Keyword):" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$LinkedDAAccounts = Get-DomainGroupMember 'Domain Admins' -Domain $Domain -Server $Server | ForEach-Object {
-			$user = Get-DomainUser $_.membername -Domain $Domain -Server $Server -LDAPFilter '(displayname=*)'
-			$nameParts = $user.displayname.split(' ')[0..1] -join ' '
-			$linkedAccounts = Get-DomainUser -Domain $Domain -Server $Server -LDAPFilter "(displayname=*$nameParts*)"
-			foreach ($account in $linkedAccounts) {
+ 		$GetAllGPOsFirst = Get-DomainGPO -Domain $Domain -Server $Server -Properties DisplayName, gpcfilesyspath
+		$TempKeywordDomainGPOs = foreach($Keyword in $Keywords){
+			$KeywordDomainGPOs = $GetAllGPOsFirst | Where-Object { $_.DisplayName -like "*$Keyword*" }
+			foreach ($DomainGPO in $KeywordDomainGPOs) {
 				[PSCustomObject]@{
-					"Account" = $account.samaccountname
-					"Display Name" = $account.displayname
-					"Enabled" = if ($account.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($account.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-					"Adm" = if ($account.memberof -match 'Administrators') { "YES" } else { "NO" }
-					"DA" = if ($account.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-					"EA" = if ($account.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
-					"Last Logon" = $account.lastlogontimestamp
-					"SID" = $account.objectSID
-					"Domain" = $Domain
+					Keyword = $Keyword
+					"GPO Name" = $DomainGPO.DisplayName
+					"Path" = $DomainGPO.gpcfilesyspath
+					Domain = $Domain
 				}
 			}
 		}
 
-		if ($LinkedDAAccounts) {
-			$LinkedDAAccounts | Sort-Object Domain,Account,"Display Name" | Format-Table -AutoSize -Wrap
-			$HTMLLinkedDAAccounts = $LinkedDAAccounts | Sort-Object Domain,Account,"Display Name" | ConvertTo-Html -Fragment -PreContent "<h2>Linked DA accounts using name correlation</h2>"
+		if ($TempKeywordDomainGPOs) {
+			$TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | Format-Table -AutoSize -Wrap
+			$HTMLKeywordDomainGPOs = $TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting GPOs (by Keyword)</h2>"
 		}
 	}
 	else {
-		$LinkedDAAccounts = foreach ($AllDomain in $AllDomains) {
-			$members = Get-DomainGroupMember 'Domain Admins' -Domain $AllDomain
-			foreach ($member in $members) {
-				$user = Get-DomainUser $member.membername -LDAPFilter '(displayname=*)'
-				$nameParts = $user.displayname.split(' ')[0..1] -join ' '
-				$linkedAccounts = Get-DomainUser -Domain $AllDomain -LDAPFilter "(displayname=*$nameParts*)"
-				foreach ($account in $linkedAccounts) {
+		$TempKeywordDomainGPOs = foreach ($AllDomain in $AllDomains) {
+  			$GetAllGPOsFirst = Get-DomainGPO -Domain $AllDomain -Properties DisplayName, gpcfilesyspath
+			foreach($Keyword in $Keywords){
+				$KeywordDomainGPOs = $GetAllGPOsFirst | Where-Object { $_.DisplayName -like "*$Keyword*" }
+				foreach ($DomainGPO in $KeywordDomainGPOs) {
 					[PSCustomObject]@{
-						"Account" = $account.samaccountname
-						"Display Name" = $account.displayname
-						"Enabled" = if ($account.useraccountcontrol -band 2) { "False" } else { "True" }
-						"Active" = if ($account.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-						"Adm" = if ($account.memberof -match 'Administrators') { "YES" } else { "NO" }
-						"DA" = if ($account.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-						"EA" = if ($account.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
-						"Last Logon" = $account.lastlogontimestamp
-						"SID" = $account.objectSID
-						"Domain" = $AllDomain
+						Keyword = $Keyword
+						"GPO Name" = $DomainGPO.DisplayName
+						"Path" = $DomainGPO.gpcfilesyspath
+						Domain = $AllDomain
 					}
 				}
 			}
 		}
 
-		if ($LinkedDAAccounts) {
-			$LinkedDAAccounts | Sort-Object Domain,Account,"Display Name" | Format-Table -AutoSize -Wrap
-			$HTMLLinkedDAAccounts = $LinkedDAAccounts | Sort-Object Domain,Account,"Display Name" | ConvertTo-Html -Fragment -PreContent "<h2>Linked DA accounts using name correlation</h2>"
+		if ($TempKeywordDomainGPOs) {
+			$TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | Format-Table -AutoSize -Wrap
+			$HTMLKeywordDomainGPOs = $TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting GPOs (by Keyword)</h2>"
 		}
 	}
 	
@@ -4665,53 +4712,6 @@ function Invoke-ADEnum
 		if ($TempGroupsByKeyword) {
 			$TempGroupsByKeyword | Sort-Object Domain,Keyword,"Group Name" | Format-Table -AutoSize -Wrap
 			$HTMLGroupsByKeyword = $TempGroupsByKeyword | Sort-Object Domain,Keyword,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting Groups (by Keyword)</h2>"
-		}
-	}
-
- 	#######################################
-    ########### GPOs by Keyword ################
-	#######################################
-        
-        Write-Host ""
-	Write-Host "Interesting GPOs (by Keyword):" -ForegroundColor Cyan
-	if ($Domain -and $Server) {
- 		$GetAllGPOsFirst = Get-DomainGPO -Domain $Domain -Server $Server -Properties DisplayName, gpcfilesyspath
-		$TempKeywordDomainGPOs = foreach($Keyword in $Keywords){
-			$KeywordDomainGPOs = $GetAllGPOsFirst | Where-Object { $_.DisplayName -like "*$Keyword*" }
-			foreach ($DomainGPO in $KeywordDomainGPOs) {
-				[PSCustomObject]@{
-					Keyword = $Keyword
-					"GPO Name" = $DomainGPO.DisplayName
-					"Path" = $DomainGPO.gpcfilesyspath
-					Domain = $Domain
-				}
-			}
-		}
-
-		if ($TempKeywordDomainGPOs) {
-			$TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | Format-Table -AutoSize -Wrap
-			$HTMLKeywordDomainGPOs = $TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting GPOs (by Keyword)</h2>"
-		}
-	}
-	else {
-		$TempKeywordDomainGPOs = foreach ($AllDomain in $AllDomains) {
-  			$GetAllGPOsFirst = Get-DomainGPO -Domain $AllDomain -Properties DisplayName, gpcfilesyspath
-			foreach($Keyword in $Keywords){
-				$KeywordDomainGPOs = $GetAllGPOsFirst | Where-Object { $_.DisplayName -like "*$Keyword*" }
-				foreach ($DomainGPO in $KeywordDomainGPOs) {
-					[PSCustomObject]@{
-						Keyword = $Keyword
-						"GPO Name" = $DomainGPO.DisplayName
-						"Path" = $DomainGPO.gpcfilesyspath
-						Domain = $AllDomain
-					}
-				}
-			}
-		}
-
-		if ($TempKeywordDomainGPOs) {
-			$TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | Format-Table -AutoSize -Wrap
-			$HTMLKeywordDomainGPOs = $TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting GPOs (by Keyword)</h2>"
 		}
 	}
 	
@@ -5701,7 +5701,7 @@ function Invoke-ADEnum
     # Stop capturing the output and display it on the console
     Stop-Transcript | Out-Null
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLProtectedUsers $HTMLRODCs $HTMLSchemaAdmins $HTMLServerOperators $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLPreWin2kCompatibleAccess $HTMLLMCompatibilityLevel $HTMLMachineQuota $HTMLUnsupportedHosts $InterestingDataBanner $HTMLReplicationUsers $HTMLServiceAccounts $HTMLGMSAs $HTMLnopreauthset $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLLinkedDAAccounts $HTMLGroupsByKeyword $HTMLKeywordDomainGPOs $HTMLDomainOUsByKeyword $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLProtectedUsers $HTMLRODCs $HTMLSchemaAdmins $HTMLServerOperators $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLPreWin2kCompatibleAccess $HTMLLMCompatibilityLevel $HTMLMachineQuota $HTMLUnsupportedHosts $InterestingDataBanner $HTMLReplicationUsers $HTMLServiceAccounts $HTMLGMSAs $HTMLnopreauthset $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLLinkedDAAccounts $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
 	$HTMLOutputFilePath = $OutputFilePath.Replace(".txt", ".html")
 	$Report | Out-File $HTMLOutputFilePath
 	
