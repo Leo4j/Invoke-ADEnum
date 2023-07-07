@@ -142,7 +142,11 @@ function Invoke-ADEnum
 
  	[Parameter (Mandatory=$False, Position = 31, ValueFromPipeline=$true)]
         [Switch]
-        $AllDescriptions
+        $AllDescriptions,
+
+ 	[Parameter (Mandatory=$False, Position = 32, ValueFromPipeline=$true)]
+        [Switch]
+        $RBCD
 
     )
 	
@@ -292,6 +296,8 @@ function Invoke-ADEnum
  -NoUnsupportedOS		Do not enumerate for machines running unsupported OS
  
  -NoVulnCertTemplates		Do not enumerate for Misconfigured Certificate Templates
+
+ -RBCD				Check for Resource Based Constrained Delegation
 
  -SecurityGroups		Enumerate for Security Groups (e.g.: Account Operators, Server Operators, and more...)
  
@@ -2361,68 +2367,70 @@ function Invoke-ADEnum
 	    ######## Resource Based Constrained Delegation ############
 		###########################################################
 	    
-	    Write-Host ""
-		Write-Host "Resource Based Constrained Delegation:" -ForegroundColor Cyan
-		if ($Domain -and $Server) {
-			$domainSID = Get-DomainSID $Domain -Server $Server
-	
-			$sidPattern = "$domainSID-[\d]{4,10}"
-	
-			$exclusionList = "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions"
-	
-			$DomainComputers = Get-DomainComputer -Domain $Domain -Server $Server -Properties distinguishedname
-	
-			$RBACDObjects = $DomainComputers | 
-				Get-DomainObjectAcl -Domain $Domain -Server $Server -ResolveGUIDs | 
-				Where-Object { 
-					$_.ActiveDirectoryRights -match "WriteProperty|GenericWrite|GenericAll|WriteDacl" -and 
-					$_.SecurityIdentifier -match $sidPattern -and 
-					$_.SecurityIdentifier.Translate([System.Security.Principal.NTAccount]) -notmatch $exclusionList 
-				} | 
-				ForEach-Object {
-					[PSCustomObject]@{
-     						"Account" = ([System.Security.Principal.SecurityIdentifier]$_.SecurityIdentifier).Translate([System.Security.Principal.NTAccount])
-						"Computer Object" = ([System.Security.Principal.SecurityIdentifier]$_.ObjectSID).Translate([System.Security.Principal.NTAccount])
-						"AD Rights" = $_.ActiveDirectoryRights
-						"Object Ace Type" = $_.ObjectAceType
-						Domain = "$Domain"
-					}
-				}
-	
-			if ($RBACDObjects) {
-				$RBACDObjects | Sort-Object Domain,Account,"Computer Object" | Format-Table -AutoSize -Wrap
-				$HTMLRBACDObjects = $RBACDObjects | Sort-Object Domain,Account,"Computer Object" | ConvertTo-Html -Fragment -PreContent "<h2>Resource Based Constrained Delegation</h2>"
-			}
-		}
-		else {
-			$ExcludedAccounts = "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions"
-	
-			$RBACDObjects = foreach ($AllDomain in $AllDomains) {
-				$domainSID = Get-DomainSID $AllDomain
-				$DomainComputers = Get-DomainComputer -Domain $AllDomain -Properties distinguishedname
-				
-				$DomainComputers | Get-DomainObjectAcl -ResolveGUIDs |
+		if($RBCD -OR $AllEnum){
+	  		Write-Host ""
+			Write-Host "Resource Based Constrained Delegation:" -ForegroundColor Cyan
+			if ($Domain -and $Server) {
+				$domainSID = Get-DomainSID $Domain -Server $Server
+		
+				$sidPattern = "$domainSID-[\d]{4,10}"
+		
+				$exclusionList = "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions"
+		
+				$DomainComputers = Get-DomainComputer -Domain $Domain -Server $Server -Properties distinguishedname
+		
+				$RBACDObjects = $DomainComputers | 
+					Get-DomainObjectAcl -Domain $Domain -Server $Server -ResolveGUIDs | 
 					Where-Object { 
 						$_.ActiveDirectoryRights -match "WriteProperty|GenericWrite|GenericAll|WriteDacl" -and 
-						$_.SecurityIdentifier -match "$domainSID-[\d]{4,10}" -and 
-						$_.SecurityIdentifier.Translate([System.Security.Principal.NTAccount]) -notmatch $ExcludedAccounts
-					} |
+						$_.SecurityIdentifier -match $sidPattern -and 
+						$_.SecurityIdentifier.Translate([System.Security.Principal.NTAccount]) -notmatch $exclusionList 
+					} | 
 					ForEach-Object {
 						[PSCustomObject]@{
-      							"Account" = ([System.Security.Principal.SecurityIdentifier]$_.SecurityIdentifier).Translate([System.Security.Principal.NTAccount])
+	     						"Account" = ([System.Security.Principal.SecurityIdentifier]$_.SecurityIdentifier).Translate([System.Security.Principal.NTAccount])
 							"Computer Object" = ([System.Security.Principal.SecurityIdentifier]$_.ObjectSID).Translate([System.Security.Principal.NTAccount])
 							"AD Rights" = $_.ActiveDirectoryRights
 							"Object Ace Type" = $_.ObjectAceType
-							Domain = $AllDomain
+							Domain = "$Domain"
 						}
 					}
+		
+				if ($RBACDObjects) {
+					$RBACDObjects | Sort-Object Domain,Account,"Computer Object" | Format-Table -AutoSize -Wrap
+					$HTMLRBACDObjects = $RBACDObjects | Sort-Object Domain,Account,"Computer Object" | ConvertTo-Html -Fragment -PreContent "<h2>Resource Based Constrained Delegation</h2>"
+				}
 			}
-	
-			if ($RBACDObjects) {
-				$RBACDObjects | Sort-Object Domain,Account,"Computer Object" | Format-Table -AutoSize -Wrap
-				$HTMLRBACDObjects = $RBACDObjects | Sort-Object Domain,Account,"Computer Object" | ConvertTo-Html -Fragment -PreContent "<h2>Resource Based Constrained Delegation</h2>"
+			else {
+				$ExcludedAccounts = "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions"
+		
+				$RBACDObjects = foreach ($AllDomain in $AllDomains) {
+					$domainSID = Get-DomainSID $AllDomain
+					$DomainComputers = Get-DomainComputer -Domain $AllDomain -Properties distinguishedname
+					
+					$DomainComputers | Get-DomainObjectAcl -ResolveGUIDs |
+						Where-Object { 
+							$_.ActiveDirectoryRights -match "WriteProperty|GenericWrite|GenericAll|WriteDacl" -and 
+							$_.SecurityIdentifier -match "$domainSID-[\d]{4,10}" -and 
+							$_.SecurityIdentifier.Translate([System.Security.Principal.NTAccount]) -notmatch $ExcludedAccounts
+						} |
+						ForEach-Object {
+							[PSCustomObject]@{
+	      							"Account" = ([System.Security.Principal.SecurityIdentifier]$_.SecurityIdentifier).Translate([System.Security.Principal.NTAccount])
+								"Computer Object" = ([System.Security.Principal.SecurityIdentifier]$_.ObjectSID).Translate([System.Security.Principal.NTAccount])
+								"AD Rights" = $_.ActiveDirectoryRights
+								"Object Ace Type" = $_.ObjectAceType
+								Domain = $AllDomain
+							}
+						}
+				}
+		
+				if ($RBACDObjects) {
+					$RBACDObjects | Sort-Object Domain,Account,"Computer Object" | Format-Table -AutoSize -Wrap
+					$HTMLRBACDObjects = $RBACDObjects | Sort-Object Domain,Account,"Computer Object" | ConvertTo-Html -Fragment -PreContent "<h2>Resource Based Constrained Delegation</h2>"
+				}
 			}
-		}
+  		}
   	}
 	
 	###############################################################
