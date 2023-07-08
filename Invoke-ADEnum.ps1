@@ -2602,9 +2602,12 @@ function Invoke-ADEnum
 				"User Name" = $EmptyPasswordUser.samaccountname
 				"Enabled" = if ($EmptyPasswordUser.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if ($EmptyPasswordUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if ($EmptyPasswordUser.memberof -match 'Administrators') { "YES" } else { "NO" }
-				"DA" = if ($EmptyPasswordUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-				"EA" = if ($EmptyPasswordUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+    				"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				#"Adm" = if ($EmptyPasswordUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+				#"DA" = if ($EmptyPasswordUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+				#"EA" = if ($EmptyPasswordUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 				"Last Logon" = $EmptyPasswordUser.lastlogontimestamp
 				"SID" = $EmptyPasswordUser.objectSID
 				#"Groups Membership" = (Get-DomainGroup -Domain $Domain -Server $Server -UserName $EmptyPasswordUser.samaccountname).Name -join ' - '
@@ -2632,9 +2635,12 @@ function Invoke-ADEnum
 					"User Name" = $EmptyPasswordUser.samaccountname
 					"Enabled" = if ($EmptyPasswordUser.useraccountcontrol -band 2) { "False" } else { "True" }
 					"Active" = if ($EmptyPasswordUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-					"Adm" = if ($EmptyPasswordUser.memberof -match 'Administrators') { "YES" } else { "NO" }
-					"DA" = if ($EmptyPasswordUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-					"EA" = if ($EmptyPasswordUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+     					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					#"Adm" = if ($EmptyPasswordUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+					#"DA" = if ($EmptyPasswordUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					#"EA" = if ($EmptyPasswordUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 					"Last Logon" = $EmptyPasswordUser.lastlogontimestamp
 					"SID" = $EmptyPasswordUser.objectSID
 					#"Groups Membership" = (Get-DomainGroup -Domain $AllDomain -UserName $EmptyPasswordUser.samaccountname).Name -join ' - '
@@ -3015,9 +3021,12 @@ function Invoke-ADEnum
 				"Account" = $Account.samaccountname
 				"Enabled" = if ($Account.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if ($Account.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if ($Account.memberof -match 'Administrators') { "YES" } else { "NO" }
-				"DA" = if ($Account.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-				"EA" = if ($Account.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+    				"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $Account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $Account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $Account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				#"Adm" = if ($Account.memberof -match 'Administrators') { "YES" } else { "NO" }
+				#"DA" = if ($Account.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+				#"EA" = if ($Account.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 				"Last Logon" = $Account.lastlogontimestamp
 				"SID" = $Account.objectSID
 				"Domain" = $Domain
@@ -3034,9 +3043,12 @@ function Invoke-ADEnum
 					"Account" = $Account.samaccountname
 					"Enabled" = if ($Account.useraccountcontrol -band 2) { "False" } else { "True" }
 					"Active" = if ($Account.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-					"Adm" = if ($Account.memberof -match 'Administrators') { "YES" } else { "NO" }
-					"DA" = if ($Account.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-					"EA" = if ($Account.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+     					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $Account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $Account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $Account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					#"Adm" = if ($Account.memberof -match 'Administrators') { "YES" } else { "NO" }
+					#"DA" = if ($Account.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					#"EA" = if ($Account.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 					"Last Logon" = $Account.lastlogontimestamp
 					"SID" = $Account.objectSID
 					"Domain" = $AllDomain
@@ -3068,9 +3080,12 @@ function Invoke-ADEnum
 				"Account" = $GMSA.samaccountname
 				"Enabled" = if ($GMSA.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if ($GMSA.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if ($GMSA.memberof -match 'Administrators') { "YES" } else { "NO" }
-				"DA" = if ($GMSA.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-				"EA" = if ($GMSA.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+    				"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $GMSA.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $GMSA.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $GMSA.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				#"Adm" = if ($GMSA.memberof -match 'Administrators') { "YES" } else { "NO" }
+				#"DA" = if ($GMSA.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+				#"EA" = if ($GMSA.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 				"Account Type" = $GMSA.samaccounttype
 				"Pwd Interval" = $GMSA."msds-managedpasswordinterval"
 				"Pwd Last Set" = $GMSA.pwdlastset
@@ -3088,9 +3103,12 @@ function Invoke-ADEnum
 					"Account" = $GMSA.samaccountname
 					"Enabled" = if ($GMSA.useraccountcontrol -band 2) { "False" } else { "True" }
 					"Active" = if ($GMSA.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-					"Adm" = if ($GMSA.memberof -match 'Administrators') { "YES" } else { "NO" }
-					"DA" = if ($GMSA.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-					"EA" = if ($GMSA.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+     					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $GMSA.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $GMSA.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $GMSA.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					#"Adm" = if ($GMSA.memberof -match 'Administrators') { "YES" } else { "NO" }
+					#"DA" = if ($GMSA.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					#"EA" = if ($GMSA.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 					"Account Type" = $GMSA.samaccounttype
 					"Pwd Interval" = $GMSA."msds-managedpasswordinterval"
 					"Pwd Last Set" = $GMSA.pwdlastset
@@ -3123,9 +3141,12 @@ function Invoke-ADEnum
 				"User Name" = $User.samaccountname
 				"Enabled" = if ($User.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if ($User.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if ($User.memberof -match 'Administrators') { "YES" } else { "NO" }
-				"DA" = if ($User.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-				"EA" = if ($User.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+    				"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $User.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $User.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $User.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				#"Adm" = if ($User.memberof -match 'Administrators') { "YES" } else { "NO" }
+				#"DA" = if ($User.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+				#"EA" = if ($User.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 				"Last Logon" = $User.lastlogontimestamp
 				"SID" = $User.objectSID
 				"Domain" = $Domain
@@ -3141,9 +3162,12 @@ function Invoke-ADEnum
 					"User Name" = $User.samaccountname
 					"Enabled" = if ($User.useraccountcontrol -band 2) { "False" } else { "True" }
 					"Active" = if ($User.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-					"Adm" = if ($User.memberof -match 'Administrators') { "YES" } else { "NO" }
-					"DA" = if ($User.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-					"EA" = if ($User.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+     					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $User.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $User.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $User.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					#"Adm" = if ($User.memberof -match 'Administrators') { "YES" } else { "NO" }
+					#"DA" = if ($User.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					#"EA" = if ($User.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 					"Last Logon" = $User.lastlogontimestamp
 					"SID" = $User.objectSID
 					"Domain" = $AllDomain
@@ -3197,9 +3221,12 @@ function Invoke-ADEnum
 				"User Name" = $User.samaccountname
 				"Enabled" = if ($User.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if ($User.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if ($User.memberof -match 'Administrators') { "YES" } else { "NO" }
-				"DA" = if ($User.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-				"EA" = if ($User.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+    				"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $User.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $User.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $User.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				#"Adm" = if ($User.memberof -match 'Administrators') { "YES" } else { "NO" }
+				#"DA" = if ($User.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+				#"EA" = if ($User.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 				"Last Logon" = $User.lastlogontimestamp
 				"SID" = $User.objectSID
 				"Domain" = $Domain
@@ -3222,9 +3249,12 @@ function Invoke-ADEnum
 					"User Name" = $User.samaccountname
 					"Enabled" = if ($User.useraccountcontrol -band 2) { "False" } else { "True" }
 					"Active" = if ($User.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-					"Adm" = if ($User.memberof -match 'Administrators') { "YES" } else { "NO" }
-					"DA" = if ($User.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-					"EA" = if ($User.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+     					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $User.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $User.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $User.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					#"Adm" = if ($User.memberof -match 'Administrators') { "YES" } else { "NO" }
+					#"DA" = if ($User.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					#"EA" = if ($User.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 					"Last Logon" = $User.lastlogontimestamp
 					"SID" = $User.objectSID
 					"Domain" = $AllDomain
@@ -3316,9 +3346,12 @@ function Invoke-ADEnum
 				"Account" = $ProtectedUser.samaccountname
 				"Enabled" = if ($ProtectedUser.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if ($ProtectedUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if ($ProtectedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
-				"DA" = if ($ProtectedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-				"EA" = if ($ProtectedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+    				"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $ProtectedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $ProtectedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $ProtectedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				#"Adm" = if ($ProtectedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+				#"DA" = if ($ProtectedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+				#"EA" = if ($ProtectedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 				"Last Logon" = $ProtectedUser.lastlogontimestamp
 				"SID" = $ProtectedUser.objectSID
 				"Domain" = $Domain
@@ -3341,9 +3374,12 @@ function Invoke-ADEnum
 					"Account" = $ProtectedUser.samaccountname
 					"Enabled" = if ($ProtectedUser.useraccountcontrol -band 2) { "False" } else { "True" }
 					"Active" = if ($ProtectedUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-					"Adm" = if ($ProtectedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
-					"DA" = if ($ProtectedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-					"EA" = if ($ProtectedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+     					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $ProtectedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $ProtectedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $ProtectedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					#"Adm" = if ($ProtectedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+					#"DA" = if ($ProtectedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					#"EA" = if ($ProtectedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 					"Last Logon" = $ProtectedUser.lastlogontimestamp
 					"SID" = $ProtectedUser.objectSID
 					"Domain" = $AllDomain
@@ -3372,9 +3408,12 @@ function Invoke-ADEnum
 				"Account" = $ProtectedUser.samaccountname
 				"Enabled" = if ($ProtectedUser.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if ($ProtectedUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if ($ProtectedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
-				"DA" = if ($ProtectedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-				"EA" = if ($ProtectedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+    				"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $ProtectedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $ProtectedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $ProtectedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				#"Adm" = if ($ProtectedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+				#"DA" = if ($ProtectedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+				#"EA" = if ($ProtectedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 				"Last Logon" = $ProtectedUser.lastlogontimestamp
 				"SID" = $ProtectedUser.objectSID
 				"Domain" = $Domain
@@ -3397,9 +3436,12 @@ function Invoke-ADEnum
 					"Account" = $ProtectedUser.samaccountname
 					"Enabled" = if ($ProtectedUser.useraccountcontrol -band 2) { "False" } else { "True" }
 					"Active" = if ($ProtectedUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-					"Adm" = if ($ProtectedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
-					"DA" = if ($ProtectedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-					"EA" = if ($ProtectedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+     					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $ProtectedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $ProtectedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $ProtectedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					#"Adm" = if ($ProtectedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+					#"DA" = if ($ProtectedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					#"EA" = if ($ProtectedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 					"Last Logon" = $ProtectedUser.lastlogontimestamp
 					"SID" = $ProtectedUser.objectSID
 					"Domain" = $AllDomain
@@ -3428,9 +3470,12 @@ function Invoke-ADEnum
 				"Account" = $ProtectedUser.samaccountname
 				"Enabled" = if ($ProtectedUser.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if ($ProtectedUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if ($ProtectedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
-				"DA" = if ($ProtectedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-				"EA" = if ($ProtectedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+    				"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $ProtectedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $ProtectedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $ProtectedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				#"Adm" = if ($ProtectedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+				#"DA" = if ($ProtectedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+				#"EA" = if ($ProtectedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 				"Last Logon" = $ProtectedUser.lastlogontimestamp
 				"SID" = $ProtectedUser.objectSID
 				"Domain" = $Domain
@@ -3453,9 +3498,12 @@ function Invoke-ADEnum
 					"Account" = $ProtectedUser.samaccountname
 					"Enabled" = if ($ProtectedUser.useraccountcontrol -band 2) { "False" } else { "True" }
 					"Active" = if ($ProtectedUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-					"Adm" = if ($ProtectedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
-					"DA" = if ($ProtectedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-					"EA" = if ($ProtectedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+     					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $ProtectedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $ProtectedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $ProtectedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					#"Adm" = if ($ProtectedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+					#"DA" = if ($ProtectedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					#"EA" = if ($ProtectedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 					"Last Logon" = $ProtectedUser.lastlogontimestamp
 					"SID" = $ProtectedUser.objectSID
 					"Domain" = $AllDomain
@@ -3482,9 +3530,12 @@ function Invoke-ADEnum
 				"Account" = $PrivilegedUser.samaccountname
 				"Enabled" = if ($PrivilegedUser.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if ($PrivilegedUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if ($PrivilegedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
-				"DA" = if ($PrivilegedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-				"EA" = if ($PrivilegedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+    				"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $PrivilegedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $PrivilegedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $PrivilegedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				#"Adm" = if ($PrivilegedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+				#"DA" = if ($PrivilegedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+				#"EA" = if ($PrivilegedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 				"Last Logon" = $PrivilegedUser.lastlogontimestamp
 				"SID" = $PrivilegedUser.objectSID
 				"Domain" = $Domain
@@ -3505,9 +3556,12 @@ function Invoke-ADEnum
 					"Account" = $PrivilegedUser.samaccountname
 					"Enabled" = if ($PrivilegedUser.useraccountcontrol -band 2) { "False" } else { "True" }
 					"Active" = if ($PrivilegedUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-					"Adm" = if ($PrivilegedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
-					"DA" = if ($PrivilegedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-					"EA" = if ($PrivilegedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+     					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $PrivilegedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $PrivilegedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $PrivilegedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					#"Adm" = if ($PrivilegedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+					#"DA" = if ($PrivilegedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					#"EA" = if ($PrivilegedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 					"Last Logon" = $PrivilegedUser.lastlogontimestamp
 					"SID" = $PrivilegedUser.objectSID
 					"Domain" = $AllDomain
@@ -3535,9 +3589,12 @@ function Invoke-ADEnum
 				"Account" = $PrivilegedUser.samaccountname
 				"Enabled" = if ($PrivilegedUser.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if ($PrivilegedUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if ($PrivilegedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
-				"DA" = if ($PrivilegedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-				"EA" = if ($PrivilegedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+    				"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $PrivilegedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $PrivilegedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $PrivilegedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				#"Adm" = if ($PrivilegedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+				#"DA" = if ($PrivilegedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+				#"EA" = if ($PrivilegedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 				"Last Logon" = $PrivilegedUser.lastlogontimestamp
 				"SID" = $PrivilegedUser.objectSID
 				"Domain" = $Domain
@@ -3558,9 +3615,12 @@ function Invoke-ADEnum
 					"Account" = $PrivilegedUser.samaccountname
 					"Enabled" = if ($PrivilegedUser.useraccountcontrol -band 2) { "False" } else { "True" }
 					"Active" = if ($PrivilegedUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-					"Adm" = if ($PrivilegedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
-					"DA" = if ($PrivilegedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-					"EA" = if ($PrivilegedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+     					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $PrivilegedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $PrivilegedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $PrivilegedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					#"Adm" = if ($PrivilegedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+					#"DA" = if ($PrivilegedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					#"EA" = if ($PrivilegedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 					"Last Logon" = $PrivilegedUser.lastlogontimestamp
 					"SID" = $PrivilegedUser.objectSID
 					"Domain" = $AllDomain
@@ -3587,9 +3647,12 @@ function Invoke-ADEnum
 				"Account" = $PrivilegedUser.samaccountname
 				"Enabled" = if ($PrivilegedUser.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if ($PrivilegedUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if ($PrivilegedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
-				"DA" = if ($PrivilegedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-				"EA" = if ($PrivilegedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+    				"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $PrivilegedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $PrivilegedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $PrivilegedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				#"Adm" = if ($PrivilegedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+				#"DA" = if ($PrivilegedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+				#"EA" = if ($PrivilegedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 				"Last Logon" = $PrivilegedUser.lastlogontimestamp
 				"SID" = $PrivilegedUser.objectSID
 				"Domain" = $Domain
@@ -3610,9 +3673,12 @@ function Invoke-ADEnum
 					"Account" = $PrivilegedUser.samaccountname
 					"Enabled" = if ($PrivilegedUser.useraccountcontrol -band 2) { "False" } else { "True" }
 					"Active" = if ($PrivilegedUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-					"Adm" = if ($PrivilegedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
-					"DA" = if ($PrivilegedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-					"EA" = if ($PrivilegedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+     					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $PrivilegedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $PrivilegedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $PrivilegedUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					#"Adm" = if ($PrivilegedUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+					#"DA" = if ($PrivilegedUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					#"EA" = if ($PrivilegedUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 					"Last Logon" = $PrivilegedUser.lastlogontimestamp
 					"SID" = $PrivilegedUser.objectSID
 					"Domain" = $AllDomain
@@ -3694,9 +3760,12 @@ function Invoke-ADEnum
 				"User Name" = $sidHistoryUser.samaccountname
 				"Enabled" = if ($sidHistoryUser.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if ($sidHistoryUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if ($sidHistoryUser.memberof -match 'Administrators') { "YES" } else { "NO" }
-				"DA" = if ($sidHistoryUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-				"EA" = if ($sidHistoryUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+    				"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $sidHistoryUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $sidHistoryUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $sidHistoryUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				#"Adm" = if ($sidHistoryUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+				#"DA" = if ($sidHistoryUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+				#"EA" = if ($sidHistoryUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 				"Last Logon" = $sidHistoryUser.lastlogontimestamp
 				"SID" = $sidHistoryUser.objectSID
 				"Domain" = $Domain
@@ -3717,9 +3786,12 @@ function Invoke-ADEnum
 					"User Name" = $sidHistoryUser.samaccountname
 					"Enabled" = if ($sidHistoryUser.useraccountcontrol -band 2) { "False" } else { "True" }
 					"Active" = if ($sidHistoryUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-					"Adm" = if ($sidHistoryUser.memberof -match 'Administrators') { "YES" } else { "NO" }
-					"DA" = if ($sidHistoryUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-					"EA" = if ($sidHistoryUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+     					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $sidHistoryUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $sidHistoryUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $sidHistoryUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					#"Adm" = if ($sidHistoryUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+					#"DA" = if ($sidHistoryUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					#"EA" = if ($sidHistoryUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 					"Last Logon" = $sidHistoryUser.lastlogontimestamp
 					"SID" = $sidHistoryUser.objectSID
 					"Domain" = $AllDomain
@@ -3749,9 +3821,12 @@ function Invoke-ADEnum
 					"Name" = $RevEncUser.samaccountname
 					"Enabled" = if ($RevEncUser.useraccountcontrol -band 2) { "False" } else { "True" }
 					"Active" = if ($RevEncUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-					"Adm" = if ($RevEncUser.memberof -match 'Administrators') { "YES" } else { "NO" }
-					"DA" = if ($RevEncUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-					"EA" = if ($RevEncUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+     					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $RevEncUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $RevEncUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $RevEncUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					#"Adm" = if ($RevEncUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+					#"DA" = if ($RevEncUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					#"EA" = if ($RevEncUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 					"Last Logon" = $RevEncUser.lastlogontimestamp
 					"Object SID" = $RevEncUser.objectsid
 					"Domain" = $Domain
@@ -3776,9 +3851,12 @@ function Invoke-ADEnum
 					"Name" = $RevEncUser.samaccountname
 					"Enabled" = if ($RevEncUser.useraccountcontrol -band 2) { "False" } else { "True" }
 					"Active" = if ($RevEncUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-					"Adm" = if ($RevEncUser.memberof -match 'Administrators') { "YES" } else { "NO" }
-					"DA" = if ($RevEncUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-					"EA" = if ($RevEncUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+     					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $RevEncUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $RevEncUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $RevEncUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					#"Adm" = if ($RevEncUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+					#"DA" = if ($RevEncUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					#"EA" = if ($RevEncUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 					"Last Logon" = $RevEncUser.lastlogontimestamp
 					"Object SID" = $RevEncUser.objectsid
 					"Domain" = $AllDomain
@@ -3810,9 +3888,12 @@ function Invoke-ADEnum
 					"Display Name" = $account.displayname
 					"Enabled" = if ($account.useraccountcontrol -band 2) { "False" } else { "True" }
 					"Active" = if ($account.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-					"Adm" = if ($account.memberof -match 'Administrators') { "YES" } else { "NO" }
-					"DA" = if ($account.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-					"EA" = if ($account.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+     					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					#"Adm" = if ($account.memberof -match 'Administrators') { "YES" } else { "NO" }
+					#"DA" = if ($account.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					#"EA" = if ($account.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 					"Last Logon" = $account.lastlogontimestamp
 					"SID" = $account.objectSID
 					"Domain" = $Domain
@@ -3838,9 +3919,12 @@ function Invoke-ADEnum
 						"Display Name" = $account.displayname
 						"Enabled" = if ($account.useraccountcontrol -band 2) { "False" } else { "True" }
 						"Active" = if ($account.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-						"Adm" = if ($account.memberof -match 'Administrators') { "YES" } else { "NO" }
-						"DA" = if ($account.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-						"EA" = if ($account.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+      						"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+						"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+						"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+						#"Adm" = if ($account.memberof -match 'Administrators') { "YES" } else { "NO" }
+						#"DA" = if ($account.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+						#"EA" = if ($account.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 						"Last Logon" = $account.lastlogontimestamp
 						"SID" = $account.objectSID
 						"Domain" = $AllDomain
@@ -4680,11 +4764,6 @@ function Invoke-ADEnum
 					"Domain" = $Domain
 				}
 			}
-
-			if ($TempLoggedOnUsersServerOU) {
-				$TempLoggedOnUsersServerOU | Sort-Object Domain,User | Format-Table -AutoSize -Wrap
-				$HTMLLoggedOnUsersServerOU = $TempLoggedOnUsersServerOU | Sort-Object Domain,User | ConvertTo-Html -Fragment -PreContent "<h2>Logged on users for all machines in any Server OU</h2>"
-			}
 		}
 		else {
 			foreach ($AllDomain in $AllDomains) {
@@ -4696,12 +4775,12 @@ function Invoke-ADEnum
 						"Domain" = $AllDomain
 					}
 				}
-
-				if ($TempLoggedOnUsersServerOU) {
-					$TempLoggedOnUsersServerOU | Sort-Object Domain,User | Format-Table -AutoSize -Wrap
-					$HTMLLoggedOnUsersServerOU = $TempLoggedOnUsersServerOU | Sort-Object Domain,User | ConvertTo-Html -Fragment -PreContent "<h2>Logged on users for all machines in any Server OU</h2>"
-				}
 			}
+		}
+
+  		if ($TempLoggedOnUsersServerOU) {
+			$TempLoggedOnUsersServerOU | Sort-Object Domain,User | Format-Table -AutoSize -Wrap
+			$HTMLLoggedOnUsersServerOU = $TempLoggedOnUsersServerOU | Sort-Object Domain,User | ConvertTo-Html -Fragment -PreContent "<h2>Logged on users for all machines in any Server OU</h2>"
 		}
 	}
 
@@ -4724,11 +4803,6 @@ function Invoke-ADEnum
 				}
 			}
 		}
-
-		if ($TempKeywordDomainGPOs) {
-			$TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | Format-Table -AutoSize -Wrap
-			$HTMLKeywordDomainGPOs = $TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting GPOs (by Keyword)</h2>"
-		}
 	}
 	else {
 		$TempKeywordDomainGPOs = foreach ($AllDomain in $AllDomains) {
@@ -4745,11 +4819,11 @@ function Invoke-ADEnum
 				}
 			}
 		}
+	}
 
-		if ($TempKeywordDomainGPOs) {
-			$TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | Format-Table -AutoSize -Wrap
-			$HTMLKeywordDomainGPOs = $TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting GPOs (by Keyword)</h2>"
-		}
+ 	if ($TempKeywordDomainGPOs) {
+		$TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | Format-Table -AutoSize -Wrap
+		$HTMLKeywordDomainGPOs = $TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting GPOs (by Keyword)</h2>"
 	}
 	
 	#########################################
@@ -4773,11 +4847,6 @@ function Invoke-ADEnum
 				}
 			}
 		}
-
-		if ($TempGroupsByKeyword) {
-			$TempGroupsByKeyword | Sort-Object Domain,Keyword,"Group Name" | Format-Table -AutoSize -Wrap
-			$HTMLGroupsByKeyword = $TempGroupsByKeyword | Sort-Object Domain,Keyword,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting Groups (by Keyword)</h2>"
-		}
 	}
 	else {
 		$TempGroupsByKeyword = foreach ($AllDomain in $AllDomains) {
@@ -4796,11 +4865,11 @@ function Invoke-ADEnum
 				}
 			}
 		}
+	}
 
-		if ($TempGroupsByKeyword) {
-			$TempGroupsByKeyword | Sort-Object Domain,Keyword,"Group Name" | Format-Table -AutoSize -Wrap
-			$HTMLGroupsByKeyword = $TempGroupsByKeyword | Sort-Object Domain,Keyword,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting Groups (by Keyword)</h2>"
-		}
+ 	if ($TempGroupsByKeyword) {
+		$TempGroupsByKeyword | Sort-Object Domain,Keyword,"Group Name" | Format-Table -AutoSize -Wrap
+		$HTMLGroupsByKeyword = $TempGroupsByKeyword | Sort-Object Domain,Keyword,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting Groups (by Keyword)</h2>"
 	}
 	
 	#############################################
@@ -4830,11 +4899,6 @@ function Invoke-ADEnum
 				}
 			}
 		}
-
-		if($TempDomainOUsByKeyword) {
-			$TempDomainOUsByKeyword | Sort-Object Domain,Keyword,Name | Format-Table -AutoSize -Wrap
-			$HTMLDomainOUsByKeyword = $TempDomainOUsByKeyword | Sort-Object Domain,Keyword,Name | ConvertTo-Html -Fragment -PreContent "<h2>Interesting OUs (by Keyword)</h2>"
-		}
 	}
 	else{
 		$TempDomainOUsByKeyword = foreach($AllDomain in $AllDomains){
@@ -4858,11 +4922,11 @@ function Invoke-ADEnum
 				}
 			}
 		}
+	}
 
-		if($TempDomainOUsByKeyword) {
-			$TempDomainOUsByKeyword | Sort-Object Domain,Keyword,Name | Format-Table -AutoSize -Wrap
-			$HTMLDomainOUsByKeyword = $TempDomainOUsByKeyword | Sort-Object Domain,Keyword,Name | ConvertTo-Html -Fragment -PreContent "<h2>Interesting OUs (by Keyword)</h2>"
-		}
+ 	if($TempDomainOUsByKeyword) {
+		$TempDomainOUsByKeyword | Sort-Object Domain,Keyword,Name | Format-Table -AutoSize -Wrap
+		$HTMLDomainOUsByKeyword = $TempDomainOUsByKeyword | Sort-Object Domain,Keyword,Name | ConvertTo-Html -Fragment -PreContent "<h2>Interesting OUs (by Keyword)</h2>"
 	}
 	
 	#######################################
@@ -4882,11 +4946,6 @@ function Invoke-ADEnum
 					Domain = $Domain
 				}
 			}
-
-			if ($TempDomainShares) {
-				$TempDomainShares | Sort-Object Domain,"Computer Name",Name | Format-Table -AutoSize -Wrap
-				$HTMLDomainShares = $TempDomainShares | Sort-Object Domain,"Computer Name",Name | ConvertTo-Html -Fragment -PreContent "<h2>Accessible Domain Shares</h2>"
-			}
 		}
 		
 		else {
@@ -4901,11 +4960,11 @@ function Invoke-ADEnum
 					}
 				}
 			}
+		}
 
-			if ($TempDomainShares) {
-				$TempDomainShares | Sort-Object Domain,"Computer Name",Name | Format-Table -AutoSize -Wrap
-				$HTMLDomainShares = $TempDomainShares | Sort-Object Domain,"Computer Name",Name | ConvertTo-Html -Fragment -PreContent "<h2>Accessible Domain Shares</h2>"
-			}
+  		if ($TempDomainShares) {
+			$TempDomainShares | Sort-Object Domain,"Computer Name",Name | Format-Table -AutoSize -Wrap
+			$HTMLDomainShares = $TempDomainShares | Sort-Object Domain,"Computer Name",Name | ConvertTo-Html -Fragment -PreContent "<h2>Accessible Domain Shares</h2>"
 		}
 
 
@@ -4920,11 +4979,6 @@ function Invoke-ADEnum
 					"Domain" = $Domain
 				}
 			}
-			
-			if($TempDomainShareFiles){
-				$TempDomainShareFiles | Sort-Object Domain,Owner,Path | Format-Table -AutoSize -Wrap
-				$HTMLDomainShareFiles = $TempDomainShareFiles | Sort-Object Domain,Owner,Path | ConvertTo-Html -Fragment -PreContent "<h2>Domain Share Files</h2>"
-			}
 		}
 		else{
 			$TempDomainShareFiles = foreach($AllDomain in $AllDomains){
@@ -4937,11 +4991,11 @@ function Invoke-ADEnum
 					}
 				}
 			}
-			
-			if($TempDomainShareFiles){
-				$TempDomainShareFiles | Sort-Object Domain,Owner,Path | Format-Table -AutoSize -Wrap
-				$HTMLDomainShareFiles = $TempDomainShareFiles | Sort-Object Domain,Owner,Path | ConvertTo-Html -Fragment -PreContent "<h2>Domain Share Files</h2>"
-			}
+		}
+
+  		if($TempDomainShareFiles){
+			$TempDomainShareFiles | Sort-Object Domain,Owner,Path | Format-Table -AutoSize -Wrap
+			$HTMLDomainShareFiles = $TempDomainShareFiles | Sort-Object Domain,Owner,Path | ConvertTo-Html -Fragment -PreContent "<h2>Domain Share Files</h2>"
 		}
 
         
@@ -4956,11 +5010,6 @@ function Invoke-ADEnum
 					"Domain" = $Domain
 				}
 			}
-
-			if ($TempInterestingFiles) {
-				$TempInterestingFiles | Sort-Object Domain,Owner,Path | Format-Table -AutoSize -Wrap
-				$HTMLInterestingFiles = $TempInterestingFiles | Sort-Object Domain,Owner,Path | ConvertTo-Html -Fragment -PreContent "<h2>Domain Share Files (more file extensions)</h2>"
-			}
 		}
 		else {
 			$TempInterestingFiles = foreach ($AllDomain in $AllDomains) {
@@ -4973,11 +5022,11 @@ function Invoke-ADEnum
 					}
 				}
 			}
+		}
 
-			if ($TempInterestingFiles) {
-				$TempInterestingFiles | Sort-Object Domain,Owner,Path | Format-Table -AutoSize -Wrap
-				$HTMLInterestingFiles = $TempInterestingFiles | Sort-Object Domain,Owner,Path | ConvertTo-Html -Fragment -PreContent "<h2>Domain Share Files (more file extensions)</h2>"
-			}
+  		if ($TempInterestingFiles) {
+			$TempInterestingFiles | Sort-Object Domain,Owner,Path | Format-Table -AutoSize -Wrap
+			$HTMLInterestingFiles = $TempInterestingFiles | Sort-Object Domain,Owner,Path | ConvertTo-Html -Fragment -PreContent "<h2>Domain Share Files (more file extensions)</h2>"
 		}
 
     	}
@@ -5000,11 +5049,6 @@ function Invoke-ADEnum
 					"Domain" = $Domain
 				}
 			}
-
-			if ($TempACLScannerResults) {
-				$TempACLScannerResults | Sort-Object Domain,"Identity Reference Name","Object DN" | Format-Table -AutoSize -Wrap
-				$HTMLACLScannerResults = $TempACLScannerResults | Sort-Object Domain,"Identity Reference Name","Object DN" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting ACLs:</h2>"
-			}
 		}
 		else {
 			$TempACLScannerResults = foreach ($AllDomain in $AllDomains) {
@@ -5019,11 +5063,11 @@ function Invoke-ADEnum
 					}
 				}
 			}
+		}
 
-			if ($TempACLScannerResults) {
-				$TempACLScannerResults | Sort-Object Domain,"Identity Reference Name","Object DN" | Format-Table -AutoSize -Wrap
-				$HTMLACLScannerResults = $TempACLScannerResults | Sort-Object Domain,"Identity Reference Name","Object DN" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting ACLs:</h2>"
-			}
+  		if ($TempACLScannerResults) {
+			$TempACLScannerResults | Sort-Object Domain,"Identity Reference Name","Object DN" | Format-Table -AutoSize -Wrap
+			$HTMLACLScannerResults = $TempACLScannerResults | Sort-Object Domain,"Identity Reference Name","Object DN" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting ACLs:</h2>"
 		}
 
     	}
@@ -5054,11 +5098,6 @@ function Invoke-ADEnum
 			"Lockout Duration" = $DomainPolicy.SystemAccess.LockoutDuration
 			"Require Logon To Change Pwd" = $DomainPolicy.SystemAccess.RequireLogonToChangePassword
 		}
-
-		if ($TempDomainPolicy) {
-			$TempDomainPolicy | Format-Table -AutoSize -Wrap
-			$HTMLDomainPolicy = $TempDomainPolicy | ConvertTo-Html -Fragment -PreContent "<h2>Domain Password Policy</h2>"
-		}
 	}
 	else {
 		$TempDomainPolicy = foreach ($AllDomain in $AllDomains) {
@@ -5076,11 +5115,11 @@ function Invoke-ADEnum
 				"Require Logon To Change Pwd" = $DomainPolicy.SystemAccess.RequireLogonToChangePassword
 			}
 		}
+	}
 
-		if ($TempDomainPolicy) {
-			$TempDomainPolicy | Format-Table -AutoSize -Wrap
-			$HTMLDomainPolicy = $TempDomainPolicy | ConvertTo-Html -Fragment -PreContent "<h2>Domain Password Policy</h2>"
-		}
+ 	if ($TempDomainPolicy) {
+		$TempDomainPolicy | Format-Table -AutoSize -Wrap
+		$HTMLDomainPolicy = $TempDomainPolicy | ConvertTo-Html -Fragment -PreContent "<h2>Domain Password Policy</h2>"
 	}
 
 	
@@ -5100,11 +5139,6 @@ function Invoke-ADEnum
 			"Max Clock Skew" = $KerberosPolicy.KerberosPolicy.MaxClockSkew
 			"Ticket Validate Client" = $KerberosPolicy.KerberosPolicy.TicketValidateClient
 		}
-
-		if ($TempKerberosPolicy) {
-			$TempKerberosPolicy | Format-Table -AutoSize -Wrap
-			$HTMLKerberosPolicy = $TempKerberosPolicy | ConvertTo-Html -Fragment -PreContent "<h2>Kerberos Password Policy</h2>"
-		}
 	}
 	else {
 		$TempKerberosPolicy = foreach ($AllDomain in $AllDomains) {
@@ -5118,11 +5152,11 @@ function Invoke-ADEnum
 				"Ticket Validate Client" = $KerberosPolicy.KerberosPolicy.TicketValidateClient
 			}
 		}
+	}
 
-		if ($TempKerberosPolicy) {
-			$TempKerberosPolicy | Format-Table -AutoSize -Wrap
-			$HTMLKerberosPolicy = $TempKerberosPolicy | ConvertTo-Html -Fragment -PreContent "<h2>Kerberos Password Policy</h2>"
-		}
+ 	if ($TempKerberosPolicy) {
+		$TempKerberosPolicy | Format-Table -AutoSize -Wrap
+		$HTMLKerberosPolicy = $TempKerberosPolicy | ConvertTo-Html -Fragment -PreContent "<h2>Kerberos Password Policy</h2>"
 	}
 	
 	##################################################
@@ -5147,13 +5181,7 @@ function Invoke-ADEnum
 			'Nb Password not Req.' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -match "PASSWD_NOTREQD" }).Name.Count
 			'Nb Reversible Password' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -band 128 }).Name.count
 			Domain = $Domain
-		}
-		
-		if ($TempUserAccountAnalysis) {
-			$TempUserAccountAnalysis | Format-Table -AutoSize
-			$HTMLUserAccountAnalysis = $TempUserAccountAnalysis | ConvertTo-Html -Fragment -PreContent "<h2>User Accounts Analysis</h2>"
-		}
-		
+		}		
 	}
 	
 	else{
@@ -5175,11 +5203,11 @@ function Invoke-ADEnum
 			}
 			
 		}
-		
-		if ($TempUserAccountAnalysis) {
-			$TempUserAccountAnalysis | Format-Table -AutoSize
-			$HTMLUserAccountAnalysis = $TempUserAccountAnalysis | ConvertTo-Html -Fragment -PreContent "<h2>User Accounts Analysis</h2>"
-		}
+	}
+
+ 	if ($TempUserAccountAnalysis) {
+		$TempUserAccountAnalysis | Format-Table -AutoSize
+		$HTMLUserAccountAnalysis = $TempUserAccountAnalysis | ConvertTo-Html -Fragment -PreContent "<h2>User Accounts Analysis</h2>"
 	}
 	
 	######################################################
@@ -5202,12 +5230,6 @@ function Invoke-ADEnum
 			'Unconstrained Delegations' = ($TempUnconstrained | Where-Object {$_.Domain -eq $Domain}).Name.Count
 			Domain = $Domain
 		}
-		
-		if ($TempComputerAccountAnalysis) {
-			$TempComputerAccountAnalysis | Format-Table -AutoSize
-			$HTMLComputerAccountAnalysis = $TempComputerAccountAnalysis | ConvertTo-Html -Fragment -PreContent "<h2>Computer Account Analysis</h2>"
-		}
-		
 	}
 	
 	else{
@@ -5226,11 +5248,11 @@ function Invoke-ADEnum
 			}
 			
 		}
-		
-		if ($TempComputerAccountAnalysis) {
-			$TempComputerAccountAnalysis | Format-Table -AutoSize
-			$HTMLComputerAccountAnalysis = $TempComputerAccountAnalysis | ConvertTo-Html -Fragment -PreContent "<h2>Computer Account Analysis</h2>"
-		}
+	}
+
+ 	if ($TempComputerAccountAnalysis) {
+		$TempComputerAccountAnalysis | Format-Table -AutoSize
+		$HTMLComputerAccountAnalysis = $TempComputerAccountAnalysis | ConvertTo-Html -Fragment -PreContent "<h2>Computer Account Analysis</h2>"
 	}
 	
 	######################################################
@@ -5258,12 +5280,6 @@ function Invoke-ADEnum
 			}
 			
 		}
-		
-		if ($TempOperatingSystemsAnalysis) {
-			$TempOperatingSystemsAnalysis | Sort-Object Domain,'Operating System' | Format-Table -AutoSize
-			$HTMLOperatingSystemsAnalysis = $TempOperatingSystemsAnalysis | Sort-Object Domain,'Operating System' | ConvertTo-Html -Fragment -PreContent "<h2>Operating Systems Analysis</h2>"
-		}
-		
 	}
 	
 	else{
@@ -5285,18 +5301,18 @@ function Invoke-ADEnum
 			}
 			
 		}
-		
-		if ($TempOperatingSystemsAnalysis) {
-			$TempOperatingSystemsAnalysis | Sort-Object Domain,'Operating System' | Format-Table -AutoSize
-			$HTMLOperatingSystemsAnalysis = $TempOperatingSystemsAnalysis | Sort-Object Domain,'Operating System' | ConvertTo-Html -Fragment -PreContent "<h2>Operating Systems Analysis</h2>"
-		}
+	}
+
+ 	if ($TempOperatingSystemsAnalysis) {
+		$TempOperatingSystemsAnalysis | Sort-Object Domain,'Operating System' | Format-Table -AutoSize
+		$HTMLOperatingSystemsAnalysis = $TempOperatingSystemsAnalysis | Sort-Object Domain,'Operating System' | ConvertTo-Html -Fragment -PreContent "<h2>Operating Systems Analysis</h2>"
 	}
 	
 	############################################
     ########### Servers (Enabled)###############
 	############################################
 	
-	if($NoServers){}
+    if($NoServers){}
     else{
         Write-Host ""
 		Write-Host "Servers (Enabled):" -ForegroundColor Cyan
@@ -5313,11 +5329,6 @@ function Invoke-ADEnum
 					"Domain" = $Domain
 					Description = $ComputerServer.description
 				}
-			}
-
-			if ($TempServersEnabled) {
-				$TempServersEnabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-				$HTMLServersEnabled = $TempServersEnabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Servers (Enabled)</h2>"
 			}
 		}
 		else {
@@ -5336,20 +5347,19 @@ function Invoke-ADEnum
 					}
 				}
 			}
-
-			if ($TempServersEnabled) {
-				$TempServersEnabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-				$HTMLServersEnabled = $TempServersEnabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Servers (Enabled)</h2>"
-			}
 		}
 
+  		if ($TempServersEnabled) {
+			$TempServersEnabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+			$HTMLServersEnabled = $TempServersEnabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Servers (Enabled)</h2>"
+		}
     }
 	
 	#############################################
     ########### Servers (Disabled)###############
 	#############################################
 	
-	if($NoServers){}
+    if($NoServers){}
     else{
         Write-Host ""
 		Write-Host "Servers (Disabled):" -ForegroundColor Cyan
@@ -5366,11 +5376,6 @@ function Invoke-ADEnum
 					"Domain" = $Domain
 					Description = $ComputerServer.description
 				}
-			}
-
-			if ($TempServersDisabled) {
-				$TempServersDisabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-				$HTMLServersDisabled = $TempServersDisabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Servers (Disabled)</h2>"
 			}
 		}
 		else {
@@ -5389,13 +5394,12 @@ function Invoke-ADEnum
 					}
 				}
 			}
-
-			if ($TempServersDisabled) {
-				$TempServersDisabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-				$HTMLServersDisabled = $TempServersDisabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Servers (Disabled)</h2>"
-			}
 		}
 
+    		if ($TempServersDisabled) {
+			$TempServersDisabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+			$HTMLServersDisabled = $TempServersDisabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Servers (Disabled)</h2>"
+		}
     }
 	
 	##################################################
@@ -5403,7 +5407,7 @@ function Invoke-ADEnum
 	##################################################
 	
 	if($Workstations -OR $AllEnum){
-        Write-Host ""
+        	Write-Host ""
 		Write-Host "Workstations (Enabled):" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
 			$AllWorkstations = Get-DomainComputer -Domain $Domain -Server $Server -UACFilter NOT_ACCOUNTDISABLE | Where-Object { $_.OperatingSystem -notlike "*Server*" }
@@ -5418,11 +5422,6 @@ function Invoke-ADEnum
 					"Domain" = $Domain
 					Description = $Workstation.description
 				}
-			}
-
-			if ($TempWorkstationsEnabled) {
-				$TempWorkstationsEnabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-				$HTMLWorkstationsEnabled = $TempWorkstationsEnabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Workstations (Enabled)</h2>"
 			}
 		}
 		else {
@@ -5441,14 +5440,14 @@ function Invoke-ADEnum
 					}
 				}
 			}
-
-			if ($TempWorkstationsEnabled) {
-				$TempWorkstationsEnabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-				$HTMLWorkstationsEnabled = $TempWorkstationsEnabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Workstations (Enabled)</h2>"
-			}
 		}
 
-    }
+  		if ($TempWorkstationsEnabled) {
+			$TempWorkstationsEnabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+			$HTMLWorkstationsEnabled = $TempWorkstationsEnabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Workstations (Enabled)</h2>"
+		}
+
+	}
 	
 	###################################################
     ########### Workstations (Disabled) ###############
@@ -5471,11 +5470,6 @@ function Invoke-ADEnum
 					Description = $Workstation.description
 				}
 			}
-
-			if ($TempWorkstationsDisabled) {
-				$TempWorkstationsDisabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-				$HTMLWorkstationsDisabled = $TempWorkstationsDisabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Workstations (Disabled)</h2>"
-			}
 		}
 		else {
 			$TempWorkstationsDisabled = foreach ($AllDomain in $AllDomains) {
@@ -5493,13 +5487,12 @@ function Invoke-ADEnum
 					}
 				}
 			}
-
-			if ($TempWorkstationsDisabled) {
-				$TempWorkstationsDisabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-				$HTMLWorkstationsDisabled = $TempWorkstationsDisabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Workstations (Disabled)</h2>"
-			}
 		}
 
+    		if ($TempWorkstationsDisabled) {
+			$TempWorkstationsDisabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+			$HTMLWorkstationsDisabled = $TempWorkstationsDisabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Workstations (Disabled)</h2>"
+		}
     }
 
 	#####################################
@@ -5515,16 +5508,16 @@ function Invoke-ADEnum
 			$TempEnabledUsers = foreach ($EnabledUser in $EnabledUsers) {
 				[PSCustomObject]@{
 					"User Name" = $EnabledUser.samaccountname
+     					"Enabled" = if ($EnabledUser.useraccountcontrol -band 2) { "False" } else { "True" }
+					"Active" = if ($EnabledUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
+     					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $EnabledUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $EnabledUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $EnabledUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
 					"Object SID" = $EnabledUser.objectsid
 					"Domain" = $Domain
 					"Groups" = (Get-DomainGroup -Domain $Domain -Server $Server -UserName $EnabledUser.samaccountname).Name -join ' - '
 					"Description" = $EnabledUser.description
 				}
-			}
-
-			if ($TempEnabledUsers) {
-				$TempEnabledUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
-				$HTMLEnabledUsers = $TempEnabledUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users (Enabled)</h2>"
 			}
 		}
 		else {
@@ -5533,6 +5526,11 @@ function Invoke-ADEnum
 				foreach ($EnabledUser in $EnabledUsers) {
 					[PSCustomObject]@{
 						"User Name" = $EnabledUser.samaccountname
+      						"Enabled" = if ($EnabledUser.useraccountcontrol -band 2) { "False" } else { "True" }
+						"Active" = if ($EnabledUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
+     						"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $EnabledUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+						"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $EnabledUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+						"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $EnabledUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
 						"Object SID" = $EnabledUser.objectsid
 						"Domain" = $AllDomain
 						"Groups" = (Get-DomainGroup -Domain $AllDomain -UserName $EnabledUser.samaccountname).Name -join ' - '
@@ -5540,11 +5538,11 @@ function Invoke-ADEnum
 					}
 				}
 			}
+		}
 
-			if ($TempEnabledUsers) {
-				$TempEnabledUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
-				$HTMLEnabledUsers = $TempEnabledUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users (Enabled)</h2>"
-			}
+  		if ($TempEnabledUsers) {
+			$TempEnabledUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+			$HTMLEnabledUsers = $TempEnabledUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users (Enabled)</h2>"
 		}
 	}
 
@@ -5562,16 +5560,16 @@ function Invoke-ADEnum
 			$TempDisabledUsers = foreach ($DisabledUser in $DisabledUsers) {
 				[PSCustomObject]@{
 					"User Name" = $DisabledUser.samaccountname
+     					"Enabled" = if ($DisabledUser.useraccountcontrol -band 2) { "False" } else { "True" }
+					"Active" = if ($DisabledUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
+     					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $DisabledUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $DisabledUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $DisabledUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
 					"Object SID" = $DisabledUser.objectsid
 					"Domain" = $Domain
 					"Groups" = (Get-DomainGroup -Domain $Domain -Server $Server -UserName $DisabledUser.samaccountname).Name -join ' - '
 					"Description" = $DisabledUser.description
 				}
-			}
-
-			if ($TempDisabledUsers) {
-				$TempDisabledUsers | Where-Object {$_."User Name" -ne "krbtgt"} | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
-				$HTMLDisabledUsers = $TempDisabledUsers | Where-Object {$_."User Name" -ne "krbtgt"} | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users (Disabled)</h2>"
 			}
 		}
 		else {
@@ -5580,6 +5578,11 @@ function Invoke-ADEnum
 				foreach ($DisabledUser in $DisabledUsers) {
 					[PSCustomObject]@{
 						"User Name" = $DisabledUser.samaccountname
+      						"Enabled" = if ($DisabledUser.useraccountcontrol -band 2) { "False" } else { "True" }
+						"Active" = if ($DisabledUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
+     						"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $DisabledUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+						"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $DisabledUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+						"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $DisabledUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
 						"Object SID" = $DisabledUser.objectsid
 						"Domain" = $AllDomain
 						"Groups" = (Get-DomainGroup -Domain $AllDomain -UserName $DisabledUser.samaccountname).Name -join ' - '
@@ -5587,11 +5590,11 @@ function Invoke-ADEnum
 					}
 				}
 			}
+		}
 
-			if ($TempDisabledUsers) {
-				$TempDisabledUsers | Where-Object {$_."User Name" -ne "krbtgt"} | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
-				$HTMLDisabledUsers = $TempDisabledUsers | Where-Object {$_."User Name" -ne "krbtgt"} | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users (Disabled)</h2>"
-			}
+  		if ($TempDisabledUsers) {
+			$TempDisabledUsers | Where-Object {$_."User Name" -ne "krbtgt"} | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+			$HTMLDisabledUsers = $TempDisabledUsers | Where-Object {$_."User Name" -ne "krbtgt"} | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users (Disabled)</h2>"
 		}
 	}
 
@@ -5613,11 +5616,6 @@ function Invoke-ADEnum
 					#Description = $OtherGroup.description
 				}
 			}
-
-			if ($TempOtherGroups) {
-				$TempOtherGroups | Sort-Object Domain,"Group Name" | Format-Table -AutoSize -Wrap
-				$HTMLOtherGroups = $TempOtherGroups | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>All Groups</h2>"
-			}
 		}
 		else {
 			$TempOtherGroups = foreach ($AllDomain in $AllDomains) {
@@ -5632,11 +5630,11 @@ function Invoke-ADEnum
 					}
 				}
 			}
+		}
 
-			if ($TempOtherGroups) {
-				$TempOtherGroups | Sort-Object Domain,"Group Name" | Format-Table -AutoSize -Wrap
-				$HTMLOtherGroups = $TempOtherGroups | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>All Groups</h2>"
-			}
+  		if ($TempOtherGroups) {
+			$TempOtherGroups | Sort-Object Domain,"Group Name" | Format-Table -AutoSize -Wrap
+			$HTMLOtherGroups = $TempOtherGroups | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>All Groups</h2>"
 		}
 	}
 
@@ -5659,11 +5657,6 @@ function Invoke-ADEnum
 					Domain = $Domain
 				}
 			}
-
-			if ($TempDomainGPOs) {
-				$TempDomainGPOs | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
-				$HTMLDomainGPOs = $TempDomainGPOs | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>All Domain GPOs</h2>"
-			}
 		}
 		else {
 			$TempDomainGPOs = foreach ($AllDomain in $AllDomains) {
@@ -5679,13 +5672,12 @@ function Invoke-ADEnum
 					}
 				}
 			}
-
-			if ($TempDomainGPOs) {
-				$TempDomainGPOs | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
-				$HTMLDomainGPOs = $TempDomainGPOs | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>All Domain GPOs</h2>"
-			}
 		}
-		
+
+  		if ($TempDomainGPOs) {
+			$TempDomainGPOs | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
+			$HTMLDomainGPOs = $TempDomainGPOs | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>All Domain GPOs</h2>"
+		}
 	}
 	
 	######################################
@@ -5712,11 +5704,6 @@ function Invoke-ADEnum
 					Members = $members -join ' - '
 				}
 			}
-
-			if($TempAllDomainOUs) {
-				$TempAllDomainOUs | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-				$HTMLAllDomainOUs = $TempAllDomainOUs | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>All Domain OUs</h2>"
-			}
 		}
 		else{
 			$TempAllDomainOUs = foreach($AllDomain in $AllDomains){
@@ -5736,11 +5723,11 @@ function Invoke-ADEnum
 					}
 				}
 			}
+		}
 
-			if($TempAllDomainOUs) {
-				$TempAllDomainOUs | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-				$HTMLAllDomainOUs = $TempAllDomainOUs | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>All Domain OUs</h2>"
-			}
+  		if($TempAllDomainOUs) {
+			$TempAllDomainOUs | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+			$HTMLAllDomainOUs = $TempAllDomainOUs | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>All Domain OUs</h2>"
 		}
 	}
 
