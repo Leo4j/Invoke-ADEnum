@@ -1188,9 +1188,9 @@ function Invoke-ADEnum
 					"Member Name" = $memberName
 					"Enabled" = $isEnabled
 					"Active" = $isActive
-     					"Adm" = if(($TempBuiltInAdministrators."Member Name" | ForEach-Object { $AccountOperator.MemberName.Contains($_) }) -contains $true) { "YES" } else { "NO" }
+     					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $AccountOperator.MemberName.Contains($_) }) { "YES" } else { "NO" }
 					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $AccountOperator.MemberName.Contains($_) }) { "YES" } else { "NO" }
-					"EA" = if(($TempEnterpriseAdmins."Member Name" | ForEach-Object { $AccountOperator.MemberName.Contains($_) }) -contains $true) { "YES" } else { "NO" }
+					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $AccountOperator.MemberName.Contains($_) }) { "YES" } else { "NO" }
 					#"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
 					#"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 					#"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
@@ -1216,9 +1216,9 @@ function Invoke-ADEnum
 						"Member Name" = $memberName
 						"Enabled" = $isEnabled
 						"Active" = $isActive
-      						"Adm" = if(($TempBuiltInAdministrators."Member Name" | ForEach-Object { $AccountOperator.MemberName.Contains($_) }) -contains $true) { "YES" } else { "NO" }
-						"DA" = if(($TempDomainAdmins."Member Name" | ForEach-Object { $AccountOperator.MemberName.Contains($_) }) -contains $true) { "YES" } else { "NO" }
-						"EA" = if(($TempEnterpriseAdmins."Member Name" | ForEach-Object { $AccountOperator.MemberName.Contains($_) }) -contains $true) { "YES" } else { "NO" }
+      						"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $AccountOperator.MemberName.Contains($_) }) { "YES" } else { "NO" }
+						"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $AccountOperator.MemberName.Contains($_) }) { "YES" } else { "NO" }
+						"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $AccountOperator.MemberName.Contains($_) }) { "YES" } else { "NO" }
 						#"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
 						#"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 						#"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
