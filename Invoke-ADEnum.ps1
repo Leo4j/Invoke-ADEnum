@@ -2628,6 +2628,85 @@ function Invoke-ADEnum
 			$HTMLPreWin2kCompatibleAccess = $TempPreWin2kCompatibleAccess | Sort-Object Domain,Member | ConvertTo-Html -Fragment -PreContent "<h2>Members of Pre-Windows 2000 Compatible Access group</h2>"
 		}
 	}
+
+ 	########################################################
+    ########### Hosts running Unsupported OS ###############
+	########################################################
+	
+    if($NoUnsupportedOS){}
+    else{
+        Write-Host ""
+		Write-Host "Hosts running Unsupported OS:" -ForegroundColor Cyan
+		if ($Domain -and $Server) {
+			$UnsupportedHosts = Get-DomainComputer -Domain $Domain -Server $Server | Where-Object {
+				($_.OperatingSystem -like "Windows Me*") -or
+				($_.OperatingSystem -like "Windows NT*") -or
+				($_.OperatingSystem -like "Windows 95*") -or
+				($_.OperatingSystem -like "Windows 98*") -or
+				($_.OperatingSystem -like "Windows XP*") -or
+				($_.OperatingSystem -like "Windows 7*") -or
+				($_.OperatingSystem -like "Windows Vista*") -or
+				($_.OperatingSystem -like "Windows 2000*") -or
+				($_.OperatingSystem -like "Windows 8*") -or
+				($_.OperatingSystem -like "Windows Server 2008*") -or
+				($_.OperatingSystem -like "Windows Server 2003*") -or
+				($_.OperatingSystem -like "Windows Server 2000*")
+			}
+
+			$TempUnsupportedHosts = foreach ($UnsupportedHost in $UnsupportedHosts) {
+				[PSCustomObject]@{
+					"Name" = $UnsupportedHost.samaccountname
+					"Enabled" = if ($UnsupportedHost.useraccountcontrol -band 2) { "False" } else { "True" }
+					"Active" = if ($UnsupportedHost.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
+					"IP Address" = (Resolve-DnsName -Name $UnsupportedHost.DnsHostName -Type A).IPAddress
+					"Account SID" = $UnsupportedHost.objectsid
+					"Operating System" = $UnsupportedHost.operatingsystem
+					Domain = $Domain
+				}
+			}
+
+			if ($TempUnsupportedHosts) {
+				$TempUnsupportedHosts | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+				$HTMLUnsupportedHosts = $TempUnsupportedHosts | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Hosts running Unsupported OS</h2>"
+			}
+		}
+		else {
+			$TempUnsupportedHosts = foreach ($AllDomain in $AllDomains) {
+				$UnsupportedHosts = Get-DomainComputer -Domain $AllDomain | Where-Object {
+					($_.OperatingSystem -like "Windows Me*") -or
+					($_.OperatingSystem -like "Windows NT*") -or
+					($_.OperatingSystem -like "Windows 95*") -or
+					($_.OperatingSystem -like "Windows 98*") -or
+					($_.OperatingSystem -like "Windows XP*") -or
+					($_.OperatingSystem -like "Windows 7*") -or
+					($_.OperatingSystem -like "Windows Vista*") -or
+					($_.OperatingSystem -like "Windows 2000*") -or
+					($_.OperatingSystem -like "Windows 8*") -or
+					($_.OperatingSystem -like "Windows Server 2008*") -or
+					($_.OperatingSystem -like "Windows Server 2003*") -or
+					($_.OperatingSystem -like "Windows Server 2000*")
+				}
+
+				foreach ($UnsupportedHost in $UnsupportedHosts) {
+					[PSCustomObject]@{
+						"Name" = $UnsupportedHost.samaccountname
+						"Enabled" = if ($UnsupportedHost.useraccountcontrol -band 2) { "False" } else { "True" }
+						"Active" = if ($UnsupportedHost.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
+						"IP Address" = (Resolve-DnsName -Name $UnsupportedHost.DnsHostName -Type A).IPAddress
+						"Account SID" = $UnsupportedHost.objectsid
+						"Operating System" = $UnsupportedHost.operatingsystem
+						Domain = $AllDomain
+					}
+				}
+			}
+
+			if ($TempUnsupportedHosts) {
+				$TempUnsupportedHosts | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+				$HTMLUnsupportedHosts = $TempUnsupportedHosts | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Hosts running Unsupported OS</h2>"
+			}
+		}
+
+    }
 	
 	##################################################
     ########### LM Compatibility Level ###############
@@ -2758,85 +2837,10 @@ function Invoke-ADEnum
 	        }
 	    }
 	}
-	
-	########################################################
-    ########### Hosts running Unsupported OS ###############
-	########################################################
-	
-	if($NoUnsupportedOS){}
-    else{
-        Write-Host ""
-		Write-Host "Hosts running Unsupported OS:" -ForegroundColor Cyan
-		if ($Domain -and $Server) {
-			$UnsupportedHosts = Get-DomainComputer -Domain $Domain -Server $Server | Where-Object {
-				($_.OperatingSystem -like "Windows Me*") -or
-				($_.OperatingSystem -like "Windows NT*") -or
-				($_.OperatingSystem -like "Windows 95*") -or
-				($_.OperatingSystem -like "Windows 98*") -or
-				($_.OperatingSystem -like "Windows XP*") -or
-				($_.OperatingSystem -like "Windows 7*") -or
-				($_.OperatingSystem -like "Windows Vista*") -or
-				($_.OperatingSystem -like "Windows 2000*") -or
-				($_.OperatingSystem -like "Windows 8*") -or
-				($_.OperatingSystem -like "Windows Server 2008*") -or
-				($_.OperatingSystem -like "Windows Server 2003*") -or
-				($_.OperatingSystem -like "Windows Server 2000*")
-			}
 
-			$TempUnsupportedHosts = foreach ($UnsupportedHost in $UnsupportedHosts) {
-				[PSCustomObject]@{
-					"Name" = $UnsupportedHost.samaccountname
-					"Enabled" = if ($UnsupportedHost.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($UnsupportedHost.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-					"IP Address" = (Resolve-DnsName -Name $UnsupportedHost.DnsHostName -Type A).IPAddress
-					"Account SID" = $UnsupportedHost.objectsid
-					"Operating System" = $UnsupportedHost.operatingsystem
-					Domain = $Domain
-				}
-			}
-
-			if ($TempUnsupportedHosts) {
-				$TempUnsupportedHosts | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-				$HTMLUnsupportedHosts = $TempUnsupportedHosts | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Hosts running Unsupported OS</h2>"
-			}
-		}
-		else {
-			$TempUnsupportedHosts = foreach ($AllDomain in $AllDomains) {
-				$UnsupportedHosts = Get-DomainComputer -Domain $AllDomain | Where-Object {
-					($_.OperatingSystem -like "Windows Me*") -or
-					($_.OperatingSystem -like "Windows NT*") -or
-					($_.OperatingSystem -like "Windows 95*") -or
-					($_.OperatingSystem -like "Windows 98*") -or
-					($_.OperatingSystem -like "Windows XP*") -or
-					($_.OperatingSystem -like "Windows 7*") -or
-					($_.OperatingSystem -like "Windows Vista*") -or
-					($_.OperatingSystem -like "Windows 2000*") -or
-					($_.OperatingSystem -like "Windows 8*") -or
-					($_.OperatingSystem -like "Windows Server 2008*") -or
-					($_.OperatingSystem -like "Windows Server 2003*") -or
-					($_.OperatingSystem -like "Windows Server 2000*")
-				}
-
-				foreach ($UnsupportedHost in $UnsupportedHosts) {
-					[PSCustomObject]@{
-						"Name" = $UnsupportedHost.samaccountname
-						"Enabled" = if ($UnsupportedHost.useraccountcontrol -band 2) { "False" } else { "True" }
-						"Active" = if ($UnsupportedHost.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-						"IP Address" = (Resolve-DnsName -Name $UnsupportedHost.DnsHostName -Type A).IPAddress
-						"Account SID" = $UnsupportedHost.objectsid
-						"Operating System" = $UnsupportedHost.operatingsystem
-						Domain = $AllDomain
-					}
-				}
-			}
-
-			if ($TempUnsupportedHosts) {
-				$TempUnsupportedHosts | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-				$HTMLUnsupportedHosts = $TempUnsupportedHosts | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Hosts running Unsupported OS</h2>"
-			}
-		}
-
-    }
+    	##################################
+     ##################################
+     ##################################
 	
 	$InterestingDataBanner = "<h3>Interesting Data</h3>"
 	Write-Host ""
@@ -5701,7 +5705,7 @@ function Invoke-ADEnum
     # Stop capturing the output and display it on the console
     Stop-Transcript | Out-Null
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLProtectedUsers $HTMLRODCs $HTMLSchemaAdmins $HTMLServerOperators $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLPreWin2kCompatibleAccess $HTMLLMCompatibilityLevel $HTMLMachineQuota $HTMLUnsupportedHosts $InterestingDataBanner $HTMLReplicationUsers $HTMLServiceAccounts $HTMLGMSAs $HTMLnopreauthset $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLLinkedDAAccounts $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLProtectedUsers $HTMLRODCs $HTMLSchemaAdmins $HTMLServerOperators $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLPreWin2kCompatibleAccess $HTMLUnsupportedHosts $HTMLLMCompatibilityLevel $HTMLMachineQuota $InterestingDataBanner $HTMLReplicationUsers $HTMLServiceAccounts $HTMLGMSAs $HTMLnopreauthset $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLLinkedDAAccounts $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
 	$HTMLOutputFilePath = $OutputFilePath.Replace(".txt", ".html")
 	$Report | Out-File $HTMLOutputFilePath
 	
