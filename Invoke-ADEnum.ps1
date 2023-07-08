@@ -1519,7 +1519,7 @@ function Invoke-ADEnum
 			$EnterpriseRODCs = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Enterprise Read-Only Domain Controllers" -Recurse | Sort-Object -Unique -Property MemberName
 			$TempEnterpriseRODCs = foreach($EnterpriseRODC in $EnterpriseRODCs){
 				
-				$domainObject = Get-DomainObject -Identity $EnterpriseRODC.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description,memberof
+				$domainObject = Get-DomainObject -Identity $EnterpriseRODC.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description
 				$memberName = if ($EnterpriseRODC.MemberName) { $EnterpriseRODC.MemberName } else { ConvertFrom-SID $EnterpriseRODC.MemberSID }
 				$isEnabled = if ($EnterpriseRODC.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
@@ -1529,9 +1529,12 @@ function Invoke-ADEnum
 					"Member Name" = $memberName
 					"Enabled" = $isEnabled
 					"Active" = $isActive
-					"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
-					"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-					"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+     					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $EnterpriseRODC.MemberName.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $EnterpriseRODC.MemberName.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $EnterpriseRODC.MemberName.Contains($_) }) { "YES" } else { "NO" }
+					#"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+					#"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					#"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 					"Last Logon" = $lastLogon
 					"Member SID" = $EnterpriseRODC.MemberSID
 					"Group Domain" = $EnterpriseRODC.GroupDomain
@@ -1544,7 +1547,7 @@ function Invoke-ADEnum
 				$EnterpriseRODCs = Get-DomainGroupMember -Domain $AllDomain -Identity "Enterprise Read-Only Domain Controllers" -Recurse | Sort-Object -Unique -Property MemberName
 				foreach($EnterpriseRODC in $EnterpriseRODCs){
 					
-					$domainObject = Get-DomainObject -Identity $EnterpriseRODC.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description,memberof
+					$domainObject = Get-DomainObject -Identity $EnterpriseRODC.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description
 					$memberName = if ($EnterpriseRODC.MemberName) { $EnterpriseRODC.MemberName } else { ConvertFrom-SID $EnterpriseRODC.MemberSID }
 					$isEnabled = if ($EnterpriseRODC.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
@@ -1554,9 +1557,12 @@ function Invoke-ADEnum
 						"Member Name" = $memberName
 						"Enabled" = $isEnabled
 						"Active" = $isActive
-						"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
-						"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-						"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+      						"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $EnterpriseRODC.MemberName.Contains($_) }) { "YES" } else { "NO" }
+						"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $EnterpriseRODC.MemberName.Contains($_) }) { "YES" } else { "NO" }
+						"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $EnterpriseRODC.MemberName.Contains($_) }) { "YES" } else { "NO" }
+						#"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+						#"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+						#"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 						"Last Logon" = $lastLogon
 						"Member SID" = $EnterpriseRODC.MemberSID
 						"Group Domain" = $EnterpriseRODC.GroupDomain
@@ -1582,7 +1588,7 @@ function Invoke-ADEnum
 			$GPCreatorOwners = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Group Policy Creator Owners" -Recurse | Sort-Object -Unique -Property MemberName
 			$TempGPCreatorOwners = foreach($GPCreatorOwner in $GPCreatorOwners){
 				
-				$domainObject = Get-DomainObject -Identity $GPCreatorOwner.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description,memberof
+				$domainObject = Get-DomainObject -Identity $GPCreatorOwner.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description
 				$memberName = if ($GPCreatorOwner.MemberName) { $GPCreatorOwner.MemberName } else { ConvertFrom-SID $GPCreatorOwner.MemberSID }
 				$isEnabled = if ($GPCreatorOwner.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
@@ -1592,9 +1598,12 @@ function Invoke-ADEnum
 					"Member Name" = $memberName
 					"Enabled" = $isEnabled
 					"Active" = $isActive
-					"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
-					"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-					"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+     					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $GPCreatorOwner.MemberName.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $GPCreatorOwner.MemberName.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $GPCreatorOwner.MemberName.Contains($_) }) { "YES" } else { "NO" }
+					#"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+					#"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					#"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 					"Last Logon" = $lastLogon
 					"Member SID" = $GPCreatorOwner.MemberSID
 					"Group Domain" = $GPCreatorOwner.GroupDomain
@@ -1607,7 +1616,7 @@ function Invoke-ADEnum
 				$GPCreatorOwners = Get-DomainGroupMember -Domain $AllDomain -Identity "Group Policy Creator Owners" -Recurse | Sort-Object -Unique -Property MemberName
 				foreach($GPCreatorOwner in $GPCreatorOwners){
 					
-					$domainObject = Get-DomainObject -Identity $GPCreatorOwner.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description,memberof
+					$domainObject = Get-DomainObject -Identity $GPCreatorOwner.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description
 					$memberName = if ($GPCreatorOwner.MemberName) { $GPCreatorOwner.MemberName } else { ConvertFrom-SID $GPCreatorOwner.MemberSID }
 					$isEnabled = if ($GPCreatorOwner.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
@@ -1617,9 +1626,12 @@ function Invoke-ADEnum
 						"Member Name" = $memberName
 						"Enabled" = $isEnabled
 						"Active" = $isActive
-						"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
-						"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-						"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+      						"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $GPCreatorOwner.MemberName.Contains($_) }) { "YES" } else { "NO" }
+						"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $GPCreatorOwner.MemberName.Contains($_) }) { "YES" } else { "NO" }
+						"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $GPCreatorOwner.MemberName.Contains($_) }) { "YES" } else { "NO" }
+						#"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+						#"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+						#"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 						"Last Logon" = $lastLogon
 						"Member SID" = $GPCreatorOwner.MemberSID
 						"Group Domain" = $GPCreatorOwner.GroupDomain
@@ -1644,7 +1656,7 @@ function Invoke-ADEnum
 			$KeyAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Key Admins" -Recurse | Sort-Object -Unique -Property MemberName
 			$TempKeyAdmins = foreach($KeyAdmin in $KeyAdmins){
 				
-				$domainObject = Get-DomainObject -Identity $KeyAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description,memberof
+				$domainObject = Get-DomainObject -Identity $KeyAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description
 				$memberName = if ($KeyAdmin.MemberName) { $KeyAdmin.MemberName } else { ConvertFrom-SID $KeyAdmin.MemberSID }
 				$isEnabled = if ($KeyAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
@@ -1654,9 +1666,12 @@ function Invoke-ADEnum
 					"Member Name" = $memberName
 					"Enabled" = $isEnabled
 					"Active" = $isActive
-					"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
-					"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-					"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+     					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $KeyAdmin.MemberName.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $KeyAdmin.MemberName.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $KeyAdmin.MemberName.Contains($_) }) { "YES" } else { "NO" }
+					#"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+					#"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					#"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 					"Last Logon" = $lastLogon
 					"Member SID" = $KeyAdmin.MemberSID
 					"Group Domain" = $KeyAdmin.GroupDomain
@@ -1669,7 +1684,7 @@ function Invoke-ADEnum
 				$KeyAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Key Admins" -Recurse | Sort-Object -Unique -Property MemberName
 				foreach($KeyAdmin in $KeyAdmins){
 					
-					$domainObject = Get-DomainObject -Identity $KeyAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description,memberof
+					$domainObject = Get-DomainObject -Identity $KeyAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description
 					$memberName = if ($KeyAdmin.MemberName) { $KeyAdmin.MemberName } else { ConvertFrom-SID $KeyAdmin.MemberSID }
 					$isEnabled = if ($KeyAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
@@ -1679,9 +1694,12 @@ function Invoke-ADEnum
 						"Member Name" = $memberName
 						"Enabled" = $isEnabled
 						"Active" = $isActive
-						"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
-						"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-						"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+      						"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $KeyAdmin.MemberName.Contains($_) }) { "YES" } else { "NO" }
+						"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $KeyAdmin.MemberName.Contains($_) }) { "YES" } else { "NO" }
+						"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $KeyAdmin.MemberName.Contains($_) }) { "YES" } else { "NO" }
+						#"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+						#"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+						#"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 						"Last Logon" = $lastLogon
 						"Member SID" = $KeyAdmin.MemberSID
 						"Group Domain" = $KeyAdmin.GroupDomain
@@ -1706,7 +1724,7 @@ function Invoke-ADEnum
 			$ProtectedUsers = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Protected Users" -Recurse | Sort-Object -Unique -Property MemberName
 			$TempProtectedUsers = foreach($ProtectedUser in $ProtectedUsers){
 				
-				$domainObject = Get-DomainObject -Identity $ProtectedUser.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description,memberof
+				$domainObject = Get-DomainObject -Identity $ProtectedUser.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description
 				$memberName = if ($ProtectedUser.MemberName) { $ProtectedUser.MemberName } else { ConvertFrom-SID $ProtectedUser.MemberSID }
 				$isEnabled = if ($ProtectedUser.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
@@ -1716,9 +1734,12 @@ function Invoke-ADEnum
 					"Member Name" = $memberName
 					"Enabled" = $isEnabled
 					"Active" = $isActive
-					"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
-					"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-					"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+     					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $ProtectedUser.MemberName.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $ProtectedUser.MemberName.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $ProtectedUser.MemberName.Contains($_) }) { "YES" } else { "NO" }
+					#"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+					#"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					#"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 					"Last Logon" = $lastLogon
 					"Member SID" = $ProtectedUser.MemberSID
 					"Group Domain" = $ProtectedUser.GroupDomain
@@ -1731,7 +1752,7 @@ function Invoke-ADEnum
 				$ProtectedUsers = Get-DomainGroupMember -Domain $AllDomain -Identity "Protected Users" -Recurse | Sort-Object -Unique -Property MemberName
 				foreach($ProtectedUser in $ProtectedUsers){
 					
-					$domainObject = Get-DomainObject -Identity $ProtectedUser.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description,memberof
+					$domainObject = Get-DomainObject -Identity $ProtectedUser.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description
 					$memberName = if ($ProtectedUser.MemberName) { $ProtectedUser.MemberName } else { ConvertFrom-SID $ProtectedUser.MemberSID }
 					$isEnabled = if ($ProtectedUser.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
@@ -1741,9 +1762,12 @@ function Invoke-ADEnum
 						"Member Name" = $memberName
 						"Enabled" = $isEnabled
 						"Active" = $isActive
-						"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
-						"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-						"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+      						"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $ProtectedUser.MemberName.Contains($_) }) { "YES" } else { "NO" }
+						"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $ProtectedUser.MemberName.Contains($_) }) { "YES" } else { "NO" }
+						"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $ProtectedUser.MemberName.Contains($_) }) { "YES" } else { "NO" }
+						#"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+						#"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+						#"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 						"Last Logon" = $lastLogon
 						"Member SID" = $ProtectedUser.MemberSID
 						"Group Domain" = $ProtectedUser.GroupDomain
@@ -1769,7 +1793,7 @@ function Invoke-ADEnum
 			$RODCs = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Read-Only Domain Controllers" -Recurse | Sort-Object -Unique -Property MemberName
 			$TempRODCs = foreach($RODC in $RODCs){
 				
-				$domainObject = Get-DomainObject -Identity $RODC.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description,memberof
+				$domainObject = Get-DomainObject -Identity $RODC.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description
 				$memberName = if ($RODC.MemberName) { $RODC.MemberName } else { ConvertFrom-SID $RODC.MemberSID }
 				$isEnabled = if ($RODC.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
@@ -1779,9 +1803,12 @@ function Invoke-ADEnum
 					"Member Name" = $memberName
 					"Enabled" = $isEnabled
 					"Active" = $isActive
-					"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
-					"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-					"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+     					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $RODC.MemberName.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $RODC.MemberName.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $RODC.MemberName.Contains($_) }) { "YES" } else { "NO" }
+					#"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+					#"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					#"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 					"Last Logon" = $lastLogon
 					"Member SID" = $RODC.MemberSID
 					"Group Domain" = $RODC.GroupDomain
@@ -1794,7 +1821,7 @@ function Invoke-ADEnum
 				$RODCs = Get-DomainGroupMember -Domain $AllDomain -Identity "Read-Only Domain Controllers" -Recurse | Sort-Object -Unique -Property MemberName
 				foreach($RODC in $RODCs){
 					
-					$domainObject = Get-DomainObject -Identity $RODC.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description,memberof
+					$domainObject = Get-DomainObject -Identity $RODC.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description
 					$memberName = if ($RODC.MemberName) { $RODC.MemberName } else { ConvertFrom-SID $RODC.MemberSID }
 					$isEnabled = if ($RODC.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
@@ -1804,9 +1831,12 @@ function Invoke-ADEnum
 						"Member Name" = $memberName
 						"Enabled" = $isEnabled
 						"Active" = $isActive
-						"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
-						"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-						"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+      						"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $RODC.MemberName.Contains($_) }) { "YES" } else { "NO" }
+						"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $RODC.MemberName.Contains($_) }) { "YES" } else { "NO" }
+						"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $RODC.MemberName.Contains($_) }) { "YES" } else { "NO" }
+						#"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+						#"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+						#"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 						"Last Logon" = $lastLogon
 						"Member SID" = $RODC.MemberSID
 						"Group Domain" = $RODC.GroupDomain
@@ -1833,7 +1863,7 @@ function Invoke-ADEnum
 			$SchemaAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Schema Admins" -Recurse | Sort-Object -Unique -Property MemberName
 			$TempSchemaAdmins = foreach($SchemaAdmin in $SchemaAdmins){
 				
-				$domainObject = Get-DomainObject -Identity $SchemaAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description,memberof
+				$domainObject = Get-DomainObject -Identity $SchemaAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description
 				$memberName = if ($SchemaAdmin.MemberName) { $SchemaAdmin.MemberName } else { ConvertFrom-SID $SchemaAdmin.MemberSID }
 				$isEnabled = if ($SchemaAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
@@ -1843,9 +1873,12 @@ function Invoke-ADEnum
 					"Member Name" = $memberName
 					"Enabled" = $isEnabled
 					"Active" = $isActive
-					"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
-					"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-					"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+     					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $SchemaAdmin.MemberName.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $SchemaAdmin.MemberName.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $SchemaAdmin.MemberName.Contains($_) }) { "YES" } else { "NO" }
+					#"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+					#"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					#"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 					"Last Logon" = $lastLogon
 					"Member SID" = $SchemaAdmin.MemberSID
 					"Group Domain" = $SchemaAdmin.GroupDomain
@@ -1860,7 +1893,7 @@ function Invoke-ADEnum
 				$SchemaAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Schema Admins" -Recurse | Sort-Object -Unique -Property MemberName
 				foreach($SchemaAdmin in $SchemaAdmins){
 					
-					$domainObject = Get-DomainObject -Identity $SchemaAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description,memberof
+					$domainObject = Get-DomainObject -Identity $SchemaAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description
 					$memberName = if ($SchemaAdmin.MemberName) { $SchemaAdmin.MemberName } else { ConvertFrom-SID $SchemaAdmin.MemberSID }
 					$isEnabled = if ($SchemaAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
@@ -1871,9 +1904,12 @@ function Invoke-ADEnum
 						"Member Name" = $memberName
 						"Enabled" = $isEnabled
 						"Active" = $isActive
-						"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
-						"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-						"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+      						"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $SchemaAdmin.MemberName.Contains($_) }) { "YES" } else { "NO" }
+						"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $SchemaAdmin.MemberName.Contains($_) }) { "YES" } else { "NO" }
+						"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $SchemaAdmin.MemberName.Contains($_) }) { "YES" } else { "NO" }
+						#"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+						#"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+						#"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 						"Last Logon" = $lastLogon
 						"Member SID" = $SchemaAdmin.MemberSID
 						"Group Domain" = $SchemaAdmin.GroupDomain
@@ -1899,7 +1935,7 @@ function Invoke-ADEnum
 			$ServerOperators = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Server Operators" -Recurse | Sort-Object -Unique -Property MemberName
 			$TempServerOperators = foreach($ServerOperator in $ServerOperators){
 				
-				$domainObject = Get-DomainObject -Identity $ServerOperator.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description,memberof
+				$domainObject = Get-DomainObject -Identity $ServerOperator.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description
 				$memberName = if ($ServerOperator.MemberName) { $ServerOperator.MemberName } else { ConvertFrom-SID $ServerOperator.MemberSID }
 				$isEnabled = if ($ServerOperator.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
@@ -1909,9 +1945,12 @@ function Invoke-ADEnum
 					"Member Name" = $memberName
 					"Enabled" = $isEnabled
 					"Active" = $isActive
-					"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
-					"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-					"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+     					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $ServerOperator.MemberName.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $ServerOperator.MemberName.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $ServerOperator.MemberName.Contains($_) }) { "YES" } else { "NO" }
+					#"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+					#"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					#"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 					"Last Logon" = $lastLogon
 					"Member SID" = $ServerOperator.MemberSID
 					"Group Domain" = $ServerOperator.GroupDomain
@@ -1924,7 +1963,7 @@ function Invoke-ADEnum
 				$ServerOperators = Get-DomainGroupMember -Domain $AllDomain -Identity "Server Operators" -Recurse | Sort-Object -Unique -Property MemberName
 				foreach($ServerOperator in $ServerOperators){
 					
-					$domainObject = Get-DomainObject -Identity $ServerOperator.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description,memberof
+					$domainObject = Get-DomainObject -Identity $ServerOperator.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description
 					$memberName = if ($ServerOperator.MemberName) { $ServerOperator.MemberName } else { ConvertFrom-SID $ServerOperator.MemberSID }
 					$isEnabled = if ($ServerOperator.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
@@ -1934,9 +1973,12 @@ function Invoke-ADEnum
 						"Member Name" = $memberName
 						"Enabled" = $isEnabled
 						"Active" = $isActive
-						"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
-						"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
-						"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+      						"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $ServerOperator.MemberName.Contains($_) }) { "YES" } else { "NO" }
+						"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $ServerOperator.MemberName.Contains($_) }) { "YES" } else { "NO" }
+						"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $ServerOperator.MemberName.Contains($_) }) { "YES" } else { "NO" }
+						#"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+						#"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+						#"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 						"Last Logon" = $lastLogon
 						"Member SID" = $ServerOperator.MemberSID
 						"Group Domain" = $ServerOperator.GroupDomain
