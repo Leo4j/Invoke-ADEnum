@@ -3324,7 +3324,7 @@ function Invoke-ADEnum
 		$HTMLUsersAdminCount = $TempUsersAdminCount | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users with AdminCount set to 1 (non-defaults)</h2>"
 
   		$AdminCountUsersTable = [PSCustomObject]@{
-			"Description" = "The Users listed below have the attribute “AdminCount” set to 1. When an object is removed from one of the privileged groups, AdminCount is not set to another value."
+			"Description" = "The Users listed below have the attribute 'AdminCount' set to 1. When an object is removed from one of the privileged groups, AdminCount is not set to another value."
 			"Remediation" = "In alignment with the principle of least privilege, evaluate the necessity of administrative privileges and consider removing the AdminCount attribute for the affected users."
 		}
 		
@@ -3388,7 +3388,7 @@ function Invoke-ADEnum
 		$HTMLGroupsAdminCount = $TempGroupsAdminCount | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Groups with AdminCount set to 1 (non-defaults)</h2>"
 
   		$AdminCountGroupsTable = [PSCustomObject]@{
-			"Description" = "The Groups listed below have the attribute “AdminCount” set to 1. When an object is removed from one of the privileged groups, AdminCount is not set to another value."
+			"Description" = "The Groups listed below have the attribute 'AdminCount' set to 1. When an object is removed from one of the privileged groups, AdminCount is not set to another value."
 			"Remediation" = "In alignment with the principle of least privilege, evaluate the necessity of administrative privileges and consider removing the AdminCount attribute for the affected Groups."
 		}
 		
