@@ -2092,13 +2092,7 @@ function Invoke-ADEnum
 					
 				}
 				
-			}
-			
-			if ($TempCertPublishers) {
-				$TempCertPublishers | Sort-Object Domain,"Member Name" | Format-Table -AutoSize -Wrap
-				$HTMLCertPublishers = $TempCertPublishers | Sort-Object Domain,"Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>ADCS HTTP Endpoints</h2>"
-			}
-			
+			}			
 		}
 		
 		else {
@@ -2136,12 +2130,19 @@ function Invoke-ADEnum
 				}
 			
 			}
-			
-			if ($TempCertPublishers) {
-				$TempCertPublishers | Sort-Object Domain,"Member Name" | Format-Table -AutoSize -Wrap
-				$HTMLCertPublishers = $TempCertPublishers | Sort-Object Domain,"Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>ADCS HTTP Endpoints</h2>"
-			}
+		}
 
+    		if ($TempCertPublishers) {
+			$TempCertPublishers | Sort-Object Domain,"Member Name" | Format-Table -AutoSize -Wrap
+			$HTMLCertPublishers = $TempCertPublishers | Sort-Object Domain,"Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>ADCS HTTP Endpoints</h2>"
+
+      			$ADCSEndpointsTable = [PSCustomObject]@{
+				"Risk Rating" = "Critical - Needs Immediate Attention"
+				"Description" = "These endpoints can be exploited through NTLM relay attacks to issue unauthorized certificates for targeted domain computers, leading to domain compromise."
+				"Remediation" = "Disable HTTP and HTTPS access to the certificate enrolment interface for quick resolution."
+			}
+			
+			$HTMLADCSEndpointsTable = $ADCSEndpointsTable | ConvertTo-Html -As List -Fragment
 		}
 	}
 	
@@ -2193,25 +2194,6 @@ function Invoke-ADEnum
 					"Domain" = $Domain
 				}
 			}
-			
-			$VulnCertTemplatesFlags | Format-Table -AutoSize -Wrap
-			$TempVulnCertComputers | Format-Table -AutoSize -Wrap
-			$TempVulnCertUsers | Format-Table -AutoSize -Wrap
-			
-			if ($VulnCertTemplatesFlags) {
-				$HTMLVulnCertTemplates = $VulnCertTemplatesFlags | ConvertTo-Html -Fragment -PreContent "<h2>Vulnerable Certificate Templates</h2>"
-				$HTMLVulnCertComputers = $TempVulnCertComputers | ConvertTo-Html -Fragment
-				$HTMLVulnCertUsers = $TempVulnCertUsers | ConvertTo-Html -Fragment
-			}
-			
-			elseif ($TempVulnCertComputers) {
-				$HTMLVulnCertComputers = $TempVulnCertComputers | ConvertTo-Html -Fragment -PreContent "<h2>Vulnerable Certificate Templates</h2>"
-				$HTMLVulnCertUsers = $TempVulnCertUsers | ConvertTo-Html -Fragment
-			}
-			
-			elseif ($TempVulnCertUsers) {
-				$HTMLVulnCertUsers = $TempVulnCertUsers | ConvertTo-Html -Fragment -PreContent "<h2>Vulnerable Certificate Templates</h2>"
-			}
 		}
 		
 		else {
@@ -2257,26 +2239,36 @@ function Invoke-ADEnum
 					}
 				}
 			}
+		}
 
-			$VulnCertTemplatesFlags | Format-Table -AutoSize -Wrap
-			$TempVulnCertComputers | Format-Table -AutoSize -Wrap
-			$TempVulnCertUsers | Format-Table -AutoSize -Wrap
+  		$VulnCertTemplatesFlags | Format-Table -AutoSize -Wrap
+		$TempVulnCertComputers | Format-Table -AutoSize -Wrap
+		$TempVulnCertUsers | Format-Table -AutoSize -Wrap
 
-			
-			if ($VulnCertTemplatesFlags) {
-				$HTMLVulnCertTemplates = $VulnCertTemplatesFlags | ConvertTo-Html -Fragment -PreContent "<h2>Vulnerable Certificate Templates</h2>"
-				$HTMLVulnCertComputers = $TempVulnCertComputers | ConvertTo-Html -Fragment
-				$HTMLVulnCertUsers = $TempVulnCertUsers | ConvertTo-Html -Fragment
+		
+		if ($VulnCertTemplatesFlags) {
+			$HTMLVulnCertTemplates = $VulnCertTemplatesFlags | ConvertTo-Html -Fragment -PreContent "<h2>Vulnerable Certificate Templates</h2>"
+			$HTMLVulnCertComputers = $TempVulnCertComputers | ConvertTo-Html -Fragment
+			$HTMLVulnCertUsers = $TempVulnCertUsers | ConvertTo-Html -Fragment
+		}
+		
+		elseif ($TempVulnCertComputers) {
+			$HTMLVulnCertComputers = $TempVulnCertComputers | ConvertTo-Html -Fragment -PreContent "<h2>Vulnerable Certificate Templates</h2>"
+			$HTMLVulnCertUsers = $TempVulnCertUsers | ConvertTo-Html -Fragment
+		}
+		
+		elseif ($TempVulnCertUsers) {
+			$HTMLVulnCertUsers = $TempVulnCertUsers | ConvertTo-Html -Fragment -PreContent "<h2>Vulnerable Certificate Templates</h2>"
+		}
+
+  		if($VulnCertTemplatesFlags -OR $TempVulnCertComputers -OR $TempVulnCertUsers){
+    			$CertTemplatesTable = [PSCustomObject]@{
+				"Risk Rating" = "Critical - Needs Immediate Attention"
+				"Description" = "These misconfigurations allow for a certificate to be requested on behalf of any domain user (including a Domain Admin), and use it to authenticate to the domain."
+				"Remediation" = "Review Domain Users and Computers' Object Control and Enrollment Permissions, and Certificate Flags (ENROLLEE_SUPPLIES_SUBJECT)."
 			}
 			
-			elseif ($TempVulnCertComputers) {
-				$HTMLVulnCertComputers = $TempVulnCertComputers | ConvertTo-Html -Fragment -PreContent "<h2>Vulnerable Certificate Templates</h2>"
-				$HTMLVulnCertUsers = $TempVulnCertUsers | ConvertTo-Html -Fragment
-			}
-			
-			elseif ($TempVulnCertUsers) {
-				$HTMLVulnCertUsers = $TempVulnCertUsers | ConvertTo-Html -Fragment -PreContent "<h2>Vulnerable Certificate Templates</h2>"
-			}
+			$HTMLCertTemplatesTable = $CertTemplatesTable | ConvertTo-Html -As List -Fragment
 		}
 	}
 
@@ -2304,11 +2296,6 @@ function Invoke-ADEnum
 					"Domain" = $Domain
 				}
 			}
-	
-			if ($TempUnconstrained) {
-				$TempUnconstrained | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-				$HTMLUnconstrained = $TempUnconstrained | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Unconstrained Delegation</h2>"
-			}
 		}
 		
 		else {
@@ -2328,11 +2315,19 @@ function Invoke-ADEnum
 					}
 				}
 			}
-	
-			if ($TempUnconstrained) {
-				$TempUnconstrained | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-				$HTMLUnconstrained = $TempUnconstrained | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Unconstrained Delegation</h2>"
+		}
+
+  		if ($TempUnconstrained) {
+			$TempUnconstrained | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+			$HTMLUnconstrained = $TempUnconstrained | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Unconstrained Delegation</h2>"
+
+   			$UnconstrainedTable = [PSCustomObject]@{
+				"Risk Rating" = "Critical - Needs Immediate Attention"
+				"Description" = "Unconstrained Delegation enables attackers to extract TGTs from memory and impersonate users or machines, leading to full domain compromise."
+				"Remediation" = "Implement Constrained Delegation or Resource-Based Constrained Delegation for more secure alternatives"
 			}
+			
+			$HTMLUnconstrainedTable = $UnconstrainedTable | ConvertTo-Html -As List -Fragment
 		}
 	
 		
@@ -2356,11 +2351,6 @@ function Invoke-ADEnum
 					"msds-AllowedToDelegateTo" = $ConstrainedDelegationComputer."msds-AllowedToDelegateTo" -join " - "
 				}
 			}
-	
-			if ($TempConstrainedDelegationComputers) {
-				$TempConstrainedDelegationComputers | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-				$HTMLConstrainedDelegationComputers = $TempConstrainedDelegationComputers | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Constrained Delegation (Computers)</h2>"
-			}
 		}
 		else {
 			$TempConstrainedDelegationComputers = foreach ($AllDomain in $AllDomains) {
@@ -2379,11 +2369,18 @@ function Invoke-ADEnum
 					}
 				}
 			}
-	
-			if ($TempConstrainedDelegationComputers) {
-				$TempConstrainedDelegationComputers | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-				$HTMLConstrainedDelegationComputers = $TempConstrainedDelegationComputers | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Constrained Delegation (Computers)</h2>"
+		}
+
+  		if ($TempConstrainedDelegationComputers) {
+			$TempConstrainedDelegationComputers | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+			$HTMLConstrainedDelegationComputers = $TempConstrainedDelegationComputers | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Constrained Delegation (Computers)</h2>"
+
+   			$ConstrainedDelegationComputersTable = [PSCustomObject]@{
+				"Recommendations" = "Regularly review and audit the delegation settings to ensure they align with the principle of least privilege. Limit delegation to only the necessary resources and services."
 			}
+			
+			$HTMLConstrainedDelegationComputersTable = $ConstrainedDelegationComputersTable | ConvertTo-Html -As List -Fragment
+   			$HTMLConstrainedDelegationComputersTable = $HTMLConstrainedDelegationComputersTable.Replace("*", "Recommendations")
 		}
 	
 		
@@ -2412,11 +2409,6 @@ function Invoke-ADEnum
 					"msds-AllowedToDelegateTo" = $ConstrainedDelegationUser."msds-AllowedToDelegateTo" -join " - "
 				}
 			}
-	
-			if ($TempConstrainedDelegationUsers) {
-				$TempConstrainedDelegationUsers | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-				$HTMLConstrainedDelegationUsers = $TempConstrainedDelegationUsers | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Constrained Delegation (Users)</h2>"
-			}
 		}
 		else {
 			$TempConstrainedDelegationUsers = foreach ($AllDomain in $AllDomains) {
@@ -2439,11 +2431,18 @@ function Invoke-ADEnum
 					}
 				}
 			}
-	
-			if ($TempConstrainedDelegationUsers) {
-				$TempConstrainedDelegationUsers | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-				$HTMLConstrainedDelegationUsers = $TempConstrainedDelegationUsers | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Constrained Delegation (Users)</h2>"
+		}
+
+  		if ($TempConstrainedDelegationUsers) {
+			$TempConstrainedDelegationUsers | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+			$HTMLConstrainedDelegationUsers = $TempConstrainedDelegationUsers | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Constrained Delegation (Users)</h2>"
+
+   			$ConstrainedDelegationUsersTable = [PSCustomObject]@{
+				"Recommendations" = "Regularly review and audit the delegation settings to ensure they align with the principle of least privilege. Limit delegation to only the necessary resources and services."
 			}
+			
+			$HTMLConstrainedDelegationUsersTable = $ConstrainedDelegationUsersTable | ConvertTo-Html -As List -Fragment
+   			$HTMLConstrainedDelegationUsersTable = $HTMLConstrainedDelegationUsersTable.Replace("*", "Recommendations")
 		}
 	
 		
@@ -2479,11 +2478,6 @@ function Invoke-ADEnum
 							Domain = "$Domain"
 						}
 					}
-		
-				if ($RBACDObjects) {
-					$RBACDObjects | Sort-Object Domain,Account,"Computer Object" | Format-Table -AutoSize -Wrap
-					$HTMLRBACDObjects = $RBACDObjects | Sort-Object Domain,Account,"Computer Object" | ConvertTo-Html -Fragment -PreContent "<h2>Resource Based Constrained Delegation</h2>"
-				}
 			}
 			else {
 				$ExcludedAccounts = "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions"
@@ -2508,11 +2502,18 @@ function Invoke-ADEnum
 							}
 						}
 				}
-		
-				if ($RBACDObjects) {
-					$RBACDObjects | Sort-Object Domain,Account,"Computer Object" | Format-Table -AutoSize -Wrap
-					$HTMLRBACDObjects = $RBACDObjects | Sort-Object Domain,Account,"Computer Object" | ConvertTo-Html -Fragment -PreContent "<h2>Resource Based Constrained Delegation</h2>"
+			}
+
+   			if ($RBACDObjects) {
+				$RBACDObjects | Sort-Object Domain,Account,"Computer Object" | Format-Table -AutoSize -Wrap
+				$HTMLRBACDObjects = $RBACDObjects | Sort-Object Domain,Account,"Computer Object" | ConvertTo-Html -Fragment -PreContent "<h2>Resource Based Constrained Delegation</h2>"
+
+    				$RBCDTable = [PSCustomObject]@{
+					"Recommendations" = "Regularly review and audit the delegation settings to ensure they align with the principle of least privilege. Limit delegation to necessary resources and services only."
 				}
+				
+				$HTMLRBCDTable = $RBCDTable | ConvertTo-Html -As List -Fragment
+    				$HTMLRBCDTable = $HTMLRBCDTable.Replace("*", "Recommendations")
 			}
   		}
   	}
@@ -2589,10 +2590,18 @@ function Invoke-ADEnum
 			$HTMLPasswordSetUsers = $HTMLPasswordSetUsers -replace "<td>$_</td>","<td class=`"YesStatus`">$_</td>"
 		}
   		$HTMLPasswordSetUsers = $HTMLPasswordSetUsers -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
+
+    		$UserPasswordsSetTable = [PSCustomObject]@{
+			"Risk Rating" = "High - Needs Immediate Attention"
+			"Description" = "Checks if any user passwords are set via the attribute 'userPassword'."
+			"Remediation" = "Make sure this attribute does not contain a value."
+		}
+		
+		$HTMLUserPasswordsSetTable = $UserPasswordsSetTable | ConvertTo-Html -As List -Fragment
 	}
 	
 	#################################################################################################
-    ########### Users that may have empty passwords (if allowed) or shorter passwords ###############
+    ########### Users that may have empty passwords or shorter passwords ###############
 	#################################################################################################
 	
 	Write-Host ""
@@ -2620,13 +2629,7 @@ function Invoke-ADEnum
 				"Domain" = $Domain
 			}
 			
-		}
-		
-		if ($TempEmptyPasswordUsers) {
-			$TempEmptyPasswordUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
-			$HTMLEmptyPasswordUsers = $TempEmptyPasswordUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users that may have empty passwords or shorter passwords</h2>"
-		}
-	
+		}	
 	}
 	
 	else {
@@ -2656,12 +2659,19 @@ function Invoke-ADEnum
 			}
 			
 		}
-		
-		if ($TempEmptyPasswordUsers) {
-			$TempEmptyPasswordUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
-			$HTMLEmptyPasswordUsers = $TempEmptyPasswordUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users that may have empty passwords or shorter passwords</h2>"
+	}
+
+ 	if ($TempEmptyPasswordUsers) {
+		$TempEmptyPasswordUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+		$HTMLEmptyPasswordUsers = $TempEmptyPasswordUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users that may have empty passwords or shorter passwords</h2>"
+
+  		$EmptyPasswordsTable = [PSCustomObject]@{
+			"Risk Rating" = "High - Needs Immediate Attention"
+			"Description" = "Empty passwords can be set for users when password policies allow it or the Password-not-required attribute is enabled. This makes user accounts extremely easy for an attacker to compromise."
+			"Remediation" = "Enforce strong password policies and ensure that all users have a secure and non-empty password. Disable the Password-not-required attribute for all users in the domain."
 		}
 		
+		$HTMLEmptyPasswordsTable = $EmptyPasswordsTable | ConvertTo-Html -As List -Fragment
 	}
 	
 	############################################
@@ -2690,11 +2700,6 @@ function Invoke-ADEnum
 				"Domain" = $Domain
 			}
 		}
-
-		if ($TempPreWin2kCompatibleAccess) {
-			$TempPreWin2kCompatibleAccess | Sort-Object Domain,Member | Format-Table -AutoSize -Wrap
-			$HTMLPreWin2kCompatibleAccess = $TempPreWin2kCompatibleAccess | Sort-Object Domain,Member | ConvertTo-Html -Fragment -PreContent "<h2>Members of Pre-Windows 2000 Compatible Access group</h2>"
-		}
 	}
 	else {
 		$TempPreWin2kCompatibleAccess = foreach ($AllDomain in $AllDomains) {
@@ -2718,11 +2723,18 @@ function Invoke-ADEnum
 				}
 			}
 		}
+	}
 
-		if ($TempPreWin2kCompatibleAccess) {
-			$TempPreWin2kCompatibleAccess | Sort-Object Domain,Member | Format-Table -AutoSize -Wrap
-			$HTMLPreWin2kCompatibleAccess = $TempPreWin2kCompatibleAccess | Sort-Object Domain,Member | ConvertTo-Html -Fragment -PreContent "<h2>Members of Pre-Windows 2000 Compatible Access group</h2>"
+ 	if ($TempPreWin2kCompatibleAccess) {
+		$TempPreWin2kCompatibleAccess | Sort-Object Domain,Member | Format-Table -AutoSize -Wrap
+		$HTMLPreWin2kCompatibleAccess = $TempPreWin2kCompatibleAccess | Sort-Object Domain,Member | ConvertTo-Html -Fragment -PreContent "<h2>Members of Pre-Windows 2000 Compatible Access group</h2>"
+
+  		$PreWindows2000Table = [PSCustomObject]@{
+			"Description" = "Pre-Windows 2000 computer objects used to get assigned a password based on the computer name instead of a random one. This can be leveraged to gain a foothold or to compromise your domain."
+			"Remediation" = "Avoid creating legacy compatible computer accounts. Make sure trust and computer password rotation are working properly. Get rid of legacy domain computer accounts that have not been active for a long time."
 		}
+		
+		$HTMLPreWindows2000Table = $PreWindows2000Table | ConvertTo-Html -As List -Fragment
 	}
 
  	########################################################
@@ -2760,11 +2772,6 @@ function Invoke-ADEnum
 					Domain = $Domain
 				}
 			}
-
-			if ($TempUnsupportedHosts) {
-				$TempUnsupportedHosts | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-				$HTMLUnsupportedHosts = $TempUnsupportedHosts | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Hosts running Unsupported OS</h2>"
-			}
 		}
 		else {
 			$TempUnsupportedHosts = foreach ($AllDomain in $AllDomains) {
@@ -2795,11 +2802,19 @@ function Invoke-ADEnum
 					}
 				}
 			}
+		}
 
-			if ($TempUnsupportedHosts) {
-				$TempUnsupportedHosts | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-				$HTMLUnsupportedHosts = $TempUnsupportedHosts | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Hosts running Unsupported OS</h2>"
+  		if ($TempUnsupportedHosts) {
+			$TempUnsupportedHosts | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+			$HTMLUnsupportedHosts = $TempUnsupportedHosts | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Hosts running Unsupported OS</h2>"
+
+   			$UnsupportedOSTable = [PSCustomObject]@{
+				"Risk Rating" = "Critical - Needs Immediate Attention"
+				"Description" = "These systems no longer receive security updates and patches from the vendor. This increases the likelihood of successful attacks, and exposes the entire domain to potential security breaches."
+				"Remediation" = "It is essential to prioritize isolating, migrating or upgrading these machines to supported and regularly updated operating systems to mitigate these risks."
 			}
+			
+			$HTMLUnsupportedOSTable = $UnsupportedOSTable | ConvertTo-Html -As List -Fragment
 		}
 
     }
@@ -2889,6 +2904,14 @@ function Invoke-ADEnum
     	  	$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send NTLMv2 response only</td>','<td class="NoStatus">Send NTLMv2 response only</td>'
 		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send NTLMv2 response only. Refuse LM</td>','<td class="NoStatus">Send NTLMv2 response only. Refuse LM</td>'
      	  	$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send NTLMv2 response only. Refuse LM and NTLM</td>','<td class="NoStatus">Send NTLMv2 response only. Refuse LM and NTLM</td>'
+
+  		$LMCompatibilityLevelTable = [PSCustomObject]@{
+			"Description" = "Determines which challenge response authentication protocol is used for network logons. If set lower than 3, NTLMv1 auth will be supported, which could be abused to compromise the domain."
+			#"Recommendation" = "Evaluate the necessity of enabling support for NTLMv1 authentication in your network, and consider raising the Compatibility Level to a minimum value of 3."
+		}
+		
+		$HTMLLMCompatibilityLevelTable = $LMCompatibilityLevelTable | ConvertTo-Html -As List -Fragment
+  		$HTMLLMCompatibilityLevelTable = $HTMLLMCompatibilityLevelTable.Replace("*", "Description")
 	}
 	
 	#################################################
@@ -2932,6 +2955,14 @@ function Invoke-ADEnum
 	            $HTMLMachineQuota = $HTMLMachineQuota -replace "<td>$TempQuota</td>", "<td class=`"YesStatus`">$TempQuota</td>"
 	        }
 	    }
+
+     		$MachineAccountQuotaTable = [PSCustomObject]@{
+			"Description" = "A machine account creation quota higher than 0 increases the risk of unauthorized or excessive machine account creation, which can be leveraged to bypass security measures."
+			#"Recommendation" = "It is recommended to set the machine account creation quota to 0 to mitigate these risks."
+		}
+		
+		$HTMLMachineAccountQuotaTable = $MachineAccountQuotaTable | ConvertTo-Html -As List -Fragment
+  		$HTMLMachineAccountQuotaTable = $HTMLMachineAccountQuotaTable.Replace("*", "Description")
 	}
 
     	##################################
@@ -2974,11 +3005,6 @@ function Invoke-ADEnum
 				"Members" = $members
 			}
 		}
-
-		if ($TempReplicationUsers) {
-			$TempReplicationUsers | Sort-Object Domain,"User or Group Name" | Format-Table -AutoSize -Wrap
-			$HTMLReplicationUsers = $TempReplicationUsers | Sort-Object Domain,"User or Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Principals with DCSync permissions</h2>"
-		}
 	}
 	else {
 		$TempReplicationUsers = foreach ($AllDomain in $AllDomains) {
@@ -3006,11 +3032,18 @@ function Invoke-ADEnum
 				}
 			}
 		}
+	}
 
-		if ($TempReplicationUsers) {
-			$TempReplicationUsers | Sort-Object Domain,"User or Group Name" | Format-Table -AutoSize -Wrap
-			$HTMLReplicationUsers = $TempReplicationUsers | Sort-Object Domain,"User or Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Principals with DCSync permissions</h2>"
+ 	if ($TempReplicationUsers) {
+		$TempReplicationUsers | Sort-Object Domain,"User or Group Name" | Format-Table -AutoSize -Wrap
+		$HTMLReplicationUsers = $TempReplicationUsers | Sort-Object Domain,"User or Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Principals with DCSync permissions</h2>"
+
+  		$DCsyncPrincipalsTable = [PSCustomObject]@{
+			"Recommendations" = "Review the permissions and privileges assigned to these accounts and ensure they align with the principle of least privilege."
 		}
+		
+		$HTMLDCsyncPrincipalsTable = $DCsyncPrincipalsTable | ConvertTo-Html -As List -Fragment
+  		$HTMLDCsyncPrincipalsTable = $HTMLDCsyncPrincipalsTable.Replace("*", "Recommendations")
 	}
 	
 	############################################
@@ -3071,6 +3104,13 @@ function Invoke-ADEnum
 		$HTMLServiceAccounts = $HTMLServiceAccounts -replace '<td>NO</td>','<td class="NoStatus">NO</td>'
 		#$HTMLServiceAccounts = $HTMLServiceAccounts -replace '<td>False</td>','<td class="YesStatus">False</td>'
 		#$HTMLServiceAccounts = $HTMLServiceAccounts -replace '<td>True</td>','<td class="NoStatus">True</td>'
+
+  		$ServiceAccountsTable = [PSCustomObject]@{
+			"Recommendations" = "Evaluate the need for these service accounts, review their membership in high privileged groups, and implement a strong password policy."
+		}
+		
+		$HTMLServiceAccountsTable = $ServiceAccountsTable | ConvertTo-Html -As List -Fragment
+  		$HTMLServiceAccountsTable = $HTMLServiceAccountsTable.Replace("*", "Recommendations")
 	}
 	
 	##########################################################
@@ -3132,6 +3172,13 @@ function Invoke-ADEnum
 		$HTMLGMSAs = $HTMLGMSAs -replace '<td>NO</td>','<td class="NoStatus">NO</td>'
 		#$HTMLGMSAs = $HTMLGMSAs -replace '<td>False</td>','<td class="YesStatus">False</td>'
 		#$HTMLGMSAs = $HTMLGMSAs -replace '<td>True</td>','<td class="NoStatus">True</td>'
+
+  		$GMSAServiceAccountsTable = [PSCustomObject]@{
+			"Recommendations" = "Evaluate the need for these service accounts and review their membership in high privileged groups."
+		}
+		
+		$HTMLGMSAServiceAccountsTable = $GMSAServiceAccountsTable | ConvertTo-Html -As List -Fragment
+  		$HTMLGMSAServiceAccountsTable = $HTMLGMSAServiceAccountsTable.Replace("*", "Recommendations")
 	}
 
  	################################################
@@ -3189,6 +3236,13 @@ function Invoke-ADEnum
 		$HTMLnopreauthset = $HTMLnopreauthset -replace '<td>NO</td>','<td class="NoStatus">NO</td>'
 		#$HTMLnopreauthset = $HTMLnopreauthset -replace '<td>False</td>','<td class="YesStatus">False</td>'
 		#$HTMLnopreauthset = $HTMLnopreauthset -replace '<td>True</td>','<td class="NoStatus">True</td>'
+
+  		$NoPreauthenticationTable = [PSCustomObject]@{
+			"Recommendations" = "Enable pre-authentication for the identified user accounts, review their membership in high privileged groups, and implement a strong password policy. "
+		}
+		
+		$HTMLNoPreauthenticationTable = $NoPreauthenticationTable | ConvertTo-Html -As List -Fragment
+  		$HTMLNoPreauthenticationTable = $HTMLNoPreauthenticationTable.Replace("*", "Recommendations")
 	}
 
 	##################################################
@@ -3239,11 +3293,6 @@ function Invoke-ADEnum
 				#"Group Membership" = (Get-DomainGroup -Domain $Domain -Server $Server -UserName $User.samaccountname).Name -join ' - '
 			}
 		}
-
-		if ($TempUsersAdminCount) {
-			$TempUsersAdminCount | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
-			$HTMLUsersAdminCount = $TempUsersAdminCount | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users with AdminCount set to 1 (non-defaults)</h2>"
-		}
 	}
 	
 	else {
@@ -3268,11 +3317,18 @@ function Invoke-ADEnum
 				}
 			}
 		}
+	}
 
-		if ($TempUsersAdminCount) {
-			$TempUsersAdminCount | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
-			$HTMLUsersAdminCount = $TempUsersAdminCount | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users with AdminCount set to 1 (non-defaults)</h2>"
+ 	if ($TempUsersAdminCount) {
+		$TempUsersAdminCount | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+		$HTMLUsersAdminCount = $TempUsersAdminCount | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users with AdminCount set to 1 (non-defaults)</h2>"
+
+  		$AdminCountUsersTable = [PSCustomObject]@{
+			"Description" = "The Users listed below have the attribute “AdminCount” set to 1. When an object is removed from one of the privileged groups, AdminCount is not set to another value."
+			"Remediation" = "In alignment with the principle of least privilege, evaluate the necessity of administrative privileges and consider removing the AdminCount attribute for the affected users."
 		}
+		
+		$HTMLAdminCountUsersTable = $AdminCountUsersTable | ConvertTo-Html -As List -Fragment
 	}
 
 	
@@ -3311,11 +3367,6 @@ function Invoke-ADEnum
 				#"Members" = (Get-DomainGroupMember -Domain $Domain -Server $Server -Identity $Group.samaccountname -Recurse | Select-Object -ExpandProperty MemberName) -join ' - '
 			}
 		}
-
-		if ($TempGroupsAdminCount) {
-			$TempGroupsAdminCount | Sort-Object Domain,"Group Name" | Format-Table -AutoSize -Wrap
-			$HTMLGroupsAdminCount = $TempGroupsAdminCount | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Groups with AdminCount set to 1 (non-defaults)</h2>"
-		}
 	}
 	
 	else {
@@ -3330,11 +3381,18 @@ function Invoke-ADEnum
 				}
 			}
 		}
+	}
 
-		if ($TempGroupsAdminCount) {
-			$TempGroupsAdminCount | Sort-Object Domain,"Group Name" | Format-Table -AutoSize -Wrap
-			$HTMLGroupsAdminCount = $TempGroupsAdminCount | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Groups with AdminCount set to 1 (non-defaults)</h2>"
+ 	if ($TempGroupsAdminCount) {
+		$TempGroupsAdminCount | Sort-Object Domain,"Group Name" | Format-Table -AutoSize -Wrap
+		$HTMLGroupsAdminCount = $TempGroupsAdminCount | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Groups with AdminCount set to 1 (non-defaults)</h2>"
+
+  		$AdminCountGroupsTable = [PSCustomObject]@{
+			"Description" = "The Groups listed below have the attribute “AdminCount” set to 1. When an object is removed from one of the privileged groups, AdminCount is not set to another value."
+			"Remediation" = "In alignment with the principle of least privilege, evaluate the necessity of administrative privileges and consider removing the AdminCount attribute for the affected Groups."
 		}
+		
+		$HTMLAdminCountGroupsTable = $AdminCountGroupsTable | ConvertTo-Html -As List -Fragment
 	}
 	
 	##################################################################
@@ -3425,11 +3483,6 @@ function Invoke-ADEnum
 				"Domain" = $Domain
 			}
 		}
-
-		if ($TempAdminsNotInProtectedUsersGroup) {
-			$TempAdminsNotInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-			$HTMLAdminsNotInProtectedUsersGroup = $TempAdminsNotInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users NOT in 'Protected Users' Group</h2>"
-		}
 	}
 	
 	else {
@@ -3454,11 +3507,18 @@ function Invoke-ADEnum
 				}
 			}
 		}
+	}
 
-		if ($TempAdminsNotInProtectedUsersGroup) {
-			$TempAdminsNotInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-			$HTMLAdminsNotInProtectedUsersGroup = $TempAdminsNotInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users NOT in 'Protected Users' Group</h2>"
+ 	if ($TempAdminsNotInProtectedUsersGroup) {
+		$TempAdminsNotInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+		$HTMLAdminsNotInProtectedUsersGroup = $TempAdminsNotInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users NOT in 'Protected Users' Group</h2>"
+
+  		$AdminsNOTinProtectedUsersGroupTable = [PSCustomObject]@{
+			"Recommendations" = "Consider adding the identified Admin Users to the 'Protected Users' group, which offers enhanced security measures such as restrictions on NTLM Authentication and Delegation."
 		}
+		
+		$HTMLAdminsNOTinProtectedUsersGroupTable = $AdminsNOTinProtectedUsersGroupTable | ConvertTo-Html -As List -Fragment
+  		$HTMLAdminsNOTinProtectedUsersGroupTable = $HTMLAdminsNOTinProtectedUsersGroupTable.Replace("*", "Recommendations")
 	}
 	
 	######################################################################
@@ -3606,11 +3666,6 @@ function Invoke-ADEnum
 				"Domain" = $Domain
 			}
 		}
-
-		if ($TempPrivilegedNotSensitiveUsers) {
-			$TempPrivilegedNotSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-			$HTMLPrivilegedNotSensitiveUsers = $TempPrivilegedNotSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users NOT marked as 'sensitive and not allowed for delegation'</h2>"
-		}
 	}
 	
 	else {
@@ -3633,11 +3688,18 @@ function Invoke-ADEnum
 				}
 			}
 		}
+	}
 
-		if ($TempPrivilegedNotSensitiveUsers) {
-			$TempPrivilegedNotSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-			$HTMLPrivilegedNotSensitiveUsers = $TempPrivilegedNotSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users NOT marked as 'sensitive and not allowed for delegation'</h2>"
+ 	if ($TempPrivilegedNotSensitiveUsers) {
+		$TempPrivilegedNotSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+		$HTMLPrivilegedNotSensitiveUsers = $TempPrivilegedNotSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users NOT marked as 'sensitive and not allowed for delegation'</h2>"
+
+  		$PrivilegedNOTSensitiveDelegationTable = [PSCustomObject]@{
+			"Recommendations" = "Ensure that sensitive and critical accounts are marked as 'sensitive and not allowed for delegation' to enforce tighter control over credential delegation."
 		}
+		
+		$HTMLPrivilegedNOTSensitiveDelegationTable = $PrivilegedNOTSensitiveDelegationTable | ConvertTo-Html -As List -Fragment
+  		$HTMLPrivilegedNOTSensitiveDelegationTable = $HTMLPrivilegedNOTSensitiveDelegationTable.Replace("*", "Recommendations")
 	}
 	
 	#############################################################################################
@@ -3720,11 +3782,6 @@ function Invoke-ADEnum
 				"Group Domain" = $GroupMember.GroupDomain
 			}
 		}
-
-		if ($TempMachineAccountsPriv) {
-			$TempMachineAccountsPriv | Sort-Object "Group Domain",Member | Format-Table -AutoSize -Wrap
-			$HTMLMachineAccountsPriv = $TempMachineAccountsPriv | Sort-Object "Group Domain",Member | ConvertTo-Html -Fragment -PreContent "<h2>Machine accounts in privileged groups</h2>"
-		}
 	}
 	
 	else {
@@ -3746,11 +3803,18 @@ function Invoke-ADEnum
 				}
 			}
 		}
+	}
 
-		if ($TempMachineAccountsPriv) {
-			$TempMachineAccountsPriv | Sort-Object "Group Domain",Member | Format-Table -AutoSize -Wrap
-			$HTMLMachineAccountsPriv = $TempMachineAccountsPriv | Sort-Object "Group Domain",Member | ConvertTo-Html -Fragment -PreContent "<h2>Machine accounts in privileged groups</h2>"
+ 	if ($TempMachineAccountsPriv) {
+		$TempMachineAccountsPriv | Sort-Object "Group Domain",Member | Format-Table -AutoSize -Wrap
+		$HTMLMachineAccountsPriv = $TempMachineAccountsPriv | Sort-Object "Group Domain",Member | ConvertTo-Html -Fragment -PreContent "<h2>Machine accounts in privileged groups</h2>"
+
+  		$MachineAccountsPrivilegedGroupsTable = [PSCustomObject]@{
+			"Recommendations" = "Evaluate the necessity of the identified computer objects' membership in the privileged group and consider removing them if their inclusion is not essential for their intended purpose."
 		}
+		
+		$HTMLMachineAccountsPrivilegedGroupsTable = $MachineAccountsPrivilegedGroupsTable | ConvertTo-Html -As List -Fragment
+  		$HTMLMachineAccountsPrivilegedGroupsTable = $HTMLMachineAccountsPrivilegedGroupsTable.Replace("*", "Recommendations")
 	}
 	
 	##########################################
@@ -3777,11 +3841,6 @@ function Invoke-ADEnum
 				"Domain" = $Domain
 			}
 		}
-
-		if ($TempsidHistoryUsers) {
-			$TempsidHistoryUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
-			$HTMLsidHistoryUsers = $TempsidHistoryUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users with sidHistory set</h2>"
-		}
 	}
 	
 	else {
@@ -3804,11 +3863,19 @@ function Invoke-ADEnum
 				}
 			}
 		}
+	}
 
-		if ($TempsidHistoryUsers) {
-			$TempsidHistoryUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
-			$HTMLsidHistoryUsers = $TempsidHistoryUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users with sidHistory set</h2>"
+ 	if ($TempsidHistoryUsers) {
+		$TempsidHistoryUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+		$HTMLsidHistoryUsers = $TempsidHistoryUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users with sidHistory set</h2>"
+
+  		$SDIHistorysetTable = [PSCustomObject]@{
+			"Recommendations" = "Assess if there are valid reasons for the identified accounts to have the 'sidHistory' attribute set, and consider removing it to mitigate potential security risks."
 		}
+		
+		$HTMLSDIHistorysetTable = $SDIHistorysetTable | ConvertTo-Html -As List -Fragment
+  		$HTMLSDIHistorysetTable = $HTMLSDIHistorysetTable.Replace("*", "Recommendations")
+  		
 	}
 	
 	##################################################
@@ -3839,12 +3906,6 @@ function Invoke-ADEnum
 					"Description" = $RevEncUser.description
 			}
 		}
-		
-		if ($TempRevEncUsers | Where-Object {$_.Name -ne $null}) {
-			$TempRevEncUsers | Where-Object {$_.Name -ne $null} | Sort-Object Domain,Name | Format-Table -AutoSize
-			$HTMLRevEncUsers = $TempRevEncUsers | Where-Object {$_.Name -ne $null} | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Users with Reversible Encryption</h2>"
-		}
-		
 	}
 	
 	else{
@@ -3870,11 +3931,18 @@ function Invoke-ADEnum
 				}
 			}
 		}
-		
-		if ($TempRevEncUsers | Where-Object {$_.Name -ne $null}) {
-			$TempRevEncUsers | Where-Object {$_.Name -ne $null} | Sort-Object Domain,Name | Format-Table -AutoSize
-			$HTMLRevEncUsers = $TempRevEncUsers | Where-Object {$_.Name -ne $null} | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Users with Reversible Encryption</h2>"
+	}
+
+ 	if ($TempRevEncUsers | Where-Object {$_.Name -ne $null}) {
+		$TempRevEncUsers | Where-Object {$_.Name -ne $null} | Sort-Object Domain,Name | Format-Table -AutoSize
+		$HTMLRevEncUsers = $TempRevEncUsers | Where-Object {$_.Name -ne $null} | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Users with Reversible Encryption</h2>"
+
+  		$ReversibleEncryptionTable = [PSCustomObject]@{
+			"Recommendations" = "Review and disable Reversible Encryption for every account identified, then force a password change to ensure that passwords are securely hashed."
 		}
+		
+		$HTMLReversibleEncryptionTable = $ReversibleEncryptionTable | ConvertTo-Html -As List -Fragment
+  		$HTMLReversibleEncryptionTable = $HTMLReversibleEncryptionTable.Replace("*", "Recommendations")
 	}
 
  	#############################################
@@ -5216,6 +5284,13 @@ function Invoke-ADEnum
  	if ($TempUserAccountAnalysis) {
 		$TempUserAccountAnalysis | Format-Table -AutoSize
 		$HTMLUserAccountAnalysis = $TempUserAccountAnalysis | ConvertTo-Html -Fragment -PreContent "<h2>User Accounts Analysis</h2>"
+
+  		$UserAccountAnalysisTable = [PSCustomObject]@{
+			"Recommendations" = "Review Inactive and Disabled User Accounts and consider deleting them from AD"
+		}
+		
+		$HTMLUserAccountAnalysisTable = $UserAccountAnalysisTable | ConvertTo-Html -As List -Fragment
+  		$HTMLUserAccountAnalysisTable = $HTMLUserAccountAnalysisTable.Replace("*", "Recommendations")
 	}
 	
 	######################################################
@@ -5261,6 +5336,13 @@ function Invoke-ADEnum
  	if ($TempComputerAccountAnalysis) {
 		$TempComputerAccountAnalysis | Format-Table -AutoSize
 		$HTMLComputerAccountAnalysis = $TempComputerAccountAnalysis | ConvertTo-Html -Fragment -PreContent "<h2>Computer Account Analysis</h2>"
+
+  		$ComputerAccountAnalysisTable = [PSCustomObject]@{
+			"Recommendations" = "Review Inactive and Disabled Computer Accounts and consider deleting them from AD"
+		}
+		
+		$HTMLComputerAccountAnalysisTable = $ComputerAccountAnalysisTable | ConvertTo-Html -As List -Fragment
+  		$HTMLComputerAccountAnalysisTable = $HTMLComputerAccountAnalysisTable.Replace("*", "Recommendations")
 	}
 	
 	######################################################
@@ -5785,13 +5867,17 @@ function Invoke-ADEnum
     Stop-Transcript | Out-Null
 	
 	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLProtectedUsers $HTMLRODCs $HTMLSchemaAdmins $HTMLServerOperators $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLPreWin2kCompatibleAccess $HTMLUnsupportedHosts $HTMLLMCompatibilityLevel $HTMLMachineQuota $InterestingDataBanner $HTMLReplicationUsers $HTMLServiceAccounts $HTMLGMSAs $HTMLnopreauthset $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLLinkedDAAccounts $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
-	$HTMLOutputFilePath = $OutputFilePath.Replace(".txt", ".html")
+	$ClientReport = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLCertTemplatesTable $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLMachineQuota $HTMLMachineAccountQuotaTable $InterestingDataBanner $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLUsersAdminCount $HTMLAdminCountUsersTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupTable $HTMLPrivilegedNotSensitiveUsers $HTMLPrivilegedNOTSensitiveDelegationTable $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLServersDisabled $HTMLWorkstationsDisabled $HTMLDisabledUsers" -Title "Active Directory Audit" -Head $header
+ 	$HTMLOutputFilePath = $OutputFilePath.Replace(".txt", ".html")
+  	$HTMLClientOutputFilePath = $HTMLOutputFilePath.Replace("Invoke-ADEnum", "Invoke-ADEnum_Client-Report")
 	$Report | Out-File $HTMLOutputFilePath
+ 	$ClientReport | Out-File $HTMLClientOutputFilePath
 	
 	Write-Host ""
 	Write-Host "Output files: " -ForegroundColor Yellow
 	Write-Host "$OutputFilePath"
 	Write-Host "$HTMLOutputFilePath"
+ 	Write-Host "$HTMLClientOutputFilePath"
 	Write-Host ""
     
     # Clean up error lines from output
