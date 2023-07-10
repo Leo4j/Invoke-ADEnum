@@ -146,7 +146,11 @@ function Invoke-ADEnum
 
  	[Parameter (Mandatory=$False, Position = 32, ValueFromPipeline=$true)]
         [Switch]
-        $RBCD
+        $RBCD,
+
+ 	[Parameter (Mandatory=$False, Position = 33, ValueFromPipeline=$true)]
+        [Switch]
+        $LAPSExtended
 
     )
 	
@@ -277,7 +281,9 @@ function Invoke-ADEnum
  
  -Help				Show this Help page
  
- -LAPSComputers			Enumerate Computer objects where LAPS is enabled
+ -LAPSComputers			Enumerate for Computer objects where LAPS is enabled
+
+ -LAPSExtended			Enumerate for LAPS Extended Rights
  
  -MoreGPOs			More enumeration leveraging GPOs
  
@@ -4308,84 +4314,86 @@ function Invoke-ADEnum
 				$HTMLLAPSCanRead = $TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | Sort-Object Domain,"Delegated Groups","Target OU" | ConvertTo-Html -Fragment -PreContent "<h2>Who can read LAPS</h2>"
 			}
 		}
-		
-		Write-Host ""
-		Write-Host "LAPS Extended Rights:" -ForegroundColor Cyan
-		
-		if ($Domain -and $Server) {
-			
-			$LAPSFilter = "(objectCategory=Computer)(ms-mcs-admpwdexpirationtime=*)"
-			
-			$ExtendedRights = Get-ObjectAcl -ResolveGUIDs -Filter $LAPSFilter -Domain $Domain -Server $Server | Where-Object { $_.ActiveDirectoryRights -match "ExtendedRight" }
-			
-			$CompMap = @{}
-			
-			$ComputerObjects = Get-NetComputer -Filter "(ms-mcs-admpwdexpirationtime=*)" -Domain $Domain -Server $Server | ForEach-Object { $CompMap.Add($_.distinguishedname, $_.dnshostname) }
-			
-			$TempLAPSExtended = $ExtendedRights | ForEach-Object {
 
-				$LAPSComputerName =  $CompMap[$_.ObjectDN]
-				
-				$LAPSIdentity = $_.IdentityReference
-
-				if($_.ObjectType -match "All" -and $_.IdentityReference -notmatch "BUILTIN") { $Status = "Non Delegated by Admin" }
-				
-				else { return }
-
-				[PSCustomObject]@{
-					"Computer Name" = $LAPSComputerName
-					"Identity" = $LAPSIdentity
-					"Status" = $Status
-					"Domain" = $Domain
-				}
-
-			}
+  		if($LAPSExtended -OR $AllEnum){
+			Write-Host ""
+			Write-Host "LAPS Extended Rights:" -ForegroundColor Cyan
 			
-			if ($TempLAPSExtended) {
-				$TempLAPSExtended | Sort-Object Domain,"Computer Name","Identity" | Format-Table -AutoSize -Wrap
-				$HTMLLAPSExtended = $TempLAPSExtended | Sort-Object Domain,"Computer Name","Identity" | ConvertTo-Html -Fragment -PreContent "<h2>LAPS Extended Rights</h2>"
-			}
-			
-		}
-		
-		else {
-			$TempLAPSCanRead = foreach ($AllDomain in $AllDomains) {
+			if ($Domain -and $Server) {
 				
 				$LAPSFilter = "(objectCategory=Computer)(ms-mcs-admpwdexpirationtime=*)"
-			
-				$ExtendedRights = Get-ObjectAcl -ResolveGUIDs -Filter $LAPSFilter -Domain $AllDomain | Where-Object { $_.ActiveDirectoryRights -match "ExtendedRight" }
+				
+				$ExtendedRights = Get-ObjectAcl -ResolveGUIDs -Filter $LAPSFilter -Domain $Domain -Server $Server | Where-Object { $_.ActiveDirectoryRights -match "ExtendedRight" }
 				
 				$CompMap = @{}
 				
-				$ComputerObjects = Get-NetComputer -Filter "(ms-mcs-admpwdexpirationtime=*)" -Domain $AllDomain | ForEach-Object { $CompMap.Add($_.distinguishedname, $_.dnshostname) }
+				$ComputerObjects = Get-NetComputer -Filter "(ms-mcs-admpwdexpirationtime=*)" -Domain $Domain -Server $Server | ForEach-Object { $CompMap.Add($_.distinguishedname, $_.dnshostname) }
 				
-				$ExtendedRights | ForEach-Object {
-
+				$TempLAPSExtended = $ExtendedRights | ForEach-Object {
+	
 					$LAPSComputerName =  $CompMap[$_.ObjectDN]
 					
 					$LAPSIdentity = $_.IdentityReference
-
+	
 					if($_.ObjectType -match "All" -and $_.IdentityReference -notmatch "BUILTIN") { $Status = "Non Delegated by Admin" }
 					
 					else { return }
-
+	
 					[PSCustomObject]@{
 						"Computer Name" = $LAPSComputerName
 						"Identity" = $LAPSIdentity
 						"Status" = $Status
 						"Domain" = $Domain
 					}
-
+	
+				}
+				
+				if ($TempLAPSExtended) {
+					$TempLAPSExtended | Sort-Object Domain,"Computer Name","Identity" | Format-Table -AutoSize -Wrap
+					$HTMLLAPSExtended = $TempLAPSExtended | Sort-Object Domain,"Computer Name","Identity" | ConvertTo-Html -Fragment -PreContent "<h2>LAPS Extended Rights</h2>"
 				}
 				
 			}
 			
-			if ($TempLAPSExtended) {
-				$TempLAPSExtended | Sort-Object Domain,"Computer Name","Identity" | Format-Table -AutoSize -Wrap
-				$HTMLLAPSExtended = $TempLAPSExtended | Sort-Object Domain,"Computer Name","Identity" | ConvertTo-Html -Fragment -PreContent "<h2>LAPS Extended Rights</h2>"
+			else {
+				$TempLAPSCanRead = foreach ($AllDomain in $AllDomains) {
+					
+					$LAPSFilter = "(objectCategory=Computer)(ms-mcs-admpwdexpirationtime=*)"
+				
+					$ExtendedRights = Get-ObjectAcl -ResolveGUIDs -Filter $LAPSFilter -Domain $AllDomain | Where-Object { $_.ActiveDirectoryRights -match "ExtendedRight" }
+					
+					$CompMap = @{}
+					
+					$ComputerObjects = Get-NetComputer -Filter "(ms-mcs-admpwdexpirationtime=*)" -Domain $AllDomain | ForEach-Object { $CompMap.Add($_.distinguishedname, $_.dnshostname) }
+					
+					$ExtendedRights | ForEach-Object {
+	
+						$LAPSComputerName =  $CompMap[$_.ObjectDN]
+						
+						$LAPSIdentity = $_.IdentityReference
+	
+						if($_.ObjectType -match "All" -and $_.IdentityReference -notmatch "BUILTIN") { $Status = "Non Delegated by Admin" }
+						
+						else { return }
+	
+						[PSCustomObject]@{
+							"Computer Name" = $LAPSComputerName
+							"Identity" = $LAPSIdentity
+							"Status" = $Status
+							"Domain" = $Domain
+						}
+	
+					}
+					
+				}
+				
+				if ($TempLAPSExtended) {
+					$TempLAPSExtended | Sort-Object Domain,"Computer Name","Identity" | Format-Table -AutoSize -Wrap
+					$HTMLLAPSExtended = $TempLAPSExtended | Sort-Object Domain,"Computer Name","Identity" | ConvertTo-Html -Fragment -PreContent "<h2>LAPS Extended Rights</h2>"
+				}
+				
 			}
-			
-		}
+  		}
 		
 		if($LAPSComputers -OR $AllEnum){
 
