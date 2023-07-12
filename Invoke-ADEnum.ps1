@@ -2945,8 +2945,8 @@ function Invoke-ADEnum
 	}
 
  	if ($TempLMCompatibilityLevel) {
-		$TempLMCompatibilityLevel | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
-		$HTMLLMCompatibilityLevel = $TempLMCompatibilityLevel | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>LM Compatibility Level</h2>"
+		$TempLMCompatibilityLevel | Sort-Object Domain,"GPO Name" -Unique | Format-Table -AutoSize -Wrap
+		$HTMLLMCompatibilityLevel = $TempLMCompatibilityLevel | Sort-Object Domain,"GPO Name" -Unique | ConvertTo-Html -Fragment -PreContent "<h2>LM Compatibility Level</h2>"
 		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send NTLM response only</td>','<td class="YesStatus">Send NTLM response only</td>'
 		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>2</td>','<td class="YesStatus">2</td>'
 		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send LM & NTLM - use NTLMv2 session security if negotiated</td>','<td class="YesStatus">Send LM & NTLM - use NTLMv2 session security if negotiated</td>'
