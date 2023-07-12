@@ -992,17 +992,12 @@ function Invoke-ADEnum
 			[PSCustomObject]@{
 				"Group Domain" = $ForeignGroupMember.GroupDomain
 				"Group Name" = $ForeignGroupMember.GroupName
-				"Group Distinguished Name" = $ForeignGroupMember.GroupDistinguishedName
+				#"Group Distinguished Name" = $ForeignGroupMember.GroupDistinguishedName
 				"Member Domain" = $ForeignGroupMember.MemberDomain
 				"Member or GroupName" = (ConvertFrom-SID $ForeignGroupMember.MemberName)
-				"Members" = (Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity (ConvertFrom-SID $ForeignGroupMember.MemberName)).MemberName -join ' - '
-				"SID" = $ForeignGroupMember.MemberName
+				"Member or GroupName SID" = $ForeignGroupMember.MemberName
+    				"Group Members" = (Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity (ConvertFrom-SID $ForeignGroupMember.MemberName)).MemberName -join ' - '
 			}
-		}
-
-		if ($TempForeignGroupMembers) {
-			$TempForeignGroupMembers | Format-Table -AutoSize -Wrap
-			$HTMLGetDomainForeignGroupMember = $TempForeignGroupMembers | ConvertTo-Html -Fragment -PreContent "<h2>Groups that contain users outside of its domain and return its members</h2>"
 		}
 	}
 
@@ -1014,20 +1009,20 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"Group Domain" = $ForeignGroupMember.GroupDomain
 					"Group Name" = $ForeignGroupMember.GroupName
-					"Group Distinguished Name" = $ForeignGroupMember.GroupDistinguishedName
+					#"Group Distinguished Name" = $ForeignGroupMember.GroupDistinguishedName
 					"Member Domain" = $ForeignGroupMember.MemberDomain
 					"Member or GroupName" = (ConvertFrom-SID $ForeignGroupMember.MemberName)
-					"Members" = (Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity (ConvertFrom-SID $ForeignGroupMember.MemberName)).MemberName -join ' - '
-					"SID" = $ForeignGroupMember.MemberName
+					"Member or GroupName SID" = $ForeignGroupMember.MemberName
+     					"Group Members" = (Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity (ConvertFrom-SID $ForeignGroupMember.MemberName)).MemberName -join ' - '
 				}
 			}
 		}
+	}
 
-		if ($TempForeignGroupMembers) {
+ 	if ($TempForeignGroupMembers) {
 			$TempForeignGroupMembers | Format-Table -AutoSize -Wrap
 			$HTMLGetDomainForeignGroupMember = $TempForeignGroupMembers | ConvertTo-Html -Fragment -PreContent "<h2>Groups that contain users outside of its domain and return its members</h2>"
 		}
-	}
 
 	
 	####################################################
@@ -3009,7 +3004,7 @@ function Invoke-ADEnum
 	Write-Host ""
 	Write-Host "Interesting Data" -ForegroundColor Red
 	Write-Host ""
-	$Keywords = @("Admin", "Azure", "Backup", "CCTV", "Cyber", "Desk", "Director", "Finance", "Hyper", "JEA", "LAPS", "LLMNR", "Management", "Mgmt", "Password", "PAM", "PAW", "PPL", "PSM", "Remote", "Security", "SQL", "VEEAM", "VMWare")
+	$Keywords = @("Admin", "Azure", "Backup", "CCTV", "Cyber", "Desk", "Director", "Finance", "Hyper", "JEA", "LAPS", "LLMNR", "Management", "Mgmt", "Password", "PAM", "PAW", "PPL", "PSM", "Remote", "Remoting", "Security", "SQL", "VEEAM", "VMWare")
 	
 	##################################
     ########### DCSync ###############
