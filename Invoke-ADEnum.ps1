@@ -2895,6 +2895,15 @@ function Invoke-ADEnum
 						Domain = $Domain
 					}
 				}
+
+    				else{
+					[PSCustomObject]@{
+						"GPO Name" = "No GPO Set"
+						Setting = "Default"
+						"LM Compatibility Level" = "Dependent on the OS"
+						Domain = $Domain
+					}
+				}
 			}
 	} 
 	
@@ -2922,6 +2931,15 @@ function Invoke-ADEnum
 						Domain = $AllDomain
 					}
 				}
+
+    				else{
+					[PSCustomObject]@{
+						"GPO Name" = "No GPO Set"
+						Setting = "Default"
+						"LM Compatibility Level" = "Dependent on the OS"
+						Domain = $AllDomain
+					}
+				}
 			}
 		}
 	}
@@ -2944,11 +2962,14 @@ function Invoke-ADEnum
 
   		$LMCompatibilityLevelTable = [PSCustomObject]@{
 			"Description" = "Determines which challenge response authentication protocol is used for network logons. If set lower than 3, NTLMv1 auth will be supported, which could be abused to compromise the domain."
+   			"More Info" = "NTLMv1 is enabled on domain controllers to accept the connection of older operating systems. If no GPO defines the LAN Manager Authentication Level, the DCs fall back to the non secure default."
 			#"Recommendation" = "Evaluate the necessity of enabling support for NTLMv1 authentication in your network, and consider raising the Compatibility Level to a minimum value of 3."
 		}
 		
 		$HTMLLMCompatibilityLevelTable = $LMCompatibilityLevelTable | ConvertTo-Html -As List -Fragment
-  		$HTMLLMCompatibilityLevelTable = $HTMLLMCompatibilityLevelTable.Replace("*", "Description")
+  		#$HTMLLMCompatibilityLevelTable = $HTMLLMCompatibilityLevelTable.Replace("*", "Description")
+    		$HTMLLMCompatibilityLevelTable = $HTMLLMCompatibilityLevelTable.Replace("Description", '<a href="https://learn.microsoft.com/en-us/windows/security/threat-protection/security-policy-settings/network-security-lan-manager-authentication-level">Description</a>')
+      		$HTMLLMCompatibilityLevelTable = $HTMLLMCompatibilityLevelTable.Replace("More Info", '<a href="https://learn.microsoft.com/en-us/windows/security/threat-protection/security-policy-settings/network-security-restrict-ntlm-ntlm-authentication-in-this-domain">More Info</a>')
 	}
 	
 	#################################################
