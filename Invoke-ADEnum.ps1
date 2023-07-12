@@ -2996,10 +2996,12 @@ function Invoke-ADEnum
 		$dcName = "DC=" + $Domain.Split(".")
 		$dcName = $dcName -replace " ", ",DC="
 		$Quota = (Get-DomainObject -Domain $Domain -Server $Server -Identity "$dcName" -Properties ms-DS-MachineAccountQuota) | Select-Object -ExpandProperty ms-DS-MachineAccountQuota
+  		if ($Quota -eq $null) { $InfoQuota = "10" } else { $InfoQuota = $Quota }
 		
 		$TempMachineQuota = [PSCustomObject]@{
 			'Domain' = $Domain
 			'Quota' = if ($Quota -eq $null) { "10" } else { $Quota }
+   			Info = "Any user is allowed to create $InfoQuota computer accounts in this domain."
 		}
 	}
 	else {
@@ -3007,10 +3009,12 @@ function Invoke-ADEnum
 			$dcName = "DC=" + $AllDomain.Split(".")
 			$dcName = $dcName -replace " ", ",DC="
 			$Quota = (Get-DomainObject -Domain $AllDomain -Identity "$dcName" -Properties ms-DS-MachineAccountQuota) | Select-Object -ExpandProperty ms-DS-MachineAccountQuota
+   			if ($Quota -eq $null) { $InfoQuota = "10" } else { $InfoQuota = $Quota }
 			
 			[PSCustomObject]@{
 				'Domain' = $AllDomain
 				'Quota' = if ($Quota -eq $null) { "10" } else { $Quota }
+    				Info = "Any user is allowed to create $InfoQuota computer accounts in this domain."
 			}
 		}
 	}
