@@ -150,7 +150,11 @@ function Invoke-ADEnum
 
  	[Parameter (Mandatory=$False, Position = 33, ValueFromPipeline=$true)]
         [Switch]
-        $LAPSExtended
+        $LAPSExtended,
+
+ 	[Parameter (Mandatory=$False, Position = 34, ValueFromPipeline=$true)]
+        [Switch]
+        $LAPSReadRights
 
     )
 	
@@ -284,6 +288,8 @@ function Invoke-ADEnum
  -LAPSComputers			Enumerate for Computer objects where LAPS is enabled
 
  -LAPSExtended			Enumerate for LAPS Extended Rights
+
+ -LAPSReadRights		Enumerate for Users who can Read LAPS
  
  -MoreGPOs			More enumeration leveraging GPOs
  
@@ -4379,40 +4385,43 @@ function Invoke-ADEnum
 			}
 		}
 
-		Write-Host ""
-		Write-Host "Who can read LAPS:" -ForegroundColor Cyan
-		if ($Domain -and $Server) {
-			$LAPSCanReads = Get-NetOU -Domain $Domain -Server $Server -Properties distinguishedname | Get-ObjectAcl -Domain $Domain -Server $Server -ResolveGUIDs | Where-Object { ($_.ObjectAceType -like 'ms-Mcs-AdmPwd') -and ($_.ActiveDirectoryRights -match 'ReadProperty')}
-			$TempLAPSCanRead = foreach ($LAPSCanRead in $LAPSCanReads) {
-				[PSCustomObject]@{
-					"Delegated Groups" = (ConvertFrom-SID $LAPSCanRead.SecurityIdentifier -Domain $Domain)
-					"Target OU" = $LAPSCanRead.ObjectDN
-					Domain = $Domain
-				}
-			}
+  		if($LAPSReadRights -OR $AllEnum){
 
-			if ($TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null}) {
-				$TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | Sort-Object Domain,"Delegated Groups","Target OU" | Format-Table -AutoSize -Wrap
-				$HTMLLAPSCanRead = $TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | Sort-Object Domain,"Delegated Groups","Target OU" | ConvertTo-Html -Fragment -PreContent "<h2>Who can read LAPS</h2>"
-			}
-		}
-		else {
-			$TempLAPSCanRead = foreach ($AllDomain in $AllDomains) {
-				$LAPSCanReads = Get-NetOU -Domain $AllDomain -Properties distinguishedname | Get-ObjectAcl -Domain $AllDomain -ResolveGUIDs | Where-Object { ($_.ObjectAceType -like 'ms-Mcs-AdmPwd') -and ($_.ActiveDirectoryRights -match 'ReadProperty')}
-				foreach ($LAPSCanRead in $LAPSCanReads) {
+			Write-Host ""
+			Write-Host "Who can read LAPS:" -ForegroundColor Cyan
+			if ($Domain -and $Server) {
+				$LAPSCanReads = Get-NetOU -Domain $Domain -Server $Server -Properties distinguishedname | Get-ObjectAcl -Domain $Domain -Server $Server -ResolveGUIDs | Where-Object { ($_.ObjectAceType -like 'ms-Mcs-AdmPwd') -and ($_.ActiveDirectoryRights -match 'ReadProperty')}
+				$TempLAPSCanRead = foreach ($LAPSCanRead in $LAPSCanReads) {
 					[PSCustomObject]@{
-						"Delegated Groups" = (ConvertFrom-SID $LAPSCanRead.SecurityIdentifier -Domain $AllDomain)
+						"Delegated Groups" = (ConvertFrom-SID $LAPSCanRead.SecurityIdentifier -Domain $Domain)
 						"Target OU" = $LAPSCanRead.ObjectDN
-						Domain = $AllDomain
+						Domain = $Domain
 					}
 				}
+	
+				if ($TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null}) {
+					$TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | Sort-Object Domain,"Delegated Groups","Target OU" | Format-Table -AutoSize -Wrap
+					$HTMLLAPSCanRead = $TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | Sort-Object Domain,"Delegated Groups","Target OU" | ConvertTo-Html -Fragment -PreContent "<h2>Who can read LAPS</h2>"
+				}
 			}
-
-			if ($TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null}) {
-				$TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | Sort-Object Domain,"Delegated Groups","Target OU" | Format-Table -AutoSize -Wrap
-				$HTMLLAPSCanRead = $TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | Sort-Object Domain,"Delegated Groups","Target OU" | ConvertTo-Html -Fragment -PreContent "<h2>Who can read LAPS</h2>"
+			else {
+				$TempLAPSCanRead = foreach ($AllDomain in $AllDomains) {
+					$LAPSCanReads = Get-NetOU -Domain $AllDomain -Properties distinguishedname | Get-ObjectAcl -Domain $AllDomain -ResolveGUIDs | Where-Object { ($_.ObjectAceType -like 'ms-Mcs-AdmPwd') -and ($_.ActiveDirectoryRights -match 'ReadProperty')}
+					foreach ($LAPSCanRead in $LAPSCanReads) {
+						[PSCustomObject]@{
+							"Delegated Groups" = (ConvertFrom-SID $LAPSCanRead.SecurityIdentifier -Domain $AllDomain)
+							"Target OU" = $LAPSCanRead.ObjectDN
+							Domain = $AllDomain
+						}
+					}
+				}
+	
+				if ($TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null}) {
+					$TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | Sort-Object Domain,"Delegated Groups","Target OU" | Format-Table -AutoSize -Wrap
+					$HTMLLAPSCanRead = $TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | Sort-Object Domain,"Delegated Groups","Target OU" | ConvertTo-Html -Fragment -PreContent "<h2>Who can read LAPS</h2>"
+				}
 			}
-		}
+  		}
 
   		if($LAPSExtended -OR $AllEnum){
 			Write-Host ""
