@@ -5234,8 +5234,8 @@ function Invoke-ADEnum
 	}
 
  	if ($TempDomainPolicy) {
-		$TempDomainPolicy | Format-Table -AutoSize -Wrap
-		$HTMLDomainPolicy = $TempDomainPolicy | ConvertTo-Html -Fragment -PreContent "<h2>Domain Password Policy</h2>"
+		$TempDomainPolicy | Sort-Object Domain | Format-Table -AutoSize -Wrap
+		$HTMLDomainPolicy = $TempDomainPolicy | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2>Domain Password Policy</h2>"
 	}
 
 	
@@ -5271,8 +5271,8 @@ function Invoke-ADEnum
 	}
 
  	if ($TempKerberosPolicy) {
-		$TempKerberosPolicy | Format-Table -AutoSize -Wrap
-		$HTMLKerberosPolicy = $TempKerberosPolicy | ConvertTo-Html -Fragment -PreContent "<h2>Kerberos Password Policy</h2>"
+		$TempKerberosPolicy | Sort-Object Domain | Format-Table -AutoSize -Wrap
+		$HTMLKerberosPolicy = $TempKerberosPolicy | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2>Kerberos Password Policy</h2>"
 	}
 	
 	##################################################
@@ -5287,6 +5287,7 @@ function Invoke-ADEnum
 		$UserAccountAnalysis = Get-DomainUser -Domain $Domain -Server $Server
 		
 		$TempUserAccountAnalysis = [PSCustomObject]@{
+  			Domain = $Domain
 			'Nb User Accounts' = $UserAccountAnalysis.Name.count
 			'Nb Enabled' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -notmatch "ACCOUNTDISABLE" }).Name.Count
 			'Nb Disabled' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -band 2 }).Name.Count
@@ -5296,7 +5297,6 @@ function Invoke-ADEnum
 			'Nb Pwd Never Expire' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -match "DONT_EXPIRE_PASSWORD" }).Name.Count
 			'Nb Password not Req.' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -match "PASSWD_NOTREQD" }).Name.Count
 			'Nb Reversible Password' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -band 128 }).Name.count
-			Domain = $Domain
 		}		
 	}
 	
@@ -5306,6 +5306,7 @@ function Invoke-ADEnum
 			$UserAccountAnalysis = Get-DomainUser -Domain $AllDomain
 			
 			[PSCustomObject]@{
+   				Domain = $AllDomain
 				'Nb User Accounts' = $UserAccountAnalysis.Name.count
 				'Nb Enabled' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -notmatch "ACCOUNTDISABLE" }).Name.Count
 				'Nb Disabled' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -band 2 }).Name.Count
@@ -5315,15 +5316,14 @@ function Invoke-ADEnum
 				'Nb Pwd Never Expire' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -match "DONT_EXPIRE_PASSWORD" }).Name.Count
 				'Nb Password not Req.' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -match "PASSWD_NOTREQD" }).Name.Count
 				'Nb Reversible Password' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -band 128 }).Name.count
-				Domain = $AllDomain
 			}
 			
 		}
 	}
 
  	if ($TempUserAccountAnalysis) {
-		$TempUserAccountAnalysis | Format-Table -AutoSize
-		$HTMLUserAccountAnalysis = $TempUserAccountAnalysis | ConvertTo-Html -Fragment -PreContent "<h2>User Accounts Analysis</h2>"
+		$TempUserAccountAnalysis | Sort-Object Domain | Format-Table -AutoSize
+		$HTMLUserAccountAnalysis = $TempUserAccountAnalysis | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2>User Accounts Analysis</h2>"
 
   		$UserAccountAnalysisTable = [PSCustomObject]@{
 			"Recommendations" = "Review Inactive and Disabled User Accounts and consider deleting them from AD"
@@ -5345,13 +5345,13 @@ function Invoke-ADEnum
 		$ComputerAccountAnalysis = Get-DomainComputer -Domain $Domain -Server $Server
 		
 		$TempComputerAccountAnalysis = [PSCustomObject]@{
+  			Domain = $Domain
 			'Nb Computer Accounts' = $ComputerAccountAnalysis.Name.count
 			'Nb Enabled' = ($ComputerAccountAnalysis | Where-Object { $_.useraccountcontrol -notmatch "ACCOUNTDISABLE" }).Name.Count
 			'Nb Disabled' = $ComputerAccountAnalysis.Name.count - ($ComputerAccountAnalysis | Where-Object { $_.useraccountcontrol -notmatch "ACCOUNTDISABLE" }).Name.Count
 			'Nb Active' = ($ComputerAccountAnalysis | Where-Object { $_.lastlogontimestamp -ge $inactiveThreshold}).Name.count
 			'Nb Inactive' = ($ComputerAccountAnalysis | Where-Object { $_.lastlogontimestamp -lt $inactiveThreshold}).Name.count
 			'Unconstrained Delegations' = ($TempUnconstrained | Where-Object {$_.Domain -eq $Domain}).Name.Count
-			Domain = $Domain
 		}
 	}
 	
@@ -5361,21 +5361,21 @@ function Invoke-ADEnum
 			$ComputerAccountAnalysis = Get-DomainComputer -Domain $AllDomain
 			
 			[PSCustomObject]@{
+   				Domain = $AllDomain
 				'Nb Computer Accounts' = $ComputerAccountAnalysis.Name.count
 				'Nb Enabled' = ($ComputerAccountAnalysis | Where-Object { $_.useraccountcontrol -notmatch "ACCOUNTDISABLE" }).Name.Count
 				'Nb Disabled' = $ComputerAccountAnalysis.Name.count - ($ComputerAccountAnalysis | Where-Object { $_.useraccountcontrol -notmatch "ACCOUNTDISABLE" }).Name.Count
 				'Nb Active' = ($ComputerAccountAnalysis | Where-Object { $_.lastlogontimestamp -ge $inactiveThreshold}).Name.count
 				'Nb Inactive' = ($ComputerAccountAnalysis | Where-Object { $_.lastlogontimestamp -lt $inactiveThreshold}).Name.count
 				'Unconstrained Delegations' = ($TempUnconstrained | Where-Object {$_.Domain -eq $AllDomain}).Name.Count
-				Domain = $AllDomain
 			}
 			
 		}
 	}
 
  	if ($TempComputerAccountAnalysis) {
-		$TempComputerAccountAnalysis | Format-Table -AutoSize
-		$HTMLComputerAccountAnalysis = $TempComputerAccountAnalysis | ConvertTo-Html -Fragment -PreContent "<h2>Computer Account Analysis</h2>"
+		$TempComputerAccountAnalysis | Sort-Object Domain | Format-Table -AutoSize
+		$HTMLComputerAccountAnalysis = $TempComputerAccountAnalysis | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2>Computer Account Analysis</h2>"
 
   		$ComputerAccountAnalysisTable = [PSCustomObject]@{
 			"Recommendations" = "Review Inactive and Disabled Computer Accounts and consider deleting them from AD"
@@ -5400,13 +5400,13 @@ function Invoke-ADEnum
 		$TempOperatingSystemsAnalysis = foreach($OperatingSystem in $OperatingSystemsAnalysis){
 		
 			[PSCustomObject]@{
-				'Operating System' = $OperatingSystem
+				Domain = $Domain
+    				'Operating System' = $OperatingSystem
 				'Nb OS' = ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem}).Name.count
 				'Nb Enabled' = ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem} | Where-Object { $_.useraccountcontrol -notmatch "ACCOUNTDISABLE" }).Name.Count
 				'Nb Disabled' = ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem}).Name.count - ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem} | Where-Object { $_.useraccountcontrol -notmatch "ACCOUNTDISABLE" }).Name.Count
 				'Nb Active' = ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem} | Where-Object { $_.lastlogontimestamp -ge $inactiveThreshold}).Name.count
 				'Nb Inactive' = ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem} | Where-Object { $_.lastlogontimestamp -lt $inactiveThreshold}).Name.count
-				Domain = $Domain
 			}
 			
 		}
@@ -5420,13 +5420,13 @@ function Invoke-ADEnum
 			
 			foreach($OperatingSystem in $OperatingSystemsAnalysis){
 				[PSCustomObject]@{
+    					Domain = $AllDomain
 					'Operating System' = $OperatingSystem
 					'Nb OS' = ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem}).Name.count
 					'Nb Enabled' = ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem} | Where-Object { $_.useraccountcontrol -notmatch "ACCOUNTDISABLE" }).Name.Count
 					'Nb Disabled' = ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem}).Name.count - ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem} | Where-Object { $_.useraccountcontrol -notmatch "ACCOUNTDISABLE" }).Name.Count
 					'Nb Active' = ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem} | Where-Object { $_.lastlogontimestamp -ge $inactiveThreshold}).Name.count
 					'Nb Inactive' = ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem} | Where-Object { $_.lastlogontimestamp -lt $inactiveThreshold}).Name.count
-					Domain = $AllDomain
 				}
 			}
 			
