@@ -2960,9 +2960,9 @@ function Invoke-ADEnum
 		$HTMLLMCompatibilityLevel = $TempLMCompatibilityLevel | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>LM Compatibility Level</h2>"
 		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send NTLM response only</td>','<td class="YesStatus">Send NTLM response only</td>'
 		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>2</td>','<td class="YesStatus">2</td>'
-		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send LM & NTLM - use NTLMv2 session security if negotiated</td>','<td class="YesStatus">Send LM & NTLM - use NTLMv2 session security if negotiated</td>'
+		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send LM & NTLM - use NTLMv2 session security if negotiated</td>','<td class="YesStatus">Send LM and NTLM - use NTLMv2 session security if negotiated</td>'
 		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>1</td>','<td class="YesStatus">1</td>'
-		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send LM & NTLM responses</td>','<td class="YesStatus">Send LM & NTLM responses</td>'
+		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send LM and NTLM responses</td>','<td class="YesStatus">Send LM and NTLM responses</td>'
 		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>0</td>','<td class="YesStatus">0</td>'
   		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>3</td>','<td class="NoStatus">3</td>'
       		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>4</td>','<td class="NoStatus">4</td>'
@@ -2970,6 +2970,7 @@ function Invoke-ADEnum
     	  	$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send NTLMv2 response only</td>','<td class="NoStatus">Send NTLMv2 response only</td>'
 		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send NTLMv2 response only. Refuse LM</td>','<td class="NoStatus">Send NTLMv2 response only. Refuse LM</td>'
      	  	$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send NTLMv2 response only. Refuse LM and NTLM</td>','<td class="NoStatus">Send NTLMv2 response only. Refuse LM and NTLM</td>'
+	 	$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Default</td>','<td class="YesStatus">Default</td>'
 
   		$LMCompatibilityLevelTable = [PSCustomObject]@{
 			"Description" = "Determines which challenge response authentication protocol is used for network logons. If set lower than 3, NTLMv1 auth will be supported, which could be abused to compromise the domain."
