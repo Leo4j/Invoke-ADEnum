@@ -2873,7 +2873,8 @@ function Invoke-ADEnum
 	}
 
 	if ($Domain -and $Server) {
-		$TempLMCompatibilityLevel = Get-DomainGPO -Domain $Domain -Server $Server -LDAPFilter "(name=*)" -Properties gpcfilesyspath, displayname |
+ 		$Results = @()
+		Get-DomainGPO -Domain $Domain -Server $Server -LDAPFilter "(name=*)" -Properties gpcfilesyspath, displayname |
 			ForEach-Object {
 				$gpoPath = $_.gpcfilesyspath.TrimStart("[").TrimEnd("]")
 				$gpoDisplayName = $_.displayname
@@ -2888,7 +2889,7 @@ function Invoke-ADEnum
 					$settingValue = ($gpoSetting -split "=")[-1].Trim().Split(",")[-1].Trim()
 					$policySetting = $policySettings[$settingValue]
 
-					[PSCustomObject]@{
+					$Results = [PSCustomObject]@{
 						"GPO Name" = $gpoDisplayName
 						Setting = $settingValue
 						"LM Compatibility Level" = $policySetting
@@ -2896,19 +2897,24 @@ function Invoke-ADEnum
 					}
 				}
 
-    				else{
-					[PSCustomObject]@{
-						"GPO Name" = "No GPO Set"
-						Setting = "Default"
-						"LM Compatibility Level" = "Dependent on the OS"
-						Domain = $Domain
-					}
-				}
+			}
+
+			if ($Results.Count -eq 0) {
+			    $TempLMCompatibilityLevel = [PSCustomObject]@{
+			        "GPO Name" = "No GPO Set"
+			        Setting = "Default"
+			        "LM Compatibility Level" = "Dependent on the OS"
+			        Domain = $Domain
+			    }
+			}
+			else {
+			    $TempLMCompatibilityLevel = $Results  # process this array to get a single output per domain as needed
 			}
 	} 
 	
 	else {
 		$TempLMCompatibilityLevel = foreach ($AllDomain in $AllDomains) {
+  			$Results = @()
 			Get-DomainGPO -Domain $AllDomain -LDAPFilter "(name=*)" -Properties gpcfilesyspath, displayname |
 			ForEach-Object {
 				$gpoPath = $_.gpcfilesyspath.TrimStart("[").TrimEnd("]")
@@ -2924,7 +2930,7 @@ function Invoke-ADEnum
 					$settingValue = ($gpoSetting -split "=")[-1].Trim().Split(",")[-1].Trim()
 					$policySetting = $policySettings[$settingValue]
 
-					[PSCustomObject]@{
+					$Results = [PSCustomObject]@{
 						"GPO Name" = $gpoDisplayName
 						Setting = $settingValue
 						"LM Compatibility Level" = $policySetting
@@ -2932,21 +2938,26 @@ function Invoke-ADEnum
 					}
 				}
 
-    				else{
-					[PSCustomObject]@{
-						"GPO Name" = "No GPO Set"
-						Setting = "Default"
-						"LM Compatibility Level" = "Dependent on the OS"
-						Domain = $AllDomain
-					}
-				}
 			}
+
+			if ($Results.Count -eq 0) {
+			        [PSCustomObject]@{
+			            "GPO Name" = "No GPO Set"
+			            Setting = "Default"
+			            "LM Compatibility Level" = "Dependent on the OS"
+			            Domain = $AllDomain
+			        }
+			}
+			else {
+			        $Results
+			}
+   
 		}
 	}
 
  	if ($TempLMCompatibilityLevel) {
-		$TempLMCompatibilityLevel | Sort-Object Domain,"GPO Name" -Unique | Format-Table -AutoSize -Wrap
-		$HTMLLMCompatibilityLevel = $TempLMCompatibilityLevel | Sort-Object Domain,"GPO Name" -Unique | ConvertTo-Html -Fragment -PreContent "<h2>LM Compatibility Level</h2>"
+		$TempLMCompatibilityLevel | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
+		$HTMLLMCompatibilityLevel = $TempLMCompatibilityLevel | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>LM Compatibility Level</h2>"
 		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send NTLM response only</td>','<td class="YesStatus">Send NTLM response only</td>'
 		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>2</td>','<td class="YesStatus">2</td>'
 		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send LM & NTLM - use NTLMv2 session security if negotiated</td>','<td class="YesStatus">Send LM & NTLM - use NTLMv2 session security if negotiated</td>'
