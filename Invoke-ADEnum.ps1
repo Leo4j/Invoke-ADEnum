@@ -2971,6 +2971,7 @@ function Invoke-ADEnum
 		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send NTLMv2 response only. Refuse LM</td>','<td class="NoStatus">Send NTLMv2 response only. Refuse LM</td>'
      	  	$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send NTLMv2 response only. Refuse LM and NTLM</td>','<td class="NoStatus">Send NTLMv2 response only. Refuse LM and NTLM</td>'
 	 	$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Default</td>','<td class="YesStatus">Default</td>'
+   		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>No GPO Set</td>','<td class="YesStatus">No GPO Set</td>'
 
   		$LMCompatibilityLevelTable = [PSCustomObject]@{
 			"Description" = "Determines which challenge response authentication protocol is used for network logons. If set lower than 3, NTLMv1 auth will be supported, which could be abused to compromise the domain."
