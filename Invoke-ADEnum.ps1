@@ -555,6 +555,47 @@ function Invoke-ADEnum
     }
 	
 	if($TargetsOnly){
+		
+	    if($Domain -AND $Server) {
+			$GetDomainTrusts = Get-DomainTrust -Domain $Domain -Server $Server
+			
+			$TempGetDomainTrust = foreach ($GetDomainTrust in $GetDomainTrusts) {
+				[PSCustomObject]@{
+					"Source Name" = $GetDomainTrust.SourceName
+					"Target Name" = $GetDomainTrust.TargetName
+					"Trust Type" = $GetDomainTrust.TrustType
+					"Trust Attributes" = $GetDomainTrust.TrustAttributes
+					"Trust Direction" = $GetDomainTrust.TrustDirection
+					"When Created" = $GetDomainTrust.WhenCreated
+					"When Changed" = $GetDomainTrust.WhenChanged
+				}
+			}
+	    }
+	    
+	    else{
+	        $TempGetDomainTrust = foreach($AllDomain in $AllDomains){
+				$GetDomainTrusts = Get-DomainTrust -Domain $AllDomain
+				
+				foreach ($GetDomainTrust in $GetDomainTrusts) {
+					[PSCustomObject]@{
+						"Source Name" = $GetDomainTrust.SourceName
+						"Target Name" = $GetDomainTrust.TargetName
+						"Trust Type" = $GetDomainTrust.TrustType
+						"Trust Attributes" = $GetDomainTrust.TrustAttributes
+						"Trust Direction" = $GetDomainTrust.TrustDirection
+						"When Created" = $GetDomainTrust.WhenCreated
+						"When Changed" = $GetDomainTrust.WhenChanged
+					}
+				}
+			}
+	    }
+	
+	    if($TempGetDomainTrust){
+     			Write-Host ""
+			Write-Host "Domain Trusts:" -ForegroundColor Cyan
+			$TempGetDomainTrust | Format-Table -AutoSize -Wrap
+		}
+    		
 
 		    Write-Host ""
 		    Write-Host "Domain Controllers:" -ForegroundColor Cyan
@@ -802,11 +843,6 @@ function Invoke-ADEnum
 				"When Changed" = $GetDomainTrust.WhenChanged
 			}
 		}
-		
-		if($TempGetDomainTrust){
-			$TempGetDomainTrust | Format-Table -AutoSize -Wrap
-			$HTMLGetDomainTrust = $TempGetDomainTrust | ConvertTo-Html -Fragment -PreContent "<h2>Domain Trusts</h2>"
-		}
     }
     
     else{
@@ -825,12 +861,12 @@ function Invoke-ADEnum
 				}
 			}
 		}
-		
-		if($TempGetDomainTrust){
-			$TempGetDomainTrust | Format-Table -AutoSize -Wrap
-			$HTMLGetDomainTrust = $TempGetDomainTrust | ConvertTo-Html -Fragment -PreContent "<h2>Domain Trusts</h2>"
-		}
     }
+
+    if($TempGetDomainTrust){
+		$TempGetDomainTrust | Format-Table -AutoSize -Wrap
+		$HTMLGetDomainTrust = $TempGetDomainTrust | ConvertTo-Html -Fragment -PreContent "<h2>Domain Trusts</h2>"
+	}
 	
 	#############################################
     ############## Trust Accounts ###############
