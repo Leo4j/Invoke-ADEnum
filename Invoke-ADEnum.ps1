@@ -2890,10 +2890,10 @@ function Invoke-ADEnum
 					$policySetting = $policySettings[$settingValue]
 
 					$Results = [PSCustomObject]@{
+     						Domain = $Domain
 						"GPO Name" = $gpoDisplayName
 						Setting = $settingValue
 						"LM Compatibility Level" = $policySetting
-						Domain = $Domain
 					}
 				}
 
@@ -2901,10 +2901,10 @@ function Invoke-ADEnum
 
 			if ($Results.Count -eq 0) {
 			    $TempLMCompatibilityLevel = [PSCustomObject]@{
+       				Domain = $Domain
 			        "GPO Name" = "No GPO Set"
 			        Setting = "Default"
 			        "LM Compatibility Level" = "Dependent on the OS"
-			        Domain = $Domain
 			    }
 			}
 			else {
@@ -2931,10 +2931,10 @@ function Invoke-ADEnum
 					$policySetting = $policySettings[$settingValue]
 
 					$Results = [PSCustomObject]@{
+     						Domain = $AllDomain
 						"GPO Name" = $gpoDisplayName
 						Setting = $settingValue
 						"LM Compatibility Level" = $policySetting
-						Domain = $AllDomain
 					}
 				}
 
@@ -2942,10 +2942,10 @@ function Invoke-ADEnum
 
 			if ($Results.Count -eq 0) {
 			        [PSCustomObject]@{
+			            Domain = $AllDomain
 			            "GPO Name" = "No GPO Set"
 			            Setting = "Default"
 			            "LM Compatibility Level" = "Dependent on the OS"
-			            Domain = $AllDomain
 			        }
 			}
 			else {
