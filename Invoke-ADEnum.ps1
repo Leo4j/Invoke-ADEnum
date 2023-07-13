@@ -995,31 +995,58 @@ function Invoke-ADEnum
 		$ForeignGroupMembers = Get-DomainForeignGroupMember -Domain $Domain -Server $Server
 
 		$TempForeignGroupMembers = foreach ($ForeignGroupMember in $ForeignGroupMembers) {
+			
+			$convertedMemberName = $null
+			$PlaceHolderDomain = $null
+			
+			foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+				try {
+					$convertedMemberName = ConvertFrom-SID $ForeignGroupMember.MemberName -Domain $PlaceHolderDomain
+					if ($null -ne $convertedMemberName) { break }
+				}
+				catch {
+					continue
+				}
+			}
+			
 			[PSCustomObject]@{
 				"Group Domain" = $ForeignGroupMember.GroupDomain
 				"Group Name" = $ForeignGroupMember.GroupName
 				#"Group Distinguished Name" = $ForeignGroupMember.GroupDistinguishedName
-				"Member Domain" = $ForeignGroupMember.MemberDomain
-				"Member or GroupName" = (ConvertFrom-SID $ForeignGroupMember.MemberName)
+				"Member Domain" = $PlaceHolderDomain
+				"Member or GroupName" = $convertedMemberName
 				"Member or GroupName SID" = $ForeignGroupMember.MemberName
-    				"Group Members" = (Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity (ConvertFrom-SID $ForeignGroupMember.MemberName)).MemberName -join ' - '
+				"Group Members" = (Get-DomainGroupMember -Domain $PlaceHolderDomain -Recurse -Identity $convertedMemberName).MemberName -join ' - '
 			}
 		}
 	}
 
 	else {
 		$TempForeignGroupMembers = foreach ($AllDomain in $AllDomains) {
+			
 			$ForeignGroupMembers = Get-DomainForeignGroupMember -Domain $AllDomain
 
 			foreach ($ForeignGroupMember in $ForeignGroupMembers) {
+				$convertedMemberName = $null
+				$PlaceHolderDomain = $null
+				foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+					try {
+						$convertedMemberName = ConvertFrom-SID $ForeignGroupMember.MemberName -Domain $PlaceHolderDomain
+						if ($null -ne $convertedMemberName) { break }
+					}
+					catch {
+						continue
+					}
+				}
+				
 				[PSCustomObject]@{
 					"Group Domain" = $ForeignGroupMember.GroupDomain
 					"Group Name" = $ForeignGroupMember.GroupName
 					#"Group Distinguished Name" = $ForeignGroupMember.GroupDistinguishedName
-					"Member Domain" = $ForeignGroupMember.MemberDomain
-					"Member or GroupName" = (ConvertFrom-SID $ForeignGroupMember.MemberName)
+					"Member Domain" = $PlaceHolderDomain
+					"Member or GroupName" = $convertedMemberName
 					"Member or GroupName SID" = $ForeignGroupMember.MemberName
-     					"Group Members" = (Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity (ConvertFrom-SID $ForeignGroupMember.MemberName)).MemberName -join ' - '
+					"Group Members" = (Get-DomainGroupMember -Domain $PlaceHolderDomain -Recurse -Identity $convertedMemberName).MemberName -join ' - '
 				}
 			}
 		}
