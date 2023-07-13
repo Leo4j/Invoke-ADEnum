@@ -6193,24 +6193,91 @@ function Invoke-ADEnum
 		if ($Domain -and $Server) {
 			$OtherGroups = Get-DomainGroup -Domain $Domain -Server $Server
 			$TempOtherGroups = foreach ($OtherGroup in $OtherGroups) {
+				
+				$OtherGroupMembers = $null
+				$OtherGroupMembername = $null
+				$OtherGroupMembernames = $null
+				$OtherGroupMembernames = @()
+				
+				$OtherGroupMembers = Get-DomainGroupMember -Domain $Domain -Identity $OtherGroup.samaccountname -Recurse
+				
+				foreach($OtherGroupMember in $OtherGroupMembers){
+						
+					$convertedMemberName = $null
+					#$PlaceHolderDomain = $null
+					if($OtherGroupMember.MemberName){}
+					else{
+						foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+							
+							try {
+								$convertedMemberName = ConvertFrom-SID $OtherGroupMember.MemberSID -Domain $PlaceHolderDomain
+								if ($null -ne $convertedMemberName) { break }
+							}
+							catch {
+								continue
+							}
+							
+						}
+					}
+					
+					$OtherGroupMembername = if ($OtherGroupMember.MemberName) { $OtherGroupMember.MemberName } else { $convertedMemberName }
+					
+					$OtherGroupMembernames += $OtherGroupMembername
+				
+				}
+				
 				[PSCustomObject]@{
 					"Group Name" = $OtherGroup.SamAccountName
 					"Group SID" = $OtherGroup.objectsid
-					"Domain" = $Domain
-					"Members" = ((Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity $OtherGroup.SamAccountName).MemberName | Sort-Object -Unique) -join ' - '
+					"Domain" = $AllDomain
+					"Members" = ($OtherGroupmembernames | Sort-Object -Unique) -join ' - '
 					#Description = $OtherGroup.description
 				}
+				
 			}
 		}
 		else {
 			$TempOtherGroups = foreach ($AllDomain in $AllDomains) {
 				$OtherGroups = Get-DomainGroup -Domain $AllDomain
 				foreach ($OtherGroup in $OtherGroups) {
+					
+					$OtherGroupMembers = $null
+					$OtherGroupMembername = $null
+					$OtherGroupMembernames = $null
+					$OtherGroupMembernames = @()
+					
+					$OtherGroupMembers = Get-DomainGroupMember -Domain $AllDomain -Identity $OtherGroup.samaccountname -Recurse
+					
+					foreach($OtherGroupMember in $OtherGroupMembers){
+						
+						$convertedMemberName = $null
+						#$PlaceHolderDomain = $null
+						if($OtherGroupMember.MemberName){}
+						else{
+							foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+								
+								try {
+									$convertedMemberName = ConvertFrom-SID $OtherGroupMember.MemberSID -Domain $PlaceHolderDomain
+									if ($null -ne $convertedMemberName) { break }
+								}
+								catch {
+									continue
+								}
+								
+							}
+						}
+						
+						$OtherGroupMembername = if ($OtherGroupMember.MemberName) { $OtherGroupMember.MemberName } else { $convertedMemberName }
+						
+						$OtherGroupMembernames += $OtherGroupMembername
+					
+					}
+					
 					[PSCustomObject]@{
 						"Group Name" = $OtherGroup.SamAccountName
 						"Group SID" = $OtherGroup.objectsid
 						"Domain" = $AllDomain
-						"Members" = ((Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity $OtherGroup.SamAccountName).MemberName | Sort-Object -Unique) -join ' - '
+						"Members" = ($OtherGroupmembernames | Sort-Object -Unique) -join ' - '
 						#Description = $OtherGroup.description
 					}
 				}
