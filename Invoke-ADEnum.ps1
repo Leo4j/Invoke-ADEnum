@@ -1068,7 +1068,7 @@ function Invoke-ADEnum
 		$BuiltInAdministrators = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Administrators" -Recurse | Sort-Object -Unique -Property MemberName
 		$TempBuiltInAdministrators = foreach($BuiltInAdministrator in $BuiltInAdministrators){
 			
-			$domainObject = Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description
+			$domainObject = Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 			$memberName = if ($BuiltInAdministrator.MemberName) { $BuiltInAdministrator.MemberName } else { ConvertFrom-SID $BuiltInAdministrator.MemberSID }
 			$isEnabled = if ($BuiltInAdministrator.useraccountcontrol -band 2) { "False" } else { "True" }
 			$lastLogon = $domainObject.lastlogontimestamp
@@ -1081,7 +1081,7 @@ function Invoke-ADEnum
 				"Last Logon" = $lastLogon
 				"Member SID" = $BuiltInAdministrator.MemberSID
 				"Group Domain" = $BuiltInAdministrator.GroupDomain
-				"Description" = $domainObject.description
+				#"Description" = $domainObject.description
 			}
 
 		}
@@ -1092,7 +1092,7 @@ function Invoke-ADEnum
 			$BuiltInAdministrators = Get-DomainGroupMember -Domain $AllDomain -Identity "Administrators" -Recurse | Sort-Object -Unique -Property MemberName
 			foreach($BuiltInAdministrator in $BuiltInAdministrators){
 				
-				$domainObject = Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description
+				$domainObject = Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $AllDomain -Properties lastlogontimestamp
 				$memberName = if ($BuiltInAdministrator.MemberName) { $BuiltInAdministrator.MemberName } else { ConvertFrom-SID $BuiltInAdministrator.MemberSID }
 				$isEnabled = if ($BuiltInAdministrator.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
@@ -1106,7 +1106,7 @@ function Invoke-ADEnum
 					"Last Logon" = $lastLogon
 					"Member SID" = $BuiltInAdministrator.MemberSID
 					"Group Domain" = $BuiltInAdministrator.GroupDomain
-					"Description" = $domainObject.description
+					#"Description" = $domainObject.description
 				}
 
 			}
@@ -1128,7 +1128,7 @@ function Invoke-ADEnum
 		$EnterpriseAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Enterprise Admins" -Recurse | Sort-Object -Unique -Property MemberName
 		$TempEnterpriseAdmins = foreach($EnterpriseAdmin in $EnterpriseAdmins){
 			
-			$domainObject = Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description
+			$domainObject = Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 			$memberName = if ($EnterpriseAdmin.MemberName) { $EnterpriseAdmin.MemberName } else { ConvertFrom-SID $EnterpriseAdmin.MemberSID }
 			$isEnabled = if ($EnterpriseAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
 			$isActive = if ($domainObject.lastlogontimestamp -ge $inactiveThreshold) { "True" } elseif ($domainObject.lastlogontimestamp -eq $null) { "" } else { "False" }
@@ -1140,7 +1140,7 @@ function Invoke-ADEnum
 				"Last Logon" = $domainObject.lastlogontimestamp
 				"Member SID" = $EnterpriseAdmin.MemberSID
 				"Group Domain" = $EnterpriseAdmin.GroupDomain
-				"Description" = $domainObject.description
+				#"Description" = $domainObject.description
 			}
 
 		}
@@ -1155,7 +1155,7 @@ function Invoke-ADEnum
 			$EnterpriseAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Enterprise Admins" -Recurse | Sort-Object -Unique -Property MemberName
 			foreach($EnterpriseAdmin in $EnterpriseAdmins){
 				
-				$domainObject = Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description
+				$domainObject = Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp
 				$memberName = if ($EnterpriseAdmin.MemberName) { $EnterpriseAdmin.MemberName } else { ConvertFrom-SID $EnterpriseAdmin.MemberSID }
 				$isEnabled = if ($EnterpriseAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
 				$isActive = if ($domainObject.lastlogontimestamp -ge $inactiveThreshold) { "True" } elseif ($domainObject.lastlogontimestamp -eq $null) { "" } else { "False" }
@@ -1167,7 +1167,7 @@ function Invoke-ADEnum
 					"Last Logon" = $domainObject.lastlogontimestamp
 					"Member SID" = $EnterpriseAdmin.MemberSID
 					"Group Domain" = $EnterpriseAdmin.GroupDomain
-					"Description" = $domainObject.description
+					#"Description" = $domainObject.description
 				}
 			}
 		}
@@ -1188,7 +1188,7 @@ function Invoke-ADEnum
 		$DomainAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Domain Admins" -Recurse | Sort-Object -Unique -Property MemberName
 		$TempDomainAdmins = foreach ($DomainAdmin in $DomainAdmins) {
 			
-			$domainObject = Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description
+			$domainObject = Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 			$lastLogonTimestamp = $domainObject.lastlogontimestamp
 			$isActive = if ($lastLogonTimestamp -ge $inactiveThreshold) { "True" } elseif ($lastLogonTimestamp -eq $null) { "" } else { "False" }
 
@@ -1199,7 +1199,7 @@ function Invoke-ADEnum
 				"Last Logon" = $lastLogonTimestamp
 				"Member SID" = $DomainAdmin.MemberSID
 				"Group Domain" = $DomainAdmin.GroupDomain
-				"Description" = $domainObject.description
+				#"Description" = $domainObject.description
 			}
 
 		}
@@ -1214,7 +1214,7 @@ function Invoke-ADEnum
 			$DomainAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Domain Admins" -Recurse | Sort-Object -Unique -Property MemberName
 			foreach ($DomainAdmin in $DomainAdmins) {
 				
-				$domainObject = Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description
+				$domainObject = Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp
 				$lastLogonTimestamp = $domainObject.lastlogontimestamp
 				$isActive = if ($lastLogonTimestamp -ge $inactiveThreshold) { "True" } elseif ($lastLogonTimestamp -eq $null) { "" } else { "False" }
 
@@ -1225,7 +1225,7 @@ function Invoke-ADEnum
 					"Last Logon" = $lastLogonTimestamp
 					"Member SID" = $DomainAdmin.MemberSID
 					"Group Domain" = $DomainAdmin.GroupDomain
-					"Description" = $domainObject.description
+					#"Description" = $domainObject.description
 				}
 			}
 		}
@@ -1248,7 +1248,7 @@ function Invoke-ADEnum
 			$AccountOperators = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Account Operators" -Recurse | Sort-Object -Unique -Property MemberName
 			$TempAccountOperators = foreach($AccountOperator in $AccountOperators){
 				
-				$domainObject = Get-DomainObject -Identity $AccountOperator.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description
+				$domainObject = Get-DomainObject -Identity $AccountOperator.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 				$memberName = if ($AccountOperator.MemberName) { $AccountOperator.MemberName } else { ConvertFrom-SID $AccountOperator.MemberSID }
 				$isEnabled = if ($AccountOperator.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
@@ -1267,7 +1267,7 @@ function Invoke-ADEnum
 					"Last Logon" = $lastLogon
 					"Member SID" = $AccountOperator.MemberSID
 					"Group Domain" = $AccountOperator.GroupDomain
-					"Description" = $domainObject.description
+					#"Description" = $domainObject.description
 				}
 			}
 		}
@@ -1276,7 +1276,7 @@ function Invoke-ADEnum
 				$AccountOperators = Get-DomainGroupMember -Domain $AllDomain -Identity "Account Operators" -Recurse | Sort-Object -Unique -Property MemberName
 				foreach($AccountOperator in $AccountOperators){
 					
-					$domainObject = Get-DomainObject -Identity $AccountOperator.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description
+					$domainObject = Get-DomainObject -Identity $AccountOperator.MemberName -Domain $AllDomain -Properties lastlogontimestamp
 					$memberName = if ($AccountOperator.MemberName) { $AccountOperator.MemberName } else { ConvertFrom-SID $AccountOperator.MemberSID }
 					$isEnabled = if ($AccountOperator.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
@@ -1295,7 +1295,7 @@ function Invoke-ADEnum
 						"Last Logon" = $lastLogon
 						"Member SID" = $AccountOperator.MemberSID
 						"Group Domain" = $AccountOperator.GroupDomain
-						"Description" = $domainObject.description
+						#"Description" = $domainObject.description
 					}
 				}
 			}
@@ -1316,7 +1316,7 @@ function Invoke-ADEnum
 			$BackupOperators = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Backup Operators" -Recurse | Sort-Object -Unique -Property MemberName
 			$TempBackupOperators = foreach($BackupOperator in $BackupOperators){
 				
-				$domainObject = Get-DomainObject -Identity $BackupOperator.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description
+				$domainObject = Get-DomainObject -Identity $BackupOperator.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 				$memberName = if ($BackupOperator.MemberName) { $BackupOperator.MemberName } else { ConvertFrom-SID $BackupOperator.MemberSID }
 				$isEnabled = if ($BackupOperator.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
@@ -1335,7 +1335,7 @@ function Invoke-ADEnum
 					"Last Logon" = $lastLogon
 					"Member SID" = $BackupOperator.MemberSID
 					"Group Domain" = $BackupOperator.GroupDomain
-					"Description" = $domainObject.description
+					#"Description" = $domainObject.description
 				}
 			}
 		}
@@ -1344,7 +1344,7 @@ function Invoke-ADEnum
 				$BackupOperators = Get-DomainGroupMember -Domain $AllDomain -Identity "Backup Operators" -Recurse | Sort-Object -Unique -Property MemberName
 				foreach($BackupOperator in $BackupOperators){
 					
-					$domainObject = Get-DomainObject -Identity $BackupOperator.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description
+					$domainObject = Get-DomainObject -Identity $BackupOperator.MemberName -Domain $AllDomain -Properties lastlogontimestamp
 					$memberName = if ($BackupOperator.MemberName) { $BackupOperator.MemberName } else { ConvertFrom-SID $BackupOperator.MemberSID }
 					$isEnabled = if ($BackupOperator.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
@@ -1364,7 +1364,7 @@ function Invoke-ADEnum
 						"Last Logon" = $lastLogon
 						"Member SID" = $BackupOperator.MemberSID
 						"Group Domain" = $BackupOperator.GroupDomain
-						"Description" = $domainObject.description
+						#"Description" = $domainObject.description
 					}
 				}
 			}
@@ -1385,7 +1385,7 @@ function Invoke-ADEnum
 			$CertPublishers = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Cert Publishers" -Recurse | Sort-Object -Unique -Property MemberName
 			$TempCertPublishersGroup = foreach($CertPublisher in $CertPublishers){
 				
-				$domainObject = Get-DomainObject -Identity $CertPublisher.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description
+				$domainObject = Get-DomainObject -Identity $CertPublisher.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 				$memberName = if ($CertPublisher.MemberName) { $CertPublisher.MemberName } else { ConvertFrom-SID $CertPublisher.MemberSID }
 				$isEnabled = if ($CertPublisher.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
@@ -1404,7 +1404,7 @@ function Invoke-ADEnum
 					"Last Logon" = $lastLogon
 					"Member SID" = $CertPublisher.MemberSID
 					"Group Domain" = $CertPublisher.GroupDomain
-					"Description" = $domainObject.description
+					#"Description" = $domainObject.description
 				}
 			}
 		}
@@ -1413,7 +1413,7 @@ function Invoke-ADEnum
 				$CertPublishers = Get-DomainGroupMember -Domain $AllDomain -Identity "Cert Publishers" -Recurse | Sort-Object -Unique -Property MemberName
 				foreach($CertPublisher in $CertPublishers){
 					
-					$domainObject = Get-DomainObject -Identity $CertPublisher.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description
+					$domainObject = Get-DomainObject -Identity $CertPublisher.MemberName -Domain $AllDomain -Properties lastlogontimestamp
 					$memberName = if ($CertPublisher.MemberName) { $CertPublisher.MemberName } else { ConvertFrom-SID $CertPublisher.MemberSID }
 					$isEnabled = if ($CertPublisher.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
@@ -1432,7 +1432,7 @@ function Invoke-ADEnum
 						"Last Logon" = $lastLogon
 						"Member SID" = $CertPublisher.MemberSID
 						"Group Domain" = $CertPublisher.GroupDomain
-						"Description" = $domainObject.description
+						#"Description" = $domainObject.description
 					}
 				}
 			}
@@ -1453,7 +1453,7 @@ function Invoke-ADEnum
 			$DNSAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "DNSAdmins" -Recurse | Sort-Object -Unique -Property MemberName
 			$TempDNSAdmins = foreach($DNSAdmin in $DNSAdmins){
 				
-				$domainObject = Get-DomainObject -Identity $DNSAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description
+				$domainObject = Get-DomainObject -Identity $DNSAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 				$memberName = if ($DNSAdmin.MemberName) { $DNSAdmin.MemberName } else { ConvertFrom-SID $DNSAdmin.MemberSID }
 				$isEnabled = if ($DNSAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
@@ -1472,7 +1472,7 @@ function Invoke-ADEnum
 					"Last Logon" = $lastLogon
 					"Member SID" = $DNSAdmin.MemberSID
 					"Group Domain" = $DNSAdmin.GroupDomain
-					"Description" = $domainObject.description
+					#"Description" = $domainObject.description
 				}
 			}
 		}
@@ -1481,7 +1481,7 @@ function Invoke-ADEnum
 				$DNSAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "DNSAdmins" -Recurse | Sort-Object -Unique -Property MemberName
 				foreach($DNSAdmin in $DNSAdmins){
 					
-					$domainObject = Get-DomainObject -Identity $DNSAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description
+					$domainObject = Get-DomainObject -Identity $DNSAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp
 					$memberName = if ($DNSAdmin.MemberName) { $DNSAdmin.MemberName } else { ConvertFrom-SID $DNSAdmin.MemberSID }
 					$isEnabled = if ($DNSAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
@@ -1500,7 +1500,7 @@ function Invoke-ADEnum
 						"Last Logon" = $lastLogon
 						"Member SID" = $DNSAdmin.MemberSID
 						"Group Domain" = $DNSAdmin.GroupDomain
-						"Description" = $domainObject.description
+						#"Description" = $domainObject.description
 					}
 				}
 			}
@@ -1521,7 +1521,7 @@ function Invoke-ADEnum
 			$EnterpriseKeyAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Enterprise Key Admins" -Recurse | Sort-Object -Unique -Property MemberName
 			$TempEnterpriseKeyAdmins = foreach($EnterpriseKeyAdmin in $EnterpriseKeyAdmins){
 				
-				$domainObject = Get-DomainObject -Identity $EnterpriseKeyAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description
+				$domainObject = Get-DomainObject -Identity $EnterpriseKeyAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 				$memberName = if ($EnterpriseKeyAdmin.MemberName) { $EnterpriseKeyAdmin.MemberName } else { ConvertFrom-SID $EnterpriseKeyAdmin.MemberSID }
 				$isEnabled = if ($EnterpriseKeyAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
@@ -1540,7 +1540,7 @@ function Invoke-ADEnum
 					"Last Logon" = $lastLogon
 					"Member SID" = $EnterpriseKeyAdmin.MemberSID
 					"Group Domain" = $EnterpriseKeyAdmin.GroupDomain
-					"Description" = $domainObject.description
+					#"Description" = $domainObject.description
 				}
 			}
 		}
@@ -1549,7 +1549,7 @@ function Invoke-ADEnum
 				$EnterpriseKeyAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Enterprise Key Admins" -Recurse | Sort-Object -Unique -Property MemberName
 				foreach($EnterpriseKeyAdmin in $EnterpriseKeyAdmins){
 					
-					$domainObject = Get-DomainObject -Identity $EnterpriseKeyAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description
+					$domainObject = Get-DomainObject -Identity $EnterpriseKeyAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp
 					$memberName = if ($EnterpriseKeyAdmin.MemberName) { $EnterpriseKeyAdmin.MemberName } else { ConvertFrom-SID $EnterpriseKeyAdmin.MemberSID }
 					$isEnabled = if ($EnterpriseKeyAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
@@ -1568,7 +1568,7 @@ function Invoke-ADEnum
 						"Last Logon" = $lastLogon
 						"Member SID" = $EnterpriseKeyAdmin.MemberSID
 						"Group Domain" = $EnterpriseKeyAdmin.GroupDomain
-						"Description" = $domainObject.description
+						#"Description" = $domainObject.description
 					}
 				}
 			}
@@ -1589,7 +1589,7 @@ function Invoke-ADEnum
 			$EnterpriseRODCs = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Enterprise Read-Only Domain Controllers" -Recurse | Sort-Object -Unique -Property MemberName
 			$TempEnterpriseRODCs = foreach($EnterpriseRODC in $EnterpriseRODCs){
 				
-				$domainObject = Get-DomainObject -Identity $EnterpriseRODC.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description
+				$domainObject = Get-DomainObject -Identity $EnterpriseRODC.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 				$memberName = if ($EnterpriseRODC.MemberName) { $EnterpriseRODC.MemberName } else { ConvertFrom-SID $EnterpriseRODC.MemberSID }
 				$isEnabled = if ($EnterpriseRODC.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
@@ -1608,7 +1608,7 @@ function Invoke-ADEnum
 					"Last Logon" = $lastLogon
 					"Member SID" = $EnterpriseRODC.MemberSID
 					"Group Domain" = $EnterpriseRODC.GroupDomain
-					"Description" = $domainObject.description
+					#"Description" = $domainObject.description
 				}
 			}
 		}
@@ -1617,7 +1617,7 @@ function Invoke-ADEnum
 				$EnterpriseRODCs = Get-DomainGroupMember -Domain $AllDomain -Identity "Enterprise Read-Only Domain Controllers" -Recurse | Sort-Object -Unique -Property MemberName
 				foreach($EnterpriseRODC in $EnterpriseRODCs){
 					
-					$domainObject = Get-DomainObject -Identity $EnterpriseRODC.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description
+					$domainObject = Get-DomainObject -Identity $EnterpriseRODC.MemberName -Domain $AllDomain -Properties lastlogontimestamp
 					$memberName = if ($EnterpriseRODC.MemberName) { $EnterpriseRODC.MemberName } else { ConvertFrom-SID $EnterpriseRODC.MemberSID }
 					$isEnabled = if ($EnterpriseRODC.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
@@ -1636,7 +1636,7 @@ function Invoke-ADEnum
 						"Last Logon" = $lastLogon
 						"Member SID" = $EnterpriseRODC.MemberSID
 						"Group Domain" = $EnterpriseRODC.GroupDomain
-						"Description" = $domainObject.description
+						#"Description" = $domainObject.description
 					}
 				}
 			}
@@ -1658,7 +1658,7 @@ function Invoke-ADEnum
 			$GPCreatorOwners = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Group Policy Creator Owners" -Recurse | Sort-Object -Unique -Property MemberName
 			$TempGPCreatorOwners = foreach($GPCreatorOwner in $GPCreatorOwners){
 				
-				$domainObject = Get-DomainObject -Identity $GPCreatorOwner.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description
+				$domainObject = Get-DomainObject -Identity $GPCreatorOwner.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 				$memberName = if ($GPCreatorOwner.MemberName) { $GPCreatorOwner.MemberName } else { ConvertFrom-SID $GPCreatorOwner.MemberSID }
 				$isEnabled = if ($GPCreatorOwner.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
@@ -1677,7 +1677,7 @@ function Invoke-ADEnum
 					"Last Logon" = $lastLogon
 					"Member SID" = $GPCreatorOwner.MemberSID
 					"Group Domain" = $GPCreatorOwner.GroupDomain
-					"Description" = $domainObject.description
+					#"Description" = $domainObject.description
 				}
 			}
 		}
@@ -1686,7 +1686,7 @@ function Invoke-ADEnum
 				$GPCreatorOwners = Get-DomainGroupMember -Domain $AllDomain -Identity "Group Policy Creator Owners" -Recurse | Sort-Object -Unique -Property MemberName
 				foreach($GPCreatorOwner in $GPCreatorOwners){
 					
-					$domainObject = Get-DomainObject -Identity $GPCreatorOwner.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description
+					$domainObject = Get-DomainObject -Identity $GPCreatorOwner.MemberName -Domain $AllDomain -Properties lastlogontimestamp
 					$memberName = if ($GPCreatorOwner.MemberName) { $GPCreatorOwner.MemberName } else { ConvertFrom-SID $GPCreatorOwner.MemberSID }
 					$isEnabled = if ($GPCreatorOwner.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
@@ -1705,7 +1705,7 @@ function Invoke-ADEnum
 						"Last Logon" = $lastLogon
 						"Member SID" = $GPCreatorOwner.MemberSID
 						"Group Domain" = $GPCreatorOwner.GroupDomain
-						"Description" = $domainObject.description
+						#"Description" = $domainObject.description
 					}
 				}
 			}
@@ -1726,7 +1726,7 @@ function Invoke-ADEnum
 			$KeyAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Key Admins" -Recurse | Sort-Object -Unique -Property MemberName
 			$TempKeyAdmins = foreach($KeyAdmin in $KeyAdmins){
 				
-				$domainObject = Get-DomainObject -Identity $KeyAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description
+				$domainObject = Get-DomainObject -Identity $KeyAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 				$memberName = if ($KeyAdmin.MemberName) { $KeyAdmin.MemberName } else { ConvertFrom-SID $KeyAdmin.MemberSID }
 				$isEnabled = if ($KeyAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
@@ -1745,7 +1745,7 @@ function Invoke-ADEnum
 					"Last Logon" = $lastLogon
 					"Member SID" = $KeyAdmin.MemberSID
 					"Group Domain" = $KeyAdmin.GroupDomain
-					"Description" = $domainObject.description
+					#"Description" = $domainObject.description
 				}
 			}
 		}
@@ -1754,7 +1754,7 @@ function Invoke-ADEnum
 				$KeyAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Key Admins" -Recurse | Sort-Object -Unique -Property MemberName
 				foreach($KeyAdmin in $KeyAdmins){
 					
-					$domainObject = Get-DomainObject -Identity $KeyAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description
+					$domainObject = Get-DomainObject -Identity $KeyAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp
 					$memberName = if ($KeyAdmin.MemberName) { $KeyAdmin.MemberName } else { ConvertFrom-SID $KeyAdmin.MemberSID }
 					$isEnabled = if ($KeyAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
@@ -1773,7 +1773,7 @@ function Invoke-ADEnum
 						"Last Logon" = $lastLogon
 						"Member SID" = $KeyAdmin.MemberSID
 						"Group Domain" = $KeyAdmin.GroupDomain
-						"Description" = $domainObject.description
+						#"Description" = $domainObject.description
 					}
 				}
 			}
@@ -1794,7 +1794,7 @@ function Invoke-ADEnum
 			$ProtectedUsers = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Protected Users" -Recurse | Sort-Object -Unique -Property MemberName
 			$TempProtectedUsers = foreach($ProtectedUser in $ProtectedUsers){
 				
-				$domainObject = Get-DomainObject -Identity $ProtectedUser.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description
+				$domainObject = Get-DomainObject -Identity $ProtectedUser.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 				$memberName = if ($ProtectedUser.MemberName) { $ProtectedUser.MemberName } else { ConvertFrom-SID $ProtectedUser.MemberSID }
 				$isEnabled = if ($ProtectedUser.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
@@ -1813,7 +1813,7 @@ function Invoke-ADEnum
 					"Last Logon" = $lastLogon
 					"Member SID" = $ProtectedUser.MemberSID
 					"Group Domain" = $ProtectedUser.GroupDomain
-					"Description" = $domainObject.description
+					#"Description" = $domainObject.description
 				}
 			}
 		}
@@ -1822,7 +1822,7 @@ function Invoke-ADEnum
 				$ProtectedUsers = Get-DomainGroupMember -Domain $AllDomain -Identity "Protected Users" -Recurse | Sort-Object -Unique -Property MemberName
 				foreach($ProtectedUser in $ProtectedUsers){
 					
-					$domainObject = Get-DomainObject -Identity $ProtectedUser.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description
+					$domainObject = Get-DomainObject -Identity $ProtectedUser.MemberName -Domain $AllDomain -Properties lastlogontimestamp
 					$memberName = if ($ProtectedUser.MemberName) { $ProtectedUser.MemberName } else { ConvertFrom-SID $ProtectedUser.MemberSID }
 					$isEnabled = if ($ProtectedUser.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
@@ -1841,7 +1841,7 @@ function Invoke-ADEnum
 						"Last Logon" = $lastLogon
 						"Member SID" = $ProtectedUser.MemberSID
 						"Group Domain" = $ProtectedUser.GroupDomain
-						"Description" = $domainObject.description
+						#"Description" = $domainObject.description
 					}
 				}
 			}
@@ -1863,7 +1863,7 @@ function Invoke-ADEnum
 			$RODCs = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Read-Only Domain Controllers" -Recurse | Sort-Object -Unique -Property MemberName
 			$TempRODCs = foreach($RODC in $RODCs){
 				
-				$domainObject = Get-DomainObject -Identity $RODC.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description
+				$domainObject = Get-DomainObject -Identity $RODC.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 				$memberName = if ($RODC.MemberName) { $RODC.MemberName } else { ConvertFrom-SID $RODC.MemberSID }
 				$isEnabled = if ($RODC.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
@@ -1882,7 +1882,7 @@ function Invoke-ADEnum
 					"Last Logon" = $lastLogon
 					"Member SID" = $RODC.MemberSID
 					"Group Domain" = $RODC.GroupDomain
-					"Description" = $domainObject.description
+					#"Description" = $domainObject.description
 				}
 			}
 		}
@@ -1891,7 +1891,7 @@ function Invoke-ADEnum
 				$RODCs = Get-DomainGroupMember -Domain $AllDomain -Identity "Read-Only Domain Controllers" -Recurse | Sort-Object -Unique -Property MemberName
 				foreach($RODC in $RODCs){
 					
-					$domainObject = Get-DomainObject -Identity $RODC.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description
+					$domainObject = Get-DomainObject -Identity $RODC.MemberName -Domain $AllDomain -Properties lastlogontimestamp
 					$memberName = if ($RODC.MemberName) { $RODC.MemberName } else { ConvertFrom-SID $RODC.MemberSID }
 					$isEnabled = if ($RODC.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
@@ -1910,7 +1910,7 @@ function Invoke-ADEnum
 						"Last Logon" = $lastLogon
 						"Member SID" = $RODC.MemberSID
 						"Group Domain" = $RODC.GroupDomain
-						"Description" = $domainObject.description
+						#"Description" = $domainObject.description
 					}
 				}
 			}
@@ -1933,7 +1933,7 @@ function Invoke-ADEnum
 			$SchemaAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Schema Admins" -Recurse | Sort-Object -Unique -Property MemberName
 			$TempSchemaAdmins = foreach($SchemaAdmin in $SchemaAdmins){
 				
-				$domainObject = Get-DomainObject -Identity $SchemaAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description
+				$domainObject = Get-DomainObject -Identity $SchemaAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 				$memberName = if ($SchemaAdmin.MemberName) { $SchemaAdmin.MemberName } else { ConvertFrom-SID $SchemaAdmin.MemberSID }
 				$isEnabled = if ($SchemaAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
@@ -1952,7 +1952,7 @@ function Invoke-ADEnum
 					"Last Logon" = $lastLogon
 					"Member SID" = $SchemaAdmin.MemberSID
 					"Group Domain" = $SchemaAdmin.GroupDomain
-					"Description" = $domainObject.description
+					#"Description" = $domainObject.description
 				}
 
 			}
@@ -1963,7 +1963,7 @@ function Invoke-ADEnum
 				$SchemaAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Schema Admins" -Recurse | Sort-Object -Unique -Property MemberName
 				foreach($SchemaAdmin in $SchemaAdmins){
 					
-					$domainObject = Get-DomainObject -Identity $SchemaAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description
+					$domainObject = Get-DomainObject -Identity $SchemaAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp
 					$memberName = if ($SchemaAdmin.MemberName) { $SchemaAdmin.MemberName } else { ConvertFrom-SID $SchemaAdmin.MemberSID }
 					$isEnabled = if ($SchemaAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
@@ -1983,7 +1983,7 @@ function Invoke-ADEnum
 						"Last Logon" = $lastLogon
 						"Member SID" = $SchemaAdmin.MemberSID
 						"Group Domain" = $SchemaAdmin.GroupDomain
-						"Description" = $domainObject.description
+						#"Description" = $domainObject.description
 					}
 
 				}
@@ -2005,7 +2005,7 @@ function Invoke-ADEnum
 			$ServerOperators = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Server Operators" -Recurse | Sort-Object -Unique -Property MemberName
 			$TempServerOperators = foreach($ServerOperator in $ServerOperators){
 				
-				$domainObject = Get-DomainObject -Identity $ServerOperator.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp,description
+				$domainObject = Get-DomainObject -Identity $ServerOperator.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 				$memberName = if ($ServerOperator.MemberName) { $ServerOperator.MemberName } else { ConvertFrom-SID $ServerOperator.MemberSID }
 				$isEnabled = if ($ServerOperator.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
@@ -2024,7 +2024,7 @@ function Invoke-ADEnum
 					"Last Logon" = $lastLogon
 					"Member SID" = $ServerOperator.MemberSID
 					"Group Domain" = $ServerOperator.GroupDomain
-					"Description" = $domainObject.description
+					#"Description" = $domainObject.description
 				}
 			}
 		}
@@ -2033,7 +2033,7 @@ function Invoke-ADEnum
 				$ServerOperators = Get-DomainGroupMember -Domain $AllDomain -Identity "Server Operators" -Recurse | Sort-Object -Unique -Property MemberName
 				foreach($ServerOperator in $ServerOperators){
 					
-					$domainObject = Get-DomainObject -Identity $ServerOperator.MemberName -Domain $AllDomain -Properties lastlogontimestamp,description
+					$domainObject = Get-DomainObject -Identity $ServerOperator.MemberName -Domain $AllDomain -Properties lastlogontimestamp
 					$memberName = if ($ServerOperator.MemberName) { $ServerOperator.MemberName } else { ConvertFrom-SID $ServerOperator.MemberSID }
 					$isEnabled = if ($ServerOperator.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
@@ -2052,7 +2052,7 @@ function Invoke-ADEnum
 						"Last Logon" = $lastLogon
 						"Member SID" = $ServerOperator.MemberSID
 						"Group Domain" = $ServerOperator.GroupDomain
-						"Description" = $domainObject.description
+						#"Description" = $domainObject.description
 					}
 				}
 			}
@@ -4005,7 +4005,7 @@ function Invoke-ADEnum
 					"Last Logon" = $RevEncUser.lastlogontimestamp
 					"Object SID" = $RevEncUser.objectsid
 					"Domain" = $Domain
-					"Description" = $RevEncUser.description
+					#"Description" = $RevEncUser.description
 			}
 		}
 	}
@@ -4029,7 +4029,7 @@ function Invoke-ADEnum
 					"Last Logon" = $RevEncUser.lastlogontimestamp
 					"Object SID" = $RevEncUser.objectsid
 					"Domain" = $AllDomain
-					"Description" = $RevEncUser.description
+					#"Description" = $RevEncUser.description
 				}
 			}
 		}
@@ -5522,7 +5522,7 @@ function Invoke-ADEnum
 					"Account SID" = $ComputerServer.objectsid
 					"Operating System" = $ComputerServer.operatingsystem
 					"Domain" = $Domain
-					Description = $ComputerServer.description
+					#Description = $ComputerServer.description
 				}
 			}
 		}
@@ -5538,7 +5538,7 @@ function Invoke-ADEnum
 						"Account SID" = $ComputerServer.objectsid
 						"Operating System" = $ComputerServer.operatingsystem
 						"Domain" = $AllDomain
-						Description = $ComputerServer.description
+						#Description = $ComputerServer.description
 					}
 				}
 			}
@@ -5569,7 +5569,7 @@ function Invoke-ADEnum
 					"Account SID" = $ComputerServer.objectsid
 					"Operating System" = $ComputerServer.operatingsystem
 					"Domain" = $Domain
-					Description = $ComputerServer.description
+					#Description = $ComputerServer.description
 				}
 			}
 		}
@@ -5585,7 +5585,7 @@ function Invoke-ADEnum
 						"Account SID" = $ComputerServer.objectsid
 						"Operating System" = $ComputerServer.operatingsystem
 						"Domain" = $AllDomain
-						Description = $ComputerServer.description
+						#Description = $ComputerServer.description
 					}
 				}
 			}
@@ -5615,7 +5615,7 @@ function Invoke-ADEnum
 					"Account SID" = $Workstation.objectsid
 					"Operating System" = $Workstation.operatingsystem
 					"Domain" = $Domain
-					Description = $Workstation.description
+					#Description = $Workstation.description
 				}
 			}
 		}
@@ -5631,7 +5631,7 @@ function Invoke-ADEnum
 						"Account SID" = $Workstation.objectsid
 						"Operating System" = $Workstation.operatingsystem
 						"Domain" = $AllDomain
-						Description = $Workstation.description
+						#Description = $Workstation.description
 					}
 				}
 			}
@@ -5662,7 +5662,7 @@ function Invoke-ADEnum
 					"Account SID" = $Workstation.objectsid
 					"Operating System" = $Workstation.operatingsystem
 					"Domain" = $Domain
-					Description = $Workstation.description
+					#Description = $Workstation.description
 				}
 			}
 		}
@@ -5678,7 +5678,7 @@ function Invoke-ADEnum
 						"Account SID" = $Workstation.objectsid
 						"Operating System" = $Workstation.operatingsystem
 						"Domain" = $AllDomain
-						Description = $Workstation.description
+						#Description = $Workstation.description
 					}
 				}
 			}
@@ -5711,7 +5711,7 @@ function Invoke-ADEnum
 					"Object SID" = $EnabledUser.objectsid
 					"Domain" = $Domain
 					"Groups" = (Get-DomainGroup -Domain $Domain -Server $Server -UserName $EnabledUser.samaccountname).Name -join ' - '
-					"Description" = $EnabledUser.description
+					#"Description" = $EnabledUser.description
 				}
 			}
 		}
@@ -5729,7 +5729,7 @@ function Invoke-ADEnum
 						"Object SID" = $EnabledUser.objectsid
 						"Domain" = $AllDomain
 						"Groups" = (Get-DomainGroup -Domain $AllDomain -UserName $EnabledUser.samaccountname).Name -join ' - '
-						"Description" = $EnabledUser.description
+						#"Description" = $EnabledUser.description
 					}
 				}
 			}
@@ -5763,7 +5763,7 @@ function Invoke-ADEnum
 					"Object SID" = $DisabledUser.objectsid
 					"Domain" = $Domain
 					"Groups" = (Get-DomainGroup -Domain $Domain -Server $Server -UserName $DisabledUser.samaccountname).Name -join ' - '
-					"Description" = $DisabledUser.description
+					#"Description" = $DisabledUser.description
 				}
 			}
 		}
@@ -5781,7 +5781,7 @@ function Invoke-ADEnum
 						"Object SID" = $DisabledUser.objectsid
 						"Domain" = $AllDomain
 						"Groups" = (Get-DomainGroup -Domain $AllDomain -UserName $DisabledUser.samaccountname).Name -join ' - '
-						"Description" = $DisabledUser.description
+						#"Description" = $DisabledUser.description
 					}
 				}
 			}
