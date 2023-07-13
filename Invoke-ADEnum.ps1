@@ -3471,7 +3471,7 @@ function Invoke-ADEnum
     ########### DCSync ###############
 	##################################
 
-    Write-Host ""
+	Write-Host ""
 	Write-Host "Principals with DCSync permissions:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
 		$dcName = "DC=" + $Domain.Split(".")
@@ -3481,21 +3481,54 @@ function Invoke-ADEnum
 			Select-Object -Unique SecurityIdentifier
 
 		$TempReplicationUsers = foreach ($replicationUser in $replicationUsers) {
-  			$userSID = $null
-     			$user = $null
+  			
+			$FinalMembername = $null
+			$FinalMembernames = $null
+			$FinalMembernames = @()
+			
+			$userSID = $null
+			$user = $null
 			$enabled = $null
    			$members = $null
 			$userSID = ConvertFrom-SID -Domain $Domain $replicationUser.SecurityIdentifier
+			$userSID = $userSID.Split('\')[-1]
 			#$user = Get-DomainUser -Domain $Domain -Server $Server -Identity $userSID -Properties useraccountcontrol
 			#$enabled = if ($user.useraccountcontrol -band 2) { "False" } elseif ($user.useraccountcontrol -eq $null) { "" } else { "True" }
-			$members = (Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity $userSID | Select-Object -ExpandProperty MemberName | Sort-Object -Unique) -Join ' - '
+			$members = Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity $userSID
+			
+			if($members){
+				foreach($member in $members){
+					
+					$convertedMemberName = $null
+					if($member.MemberName){}
+					else{
+						foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+							
+							try {
+								$convertedMemberName = ConvertFrom-SID $member.MemberSID -Domain $PlaceHolderDomain
+								if ($null -ne $convertedMemberName) { break }
+							}
+							catch {
+								continue
+							}
+							
+						}
+					}
+					
+					$FinalMembername = if ($member.MemberName) { $member.MemberName } else { $convertedMemberName }
+					$FinalMembernames += $FinalMembername
+				}
+			}
+			
+			else{$FinalMembernames = $null}
 
 			[PSCustomObject]@{
 				"User or Group Name" = $userSID
 				#"Enabled" = $enabled
 				"Domain" = $Domain
-				"Members" = $members
+				"Members" = ($FinalMembernames | Sort-Object -Unique) -join ' - '
 			}
+			
 		}
 	}
 	else {
@@ -3507,22 +3540,55 @@ function Invoke-ADEnum
 				Select-Object -Unique SecurityIdentifier
 
 			foreach ($replicationUser in $replicationUsers) {
+				
+				$FinalMembername = $null
+				$FinalMembernames = $null
+				$FinalMembernames = @()
+				
    				$userSID = $null
-     				$user = $null
+   				$user = $null
 				$enabled = $null
    				$members = $null
 				$userSID = ConvertFrom-SID $replicationUser.SecurityIdentifier -Domain $AllDomain
+				$userSID = $userSID.Split('\')[-1]
 				#$user = Get-DomainUser -Domain $AllDomain -Identity $userSID -Properties useraccountcontrol
 				#$enabled = if ($user.useraccountcontrol -band 2) { "False" } elseif ($user.useraccountcontrol -eq $null) { "" } else { "True" }
-				$members = (Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity $userSID | Select-Object -ExpandProperty MemberName | Sort-Object -Unique) -Join ' - '
+				$members = Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity $userSID
+				
+				if($members){
+					foreach($member in $members){
+						
+						$convertedMemberName = $null
+						if($member.MemberName){}
+						else{
+							foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+								
+								try {
+									$convertedMemberName = ConvertFrom-SID $member.MemberSID -Domain $PlaceHolderDomain
+									if ($null -ne $convertedMemberName) { break }
+								}
+								catch {
+									continue
+								}
+								
+							}
+						}
+						
+						$FinalMembername = if ($member.MemberName) { $member.MemberName } else { $convertedMemberName }
+						$FinalMembernames += $FinalMembername
+					}
+				}
+				
+				else{$FinalMembernames = $null}
 
 				[PSCustomObject]@{
+					"Domain" = $AllDomain
 					"User or Group Name" = $userSID
 					#"Enabled" = $enabled
-					"Domain" = $AllDomain
-					"Members" = $members
+					"Members" = ($FinalMembernames | Sort-Object -Unique) -join ' - '
 				}
 			}
+			
 		}
 	}
 
