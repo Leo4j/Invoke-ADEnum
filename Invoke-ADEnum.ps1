@@ -3523,9 +3523,9 @@ function Invoke-ADEnum
 			else{$FinalMembernames = $null}
 
 			[PSCustomObject]@{
+   				"Domain" = $Domain
 				"User or Group Name" = $userSID
 				#"Enabled" = $enabled
-				"Domain" = $Domain
 				"Members" = ($FinalMembernames | Sort-Object -Unique) -join ' - '
 			}
 			
