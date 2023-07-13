@@ -1065,11 +1065,24 @@ function Invoke-ADEnum
 	Write-Host ""
     Write-Host "Built-In Administrators:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$BuiltInAdministrators = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Administrators" -Recurse | Sort-Object -Unique -Property MemberName
+		$BuiltInAdministrators = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Administrators" -Recurse
 		$TempBuiltInAdministrators = foreach($BuiltInAdministrator in $BuiltInAdministrators){
+
+  			$convertedMemberName = $null
+			$PlaceHolderDomain = $null
+			
+			foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+				try {
+					$convertedMemberName = ConvertFrom-SID $BuiltInAdministrator.MemberSID -Domain $PlaceHolderDomain
+					if ($null -ne $convertedMemberName) { break }
+				}
+				catch {
+					continue
+				}
+			}
 			
 			$domainObject = Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
-			$memberName = if ($BuiltInAdministrator.MemberName) { $BuiltInAdministrator.MemberName } else { ConvertFrom-SID $BuiltInAdministrator.MemberSID }
+			$memberName = if ($BuiltInAdministrator.MemberName) { $BuiltInAdministrator.MemberName } else { $convertedMemberName }
 			$isEnabled = if ($BuiltInAdministrator.useraccountcontrol -band 2) { "False" } else { "True" }
 			$lastLogon = $domainObject.lastlogontimestamp
    			$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
@@ -1089,11 +1102,24 @@ function Invoke-ADEnum
  
 	else {
 		$TempBuiltInAdministrators = foreach ($AllDomain in $AllDomains) {
-			$BuiltInAdministrators = Get-DomainGroupMember -Domain $AllDomain -Identity "Administrators" -Recurse | Sort-Object -Unique -Property MemberName
+			$BuiltInAdministrators = Get-DomainGroupMember -Domain $AllDomain -Identity "Administrators" -Recurse
 			foreach($BuiltInAdministrator in $BuiltInAdministrators){
+
+   				$convertedMemberName = $null
+				$PlaceHolderDomain = $null
+				
+				foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+					try {
+						$convertedMemberName = ConvertFrom-SID $BuiltInAdministrator.MemberSID -Domain $PlaceHolderDomain
+						if ($null -ne $convertedMemberName) { break }
+					}
+					catch {
+						continue
+					}
+				}
 				
 				$domainObject = Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $AllDomain -Properties lastlogontimestamp
-				$memberName = if ($BuiltInAdministrator.MemberName) { $BuiltInAdministrator.MemberName } else { ConvertFrom-SID $BuiltInAdministrator.MemberSID }
+				$memberName = if ($BuiltInAdministrator.MemberName) { $BuiltInAdministrator.MemberName } else { $convertedMemberName }
 				$isEnabled = if ($BuiltInAdministrator.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
 
@@ -1114,7 +1140,7 @@ function Invoke-ADEnum
 	}
 
  	if ($TempBuiltInAdministrators) {
-		$TempBuiltInAdministrators | Sort-Object "Group Domain","Member Name" | ft -Autosize -Wrap
+		$TempBuiltInAdministrators | Sort-Object -Unique "Group Domain","Member Name" | ft -Autosize -Wrap
 		$HTMLBuiltInAdministrators = $TempBuiltInAdministrators | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Built-In Administrators</h2>"
 	}
 	
@@ -1125,11 +1151,24 @@ function Invoke-ADEnum
 	Write-Host ""
     Write-Host "Enterprise Administrators:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$EnterpriseAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Enterprise Admins" -Recurse | Sort-Object -Unique -Property MemberName
+		$EnterpriseAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Enterprise Admins" -Recurse
 		$TempEnterpriseAdmins = foreach($EnterpriseAdmin in $EnterpriseAdmins){
+
+  			$convertedMemberName = $null
+			$PlaceHolderDomain = $null
+			
+			foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+				try {
+					$convertedMemberName = ConvertFrom-SID $EnterpriseAdmin.MemberSID -Domain $PlaceHolderDomain
+					if ($null -ne $convertedMemberName) { break }
+				}
+				catch {
+					continue
+				}
+			}
 			
 			$domainObject = Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
-			$memberName = if ($EnterpriseAdmin.MemberName) { $EnterpriseAdmin.MemberName } else { ConvertFrom-SID $EnterpriseAdmin.MemberSID }
+			$memberName = if ($EnterpriseAdmin.MemberName) { $EnterpriseAdmin.MemberName } else { $convertedMemberName }
 			$isEnabled = if ($EnterpriseAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
 			$isActive = if ($domainObject.lastlogontimestamp -ge $inactiveThreshold) { "True" } elseif ($domainObject.lastlogontimestamp -eq $null) { "" } else { "False" }
 
@@ -1152,11 +1191,24 @@ function Invoke-ADEnum
 	}
 	else {
 		$TempEnterpriseAdmins = foreach ($AllDomain in $AllDomains) {
-			$EnterpriseAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Enterprise Admins" -Recurse | Sort-Object -Unique -Property MemberName
+			$EnterpriseAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Enterprise Admins" -Recurse
 			foreach($EnterpriseAdmin in $EnterpriseAdmins){
+
+   				$convertedMemberName = $null
+				$PlaceHolderDomain = $null
+				
+				foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+					try {
+						$convertedMemberName = ConvertFrom-SID $EnterpriseAdmin.MemberSID -Domain $PlaceHolderDomain
+						if ($null -ne $convertedMemberName) { break }
+					}
+					catch {
+						continue
+					}
+				}
 				
 				$domainObject = Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp
-				$memberName = if ($EnterpriseAdmin.MemberName) { $EnterpriseAdmin.MemberName } else { ConvertFrom-SID $EnterpriseAdmin.MemberSID }
+				$memberName = if ($EnterpriseAdmin.MemberName) { $EnterpriseAdmin.MemberName } else { $convertedMemberName }
 				$isEnabled = if ($EnterpriseAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
 				$isActive = if ($domainObject.lastlogontimestamp -ge $inactiveThreshold) { "True" } elseif ($domainObject.lastlogontimestamp -eq $null) { "" } else { "False" }
 
@@ -1173,7 +1225,7 @@ function Invoke-ADEnum
 		}
 		
 		if ($TempEnterpriseAdmins) {
-			$TempEnterpriseAdmins | Sort-Object "Group Domain","Member Name" | ft -Autosize -Wrap
+			$TempEnterpriseAdmins | Sort-Object -Unique "Group Domain","Member Name" | ft -Autosize -Wrap
 			$HTMLEnterpriseAdmins = $TempEnterpriseAdmins | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Enterprise Administrators</h2>"
 		}
 	}
@@ -1185,15 +1237,28 @@ function Invoke-ADEnum
 	Write-Host ""
     Write-Host "Domain Administrators:" -ForegroundColor Cyan
     if ($Domain -and $Server) {
-		$DomainAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Domain Admins" -Recurse | Sort-Object -Unique -Property MemberName
+		$DomainAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Domain Admins" -Recurse
 		$TempDomainAdmins = foreach ($DomainAdmin in $DomainAdmins) {
+
+  			$convertedMemberName = $null
+			$PlaceHolderDomain = $null
+			
+			foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+				try {
+					$convertedMemberName = ConvertFrom-SID $DomainAdmin.MemberSID -Domain $PlaceHolderDomain
+					if ($null -ne $convertedMemberName) { break }
+				}
+				catch {
+					continue
+				}
+			}
 			
 			$domainObject = Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 			$lastLogonTimestamp = $domainObject.lastlogontimestamp
 			$isActive = if ($lastLogonTimestamp -ge $inactiveThreshold) { "True" } elseif ($lastLogonTimestamp -eq $null) { "" } else { "False" }
 
 			[PSCustomObject]@{
-				"Member Name" = if ($DomainAdmin.MemberName) { $DomainAdmin.MemberName } else { ConvertFrom-SID $DomainAdmin.MemberSID }
+				"Member Name" = if ($DomainAdmin.MemberName) { $DomainAdmin.MemberName } else { $convertedMemberName }
 				"Enabled" = if ($DomainAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = $isActive
 				"Last Logon" = $lastLogonTimestamp
@@ -1211,15 +1276,28 @@ function Invoke-ADEnum
 	}
 	else {
 		$TempDomainAdmins = foreach ($AllDomain in $AllDomains) {
-			$DomainAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Domain Admins" -Recurse | Sort-Object -Unique -Property MemberName
+			$DomainAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Domain Admins" -Recurse
 			foreach ($DomainAdmin in $DomainAdmins) {
+
+   				$convertedMemberName = $null
+				$PlaceHolderDomain = $null
+				
+				foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+					try {
+						$convertedMemberName = ConvertFrom-SID $DomainAdmin.MemberSID -Domain $PlaceHolderDomain
+						if ($null -ne $convertedMemberName) { break }
+					}
+					catch {
+						continue
+					}
+				}
 				
 				$domainObject = Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp
 				$lastLogonTimestamp = $domainObject.lastlogontimestamp
 				$isActive = if ($lastLogonTimestamp -ge $inactiveThreshold) { "True" } elseif ($lastLogonTimestamp -eq $null) { "" } else { "False" }
 
 				[PSCustomObject]@{
-					"Member Name" = if ($DomainAdmin.MemberName) { $DomainAdmin.MemberName } else { ConvertFrom-SID $DomainAdmin.MemberSID }
+					"Member Name" = if ($DomainAdmin.MemberName) { $DomainAdmin.MemberName } else { $convertedMemberName }
 					"Enabled" = if ($DomainAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
 					"Active" = $isActive
 					"Last Logon" = $lastLogonTimestamp
@@ -1231,7 +1309,7 @@ function Invoke-ADEnum
 		}
 
 		if ($TempDomainAdmins) {
-			$TempDomainAdmins | Sort-Object "Group Domain","Member Name" | ft -Autosize -Wrap
+			$TempDomainAdmins | Sort-Object -Unique "Group Domain","Member Name" | ft -Autosize -Wrap
 			$HTMLDomainAdmins = $TempDomainAdmins | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Domain Administrators</h2>"
 		}
 	}
@@ -1245,11 +1323,24 @@ function Invoke-ADEnum
 		Write-Host ""
 		Write-Host "Account Operators:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$AccountOperators = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Account Operators" -Recurse | Sort-Object -Unique -Property MemberName
+			$AccountOperators = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Account Operators" -Recurse
 			$TempAccountOperators = foreach($AccountOperator in $AccountOperators){
+
+   				$convertedMemberName = $null
+				$PlaceHolderDomain = $null
+				
+				foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+					try {
+						$convertedMemberName = ConvertFrom-SID $AccountOperator.MemberSID -Domain $PlaceHolderDomain
+						if ($null -ne $convertedMemberName) { break }
+					}
+					catch {
+						continue
+					}
+				}
 				
 				$domainObject = Get-DomainObject -Identity $AccountOperator.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
-				$memberName = if ($AccountOperator.MemberName) { $AccountOperator.MemberName } else { ConvertFrom-SID $AccountOperator.MemberSID }
+				$memberName = if ($AccountOperator.MemberName) { $AccountOperator.MemberName } else { $convertedMemberName }
 				$isEnabled = if ($AccountOperator.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
 				$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
@@ -1273,11 +1364,24 @@ function Invoke-ADEnum
 		}
 		else {
 			$TempAccountOperators = foreach ($AllDomain in $AllDomains) {
-				$AccountOperators = Get-DomainGroupMember -Domain $AllDomain -Identity "Account Operators" -Recurse | Sort-Object -Unique -Property MemberName
+				$AccountOperators = Get-DomainGroupMember -Domain $AllDomain -Identity "Account Operators" -Recurse
 				foreach($AccountOperator in $AccountOperators){
+
+    					$convertedMemberName = $null
+					$PlaceHolderDomain = $null
+					
+					foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+						try {
+							$convertedMemberName = ConvertFrom-SID $AccountOperator.MemberSID -Domain $PlaceHolderDomain
+							if ($null -ne $convertedMemberName) { break }
+						}
+						catch {
+							continue
+						}
+					}
 					
 					$domainObject = Get-DomainObject -Identity $AccountOperator.MemberName -Domain $AllDomain -Properties lastlogontimestamp
-					$memberName = if ($AccountOperator.MemberName) { $AccountOperator.MemberName } else { ConvertFrom-SID $AccountOperator.MemberSID }
+					$memberName = if ($AccountOperator.MemberName) { $AccountOperator.MemberName } else { $convertedMemberName }
 					$isEnabled = if ($AccountOperator.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
 					$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
@@ -1302,7 +1406,7 @@ function Invoke-ADEnum
 		}
 
 		if ($TempAccountOperators) {
-			$TempAccountOperators | Sort-Object "Group Domain","Member Name" | Format-Table -Autosize -Wrap
+			$TempAccountOperators | Sort-Object -Unique "Group Domain","Member Name" | Format-Table -Autosize -Wrap
 			$HTMLAccountOperators = $TempAccountOperators | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Account Operators</h2>"
 		}
 		
@@ -1313,11 +1417,24 @@ function Invoke-ADEnum
 		Write-Host ""
 		Write-Host "Backup Operators:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$BackupOperators = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Backup Operators" -Recurse | Sort-Object -Unique -Property MemberName
+			$BackupOperators = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Backup Operators" -Recurse
 			$TempBackupOperators = foreach($BackupOperator in $BackupOperators){
+
+   				$convertedMemberName = $null
+				$PlaceHolderDomain = $null
+				
+				foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+					try {
+						$convertedMemberName = ConvertFrom-SID $BackupOperator.MemberSID -Domain $PlaceHolderDomain
+						if ($null -ne $convertedMemberName) { break }
+					}
+					catch {
+						continue
+					}
+				}
 				
 				$domainObject = Get-DomainObject -Identity $BackupOperator.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
-				$memberName = if ($BackupOperator.MemberName) { $BackupOperator.MemberName } else { ConvertFrom-SID $BackupOperator.MemberSID }
+				$memberName = if ($BackupOperator.MemberName) { $BackupOperator.MemberName } else { $convertedMemberName }
 				$isEnabled = if ($BackupOperator.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
 				$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
@@ -1341,11 +1458,24 @@ function Invoke-ADEnum
 		}
 		else {
 			$TempBackupOperators = foreach ($AllDomain in $AllDomains) {
-				$BackupOperators = Get-DomainGroupMember -Domain $AllDomain -Identity "Backup Operators" -Recurse | Sort-Object -Unique -Property MemberName
+				$BackupOperators = Get-DomainGroupMember -Domain $AllDomain -Identity "Backup Operators" -Recurse
 				foreach($BackupOperator in $BackupOperators){
+
+    					$convertedMemberName = $null
+					$PlaceHolderDomain = $null
+					
+					foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+						try {
+							$convertedMemberName = ConvertFrom-SID $BackupOperator.MemberSID -Domain $PlaceHolderDomain
+							if ($null -ne $convertedMemberName) { break }
+						}
+						catch {
+							continue
+						}
+					}
 					
 					$domainObject = Get-DomainObject -Identity $BackupOperator.MemberName -Domain $AllDomain -Properties lastlogontimestamp
-					$memberName = if ($BackupOperator.MemberName) { $BackupOperator.MemberName } else { ConvertFrom-SID $BackupOperator.MemberSID }
+					$memberName = if ($BackupOperator.MemberName) { $BackupOperator.MemberName } else { $convertedMemberName }
 					$isEnabled = if ($BackupOperator.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
 
@@ -1371,7 +1501,7 @@ function Invoke-ADEnum
 		}
 
 		if ($TempBackupOperators) {
-			$TempBackupOperators | Sort-Object "Group Domain","Member Name" | Format-Table -Autosize -Wrap
+			$TempBackupOperators | Sort-Object -Unique "Group Domain","Member Name" | Format-Table -Autosize -Wrap
 			$HTMLBackupOperators = $TempBackupOperators | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Backup Operators</h2>"
 		}
 		
@@ -1382,11 +1512,24 @@ function Invoke-ADEnum
 		Write-Host ""
 		Write-Host "Cert Publishers:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$CertPublishers = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Cert Publishers" -Recurse | Sort-Object -Unique -Property MemberName
+			$CertPublishers = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Cert Publishers" -Recurse
 			$TempCertPublishersGroup = foreach($CertPublisher in $CertPublishers){
+
+   				$convertedMemberName = $null
+				$PlaceHolderDomain = $null
+				
+				foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+					try {
+						$convertedMemberName = ConvertFrom-SID $CertPublisher.MemberSID -Domain $PlaceHolderDomain
+						if ($null -ne $convertedMemberName) { break }
+					}
+					catch {
+						continue
+					}
+				}
 				
 				$domainObject = Get-DomainObject -Identity $CertPublisher.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
-				$memberName = if ($CertPublisher.MemberName) { $CertPublisher.MemberName } else { ConvertFrom-SID $CertPublisher.MemberSID }
+				$memberName = if ($CertPublisher.MemberName) { $CertPublisher.MemberName } else { $convertedMemberName }
 				$isEnabled = if ($CertPublisher.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
 				$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
@@ -1410,11 +1553,24 @@ function Invoke-ADEnum
 		}
 		else {
 			$TempCertPublishersGroup = foreach ($AllDomain in $AllDomains) {
-				$CertPublishers = Get-DomainGroupMember -Domain $AllDomain -Identity "Cert Publishers" -Recurse | Sort-Object -Unique -Property MemberName
+				$CertPublishers = Get-DomainGroupMember -Domain $AllDomain -Identity "Cert Publishers" -Recurse
 				foreach($CertPublisher in $CertPublishers){
+
+    					$convertedMemberName = $null
+					$PlaceHolderDomain = $null
+					
+					foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+						try {
+							$convertedMemberName = ConvertFrom-SID $CertPublisher.MemberSID -Domain $PlaceHolderDomain
+							if ($null -ne $convertedMemberName) { break }
+						}
+						catch {
+							continue
+						}
+					}
 					
 					$domainObject = Get-DomainObject -Identity $CertPublisher.MemberName -Domain $AllDomain -Properties lastlogontimestamp
-					$memberName = if ($CertPublisher.MemberName) { $CertPublisher.MemberName } else { ConvertFrom-SID $CertPublisher.MemberSID }
+					$memberName = if ($CertPublisher.MemberName) { $CertPublisher.MemberName } else { $convertedMemberName }
 					$isEnabled = if ($CertPublisher.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
 					$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
@@ -1439,7 +1595,7 @@ function Invoke-ADEnum
 		}
 
 		if ($TempCertPublishersGroup) {
-			$TempCertPublishersGroup | Sort-Object "Group Domain","Member Name" | Format-Table -Autosize -Wrap
+			$TempCertPublishersGroup | Sort-Object -Unique "Group Domain","Member Name" | Format-Table -Autosize -Wrap
 			$HTMLCertPublishersGroup = $TempCertPublishersGroup | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Cert Publishers</h2>"
 		}
 		
@@ -1450,11 +1606,24 @@ function Invoke-ADEnum
 		Write-Host ""
 		Write-Host "DNS Admins:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$DNSAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "DNSAdmins" -Recurse | Sort-Object -Unique -Property MemberName
+			$DNSAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "DNSAdmins" -Recurse
 			$TempDNSAdmins = foreach($DNSAdmin in $DNSAdmins){
+
+   				$convertedMemberName = $null
+				$PlaceHolderDomain = $null
+				
+				foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+					try {
+						$convertedMemberName = ConvertFrom-SID $DNSAdmin.MemberSID -Domain $PlaceHolderDomain
+						if ($null -ne $convertedMemberName) { break }
+					}
+					catch {
+						continue
+					}
+				}
 				
 				$domainObject = Get-DomainObject -Identity $DNSAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
-				$memberName = if ($DNSAdmin.MemberName) { $DNSAdmin.MemberName } else { ConvertFrom-SID $DNSAdmin.MemberSID }
+				$memberName = if ($DNSAdmin.MemberName) { $DNSAdmin.MemberName } else { $convertedMemberName }
 				$isEnabled = if ($DNSAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
 				$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
@@ -1478,11 +1647,24 @@ function Invoke-ADEnum
 		}
 		else {
 			$TempDNSAdmins = foreach ($AllDomain in $AllDomains) {
-				$DNSAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "DNSAdmins" -Recurse | Sort-Object -Unique -Property MemberName
+				$DNSAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "DNSAdmins" -Recurse
 				foreach($DNSAdmin in $DNSAdmins){
+
+    					$convertedMemberName = $null
+					$PlaceHolderDomain = $null
+					
+					foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+						try {
+							$convertedMemberName = ConvertFrom-SID $DNSAdmin.MemberSID -Domain $PlaceHolderDomain
+							if ($null -ne $convertedMemberName) { break }
+						}
+						catch {
+							continue
+						}
+					}
 					
 					$domainObject = Get-DomainObject -Identity $DNSAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp
-					$memberName = if ($DNSAdmin.MemberName) { $DNSAdmin.MemberName } else { ConvertFrom-SID $DNSAdmin.MemberSID }
+					$memberName = if ($DNSAdmin.MemberName) { $DNSAdmin.MemberName } else { $convertedMemberName }
 					$isEnabled = if ($DNSAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
 					$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
@@ -1507,7 +1689,7 @@ function Invoke-ADEnum
 		}
 
 		if ($TempDNSAdmins) {
-			$TempDNSAdmins | Sort-Object "Group Domain","Member Name" | Format-Table -Autosize -Wrap
+			$TempDNSAdmins | Sort-Object -Unique "Group Domain","Member Name" | Format-Table -Autosize -Wrap
 			$HTMLDNSAdmins = $TempDNSAdmins | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>DNS Admins</h2>"
 		}
 		
@@ -1518,11 +1700,24 @@ function Invoke-ADEnum
 		Write-Host ""
 		Write-Host "Enterprise Key Admins:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$EnterpriseKeyAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Enterprise Key Admins" -Recurse | Sort-Object -Unique -Property MemberName
+			$EnterpriseKeyAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Enterprise Key Admins" -Recurse
 			$TempEnterpriseKeyAdmins = foreach($EnterpriseKeyAdmin in $EnterpriseKeyAdmins){
+
+   				$convertedMemberName = $null
+				$PlaceHolderDomain = $null
+				
+				foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+					try {
+						$convertedMemberName = ConvertFrom-SID $EnterpriseKeyAdmin.MemberSID -Domain $PlaceHolderDomain
+						if ($null -ne $convertedMemberName) { break }
+					}
+					catch {
+						continue
+					}
+				}
 				
 				$domainObject = Get-DomainObject -Identity $EnterpriseKeyAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
-				$memberName = if ($EnterpriseKeyAdmin.MemberName) { $EnterpriseKeyAdmin.MemberName } else { ConvertFrom-SID $EnterpriseKeyAdmin.MemberSID }
+				$memberName = if ($EnterpriseKeyAdmin.MemberName) { $EnterpriseKeyAdmin.MemberName } else { $convertedMemberName }
 				$isEnabled = if ($EnterpriseKeyAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
 				$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
@@ -1546,11 +1741,24 @@ function Invoke-ADEnum
 		}
 		else {
 			$TempEnterpriseKeyAdmins = foreach ($AllDomain in $AllDomains) {
-				$EnterpriseKeyAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Enterprise Key Admins" -Recurse | Sort-Object -Unique -Property MemberName
+				$EnterpriseKeyAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Enterprise Key Admins" -Recurse
 				foreach($EnterpriseKeyAdmin in $EnterpriseKeyAdmins){
+
+    					$convertedMemberName = $null
+					$PlaceHolderDomain = $null
+					
+					foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+						try {
+							$convertedMemberName = ConvertFrom-SID $EnterpriseKeyAdmin.MemberSID -Domain $PlaceHolderDomain
+							if ($null -ne $convertedMemberName) { break }
+						}
+						catch {
+							continue
+						}
+					}
 					
 					$domainObject = Get-DomainObject -Identity $EnterpriseKeyAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp
-					$memberName = if ($EnterpriseKeyAdmin.MemberName) { $EnterpriseKeyAdmin.MemberName } else { ConvertFrom-SID $EnterpriseKeyAdmin.MemberSID }
+					$memberName = if ($EnterpriseKeyAdmin.MemberName) { $EnterpriseKeyAdmin.MemberName } else { $convertedMemberName }
 					$isEnabled = if ($EnterpriseKeyAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
 					$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
@@ -1575,7 +1783,7 @@ function Invoke-ADEnum
 		}
 
 		if ($TempEnterpriseKeyAdmins) {
-			$TempEnterpriseKeyAdmins | Sort-Object "Group Domain","Member Name" | Format-Table -Autosize -Wrap
+			$TempEnterpriseKeyAdmins | Sort-Object -Unique "Group Domain","Member Name" | Format-Table -Autosize -Wrap
 			$HTMLEnterpriseKeyAdmins = $TempEnterpriseKeyAdmins | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Enterprise Key Admins</h2>"
 		}
 		
@@ -1586,11 +1794,24 @@ function Invoke-ADEnum
 		Write-Host ""
 		Write-Host "Enterprise Read-Only Domain Controllers:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$EnterpriseRODCs = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Enterprise Read-Only Domain Controllers" -Recurse | Sort-Object -Unique -Property MemberName
+			$EnterpriseRODCs = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Enterprise Read-Only Domain Controllers" -Recurse
 			$TempEnterpriseRODCs = foreach($EnterpriseRODC in $EnterpriseRODCs){
+
+   				$convertedMemberName = $null
+				$PlaceHolderDomain = $null
+				
+				foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+					try {
+						$convertedMemberName = ConvertFrom-SID $EnterpriseRODC.MemberSID -Domain $PlaceHolderDomain
+						if ($null -ne $convertedMemberName) { break }
+					}
+					catch {
+						continue
+					}
+				}
 				
 				$domainObject = Get-DomainObject -Identity $EnterpriseRODC.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
-				$memberName = if ($EnterpriseRODC.MemberName) { $EnterpriseRODC.MemberName } else { ConvertFrom-SID $EnterpriseRODC.MemberSID }
+				$memberName = if ($EnterpriseRODC.MemberName) { $EnterpriseRODC.MemberName } else { $convertedMemberName }
 				$isEnabled = if ($EnterpriseRODC.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
 				$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
@@ -1614,11 +1835,24 @@ function Invoke-ADEnum
 		}
 		else {
 			$TempEnterpriseRODCs = foreach ($AllDomain in $AllDomains) {
-				$EnterpriseRODCs = Get-DomainGroupMember -Domain $AllDomain -Identity "Enterprise Read-Only Domain Controllers" -Recurse | Sort-Object -Unique -Property MemberName
+				$EnterpriseRODCs = Get-DomainGroupMember -Domain $AllDomain -Identity "Enterprise Read-Only Domain Controllers" -Recurse
 				foreach($EnterpriseRODC in $EnterpriseRODCs){
+
+    					$convertedMemberName = $null
+					$PlaceHolderDomain = $null
+					
+					foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+						try {
+							$convertedMemberName = ConvertFrom-SID $EnterpriseRODC.MemberSID -Domain $PlaceHolderDomain
+							if ($null -ne $convertedMemberName) { break }
+						}
+						catch {
+							continue
+						}
+					}
 					
 					$domainObject = Get-DomainObject -Identity $EnterpriseRODC.MemberName -Domain $AllDomain -Properties lastlogontimestamp
-					$memberName = if ($EnterpriseRODC.MemberName) { $EnterpriseRODC.MemberName } else { ConvertFrom-SID $EnterpriseRODC.MemberSID }
+					$memberName = if ($EnterpriseRODC.MemberName) { $EnterpriseRODC.MemberName } else { $convertedMemberName }
 					$isEnabled = if ($EnterpriseRODC.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
 					$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
@@ -1643,7 +1877,7 @@ function Invoke-ADEnum
 		}
 
 		if ($TempEnterpriseRODCs) {
-			$TempEnterpriseRODCs | Sort-Object "Group Domain","Member Name" | Format-Table -Autosize -Wrap
+			$TempEnterpriseRODCs | Sort-Object -Unique "Group Domain","Member Name" | Format-Table -Autosize -Wrap
 			$HTMLEnterpriseRODCs = $TempEnterpriseRODCs | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Enterprise Read-Only Domain Controllers</h2>"
 		}
 
@@ -1655,11 +1889,24 @@ function Invoke-ADEnum
 		Write-Host ""
 		Write-Host "Group Policy Creator Owners:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$GPCreatorOwners = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Group Policy Creator Owners" -Recurse | Sort-Object -Unique -Property MemberName
+			$GPCreatorOwners = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Group Policy Creator Owners" -Recurse
 			$TempGPCreatorOwners = foreach($GPCreatorOwner in $GPCreatorOwners){
+
+   				$convertedMemberName = $null
+				$PlaceHolderDomain = $null
+				
+				foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+					try {
+						$convertedMemberName = ConvertFrom-SID $GPCreatorOwner.MemberSID -Domain $PlaceHolderDomain
+						if ($null -ne $convertedMemberName) { break }
+					}
+					catch {
+						continue
+					}
+				}
 				
 				$domainObject = Get-DomainObject -Identity $GPCreatorOwner.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
-				$memberName = if ($GPCreatorOwner.MemberName) { $GPCreatorOwner.MemberName } else { ConvertFrom-SID $GPCreatorOwner.MemberSID }
+				$memberName = if ($GPCreatorOwner.MemberName) { $GPCreatorOwner.MemberName } else { $convertedMemberName }
 				$isEnabled = if ($GPCreatorOwner.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
 				$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
@@ -1683,11 +1930,24 @@ function Invoke-ADEnum
 		}
 		else {
 			$TempGPCreatorOwners = foreach ($AllDomain in $AllDomains) {
-				$GPCreatorOwners = Get-DomainGroupMember -Domain $AllDomain -Identity "Group Policy Creator Owners" -Recurse | Sort-Object -Unique -Property MemberName
+				$GPCreatorOwners = Get-DomainGroupMember -Domain $AllDomain -Identity "Group Policy Creator Owners" -Recurse
 				foreach($GPCreatorOwner in $GPCreatorOwners){
+
+    					$convertedMemberName = $null
+					$PlaceHolderDomain = $null
+					
+					foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+						try {
+							$convertedMemberName = ConvertFrom-SID $GPCreatorOwner.MemberSID -Domain $PlaceHolderDomain
+							if ($null -ne $convertedMemberName) { break }
+						}
+						catch {
+							continue
+						}
+					}
 					
 					$domainObject = Get-DomainObject -Identity $GPCreatorOwner.MemberName -Domain $AllDomain -Properties lastlogontimestamp
-					$memberName = if ($GPCreatorOwner.MemberName) { $GPCreatorOwner.MemberName } else { ConvertFrom-SID $GPCreatorOwner.MemberSID }
+					$memberName = if ($GPCreatorOwner.MemberName) { $GPCreatorOwner.MemberName } else { $convertedMemberName }
 					$isEnabled = if ($GPCreatorOwner.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
 					$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
@@ -1712,7 +1972,7 @@ function Invoke-ADEnum
 		}
 
 		if ($TempGPCreatorOwners) {
-			$TempGPCreatorOwners | Sort-Object "Group Domain","Member Name" | Format-Table -Autosize -Wrap
+			$TempGPCreatorOwners | Sort-Object -Unique "Group Domain","Member Name" | Format-Table -Autosize -Wrap
 			$HTMLGPCreatorOwners = $TempGPCreatorOwners | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Group Policy Creator Owners</h2>"
 		}
 
@@ -1723,11 +1983,24 @@ function Invoke-ADEnum
 		Write-Host ""
 		Write-Host "Key Admins:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$KeyAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Key Admins" -Recurse | Sort-Object -Unique -Property MemberName
+			$KeyAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Key Admins" -Recurse
 			$TempKeyAdmins = foreach($KeyAdmin in $KeyAdmins){
+
+   				$convertedMemberName = $null
+				$PlaceHolderDomain = $null
+				
+				foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+					try {
+						$convertedMemberName = ConvertFrom-SID $KeyAdmin.MemberSID -Domain $PlaceHolderDomain
+						if ($null -ne $convertedMemberName) { break }
+					}
+					catch {
+						continue
+					}
+				}
 				
 				$domainObject = Get-DomainObject -Identity $KeyAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
-				$memberName = if ($KeyAdmin.MemberName) { $KeyAdmin.MemberName } else { ConvertFrom-SID $KeyAdmin.MemberSID }
+				$memberName = if ($KeyAdmin.MemberName) { $KeyAdmin.MemberName } else { $convertedMemberName }
 				$isEnabled = if ($KeyAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
 				$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
@@ -1751,11 +2024,24 @@ function Invoke-ADEnum
 		}
 		else {
 			$TempKeyAdmins = foreach ($AllDomain in $AllDomains) {
-				$KeyAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Key Admins" -Recurse | Sort-Object -Unique -Property MemberName
+				$KeyAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Key Admins" -Recurse
 				foreach($KeyAdmin in $KeyAdmins){
+
+    					$convertedMemberName = $null
+					$PlaceHolderDomain = $null
+					
+					foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+						try {
+							$convertedMemberName = ConvertFrom-SID $KeyAdmin.MemberSID -Domain $PlaceHolderDomain
+							if ($null -ne $convertedMemberName) { break }
+						}
+						catch {
+							continue
+						}
+					}
 					
 					$domainObject = Get-DomainObject -Identity $KeyAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp
-					$memberName = if ($KeyAdmin.MemberName) { $KeyAdmin.MemberName } else { ConvertFrom-SID $KeyAdmin.MemberSID }
+					$memberName = if ($KeyAdmin.MemberName) { $KeyAdmin.MemberName } else { $convertedMemberName }
 					$isEnabled = if ($KeyAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
 					$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
@@ -1780,7 +2066,7 @@ function Invoke-ADEnum
 		}
 
 		if ($TempKeyAdmins) {
-			$TempKeyAdmins | Sort-Object "Group Domain","Member Name" | Format-Table -Autosize -Wrap
+			$TempKeyAdmins | Sort-Object -Unique "Group Domain","Member Name" | Format-Table -Autosize -Wrap
 			$HTMLKeyAdmins = $TempKeyAdmins | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Key Admins</h2>"
 		}
 		
@@ -1791,11 +2077,24 @@ function Invoke-ADEnum
 		Write-Host ""
 		Write-Host "Protected Users:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$ProtectedUsers = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Protected Users" -Recurse | Sort-Object -Unique -Property MemberName
+			$ProtectedUsers = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Protected Users" -Recurse
 			$TempProtectedUsers = foreach($ProtectedUser in $ProtectedUsers){
+
+   				$convertedMemberName = $null
+				$PlaceHolderDomain = $null
+				
+				foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+					try {
+						$convertedMemberName = ConvertFrom-SID $ProtectedUser.MemberSID -Domain $PlaceHolderDomain
+						if ($null -ne $convertedMemberName) { break }
+					}
+					catch {
+						continue
+					}
+				}
 				
 				$domainObject = Get-DomainObject -Identity $ProtectedUser.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
-				$memberName = if ($ProtectedUser.MemberName) { $ProtectedUser.MemberName } else { ConvertFrom-SID $ProtectedUser.MemberSID }
+				$memberName = if ($ProtectedUser.MemberName) { $ProtectedUser.MemberName } else { $convertedMemberName }
 				$isEnabled = if ($ProtectedUser.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
 				$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
@@ -1819,11 +2118,24 @@ function Invoke-ADEnum
 		}
 		else {
 			$TempProtectedUsers = foreach ($AllDomain in $AllDomains) {
-				$ProtectedUsers = Get-DomainGroupMember -Domain $AllDomain -Identity "Protected Users" -Recurse | Sort-Object -Unique -Property MemberName
+				$ProtectedUsers = Get-DomainGroupMember -Domain $AllDomain -Identity "Protected Users" -Recurse
 				foreach($ProtectedUser in $ProtectedUsers){
+
+    					$convertedMemberName = $null
+					$PlaceHolderDomain = $null
+					
+					foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+						try {
+							$convertedMemberName = ConvertFrom-SID $ProtectedUser.MemberSID -Domain $PlaceHolderDomain
+							if ($null -ne $convertedMemberName) { break }
+						}
+						catch {
+							continue
+						}
+					}
 					
 					$domainObject = Get-DomainObject -Identity $ProtectedUser.MemberName -Domain $AllDomain -Properties lastlogontimestamp
-					$memberName = if ($ProtectedUser.MemberName) { $ProtectedUser.MemberName } else { ConvertFrom-SID $ProtectedUser.MemberSID }
+					$memberName = if ($ProtectedUser.MemberName) { $ProtectedUser.MemberName } else { $convertedMemberName }
 					$isEnabled = if ($ProtectedUser.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
 					$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
@@ -1848,7 +2160,7 @@ function Invoke-ADEnum
 		}
 
 		if ($TempProtectedUsers) {
-			$TempProtectedUsers | Sort-Object "Group Domain","Member Name" | Format-Table -Autosize -Wrap
+			$TempProtectedUsers | Sort-Object -Unique "Group Domain","Member Name" | Format-Table -Autosize -Wrap
 			$HTMLProtectedUsers = $TempProtectedUsers | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Protected Users</h2>"
 		}
 
@@ -1860,11 +2172,24 @@ function Invoke-ADEnum
 		Write-Host ""
 		Write-Host "Read-Only Domain Controllers:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$RODCs = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Read-Only Domain Controllers" -Recurse | Sort-Object -Unique -Property MemberName
+			$RODCs = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Read-Only Domain Controllers" -Recurse
 			$TempRODCs = foreach($RODC in $RODCs){
+
+   				$convertedMemberName = $null
+				$PlaceHolderDomain = $null
+				
+				foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+					try {
+						$convertedMemberName = ConvertFrom-SID $RODC.MemberSID -Domain $PlaceHolderDomain
+						if ($null -ne $convertedMemberName) { break }
+					}
+					catch {
+						continue
+					}
+				}
 				
 				$domainObject = Get-DomainObject -Identity $RODC.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
-				$memberName = if ($RODC.MemberName) { $RODC.MemberName } else { ConvertFrom-SID $RODC.MemberSID }
+				$memberName = if ($RODC.MemberName) { $RODC.MemberName } else { $convertedMemberName }
 				$isEnabled = if ($RODC.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
 				$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
@@ -1888,11 +2213,24 @@ function Invoke-ADEnum
 		}
 		else {
 			$TempRODCs = foreach ($AllDomain in $AllDomains) {
-				$RODCs = Get-DomainGroupMember -Domain $AllDomain -Identity "Read-Only Domain Controllers" -Recurse | Sort-Object -Unique -Property MemberName
+				$RODCs = Get-DomainGroupMember -Domain $AllDomain -Identity "Read-Only Domain Controllers" -Recurse
 				foreach($RODC in $RODCs){
+
+    					$convertedMemberName = $null
+					$PlaceHolderDomain = $null
+					
+					foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+						try {
+							$convertedMemberName = ConvertFrom-SID $RODC.MemberSID -Domain $PlaceHolderDomain
+							if ($null -ne $convertedMemberName) { break }
+						}
+						catch {
+							continue
+						}
+					}
 					
 					$domainObject = Get-DomainObject -Identity $RODC.MemberName -Domain $AllDomain -Properties lastlogontimestamp
-					$memberName = if ($RODC.MemberName) { $RODC.MemberName } else { ConvertFrom-SID $RODC.MemberSID }
+					$memberName = if ($RODC.MemberName) { $RODC.MemberName } else { $convertedMemberName }
 					$isEnabled = if ($RODC.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
 					$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
@@ -1917,7 +2255,7 @@ function Invoke-ADEnum
 		}
 
 		if ($TempRODCs) {
-			$TempRODCs | Sort-Object "Group Domain","Member Name" | Format-Table -Autosize -Wrap
+			$TempRODCs | Sort-Object -Unique "Group Domain","Member Name" | Format-Table -Autosize -Wrap
 			$HTMLRODCs = $TempRODCs | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Read-Only Domain Controllers</h2>"
 		}
 		
@@ -1930,11 +2268,24 @@ function Invoke-ADEnum
 		Write-Host ""
 		Write-Host "Schema Admins:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$SchemaAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Schema Admins" -Recurse | Sort-Object -Unique -Property MemberName
+			$SchemaAdmins = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Schema Admins" -Recurse
 			$TempSchemaAdmins = foreach($SchemaAdmin in $SchemaAdmins){
+
+   				$convertedMemberName = $null
+				$PlaceHolderDomain = $null
+				
+				foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+					try {
+						$convertedMemberName = ConvertFrom-SID $SchemaAdmin.MemberSID -Domain $PlaceHolderDomain
+						if ($null -ne $convertedMemberName) { break }
+					}
+					catch {
+						continue
+					}
+				}
 				
 				$domainObject = Get-DomainObject -Identity $SchemaAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
-				$memberName = if ($SchemaAdmin.MemberName) { $SchemaAdmin.MemberName } else { ConvertFrom-SID $SchemaAdmin.MemberSID }
+				$memberName = if ($SchemaAdmin.MemberName) { $SchemaAdmin.MemberName } else { $convertedMemberName }
 				$isEnabled = if ($SchemaAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
 				$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
@@ -1960,11 +2311,24 @@ function Invoke-ADEnum
 	 
 		else {
 			$TempSchemaAdmins = foreach ($AllDomain in $AllDomains) {
-				$SchemaAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Schema Admins" -Recurse | Sort-Object -Unique -Property MemberName
+				$SchemaAdmins = Get-DomainGroupMember -Domain $AllDomain -Identity "Schema Admins" -Recurse
 				foreach($SchemaAdmin in $SchemaAdmins){
+
+    					$convertedMemberName = $null
+					$PlaceHolderDomain = $null
+					
+					foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+						try {
+							$convertedMemberName = ConvertFrom-SID $SchemaAdmin.MemberSID -Domain $PlaceHolderDomain
+							if ($null -ne $convertedMemberName) { break }
+						}
+						catch {
+							continue
+						}
+					}
 					
 					$domainObject = Get-DomainObject -Identity $SchemaAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp
-					$memberName = if ($SchemaAdmin.MemberName) { $SchemaAdmin.MemberName } else { ConvertFrom-SID $SchemaAdmin.MemberSID }
+					$memberName = if ($SchemaAdmin.MemberName) { $SchemaAdmin.MemberName } else { $convertedMemberName }
 					$isEnabled = if ($SchemaAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
 
@@ -1991,7 +2355,7 @@ function Invoke-ADEnum
 		}
 
 		if ($TempSchemaAdmins) {
-			$TempSchemaAdmins | Sort-Object "Group Domain","Member Name" | ft -Autosize -Wrap
+			$TempSchemaAdmins | Sort-Object -Unique "Group Domain","Member Name" | ft -Autosize -Wrap
 			$HTMLSchemaAdmins = $TempSchemaAdmins | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Schema Admins</h2>"
 		}
 		
@@ -2002,11 +2366,24 @@ function Invoke-ADEnum
 		Write-Host ""
 		Write-Host "Server Operators:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$ServerOperators = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Server Operators" -Recurse | Sort-Object -Unique -Property MemberName
+			$ServerOperators = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Server Operators" -Recurse
 			$TempServerOperators = foreach($ServerOperator in $ServerOperators){
+
+   				$convertedMemberName = $null
+				$PlaceHolderDomain = $null
+				
+				foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+					try {
+						$convertedMemberName = ConvertFrom-SID $ServerOperator.MemberSID -Domain $PlaceHolderDomain
+						if ($null -ne $convertedMemberName) { break }
+					}
+					catch {
+						continue
+					}
+				}
 				
 				$domainObject = Get-DomainObject -Identity $ServerOperator.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
-				$memberName = if ($ServerOperator.MemberName) { $ServerOperator.MemberName } else { ConvertFrom-SID $ServerOperator.MemberSID }
+				$memberName = if ($ServerOperator.MemberName) { $ServerOperator.MemberName } else { $convertedMemberName }
 				$isEnabled = if ($ServerOperator.useraccountcontrol -band 2) { "False" } else { "True" }
 				$lastLogon = $domainObject.lastlogontimestamp
 				$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
@@ -2030,11 +2407,24 @@ function Invoke-ADEnum
 		}
 		else {
 			$TempServerOperators = foreach ($AllDomain in $AllDomains) {
-				$ServerOperators = Get-DomainGroupMember -Domain $AllDomain -Identity "Server Operators" -Recurse | Sort-Object -Unique -Property MemberName
+				$ServerOperators = Get-DomainGroupMember -Domain $AllDomain -Identity "Server Operators" -Recurse
 				foreach($ServerOperator in $ServerOperators){
+
+    					$convertedMemberName = $null
+					$PlaceHolderDomain = $null
+					
+					foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+						try {
+							$convertedMemberName = ConvertFrom-SID $ServerOperator.MemberSID -Domain $PlaceHolderDomain
+							if ($null -ne $convertedMemberName) { break }
+						}
+						catch {
+							continue
+						}
+					}
 					
 					$domainObject = Get-DomainObject -Identity $ServerOperator.MemberName -Domain $AllDomain -Properties lastlogontimestamp
-					$memberName = if ($ServerOperator.MemberName) { $ServerOperator.MemberName } else { ConvertFrom-SID $ServerOperator.MemberSID }
+					$memberName = if ($ServerOperator.MemberName) { $ServerOperator.MemberName } else { $convertedMemberName }
 					$isEnabled = if ($ServerOperator.useraccountcontrol -band 2) { "False" } else { "True" }
 					$lastLogon = $domainObject.lastlogontimestamp
 					$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
@@ -2059,7 +2449,7 @@ function Invoke-ADEnum
 		}
 
 		if ($TempServerOperators) {
-			$TempServerOperators | Sort-Object "Group Domain","Member Name" | Format-Table -Autosize -Wrap
+			$TempServerOperators | Sort-Object -Unique "Group Domain","Member Name" | Format-Table -Autosize -Wrap
 			$HTMLServerOperators = $TempServerOperators | Sort-Object "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Server Operators</h2>"
 		}
 
