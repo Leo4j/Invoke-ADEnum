@@ -222,7 +222,7 @@ function Invoke-ADEnum
     elseif($Domain){$OutputFilePath = "$pwd\Invoke-ADEnum_$Domain.txt"}
     else{$OutputFilePath = "$pwd\Invoke-ADEnum.txt"}
     
-	if($TargetsOnly){}
+	if($TargetsOnly -OR $Help){}
 	else{
 		# Start capturing the script's output and save it to the file
 		Start-Transcript -Path $OutputFilePath | Out-Null
