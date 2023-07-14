@@ -3185,7 +3185,7 @@ function Invoke-ADEnum
 
   		$PreWindows2000Table = [PSCustomObject]@{
 			"Description" = "Pre-Windows 2000 computer objects used to get assigned a password based on the computer name instead of a random one. This can be leveraged to gain a foothold or to compromise your domain."
-			"Remediation" = "Avoid creating legacy compatible computer accounts. Make sure trust and computer password rotation are working properly. Get rid of legacy domain computer accounts that have not been active for a long time."
+			"Remediation" = "Avoid creating legacy compatible computer accounts. Make sure trust and computer password rotation are working properly. Get rid of legacy computer accounts that have not been active for a long time."
 		}
 		
 		$HTMLPreWindows2000Table = $PreWindows2000Table | ConvertTo-Html -As List -Fragment
