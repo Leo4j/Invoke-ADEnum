@@ -1008,6 +1008,8 @@ function Invoke-ADEnum
 					continue
 				}
 			}
+
+   			if($convertedMemberName){} else {$PlaceHolderDomain = $null}
 			
 			[PSCustomObject]@{
 				"Group Domain" = $ForeignGroupMember.GroupDomain
@@ -1016,7 +1018,7 @@ function Invoke-ADEnum
 				"Member Domain" = $PlaceHolderDomain
 				"Member or GroupName" = $convertedMemberName
 				"Member or GroupName SID" = $ForeignGroupMember.MemberName
-				"Group Members" = (Get-DomainGroupMember -Domain $PlaceHolderDomain -Recurse -Identity $convertedMemberName).MemberName -join ' - '
+				"Group Members" = if($convertedMemberName) {(Get-DomainGroupMember -Domain $PlaceHolderDomain -Recurse -Identity $convertedMemberName).MemberName -join ' - '} else {""}
 			}
 		}
 	}
@@ -1038,6 +1040,8 @@ function Invoke-ADEnum
 						continue
 					}
 				}
+
+    				if($convertedMemberName){} else {$PlaceHolderDomain = $null}
 				
 				[PSCustomObject]@{
 					"Group Domain" = $ForeignGroupMember.GroupDomain
@@ -1046,7 +1050,7 @@ function Invoke-ADEnum
 					"Member Domain" = $PlaceHolderDomain
 					"Member or GroupName" = $convertedMemberName
 					"Member or GroupName SID" = $ForeignGroupMember.MemberName
-					"Group Members" = (Get-DomainGroupMember -Domain $PlaceHolderDomain -Recurse -Identity $convertedMemberName).MemberName -join ' - '
+					"Group Members" = if($convertedMemberName) {(Get-DomainGroupMember -Domain $PlaceHolderDomain -Recurse -Identity $convertedMemberName).MemberName -join ' - '} else {""}
 				}
 			}
 		}
