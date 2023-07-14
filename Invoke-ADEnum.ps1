@@ -3511,7 +3511,7 @@ function Invoke-ADEnum
 						}
 					}
 					
-					$FinalMembername = if ($member.MemberName) { $member.MemberName } else { $convertedMemberName }
+					$FinalMembername = if ($member.MemberName) { $member.MemberName } elseif ($convertedMemberName) { $convertedMemberName } else {$member.MemberSID}
 					$FinalMembernames += $FinalMembername
 				}
 			}
@@ -3570,7 +3570,7 @@ function Invoke-ADEnum
 							}
 						}
 						
-						$FinalMembername = if ($member.MemberName) { $member.MemberName } else { $convertedMemberName }
+						$FinalMembername = if ($member.MemberName) { $member.MemberName } elseif ($convertedMemberName) { $convertedMemberName } else {$member.MemberSID}
 						$FinalMembernames += $FinalMembername
 					}
 				}
