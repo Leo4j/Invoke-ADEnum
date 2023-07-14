@@ -6282,7 +6282,7 @@ function Invoke-ADEnum
 						}
 					}
 					
-					$OtherGroupMembername = if ($OtherGroupMember.MemberName) { $OtherGroupMember.MemberName } else { $convertedMemberName }
+					$OtherGroupMembername = if ($OtherGroupMember.MemberName) { $OtherGroupMember.MemberName } elseif ($convertedMemberName) { $convertedMemberName } else {$OtherGroupMember.MemberSID}
 					
 					$OtherGroupMembernames += $OtherGroupMembername
 				
@@ -6329,7 +6329,7 @@ function Invoke-ADEnum
 							}
 						}
 						
-						$OtherGroupMembername = if ($OtherGroupMember.MemberName) { $OtherGroupMember.MemberName } else { $convertedMemberName }
+						$OtherGroupMembername = if ($OtherGroupMember.MemberName) { $OtherGroupMember.MemberName } elseif ($convertedMemberName) { $convertedMemberName } else {$OtherGroupMember.MemberSID}
 						
 						$OtherGroupMembernames += $OtherGroupMembername
 					
