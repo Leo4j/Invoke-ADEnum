@@ -1140,8 +1140,8 @@ function Invoke-ADEnum
 	}
 
  	if ($TempBuiltInAdministrators) {
-		$TempBuiltInAdministrators | Sort-Object -Unique "Group Domain","Member Name" | ft -Autosize -Wrap
-		$HTMLBuiltInAdministrators = $TempBuiltInAdministrators | Sort-Object -Unique "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Built-In Administrators</h2>"
+		$TempBuiltInAdministrators | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ft -Autosize -Wrap
+		$HTMLBuiltInAdministrators = $TempBuiltInAdministrators | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2>Built-In Administrators</h2>"
 	}
 	
 	######################################################
@@ -1222,8 +1222,8 @@ function Invoke-ADEnum
 	}
 
  	if ($TempEnterpriseAdmins) {
-			$TempEnterpriseAdmins | Sort-Object -Unique "Group Domain","Member Name" | ft -Autosize -Wrap
-			$HTMLEnterpriseAdmins = $TempEnterpriseAdmins | Sort-Object -Unique "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Enterprise Administrators</h2>"
+			$TempEnterpriseAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ft -Autosize -Wrap
+			$HTMLEnterpriseAdmins = $TempEnterpriseAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2>Enterprise Administrators</h2>"
 		}
 	
 	##################################################
@@ -1302,8 +1302,8 @@ function Invoke-ADEnum
 	}
 
  	if ($TempDomainAdmins) {
-			$TempDomainAdmins | Sort-Object -Unique "Group Domain","Member Name" | ft -Autosize -Wrap
-			$HTMLDomainAdmins = $TempDomainAdmins | Sort-Object -Unique "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Domain Administrators</h2>"
+			$TempDomainAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ft -Autosize -Wrap
+			$HTMLDomainAdmins = $TempDomainAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2>Domain Administrators</h2>"
 		}
 
  	#################################################### 
@@ -1402,8 +1402,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempAccountOperators) {
-			$TempAccountOperators | Sort-Object -Unique "Group Domain","Member Name" | Format-Table -Autosize -Wrap
-			$HTMLAccountOperators = $TempAccountOperators | Sort-Object -Unique "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Account Operators</h2>"
+			$TempAccountOperators | Sort-Object -Unique "Group Domain","Member Name","Member SID" | Format-Table -Autosize -Wrap
+			$HTMLAccountOperators = $TempAccountOperators | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2>Account Operators</h2>"
 		}
 		
 		#################################################### 
@@ -1497,8 +1497,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempBackupOperators) {
-			$TempBackupOperators | Sort-Object -Unique "Group Domain","Member Name" | Format-Table -Autosize -Wrap
-			$HTMLBackupOperators = $TempBackupOperators | Sort-Object -Unique "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Backup Operators</h2>"
+			$TempBackupOperators | Sort-Object -Unique "Group Domain","Member Name","Member SID" | Format-Table -Autosize -Wrap
+			$HTMLBackupOperators = $TempBackupOperators | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2>Backup Operators</h2>"
 		}
 		
 		#################################################### 
@@ -1591,8 +1591,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempCertPublishersGroup) {
-			$TempCertPublishersGroup | Sort-Object -Unique "Group Domain","Member Name" | Format-Table -Autosize -Wrap
-			$HTMLCertPublishersGroup = $TempCertPublishersGroup | Sort-Object -Unique "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Cert Publishers</h2>"
+			$TempCertPublishersGroup | Sort-Object -Unique "Group Domain","Member Name","Member SID" | Format-Table -Autosize -Wrap
+			$HTMLCertPublishersGroup = $TempCertPublishersGroup | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2>Cert Publishers</h2>"
 		}
 		
 		#################################################### 
@@ -1685,8 +1685,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempDNSAdmins) {
-			$TempDNSAdmins | Sort-Object -Unique "Group Domain","Member Name" | Format-Table -Autosize -Wrap
-			$HTMLDNSAdmins = $TempDNSAdmins | Sort-Object -Unique "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>DNS Admins</h2>"
+			$TempDNSAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | Format-Table -Autosize -Wrap
+			$HTMLDNSAdmins = $TempDNSAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2>DNS Admins</h2>"
 		}
 		
 		#################################################### 
@@ -1779,8 +1779,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempEnterpriseKeyAdmins) {
-			$TempEnterpriseKeyAdmins | Sort-Object -Unique "Group Domain","Member Name" | Format-Table -Autosize -Wrap
-			$HTMLEnterpriseKeyAdmins = $TempEnterpriseKeyAdmins | Sort-Object -Unique "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Enterprise Key Admins</h2>"
+			$TempEnterpriseKeyAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | Format-Table -Autosize -Wrap
+			$HTMLEnterpriseKeyAdmins = $TempEnterpriseKeyAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2>Enterprise Key Admins</h2>"
 		}
 		
 		#################################################### 
@@ -1873,8 +1873,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempEnterpriseRODCs) {
-			$TempEnterpriseRODCs | Sort-Object -Unique "Group Domain","Member Name" | Format-Table -Autosize -Wrap
-			$HTMLEnterpriseRODCs = $TempEnterpriseRODCs | Sort-Object -Unique "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Enterprise Read-Only Domain Controllers</h2>"
+			$TempEnterpriseRODCs | Sort-Object -Unique "Group Domain","Member Name","Member SID" | Format-Table -Autosize -Wrap
+			$HTMLEnterpriseRODCs = $TempEnterpriseRODCs | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2>Enterprise Read-Only Domain Controllers</h2>"
 		}
 
 		
@@ -1968,8 +1968,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempGPCreatorOwners) {
-			$TempGPCreatorOwners | Sort-Object -Unique "Group Domain","Member Name" | Format-Table -Autosize -Wrap
-			$HTMLGPCreatorOwners = $TempGPCreatorOwners | Sort-Object -Unique "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Group Policy Creator Owners</h2>"
+			$TempGPCreatorOwners | Sort-Object -Unique "Group Domain","Member Name","Member SID" | Format-Table -Autosize -Wrap
+			$HTMLGPCreatorOwners = $TempGPCreatorOwners | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2>Group Policy Creator Owners</h2>"
 		}
 
 		#################################################### 
@@ -2062,8 +2062,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempKeyAdmins) {
-			$TempKeyAdmins | Sort-Object -Unique "Group Domain","Member Name" | Format-Table -Autosize -Wrap
-			$HTMLKeyAdmins = $TempKeyAdmins | Sort-Object -Unique "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Key Admins</h2>"
+			$TempKeyAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | Format-Table -Autosize -Wrap
+			$HTMLKeyAdmins = $TempKeyAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2>Key Admins</h2>"
 		}
 		
 		#################################################### 
@@ -2156,8 +2156,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempProtectedUsers) {
-			$TempProtectedUsers | Sort-Object -Unique "Group Domain","Member Name" | Format-Table -Autosize -Wrap
-			$HTMLProtectedUsers = $TempProtectedUsers | Sort-Object -Unique "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Protected Users</h2>"
+			$TempProtectedUsers | Sort-Object -Unique "Group Domain","Member Name","Member SID" | Format-Table -Autosize -Wrap
+			$HTMLProtectedUsers = $TempProtectedUsers | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2>Protected Users</h2>"
 		}
 
 		
@@ -2251,8 +2251,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempRODCs) {
-			$TempRODCs | Sort-Object -Unique "Group Domain","Member Name" | Format-Table -Autosize -Wrap
-			$HTMLRODCs = $TempRODCs | Sort-Object -Unique "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Read-Only Domain Controllers</h2>"
+			$TempRODCs | Sort-Object -Unique "Group Domain","Member Name","Member SID" | Format-Table -Autosize -Wrap
+			$HTMLRODCs = $TempRODCs | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2>Read-Only Domain Controllers</h2>"
 		}
 		
 		
@@ -2351,8 +2351,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempSchemaAdmins) {
-			$TempSchemaAdmins | Sort-Object -Unique "Group Domain","Member Name" | ft -Autosize -Wrap
-			$HTMLSchemaAdmins = $TempSchemaAdmins | Sort-Object -Unique "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Schema Admins</h2>"
+			$TempSchemaAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ft -Autosize -Wrap
+			$HTMLSchemaAdmins = $TempSchemaAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2>Schema Admins</h2>"
 		}
 		
 		#################################################### 
@@ -2445,8 +2445,8 @@ function Invoke-ADEnum
 		}
 
 		if ($TempServerOperators) {
-			$TempServerOperators | Sort-Object -Unique "Group Domain","Member Name" | Format-Table -Autosize -Wrap
-			$HTMLServerOperators = $TempServerOperators | Sort-Object -Unique "Group Domain","Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>Server Operators</h2>"
+			$TempServerOperators | Sort-Object -Unique "Group Domain","Member Name","Member SID" | Format-Table -Autosize -Wrap
+			$HTMLServerOperators = $TempServerOperators | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2>Server Operators</h2>"
 		}
 
 
