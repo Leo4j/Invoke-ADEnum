@@ -2597,6 +2597,7 @@ function Invoke-ADEnum
 			}
 			
 			$HTMLADCSEndpointsTable = $ADCSEndpointsTable | ConvertTo-Html -As List -Fragment
+   			$HTMLADCSEndpointsTable = $HTMLADCSEndpointsTable.Replace("Remediation", '<a href="https://support.microsoft.com/en-gb/topic/kb5005413-mitigating-ntlm-relay-attacks-on-active-directory-certificate-services-ad-cs-3612b773-4043-4aa9-b23d-b87910cd3429">Remediation</a>')
 		}
 	}
 	
