@@ -5726,10 +5726,10 @@ function Invoke-ADEnum
 		$DomainPolicy = Get-DomainPolicy -Domain $Domain -Server $Server
 		$TempDomainPolicy = [PSCustomObject]@{
 			"Domain" = $Domain
+   			"Pwd Complexity" = $DomainPolicy.SystemAccess.PasswordComplexity
+      			"Min Pwd Length" = $DomainPolicy.SystemAccess.MinimumPasswordLength
 			"Min Pwd Age" = $DomainPolicy.SystemAccess.MinimumPasswordAge
 			"Max Pwd Age" = $DomainPolicy.SystemAccess.MaximumPasswordAge
-			"Min Pwd Length" = $DomainPolicy.SystemAccess.MinimumPasswordLength
-			"Pwd Complexity" = $DomainPolicy.SystemAccess.PasswordComplexity
 			"Password History" = $DomainPolicy.SystemAccess.PasswordHistorySize
 			"Lockout Bad Count" = $DomainPolicy.SystemAccess.LockoutBadCount
 			"Reset Lockout Count" = $DomainPolicy.SystemAccess.ResetLockoutCount
@@ -5742,10 +5742,10 @@ function Invoke-ADEnum
 			$DomainPolicy = Get-DomainPolicy -Domain $AllDomain
 			[PSCustomObject]@{
 				"Domain" = $AllDomain
+    				"Pwd Complexity" = $DomainPolicy.SystemAccess.PasswordComplexity
+				"Min Pwd Length" = $DomainPolicy.SystemAccess.MinimumPasswordLength
 				"Min Pwd Age" = $DomainPolicy.SystemAccess.MinimumPasswordAge
 				"Max Pwd Age" = $DomainPolicy.SystemAccess.MaximumPasswordAge
-				"Min Pwd Length" = $DomainPolicy.SystemAccess.MinimumPasswordLength
-				"Pwd Complexity" = $DomainPolicy.SystemAccess.PasswordComplexity
 				"Password History" = $DomainPolicy.SystemAccess.PasswordHistorySize
 				"Lockout Bad Count" = $DomainPolicy.SystemAccess.LockoutBadCount
 				"Reset Lockout Count" = $DomainPolicy.SystemAccess.ResetLockoutCount
