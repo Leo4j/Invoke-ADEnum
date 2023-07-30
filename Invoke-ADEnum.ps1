@@ -3981,10 +3981,6 @@ function Invoke-ADEnum
 			}
 		}
 
-		if ($TempAdminsInProtectedUsersGroup) {
-			$TempAdminsInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-			$HTMLAdminsInProtectedUsersGroup = $TempAdminsInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users in 'Protected Users' Group</h2>"
-		}
 	}
 	
 	else {
@@ -4010,12 +4006,13 @@ function Invoke-ADEnum
 			}
 		}
 
-		if ($TempAdminsInProtectedUsersGroup) {
-			$TempAdminsInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-			$HTMLAdminsInProtectedUsersGroup = $TempAdminsInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users in 'Protected Users' Group</h2>"
-		}
 	}
-	
+
+	if ($TempAdminsInProtectedUsersGroup) {
+		$TempAdminsInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+		$HTMLAdminsInProtectedUsersGroup = $TempAdminsInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users in 'Protected Users' Group</h2>"
+	}
+ 
 	######################################################################
     ########### Admin users NOT in "Protected Users" group ###############
 	######################################################################
@@ -4107,10 +4104,6 @@ function Invoke-ADEnum
 			}
 		}
 
-		if ($TempNonAdminsInProtectedUsersGroup) {
-			$TempNonAdminsInProtectedUsersGroup | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-			$HTMLNonAdminsInProtectedUsersGroup = $TempNonAdminsInProtectedUsersGroup | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Non-Admin Users in 'Protected Users' Group</h2>"
-		}
 	}
 	
 	else {
@@ -4136,10 +4129,11 @@ function Invoke-ADEnum
 			}
 		}
 
-		if ($TempNonAdminsInProtectedUsersGroup) {
-			$TempNonAdminsInProtectedUsersGroup | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-			$HTMLNonAdminsInProtectedUsersGroup = $TempNonAdminsInProtectedUsersGroup | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Non-Admin Users in 'Protected Users' Group</h2>"
-		}
+	}
+
+ 	if ($TempNonAdminsInProtectedUsersGroup) {
+		$TempNonAdminsInProtectedUsersGroup | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+		$HTMLNonAdminsInProtectedUsersGroup = $TempNonAdminsInProtectedUsersGroup | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Non-Admin Users in 'Protected Users' Group</h2>"
 	}
 	
 	####################################################################
@@ -4166,11 +4160,6 @@ function Invoke-ADEnum
 				"Domain" = $Domain
 			}
 		}
-
-		if ($TempPrivilegedSensitiveUsers) {
-			$TempPrivilegedSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-			$HTMLPrivilegedSensitiveUsers = $TempPrivilegedSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users marked as 'sensitive and not allowed for delegation'</h2>"
-		}
 	}
 	
 	else {
@@ -4193,11 +4182,11 @@ function Invoke-ADEnum
 				}
 			}
 		}
+	}
 
-		if ($TempPrivilegedSensitiveUsers) {
-			$TempPrivilegedSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-			$HTMLPrivilegedSensitiveUsers = $TempPrivilegedSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users marked as 'sensitive and not allowed for delegation'</h2>"
-		}
+ 	if ($TempPrivilegedSensitiveUsers) {
+		$TempPrivilegedSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+		$HTMLPrivilegedSensitiveUsers = $TempPrivilegedSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users marked as 'sensitive and not allowed for delegation'</h2>"
 	}
 
 	
@@ -4286,10 +4275,6 @@ function Invoke-ADEnum
 			}
 		}
 
-		if ($TempNonPrivilegedSensitiveUsers) {
-			$TempNonPrivilegedSensitiveUsers | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-			$HTMLNonPrivilegedSensitiveUsers = $TempNonPrivilegedSensitiveUsers | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Non-Privileged users marked as 'sensitive and not allowed for delegation'</h2>"
-		}
 	}
 	
 	else {
@@ -4312,11 +4297,11 @@ function Invoke-ADEnum
 				}
 			}
 		}
+	}
 
-		if ($TempNonPrivilegedSensitiveUsers) {
-			$TempNonPrivilegedSensitiveUsers | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-			$HTMLNonPrivilegedSensitiveUsers = $TempNonPrivilegedSensitiveUsers | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Non-Privileged users marked as 'sensitive and not allowed for delegation'</h2>"
-		}
+ 	if ($TempNonPrivilegedSensitiveUsers) {
+		$TempNonPrivilegedSensitiveUsers | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+		$HTMLNonPrivilegedSensitiveUsers = $TempNonPrivilegedSensitiveUsers | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Non-Privileged users marked as 'sensitive and not allowed for delegation'</h2>"
 	}
 	
 	####################################################################
@@ -4533,11 +4518,6 @@ function Invoke-ADEnum
 				}
 			}
 		}
-
-		if ($LinkedDAAccounts) {
-			$LinkedDAAccounts | Sort-Object Domain,Account,"Display Name" | Format-Table -AutoSize -Wrap
-			$HTMLLinkedDAAccounts = $LinkedDAAccounts | Sort-Object Domain,Account,"Display Name" | ConvertTo-Html -Fragment -PreContent "<h2>Linked DA accounts using name correlation</h2>"
-		}
 	}
 	else {
 		$LinkedDAAccounts = foreach ($AllDomain in $AllDomains) {
@@ -4565,11 +4545,11 @@ function Invoke-ADEnum
 				}
 			}
 		}
+	}
 
-		if ($LinkedDAAccounts) {
-			$LinkedDAAccounts | Sort-Object Domain,Account,"Display Name" | Format-Table -AutoSize -Wrap
-			$HTMLLinkedDAAccounts = $LinkedDAAccounts | Sort-Object Domain,Account,"Display Name" | ConvertTo-Html -Fragment -PreContent "<h2>Linked DA accounts using name correlation</h2>"
-		}
+ 	if ($LinkedDAAccounts) {
+		$LinkedDAAccounts | Sort-Object Domain,Account,"Display Name" | Format-Table -AutoSize -Wrap
+		$HTMLLinkedDAAccounts = $LinkedDAAccounts | Sort-Object Domain,Account,"Display Name" | ConvertTo-Html -Fragment -PreContent "<h2>Linked DA accounts using name correlation</h2>"
 	}
 	
 	#######################################
