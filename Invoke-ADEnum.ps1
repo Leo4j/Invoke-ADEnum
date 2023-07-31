@@ -4012,6 +4012,65 @@ function Invoke-ADEnum
 		$TempAdminsInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
 		$HTMLAdminsInProtectedUsersGroup = $TempAdminsInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users in 'Protected Users' Group</h2>"
 	}
+
+ 	###############################################################################################################################
+    ########### Admin users in "Protected Users" group but NOT marked as "sensitive and not allowed for delegation" ###############
+	###############################################################################################################################
+	
+	Write-Host ""
+	Write-Host "Admin Users in 'Protected Users' group but NOT marked as 'sensitive and not allowed for delegation':" -ForegroundColor Cyan
+	if ($Domain -and $Server) {
+		$dcName = "DC=" + $Domain.Split(".")
+		$dcName = $dcName -replace " ", ",DC="
+		$ProtectedNotSensitiveUsers = Get-DomainUser -Domain $Domain -Server $Server -AllowDelegation -LDAPFilter "(&(AdminCount=1)(memberof=CN=Protected Users,CN=Users,$dcName))"
+		$TempNotSensitiveAdminsInProtectedUsersGroup = foreach ($ProtectedNotSensitiveUser in $ProtectedNotSensitiveUsers) {
+			[PSCustomObject]@{
+				"Account" = $ProtectedNotSensitiveUser.samaccountname
+				"Enabled" = if ($ProtectedNotSensitiveUser.useraccountcontrol -band 2) { "False" } else { "True" }
+				"Active" = if ($ProtectedNotSensitiveUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
+    				"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $ProtectedNotSensitiveUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $ProtectedNotSensitiveUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $ProtectedNotSensitiveUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				#"Adm" = if ($ProtectedNotSensitiveUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+				#"DA" = if ($ProtectedNotSensitiveUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+				#"EA" = if ($ProtectedNotSensitiveUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+				"Last Logon" = $ProtectedNotSensitiveUser.lastlogontimestamp
+				"SID" = $ProtectedNotSensitiveUser.objectSID
+				"Domain" = $Domain
+			}
+		}
+
+	}
+	
+	else {
+		$TempNotSensitiveAdminsInProtectedUsersGroup = foreach ($AllDomain in $AllDomains) {
+			$dcName = "DC=" + $AllDomain.Split(".")
+			$dcName = $dcName -replace " ", ",DC="
+			$ProtectedNotSensitiveUsers = Get-DomainUser -Domain $AllDomain -AllowDelegation -LDAPFilter "(&(AdminCount=1)(memberof=CN=Protected Users,CN=Users,$dcName))"
+			foreach ($ProtectedNotSensitiveUser in $ProtectedNotSensitiveUsers) {
+				[PSCustomObject]@{
+					"Account" = $ProtectedNotSensitiveUser.samaccountname
+					"Enabled" = if ($ProtectedNotSensitiveUser.useraccountcontrol -band 2) { "False" } else { "True" }
+					"Active" = if ($ProtectedNotSensitiveUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
+     					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $ProtectedNotSensitiveUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $ProtectedNotSensitiveUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $ProtectedNotSensitiveUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					#"Adm" = if ($ProtectedNotSensitiveUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+					#"DA" = if ($ProtectedNotSensitiveUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					#"EA" = if ($ProtectedNotSensitiveUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+					"Last Logon" = $ProtectedNotSensitiveUser.lastlogontimestamp
+					"SID" = $ProtectedNotSensitiveUser.objectSID
+					"Domain" = $AllDomain
+				}
+			}
+		}
+
+	}
+	
+	if ($TempNotSensitiveAdminsInProtectedUsersGroup) {
+		$TempNotSensitiveAdminsInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+		$HTMLNotSensitiveAdminsInProtectedUsersGroup = $TempNotSensitiveAdminsInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users in 'Protected Users' Group but NOT marked as 'sensitive and not allowed for delegation'</h2>"
+	}
  
 	######################################################################
     ########### Admin users NOT in "Protected Users" group ###############
@@ -4075,6 +4134,70 @@ function Invoke-ADEnum
 		
 		$HTMLAdminsNOTinProtectedUsersGroupTable = $AdminsNOTinProtectedUsersGroupTable | ConvertTo-Html -As List -Fragment
   		$HTMLAdminsNOTinProtectedUsersGroupTable = $HTMLAdminsNOTinProtectedUsersGroupTable.Replace("*", "Recommendations")
+	}
+
+ 	#######################################################################################################################################
+    ########### Admin users NOT in "Protected Users" group and NOT marked as "sensitive and not allowed for delegation" ###############
+	###################################################################################################################################
+	
+	Write-Host ""
+	Write-Host "Admin Users NOT in 'Protected Users' group and NOT marked as 'sensitive and not allowed for delegation':" -ForegroundColor Cyan
+	if ($Domain -and $Server) {
+		$dcName = "DC=" + $Domain.Split(".")
+		$dcName = $dcName -replace " ", ",DC="
+		$NotProtectedNotSensitiveUsers = Get-DomainUser -Domain $Domain -Server $Server -AllowDelegation -LDAPFilter "(&(AdminCount=1)(!(memberof=CN=Protected Users,CN=Users,$dcName)))"
+		$TempAdminsNOTinProtectedUsersGroupAndNOTSensitive = foreach ($NotProtectedNotSensitiveUser in $NotProtectedNotSensitiveUsers) {
+			[PSCustomObject]@{
+				"Account" = $NotProtectedNotSensitiveUser.samaccountname
+				"Enabled" = if ($NotProtectedNotSensitiveUser.useraccountcontrol -band 2) { "False" } else { "True" }
+				"Active" = if ($NotProtectedNotSensitiveUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
+    				"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $NotProtectedNotSensitiveUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $NotProtectedNotSensitiveUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $NotProtectedNotSensitiveUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				#"Adm" = if ($NotProtectedNotSensitiveUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+				#"DA" = if ($NotProtectedNotSensitiveUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+				#"EA" = if ($NotProtectedNotSensitiveUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+				"Last Logon" = $NotProtectedNotSensitiveUser.lastlogontimestamp
+				"SID" = $NotProtectedNotSensitiveUser.objectSID
+				"Domain" = $Domain
+			}
+		}
+	}
+	
+	else {
+		$TempAdminsNOTinProtectedUsersGroupAndNOTSensitive = foreach ($AllDomain in $AllDomains) {
+			$dcName = "DC=" + $AllDomain.Split(".")
+			$dcName = $dcName -replace " ", ",DC="
+			$NotProtectedNotSensitiveUsers = Get-DomainUser -Domain $AllDomain -AllowDelegation -LDAPFilter "(&(AdminCount=1)(!(memberof=CN=Protected Users,CN=Users,$dcName)))"
+			foreach ($NotProtectedNotSensitiveUser in $NotProtectedNotSensitiveUsers) {
+				[PSCustomObject]@{
+					"Account" = $NotProtectedNotSensitiveUser.samaccountname
+					"Enabled" = if ($NotProtectedNotSensitiveUser.useraccountcontrol -band 2) { "False" } else { "True" }
+					"Active" = if ($NotProtectedNotSensitiveUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
+     					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $NotProtectedNotSensitiveUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $NotProtectedNotSensitiveUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $NotProtectedNotSensitiveUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					#"Adm" = if ($NotProtectedNotSensitiveUser.memberof -match 'Administrators') { "YES" } else { "NO" }
+					#"DA" = if ($NotProtectedNotSensitiveUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					#"EA" = if ($NotProtectedNotSensitiveUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+					"Last Logon" = $NotProtectedNotSensitiveUser.lastlogontimestamp
+					"SID" = $NotProtectedNotSensitiveUser.objectSID
+					"Domain" = $AllDomain
+				}
+			}
+		}
+	}
+
+ 	if ($TempAdminsNOTinProtectedUsersGroupAndNOTSensitive) {
+		$TempAdminsNOTinProtectedUsersGroupAndNOTSensitive | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+		$HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive = $TempAdminsNOTinProtectedUsersGroupAndNOTSensitive | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users NOT in 'Protected Users' Group and NOT marked as 'sensitive and not allowed for delegation'</h2>"
+
+  		$AdminsNOTinProtectedUsersGroupAndNOTSensitiveTable = [PSCustomObject]@{
+			"Recommendations" = "Consider adding the identified Admin Users to the 'Protected Users' group or marking them as 'sensitive and not allowed for delegation' to enforce enhanced security measures such as restrictions on NTLM Authentication and Delegation."
+		}
+		
+		$HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitiveTable = $AdminsNOTinProtectedUsersGroupAndNOTSensitiveTable | ConvertTo-Html -As List -Fragment
+  		$HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitiveTable = $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitiveTable.Replace("*", "Recommendations")
 	}
 	
 	######################################################################
@@ -6475,8 +6598,8 @@ function Invoke-ADEnum
     # Stop capturing the output and display it on the console
     Stop-Transcript | Out-Null
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLProtectedUsers $HTMLRODCs $HTMLSchemaAdmins $HTMLServerOperators $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLPreWin2kCompatibleAccess $HTMLUnsupportedHosts $HTMLLMCompatibilityLevel $HTMLMachineQuota $InterestingDataBanner $HTMLReplicationUsers $HTMLServiceAccounts $HTMLGMSAs $HTMLnopreauthset $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLLinkedDAAccounts $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
-	$ClientReport = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLCertTemplatesTable $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLMachineQuota $HTMLMachineAccountQuotaTable $InterestingDataBanner $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLUsersAdminCount $HTMLAdminCountUsersTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupTable $HTMLPrivilegedNotSensitiveUsers $HTMLPrivilegedNOTSensitiveDelegationTable $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLServersDisabled $HTMLWorkstationsDisabled $HTMLDisabledUsers" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLProtectedUsers $HTMLRODCs $HTMLSchemaAdmins $HTMLServerOperators $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLPreWin2kCompatibleAccess $HTMLUnsupportedHosts $HTMLLMCompatibilityLevel $HTMLMachineQuota $InterestingDataBanner $HTMLReplicationUsers $HTMLServiceAccounts $HTMLGMSAs $HTMLnopreauthset $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLNotSensitiveAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLLinkedDAAccounts $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
+	$ClientReport = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLCertTemplatesTable $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLMachineQuota $HTMLMachineAccountQuotaTable $InterestingDataBanner $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLUsersAdminCount $HTMLAdminCountUsersTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupTable $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitiveTable $HTMLPrivilegedNotSensitiveUsers $HTMLPrivilegedNOTSensitiveDelegationTable $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLServersDisabled $HTMLWorkstationsDisabled $HTMLDisabledUsers" -Title "Active Directory Audit" -Head $header
  	$HTMLOutputFilePath = $OutputFilePath.Replace(".txt", ".html")
   	$HTMLClientOutputFilePath = $HTMLOutputFilePath.Replace("Invoke-ADEnum", "Invoke-ADEnum_Client-Report")
 	$Report | Out-File $HTMLOutputFilePath
