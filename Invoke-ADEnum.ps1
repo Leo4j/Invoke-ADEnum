@@ -3552,6 +3552,14 @@ function Invoke-ADEnum
 							}
 							
 						}
+
+						if($convertedMemberName){}
+			      			else {
+			     				$ForeignGroupMemberAccount = $null
+			     				$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $member.MemberSID
+			    				$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
+			     			}
+	    
 					}
 					
 					$FinalMembername = if ($member.MemberName) { $member.MemberName } elseif ($convertedMemberName) { $convertedMemberName } else {$member.MemberSID}
@@ -3611,6 +3619,13 @@ function Invoke-ADEnum
 								}
 								
 							}
+
+       							if($convertedMemberName){}
+				      			else {
+				     				$ForeignGroupMemberAccount = $null
+				     				$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $member.MemberSID
+				    				$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
+				     			}
 						}
 						
 						$FinalMembername = if ($member.MemberName) { $member.MemberName } elseif ($convertedMemberName) { $convertedMemberName } else {$member.MemberSID}
