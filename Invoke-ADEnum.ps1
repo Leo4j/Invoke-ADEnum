@@ -1013,9 +1013,21 @@ function Invoke-ADEnum
       			else {
 	 			$PlaceHolderDomain = $null
      				$ForeignGroupMemberAccount = $null
+	 			$DomainNameExtract = $null
+     				$matchedDomain = $null
      				$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $ForeignGroupMember.MemberName
     				$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
 				#$ExtractDomainSID = ($ForeignGroupMember.MemberName -split '-', 8)[0..6] -join '-'
+    				$DomainNameExtract = $convertedMemberName.Split('\')[0]
+				
+				foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+				    if ($DomainNameExtract -like "*$PlaceHolderDomain*") {
+				        $matchedDomain = $PlaceHolderDomain
+				        break
+				    }
+				}
+
+    				$PlaceHolderDomain = $matchedDomain
      			}
 			
 			[PSCustomObject]@{
@@ -1052,9 +1064,21 @@ function Invoke-ADEnum
 				else {
 		 			$PlaceHolderDomain = $null
 	     				$ForeignGroupMemberAccount = $null
+		 			$DomainNameExtract = $null
+	     				$matchedDomain = $null
 	     				$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $ForeignGroupMember.MemberName
 	    				$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
 					#$ExtractDomainSID = ($ForeignGroupMember.MemberName -split '-', 8)[0..6] -join '-'
+	    				$DomainNameExtract = $convertedMemberName.Split('\')[0]
+					
+					foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+					    if ($DomainNameExtract -like "*$PlaceHolderDomain*") {
+					        $matchedDomain = $PlaceHolderDomain
+					        break
+					    }
+					}
+	
+	    				$PlaceHolderDomain = $matchedDomain
 	     			}
 				
 				[PSCustomObject]@{
