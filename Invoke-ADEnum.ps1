@@ -6441,6 +6441,13 @@ function Invoke-ADEnum
 							}
 							
 						}
+
+      						if($convertedMemberName){}
+			      			else {
+			     				$ForeignGroupMemberAccount = $null
+			     				$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $OtherGroupMember.MemberSID
+			    				$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
+			     			}
 					}
 					
 					$OtherGroupMembername = if ($OtherGroupMember.MemberName) { $OtherGroupMember.MemberName } elseif ($convertedMemberName) { $convertedMemberName } else {$OtherGroupMember.MemberSID}
@@ -6488,6 +6495,13 @@ function Invoke-ADEnum
 								}
 								
 							}
+
+       							if($convertedMemberName){}
+				      			else {
+				     				$ForeignGroupMemberAccount = $null
+				     				$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $OtherGroupMember.MemberSID
+				    				$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
+				     			}
 						}
 						
 						$OtherGroupMembername = if ($OtherGroupMember.MemberName) { $OtherGroupMember.MemberName } elseif ($convertedMemberName) { $convertedMemberName } else {$OtherGroupMember.MemberSID}
