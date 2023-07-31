@@ -1021,7 +1021,7 @@ function Invoke-ADEnum
     				$DomainNameExtract = $convertedMemberName.Split('\')[0]
 				
 				foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
-				    if ($DomainNameExtract -like "*$PlaceHolderDomain*") {
+				    if ($PlaceHolderDomain -like "*$DomainNameExtract*") {
 				        $matchedDomain = $PlaceHolderDomain
 				        break
 				    }
@@ -1072,7 +1072,7 @@ function Invoke-ADEnum
 	    				$DomainNameExtract = $convertedMemberName.Split('\')[0]
 					
 					foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
-					    if ($DomainNameExtract -like "*$PlaceHolderDomain*") {
+					    if ($PlaceHolderDomain -like "*$DomainNameExtract*") {
 					        $matchedDomain = $PlaceHolderDomain
 					        break
 					    }
