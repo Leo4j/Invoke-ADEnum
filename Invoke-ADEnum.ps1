@@ -1122,6 +1122,13 @@ function Invoke-ADEnum
 					continue
 				}
 			}
+
+   			if($convertedMemberName){}
+			else {
+				$ForeignGroupMemberAccount = $null
+				$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $BuiltInAdministrator.MemberSID
+				$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
+			}
 			
 			$domainObject = Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 			$memberName = if ($BuiltInAdministrator.MemberName) { $BuiltInAdministrator.MemberName } else { $convertedMemberName }
@@ -1158,6 +1165,13 @@ function Invoke-ADEnum
 					catch {
 						continue
 					}
+				}
+
+    				if($convertedMemberName){}
+				else {
+					$ForeignGroupMemberAccount = $null
+					$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $BuiltInAdministrator.MemberSID
+					$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
 				}
 				
 				$domainObject = Get-DomainObject -Identity $BuiltInAdministrator.MemberName -Domain $AllDomain -Properties lastlogontimestamp
@@ -1208,6 +1222,13 @@ function Invoke-ADEnum
 					continue
 				}
 			}
+
+   			if($convertedMemberName){}
+			else {
+				$ForeignGroupMemberAccount = $null
+				$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $EnterpriseAdmin.MemberSID
+				$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
+			}
 			
 			$domainObject = Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 			$memberName = if ($EnterpriseAdmin.MemberName) { $EnterpriseAdmin.MemberName } else { $convertedMemberName }
@@ -1243,6 +1264,13 @@ function Invoke-ADEnum
 					catch {
 						continue
 					}
+				}
+
+    				if($convertedMemberName){}
+				else {
+					$ForeignGroupMemberAccount = $null
+					$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $EnterpriseAdmin.MemberSID
+					$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
 				}
 				
 				$domainObject = Get-DomainObject -Identity $EnterpriseAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp
@@ -1290,6 +1318,13 @@ function Invoke-ADEnum
 					continue
 				}
 			}
+
+   			if($convertedMemberName){}
+			else {
+				$ForeignGroupMemberAccount = $null
+				$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $DomainAdmin.MemberSID
+				$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
+			}
 			
 			$domainObject = Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 			$lastLogonTimestamp = $domainObject.lastlogontimestamp
@@ -1324,6 +1359,13 @@ function Invoke-ADEnum
 					catch {
 						continue
 					}
+				}
+
+    				if($convertedMemberName){}
+				else {
+					$ForeignGroupMemberAccount = $null
+					$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $DomainAdmin.MemberSID
+					$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
 				}
 				
 				$domainObject = Get-DomainObject -Identity $DomainAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp
@@ -1376,6 +1418,13 @@ function Invoke-ADEnum
 						continue
 					}
 				}
+
+    				if($convertedMemberName){}
+				else {
+					$ForeignGroupMemberAccount = $null
+					$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $AccountOperator.MemberSID
+					$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
+				}
 				
 				$domainObject = Get-DomainObject -Identity $AccountOperator.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 				$memberName = if ($AccountOperator.MemberName) { $AccountOperator.MemberName } else { $convertedMemberName }
@@ -1416,6 +1465,13 @@ function Invoke-ADEnum
 						catch {
 							continue
 						}
+					}
+
+     					if($convertedMemberName){}
+					else {
+						$ForeignGroupMemberAccount = $null
+						$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $AccountOperator.MemberSID
+						$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
 					}
 					
 					$domainObject = Get-DomainObject -Identity $AccountOperator.MemberName -Domain $AllDomain -Properties lastlogontimestamp
@@ -1470,6 +1526,13 @@ function Invoke-ADEnum
 						continue
 					}
 				}
+
+    				if($convertedMemberName){}
+				else {
+					$ForeignGroupMemberAccount = $null
+					$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $BackupOperator.MemberSID
+					$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
+				}
 				
 				$domainObject = Get-DomainObject -Identity $BackupOperator.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 				$memberName = if ($BackupOperator.MemberName) { $BackupOperator.MemberName } else { $convertedMemberName }
@@ -1510,6 +1573,13 @@ function Invoke-ADEnum
 						catch {
 							continue
 						}
+					}
+
+     					if($convertedMemberName){}
+					else {
+						$ForeignGroupMemberAccount = $null
+						$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $BackupOperator.MemberSID
+						$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
 					}
 					
 					$domainObject = Get-DomainObject -Identity $BackupOperator.MemberName -Domain $AllDomain -Properties lastlogontimestamp
@@ -1565,6 +1635,13 @@ function Invoke-ADEnum
 						continue
 					}
 				}
+
+    				if($convertedMemberName){}
+				else {
+					$ForeignGroupMemberAccount = $null
+					$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $CertPublisher.MemberSID
+					$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
+				}
 				
 				$domainObject = Get-DomainObject -Identity $CertPublisher.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 				$memberName = if ($CertPublisher.MemberName) { $CertPublisher.MemberName } else { $convertedMemberName }
@@ -1605,6 +1682,13 @@ function Invoke-ADEnum
 						catch {
 							continue
 						}
+					}
+
+     					if($convertedMemberName){}
+					else {
+						$ForeignGroupMemberAccount = $null
+						$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $CertPublisher.MemberSID
+						$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
 					}
 					
 					$domainObject = Get-DomainObject -Identity $CertPublisher.MemberName -Domain $AllDomain -Properties lastlogontimestamp
@@ -1659,6 +1743,13 @@ function Invoke-ADEnum
 						continue
 					}
 				}
+
+    				if($convertedMemberName){}
+				else {
+					$ForeignGroupMemberAccount = $null
+					$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $DNSAdmin.MemberSID
+					$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
+				}
 				
 				$domainObject = Get-DomainObject -Identity $DNSAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 				$memberName = if ($DNSAdmin.MemberName) { $DNSAdmin.MemberName } else { $convertedMemberName }
@@ -1699,6 +1790,13 @@ function Invoke-ADEnum
 						catch {
 							continue
 						}
+					}
+
+     					if($convertedMemberName){}
+					else {
+						$ForeignGroupMemberAccount = $null
+						$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $DNSAdmin.MemberSID
+						$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
 					}
 					
 					$domainObject = Get-DomainObject -Identity $DNSAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp
@@ -1753,6 +1851,13 @@ function Invoke-ADEnum
 						continue
 					}
 				}
+
+    				if($convertedMemberName){}
+				else {
+					$ForeignGroupMemberAccount = $null
+					$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $EnterpriseKeyAdmin.MemberSID
+					$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
+				}
 				
 				$domainObject = Get-DomainObject -Identity $EnterpriseKeyAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 				$memberName = if ($EnterpriseKeyAdmin.MemberName) { $EnterpriseKeyAdmin.MemberName } else { $convertedMemberName }
@@ -1793,6 +1898,13 @@ function Invoke-ADEnum
 						catch {
 							continue
 						}
+					}
+
+     					if($convertedMemberName){}
+					else {
+						$ForeignGroupMemberAccount = $null
+						$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $EnterpriseKeyAdmin.MemberSID
+						$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
 					}
 					
 					$domainObject = Get-DomainObject -Identity $EnterpriseKeyAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp
@@ -1847,6 +1959,13 @@ function Invoke-ADEnum
 						continue
 					}
 				}
+
+    				if($convertedMemberName){}
+				else {
+					$ForeignGroupMemberAccount = $null
+					$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $EnterpriseRODC.MemberSID
+					$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
+				}
 				
 				$domainObject = Get-DomainObject -Identity $EnterpriseRODC.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 				$memberName = if ($EnterpriseRODC.MemberName) { $EnterpriseRODC.MemberName } else { $convertedMemberName }
@@ -1887,6 +2006,13 @@ function Invoke-ADEnum
 						catch {
 							continue
 						}
+					}
+
+     					if($convertedMemberName){}
+					else {
+						$ForeignGroupMemberAccount = $null
+						$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $EnterpriseRODC.MemberSID
+						$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
 					}
 					
 					$domainObject = Get-DomainObject -Identity $EnterpriseRODC.MemberName -Domain $AllDomain -Properties lastlogontimestamp
@@ -1942,6 +2068,13 @@ function Invoke-ADEnum
 						continue
 					}
 				}
+
+    				if($convertedMemberName){}
+				else {
+					$ForeignGroupMemberAccount = $null
+					$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $GPCreatorOwner.MemberSID
+					$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
+				}
 				
 				$domainObject = Get-DomainObject -Identity $GPCreatorOwner.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 				$memberName = if ($GPCreatorOwner.MemberName) { $GPCreatorOwner.MemberName } else { $convertedMemberName }
@@ -1982,6 +2115,13 @@ function Invoke-ADEnum
 						catch {
 							continue
 						}
+					}
+
+     					if($convertedMemberName){}
+					else {
+						$ForeignGroupMemberAccount = $null
+						$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $GPCreatorOwner.MemberSID
+						$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
 					}
 					
 					$domainObject = Get-DomainObject -Identity $GPCreatorOwner.MemberName -Domain $AllDomain -Properties lastlogontimestamp
@@ -2036,6 +2176,13 @@ function Invoke-ADEnum
 						continue
 					}
 				}
+
+    				if($convertedMemberName){}
+				else {
+					$ForeignGroupMemberAccount = $null
+					$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $KeyAdmin.MemberSID
+					$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
+				}
 				
 				$domainObject = Get-DomainObject -Identity $KeyAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 				$memberName = if ($KeyAdmin.MemberName) { $KeyAdmin.MemberName } else { $convertedMemberName }
@@ -2076,6 +2223,13 @@ function Invoke-ADEnum
 						catch {
 							continue
 						}
+					}
+
+     					if($convertedMemberName){}
+					else {
+						$ForeignGroupMemberAccount = $null
+						$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $KeyAdmin.MemberSID
+						$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
 					}
 					
 					$domainObject = Get-DomainObject -Identity $KeyAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp
@@ -2130,6 +2284,13 @@ function Invoke-ADEnum
 						continue
 					}
 				}
+
+    				if($convertedMemberName){}
+				else {
+					$ForeignGroupMemberAccount = $null
+					$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $ProtectedUser.MemberSID
+					$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
+				}
 				
 				$domainObject = Get-DomainObject -Identity $ProtectedUser.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 				$memberName = if ($ProtectedUser.MemberName) { $ProtectedUser.MemberName } else { $convertedMemberName }
@@ -2170,6 +2331,13 @@ function Invoke-ADEnum
 						catch {
 							continue
 						}
+					}
+
+     					if($convertedMemberName){}
+					else {
+						$ForeignGroupMemberAccount = $null
+						$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $ProtectedUser.MemberSID
+						$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
 					}
 					
 					$domainObject = Get-DomainObject -Identity $ProtectedUser.MemberName -Domain $AllDomain -Properties lastlogontimestamp
@@ -2225,6 +2393,13 @@ function Invoke-ADEnum
 						continue
 					}
 				}
+
+    				if($convertedMemberName){}
+				else {
+					$ForeignGroupMemberAccount = $null
+					$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $RODC.MemberSID
+					$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
+				}
 				
 				$domainObject = Get-DomainObject -Identity $RODC.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 				$memberName = if ($RODC.MemberName) { $RODC.MemberName } else { $convertedMemberName }
@@ -2265,6 +2440,13 @@ function Invoke-ADEnum
 						catch {
 							continue
 						}
+					}
+
+     					if($convertedMemberName){}
+					else {
+						$ForeignGroupMemberAccount = $null
+						$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $RODC.MemberSID
+						$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
 					}
 					
 					$domainObject = Get-DomainObject -Identity $RODC.MemberName -Domain $AllDomain -Properties lastlogontimestamp
@@ -2321,6 +2503,13 @@ function Invoke-ADEnum
 						continue
 					}
 				}
+
+    				if($convertedMemberName){}
+				else {
+					$ForeignGroupMemberAccount = $null
+					$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $SchemaAdmin.MemberSID
+					$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
+				}
 				
 				$domainObject = Get-DomainObject -Identity $SchemaAdmin.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 				$memberName = if ($SchemaAdmin.MemberName) { $SchemaAdmin.MemberName } else { $convertedMemberName }
@@ -2363,6 +2552,13 @@ function Invoke-ADEnum
 						catch {
 							continue
 						}
+					}
+
+     					if($convertedMemberName){}
+					else {
+						$ForeignGroupMemberAccount = $null
+						$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $SchemaAdmin.MemberSID
+						$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
 					}
 					
 					$domainObject = Get-DomainObject -Identity $SchemaAdmin.MemberName -Domain $AllDomain -Properties lastlogontimestamp
@@ -2419,6 +2615,13 @@ function Invoke-ADEnum
 						continue
 					}
 				}
+
+    				if($convertedMemberName){}
+				else {
+					$ForeignGroupMemberAccount = $null
+					$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $ServerOperator.MemberSID
+					$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
+				}
 				
 				$domainObject = Get-DomainObject -Identity $ServerOperator.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
 				$memberName = if ($ServerOperator.MemberName) { $ServerOperator.MemberName } else { $convertedMemberName }
@@ -2459,6 +2662,13 @@ function Invoke-ADEnum
 						catch {
 							continue
 						}
+					}
+
+     					if($convertedMemberName){}
+					else {
+						$ForeignGroupMemberAccount = $null
+						$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $ServerOperator.MemberSID
+						$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
 					}
 					
 					$domainObject = Get-DomainObject -Identity $ServerOperator.MemberName -Domain $AllDomain -Properties lastlogontimestamp
