@@ -1009,7 +1009,14 @@ function Invoke-ADEnum
 				}
 			}
 
-   			if($convertedMemberName){} else {$PlaceHolderDomain = $null}
+   			if($convertedMemberName){}
+      			else {
+	 			$PlaceHolderDomain = $null
+     				$ForeignGroupMemberAccount = $null
+     				$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $ForeignGroupMember.MemberName
+    				$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
+				#$ExtractDomainSID = ($ForeignGroupMember.MemberName -split '-', 8)[0..6] -join '-'
+     			}
 			
 			[PSCustomObject]@{
 				"Group Domain" = $ForeignGroupMember.GroupDomain
@@ -1041,7 +1048,14 @@ function Invoke-ADEnum
 					}
 				}
 
-    				if($convertedMemberName){} else {$PlaceHolderDomain = $null}
+    				if($convertedMemberName){}
+				else {
+		 			$PlaceHolderDomain = $null
+	     				$ForeignGroupMemberAccount = $null
+	     				$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $ForeignGroupMember.MemberName
+	    				$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
+					#$ExtractDomainSID = ($ForeignGroupMember.MemberName -split '-', 8)[0..6] -join '-'
+	     			}
 				
 				[PSCustomObject]@{
 					"Group Domain" = $ForeignGroupMember.GroupDomain
