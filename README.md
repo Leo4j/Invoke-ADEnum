@@ -7,7 +7,9 @@ With Invoke-ADEnum, you can quickly and efficiently enumerate various aspects of
 
 One of the features of Invoke-ADEnum is its ability to generate an Active Directory Audit Report in HTML format. Whether performing security assessments, compliance audits, or general Active Directory enumeration tasks, the report will provide a detailed overview of the Active Directory infrastructure, in an easy-to-navigate layout.
 
-An offline version of the tool is now available, which won't load PowerView from the internet (useful against web filtering or lab scenarios). PowerView is instead encrypted within the script and will decrypt and load in memory, therefore it shouldn't trigger AVs when you drop it on disk (tested against Defender and Sophos). AMSI bypass is also embedded.
+Invoke-ADEnum will now generate a client-oriented report as well, which will include only relevant findings and list remediations.
+
+An offline version of the tool is now also available, which won't load PowerView from the internet (useful against web filtering or lab scenarios). PowerView is instead encrypted within the script and will decrypt and load in memory, therefore it shouldn't trigger AVs when you drop it on disk (tested against Defender and Sophos). AMSI bypass is also embedded.
 
 Invoke-ADEnum is a tool for any IT professional working with Active Directory.
 
