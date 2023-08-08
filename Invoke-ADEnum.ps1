@@ -3385,7 +3385,7 @@ function Invoke-ADEnum
 	Write-Host ""
 	Write-Host "Members of Pre-Windows 2000 Compatible Access group:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
-		$PreWin2kCompatibleAccess = Get-DomainGroup -Domain $Domain -Server $Server -Identity "Pre-Windows 2000 Compatible Access"
+		#$PreWin2kCompatibleAccess = Get-DomainGroup -Domain $Domain -Server $Server -Identity "Pre-Windows 2000 Compatible Access"
 		$PreWin2kCompatibleAccessMembers = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Pre-Windows 2000 Compatible Access" -Recurse | Where-Object { $_.MemberName -ne "Authenticated Users" }
 		$TempPreWin2kCompatibleAccess = foreach ($Member in $PreWin2kCompatibleAccessMembers) {
 			$memberName = $Member.MemberName.TrimEnd('$')
@@ -3407,7 +3407,7 @@ function Invoke-ADEnum
 	else {
 		$TempPreWin2kCompatibleAccess = foreach ($AllDomain in $AllDomains) {
 			$Server = Get-DomainController -Domain $AllDomain | Where-Object {$_.Roles -like "RidRole"} | Select-Object -ExpandProperty Name
-			$PreWin2kCompatibleAccess = Get-DomainGroup -Domain $AllDomain -Identity "Pre-Windows 2000 Compatible Access"
+			#$PreWin2kCompatibleAccess = Get-DomainGroup -Domain $AllDomain -Identity "Pre-Windows 2000 Compatible Access"
 			$PreWin2kCompatibleAccessMembers = Get-DomainGroupMember -Domain $AllDomain -Identity "Pre-Windows 2000 Compatible Access" -Recurse | Where-Object { $_.MemberName -ne "Authenticated Users" }
 			foreach ($Member in $PreWin2kCompatibleAccessMembers) {
 				$memberName = $Member.MemberName.TrimEnd('$')
