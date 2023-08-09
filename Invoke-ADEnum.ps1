@@ -3714,7 +3714,7 @@ function Invoke-ADEnum
 	Write-Host ""
 	Write-Host "Interesting Data" -ForegroundColor Red
 	Write-Host ""
-	$Keywords = @("Admin", "Azure", "Backup", "CCTV", "Cyber", "Desk", "Director", "Finance", "Hyper", "JEA", "LAPS", "LLMNR", "Management", "Mgmt", "Password", "PAM", "PAW", "PPL", "PSM", "Remote", "Remoting", "Security", "SQL", "VEEAM", "VMWare")
+	$Keywords = @("Admin", "Azure", "Backup", "CCTV", "Cyber", "Desk", "Director", "Finance", "Hyper", "JEA", "LAPS", "LLMNR", "Management", "MECM", "Mgmt", "Password", "PAM", "PAW", "PPL", "PSM", "Remote", "Remoting", "SCCM", "Security", "SQL", "VEEAM", "VMWare")
 	
 	##################################
     ########### DCSync ###############
