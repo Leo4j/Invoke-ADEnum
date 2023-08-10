@@ -3920,48 +3920,6 @@ function Invoke-ADEnum
 		$TempExchangeTrustedSubsystem | Sort-Object Domain,Member | Format-Table -AutoSize -Wrap
 		$HTMLExchangeTrustedSubsystem = $TempExchangeTrustedSubsystem | Sort-Object Domain,Member | ConvertTo-Html -Fragment -PreContent "<h2>Members of Exchange Trusted Subsystem group</h2>"
 	}
-
- 	########################################################################################
-    ########### Windows 7 and Server 2008 Machines (Windows Remoting Enabled) ###############
-	########################################################################################
-	
-	Write-Host ""
-	Write-Host "Windows 7 and Server 2008 Machines (Windows Remoting Enabled):" -ForegroundColor Cyan
-	if ($Domain -and $Server) {
-		$WinRMComputers = Get-DomainComputer -Domain $Domain -Server $Server -LDAPFilter "(|(operatingsystem=*7*)(operatingsystem=*2008*))" -SPN "wsman*" -Properties samaccountname,lastlogontimestamp,dnshostname,objectsid,operatingsystem
-		$TempWin7AndServer2008 = foreach ($Computer in $WinRMComputers) {
-			[PSCustomObject]@{
-				"Name" = $Computer.samaccountname
-				"Enabled" = if ($Computer.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if ($Computer.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-				"IP Address" = (Resolve-DnsName -Name $Computer.DnsHostName -Type A).IPAddress
-				"Account SID" = $Computer.objectsid
-				"Operating System" = $Computer.operatingsystem
-				"Domain" = $Domain
-			}
-		}
-	}
-	else {
-		$TempWin7AndServer2008 = foreach ($AllDomain in $AllDomains) {
-			$WinRMComputers = Get-DomainComputer -Domain $AllDomain -LDAPFilter "(|(operatingsystem=*7*)(operatingsystem=*2008*))" -SPN "wsman*" -Properties samaccountname,lastlogontimestamp,dnshostname,objectsid,operatingsystem
-			foreach ($Computer in $WinRMComputers) {
-				[PSCustomObject]@{
-					"Name" = $Computer.samaccountname
-					"Enabled" = if ($Computer.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($Computer.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-					"IP Address" = (Resolve-DnsName -Name $Computer.DnsHostName -Type A).IPAddress
-					"Account SID" = $Computer.objectsid
-					"Operating System" = $Computer.operatingsystem
-					"Domain" = $AllDomain
-				}
-			}
-		}
-	}
-
-	if ($TempWin7AndServer2008) {
-		$TempWin7AndServer2008 | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-		$HTMLWin7AndServer2008 = $TempWin7AndServer2008 | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Windows 7 and Server 2008 Machines (Windows Remoting Enabled)</h2>"
-	}
 	
 	############################################
     ########### Service Accounts ###############
@@ -5883,6 +5841,94 @@ function Invoke-ADEnum
 		}
 	}
 
+ 	########################################################################################
+    ########### Windows 7 and Server 2008 Machines (Windows Remoting Enabled) ###############
+	########################################################################################
+	
+	Write-Host ""
+	Write-Host "Windows 7 and Server 2008 Machines (Windows Remoting Enabled):" -ForegroundColor Cyan
+	if ($Domain -and $Server) {
+		$WinRMComputers = Get-DomainComputer -Domain $Domain -Server $Server -LDAPFilter "(|(operatingsystem=*7*)(operatingsystem=*2008*))" -SPN "wsman*" -Properties samaccountname,lastlogontimestamp,dnshostname,objectsid,operatingsystem
+		$TempWin7AndServer2008 = foreach ($Computer in $WinRMComputers) {
+			[PSCustomObject]@{
+				"Name" = $Computer.samaccountname
+				"Enabled" = if ($Computer.useraccountcontrol -band 2) { "False" } else { "True" }
+				"Active" = if ($Computer.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
+				"IP Address" = (Resolve-DnsName -Name $Computer.DnsHostName -Type A).IPAddress
+				"Account SID" = $Computer.objectsid
+				"Operating System" = $Computer.operatingsystem
+				"Domain" = $Domain
+			}
+		}
+	}
+	else {
+		$TempWin7AndServer2008 = foreach ($AllDomain in $AllDomains) {
+			$WinRMComputers = Get-DomainComputer -Domain $AllDomain -LDAPFilter "(|(operatingsystem=*7*)(operatingsystem=*2008*))" -SPN "wsman*" -Properties samaccountname,lastlogontimestamp,dnshostname,objectsid,operatingsystem
+			foreach ($Computer in $WinRMComputers) {
+				[PSCustomObject]@{
+					"Name" = $Computer.samaccountname
+					"Enabled" = if ($Computer.useraccountcontrol -band 2) { "False" } else { "True" }
+					"Active" = if ($Computer.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
+					"IP Address" = (Resolve-DnsName -Name $Computer.DnsHostName -Type A).IPAddress
+					"Account SID" = $Computer.objectsid
+					"Operating System" = $Computer.operatingsystem
+					"Domain" = $AllDomain
+				}
+			}
+		}
+	}
+
+	if ($TempWin7AndServer2008) {
+		$TempWin7AndServer2008 | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+		$HTMLWin7AndServer2008 = $TempWin7AndServer2008 | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Windows 7 and Server 2008 Machines (Windows Remoting Enabled)</h2>"
+	}
+
+ 	############################################################
+    ########### Servers (by Keyword) ###############
+	############################################################
+
+ 	Write-Host ""
+	Write-Host "Interesting Servers (by Keyword):" -ForegroundColor Cyan
+	if ($Domain -and $Server) {
+		$InterestingServers = @()
+		foreach($Keyword in $Keywords){$InterestingServers += Get-DomainComputer -Domain $Domain -Server $Server -OperatingSystem "*Server*" -UACFilter NOT_ACCOUNTDISABLE | Where-Object { $_.samaccountname -like "*$Keyword*" }}
+		$TempInterestingServersEnabled = foreach ($InterestingServer in $InterestingServers) {
+			[PSCustomObject]@{
+				"Name" = $InterestingServer.samaccountname
+				"Enabled" = if ($InterestingServer.useraccountcontrol -band 2) { "False" } else { "True" }
+				"Active" = if ($InterestingServer.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
+				"IP Address" = (Resolve-DnsName -Name $InterestingServer.DnsHostName -Type A).IPAddress
+				"Account SID" = $InterestingServer.objectsid
+				"Operating System" = $InterestingServer.operatingsystem
+				"Domain" = $Domain
+				#Description = $InterestingServer.description
+			}
+		}
+	}
+	else {
+		$TempInterestingServersEnabled = foreach ($AllDomain in $AllDomains) {
+			$InterestingServers = @()
+			foreach($Keyword in $Keywords){$InterestingServers += Get-DomainComputer -Domain $AllDomain -OperatingSystem "*Server*" -UACFilter NOT_ACCOUNTDISABLE | Where-Object { $_.samaccountname -like "*$Keyword*" }}
+			foreach ($InterestingServer in $InterestingServers) {
+				[PSCustomObject]@{
+					"Name" = $InterestingServer.samaccountname
+					"Enabled" = if ($InterestingServer.useraccountcontrol -band 2) { "False" } else { "True" }
+					"Active" = if ($InterestingServer.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
+					"IP Address" = (Resolve-DnsName -Name $InterestingServer.DnsHostName -Type A).IPAddress
+					"Account SID" = $InterestingServer.objectsid
+					"Operating System" = $InterestingServer.operatingsystem
+					"Domain" = $AllDomain
+					#Description = $InterestingServer.description
+				}
+			}
+		}
+	}
+
+	if ($TempInterestingServersEnabled) {
+		$TempInterestingServersEnabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+		$HTMLInterestingServersEnabled = $TempInterestingServersEnabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Interesting Servers (by Keyword)</h2>"
+	}
+
  	#######################################
     ########### GPOs by Keyword ################
 	#######################################
@@ -6970,7 +7016,7 @@ function Invoke-ADEnum
     # Stop capturing the output and display it on the console
     Stop-Transcript | Out-Null
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLProtectedUsers $HTMLRODCs $HTMLSchemaAdmins $HTMLServerOperators $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLPreWin2kCompatibleAccess $HTMLUnsupportedHosts $HTMLLMCompatibilityLevel $HTMLMachineQuota $InterestingDataBanner $HTMLReplicationUsers $HTMLExchangeTrustedSubsystem $HTMLWin7AndServer2008 $HTMLServiceAccounts $HTMLGMSAs $HTMLnopreauthset $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLNotSensitiveAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLLinkedDAAccounts $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLProtectedUsers $HTMLRODCs $HTMLSchemaAdmins $HTMLServerOperators $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLPreWin2kCompatibleAccess $HTMLUnsupportedHosts $HTMLLMCompatibilityLevel $HTMLMachineQuota $InterestingDataBanner $HTMLReplicationUsers $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLGMSAs $HTMLnopreauthset $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLNotSensitiveAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLLinkedDAAccounts $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLWin7AndServer2008 $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
 	$ClientReport = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLCertTemplatesTable $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLMachineQuota $HTMLMachineAccountQuotaTable $InterestingDataBanner $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLUsersAdminCount $HTMLAdminCountUsersTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupTable $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitiveTable $HTMLPrivilegedNotSensitiveUsers $HTMLPrivilegedNOTSensitiveDelegationTable $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLServersDisabled $HTMLWorkstationsDisabled $HTMLDisabledUsers" -Title "Active Directory Audit" -Head $header
  	$HTMLOutputFilePath = $OutputFilePath.Replace(".txt", ".html")
   	$HTMLClientOutputFilePath = $HTMLOutputFilePath.Replace("Invoke-ADEnum", "Invoke-ADEnum_Client-Report")
