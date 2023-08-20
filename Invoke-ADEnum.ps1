@@ -3187,6 +3187,16 @@ function Invoke-ADEnum
 							"Object Ace Type" = $_.ObjectAceType
 							Domain = "$Domain"
 						}
+					} |
+					Group-Object "Account", "Computer Object", "AD Rights", "Domain" |
+					ForEach-Object {
+						[PSCustomObject]@{
+							"Account" = $_.Group[0].Account
+							"Computer Object" = $_.Group[0]."Computer Object"
+							"AD Rights" = $_.Group[0]."AD Rights"
+							"Object Ace Type" = ($_.Group | ForEach-Object { $_."Object Ace Type" }) -join ', '
+							"Domain" = $_.Group[0].Domain
+						}
 					}
 			}
 			else {
@@ -3209,6 +3219,16 @@ function Invoke-ADEnum
 								"AD Rights" = $_.ActiveDirectoryRights
 								"Object Ace Type" = $_.ObjectAceType
 								Domain = $AllDomain
+							}
+						} |
+						Group-Object "Account", "Computer Object", "AD Rights", "Domain" |
+						ForEach-Object {
+							[PSCustomObject]@{
+								"Account" = $_.Group[0].Account
+								"Computer Object" = $_.Group[0]."Computer Object"
+								"AD Rights" = $_.Group[0]."AD Rights"
+								"Object Ace Type" = ($_.Group | ForEach-Object { $_."Object Ace Type" }) -join ', '
+								"Domain" = $_.Group[0].Domain
 							}
 						}
 				}
