@@ -3227,6 +3227,90 @@ function Invoke-ADEnum
 			}
   		}
   	}
+
+   	###########################################################
+   	######## AD computers created by regular users ############
+		###########################################################
+	    
+
+		Write-Host ""
+		Write-Host "AD computers created by regular users:" -ForegroundColor Cyan
+		if ($Domain -and $Server) {
+	
+			$DomainComputersCreated = Get-DomainComputer -Domain $Domain -Server $Server -LDAPFilter "(ms-DS-CreatorSID=*)" -Properties samaccountname,ms-DS-CreatorSID,whenCreated
+	
+			$ADComputersCreated = foreach ($ComputerCreated in $DomainComputersCreated) {
+				
+				$ComputerCreator = $null
+				try {
+					foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+						try{
+							$ComputerCreator = ConvertFrom-SID ((New-Object System.Security.Principal.SecurityIdentifier($ComputerCreated.'ms-DS-CreatorSID',0)).toString()) -Domain $PlaceHolderDomain
+							if ($null -ne $ComputerCreator) { break }
+						}
+						catch{continue}
+					}
+				}
+				catch {
+					try{
+						$ComputerCreator = [System.Security.Principal.SecurityIdentifier]::new($ComputerCreated.'ms-DS-CreatorSID').Translate([System.Security.Principal.NTAccount]).Value
+					}
+					catch{
+						$ComputerCreator = $ComputerCreated.'ms-DS-CreatorSID'
+					}
+				}
+			
+				[PSCustomObject]@{
+					"Computer Object" = $ComputerCreated.samaccountname
+					"Creator" = $ComputerCreator
+					"Created" = $ComputerCreated.whenCreated
+					Domain = "$Domain"
+				}
+			
+			}
+		}
+		else {
+	
+			$ADComputersCreated = foreach ($AllDomain in $AllDomains) {
+				
+				$DomainComputersCreated = Get-DomainComputer -Domain $AllDomain -LDAPFilter "(ms-DS-CreatorSID=*)" -Properties samaccountname,ms-DS-CreatorSID,whenCreated
+				
+				foreach ($ComputerCreated in $DomainComputersCreated) {
+				
+					$ComputerCreator = $null
+					try {
+						foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+							try{
+								$ComputerCreator = ConvertFrom-SID ((New-Object System.Security.Principal.SecurityIdentifier($ComputerCreated.'ms-DS-CreatorSID',0)).toString()) -Domain $PlaceHolderDomain
+								if ($null -ne $ComputerCreator) { break }
+							}
+							catch{continue}
+						}
+					}
+					catch {
+						try{
+							$ComputerCreator = [System.Security.Principal.SecurityIdentifier]::new($ComputerCreated.'ms-DS-CreatorSID').Translate([System.Security.Principal.NTAccount]).Value
+						}
+						catch{
+							$ComputerCreator = $ComputerCreated.'ms-DS-CreatorSID'
+						}
+					}
+				
+					[PSCustomObject]@{
+						"Computer Object" = $ComputerCreated.samaccountname
+						"Creator" = $ComputerCreator
+						"Created" = $ComputerCreated.whenCreated
+						Domain = "$AllDomain"
+					}
+				
+				}
+			}
+		}
+
+		if ($ADComputersCreated) {
+			$ADComputersCreated | Sort-Object Domain,"Computer Object" | Format-Table -AutoSize -Wrap
+			$HTMLADComputersCreated = $ADComputersCreated | Sort-Object Domain,"Computer Object" | ConvertTo-Html -Fragment -PreContent "<h2>AD computers created by regular users</h2>"
+		}
 	
 	###############################################################
     ########### Check if any user passwords are set ###############
@@ -7023,7 +7107,7 @@ function Invoke-ADEnum
     # Stop capturing the output and display it on the console
     Stop-Transcript | Out-Null
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLProtectedUsers $HTMLRODCs $HTMLSchemaAdmins $HTMLServerOperators $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLPreWin2kCompatibleAccess $HTMLUnsupportedHosts $HTMLLMCompatibilityLevel $HTMLMachineQuota $InterestingDataBanner $HTMLReplicationUsers $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLGMSAs $HTMLnopreauthset $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLNotSensitiveAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLLinkedDAAccounts $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLWin7AndServer2008 $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLProtectedUsers $HTMLRODCs $HTMLSchemaAdmins $HTMLServerOperators $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLADComputersCreated $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLPreWin2kCompatibleAccess $HTMLUnsupportedHosts $HTMLLMCompatibilityLevel $HTMLMachineQuota $InterestingDataBanner $HTMLReplicationUsers $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLGMSAs $HTMLnopreauthset $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLNotSensitiveAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLLinkedDAAccounts $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLWin7AndServer2008 $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
 	$ClientReport = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLCertTemplatesTable $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLMachineQuota $HTMLMachineAccountQuotaTable $InterestingDataBanner $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLUsersAdminCount $HTMLAdminCountUsersTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupTable $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitiveTable $HTMLPrivilegedNotSensitiveUsers $HTMLPrivilegedNOTSensitiveDelegationTable $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLServersDisabled $HTMLWorkstationsDisabled $HTMLDisabledUsers" -Title "Active Directory Audit" -Head $header
  	$HTMLOutputFilePath = $OutputFilePath.Replace(".txt", ".html")
   	$HTMLClientOutputFilePath = $HTMLOutputFilePath.Replace("Invoke-ADEnum", "Invoke-ADEnum_Client-Report")
