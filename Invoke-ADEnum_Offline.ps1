@@ -3231,11 +3231,11 @@ function Invoke-ADEnum
   	}
 
    	###########################################################
-   	######## AD computers created by regular users ############
+   	######## Computers Objects created by regular users ############
 	###########################################################
 
 	Write-Host ""
-	Write-Host "AD computers created by regular users:" -ForegroundColor Cyan
+	Write-Host "Computers Objects created by regular users:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
 
 		$DomainComputersCreated = Get-DomainComputer -Domain $Domain -Server $Server -LDAPFilter "(ms-DS-CreatorSID=*)" -Properties samaccountname,ms-DS-CreatorSID,whenCreated,objectsid,operatingsystem,name,lastlogontimestamp
@@ -3322,7 +3322,7 @@ function Invoke-ADEnum
 
 	if ($ADComputersCreated) {
 		$ADComputersCreated | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-		$HTMLADComputersCreated = $ADComputersCreated | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>AD computers created by regular users</h2>"
+		$HTMLADComputersCreated = $ADComputersCreated | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Computers Objects created by regular users</h2>"
 	}
 	
 	###############################################################
