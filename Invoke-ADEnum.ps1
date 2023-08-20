@@ -281,12 +281,12 @@ function Invoke-ADEnum
  -DomainOUs			Enumerate for Organizational Units
  
  -DomainUsers			Enumerate for Users
-
- -GPOsRights			Enumerate GPOs Rights | Who can Create/Modify/Link GPOs
  
  -FindDomainUserLocation	Enumerate for Machines where Domain Admins are Logged into
  
  -FindLocalAdminAccess		Enumerate for Machines where the Current User is Local Admin
+
+ -GPOsRights			Enumerate GPOs Rights | Who can Create/Modify/Link GPOs
  
  -Help				Show this Help page
  
