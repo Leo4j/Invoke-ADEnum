@@ -3230,17 +3230,60 @@ function Invoke-ADEnum
 
    	###########################################################
    	######## AD computers created by regular users ############
-		###########################################################
-	    
+	###########################################################
+    
 
-		Write-Host ""
-		Write-Host "AD computers created by regular users:" -ForegroundColor Cyan
-		if ($Domain -and $Server) {
-	
-			$DomainComputersCreated = Get-DomainComputer -Domain $Domain -Server $Server -LDAPFilter "(ms-DS-CreatorSID=*)" -Properties samaccountname,ms-DS-CreatorSID,whenCreated
-	
-			$ADComputersCreated = foreach ($ComputerCreated in $DomainComputersCreated) {
-				
+	Write-Host ""
+	Write-Host "AD computers created by regular users:" -ForegroundColor Cyan
+	if ($Domain -and $Server) {
+
+		$DomainComputersCreated = Get-DomainComputer -Domain $Domain -Server $Server -LDAPFilter "(ms-DS-CreatorSID=*)" -Properties samaccountname,ms-DS-CreatorSID,whenCreated,objectsid,operatingsystem,name,lastlogontimestamp
+
+		$ADComputersCreated = foreach ($ComputerCreated in $DomainComputersCreated) {
+			
+			$ComputerCreator = $null
+			try {
+				foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+					try{
+						$ComputerCreator = ConvertFrom-SID ((New-Object System.Security.Principal.SecurityIdentifier($ComputerCreated.'ms-DS-CreatorSID',0)).toString()) -Domain $PlaceHolderDomain
+						if ($null -ne $ComputerCreator) { break }
+					}
+					catch{continue}
+				}
+			}
+			catch {
+				try{
+					$ComputerCreator = [System.Security.Principal.SecurityIdentifier]::new($ComputerCreated.'ms-DS-CreatorSID').Translate([System.Security.Principal.NTAccount]).Value
+				}
+				catch{
+					$ComputerCreator = $ComputerCreated.'ms-DS-CreatorSID'
+				}
+			}
+		
+			[PSCustomObject]@{
+				Name = $ComputerCreated.samaccountname
+				"Enabled" = if ($ComputerCreated.useraccountcontrol -band 2) { "False" } else { "True" }
+				"Active" = if ($ComputerCreated.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
+				"IP Address" = Resolve-DnsName -Name $ComputerCreated.name -Type A -Server $Server | Select-Object -ExpandProperty IPAddress
+				"Account SID" = $ComputerCreated.objectsid
+				"Operating System" = $ComputerCreated.operatingsystem
+				"Creator" = $ComputerCreator
+				"Created" = $ComputerCreated.whenCreated
+				Domain = "$Domain"
+			}
+		
+		}
+	}
+	else {
+
+		$ADComputersCreated = foreach ($AllDomain in $AllDomains) {
+		
+			$Server = Get-DomainController -Domain $AllDomain | Where-Object {$_.Roles -like "RidRole"} | Select-Object -ExpandProperty Name
+			
+			$DomainComputersCreated = Get-DomainComputer -Domain $AllDomain -LDAPFilter "(ms-DS-CreatorSID=*)" -Properties samaccountname,ms-DS-CreatorSID,whenCreated,objectsid,operatingsystem,name,lastlogontimestamp
+			
+			foreach ($ComputerCreated in $DomainComputersCreated) {
+			
 				$ComputerCreator = $null
 				try {
 					foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
@@ -3261,56 +3304,25 @@ function Invoke-ADEnum
 				}
 			
 				[PSCustomObject]@{
-					"Computer Object" = $ComputerCreated.samaccountname
+					Name = $ComputerCreated.samaccountname
+					"Enabled" = if ($ComputerCreated.useraccountcontrol -band 2) { "False" } else { "True" }
+					"Active" = if ($ComputerCreated.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
+					"IP Address" = Resolve-DnsName -Name $ComputerCreated.name -Type A -Server $Server | Select-Object -ExpandProperty IPAddress
+					"Account SID" = $ComputerCreated.objectsid
+					"Operating System" = $ComputerCreated.operatingsystem
 					"Creator" = $ComputerCreator
 					"Created" = $ComputerCreated.whenCreated
-					Domain = "$Domain"
+					Domain = "$AllDomain"
 				}
 			
 			}
 		}
-		else {
-	
-			$ADComputersCreated = foreach ($AllDomain in $AllDomains) {
-				
-				$DomainComputersCreated = Get-DomainComputer -Domain $AllDomain -LDAPFilter "(ms-DS-CreatorSID=*)" -Properties samaccountname,ms-DS-CreatorSID,whenCreated
-				
-				foreach ($ComputerCreated in $DomainComputersCreated) {
-				
-					$ComputerCreator = $null
-					try {
-						foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
-							try{
-								$ComputerCreator = ConvertFrom-SID ((New-Object System.Security.Principal.SecurityIdentifier($ComputerCreated.'ms-DS-CreatorSID',0)).toString()) -Domain $PlaceHolderDomain
-								if ($null -ne $ComputerCreator) { break }
-							}
-							catch{continue}
-						}
-					}
-					catch {
-						try{
-							$ComputerCreator = [System.Security.Principal.SecurityIdentifier]::new($ComputerCreated.'ms-DS-CreatorSID').Translate([System.Security.Principal.NTAccount]).Value
-						}
-						catch{
-							$ComputerCreator = $ComputerCreated.'ms-DS-CreatorSID'
-						}
-					}
-				
-					[PSCustomObject]@{
-						"Computer Object" = $ComputerCreated.samaccountname
-						"Creator" = $ComputerCreator
-						"Created" = $ComputerCreated.whenCreated
-						Domain = "$AllDomain"
-					}
-				
-				}
-			}
-		}
+	}
 
-		if ($ADComputersCreated) {
-			$ADComputersCreated | Sort-Object Domain,"Computer Object" | Format-Table -AutoSize -Wrap
-			$HTMLADComputersCreated = $ADComputersCreated | Sort-Object Domain,"Computer Object" | ConvertTo-Html -Fragment -PreContent "<h2>AD computers created by regular users</h2>"
-		}
+	if ($ADComputersCreated) {
+		$ADComputersCreated | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+		$HTMLADComputersCreated = $ADComputersCreated | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>AD computers created by regular users</h2>"
+	}
 	
 	###############################################################
     ########### Check if any user passwords are set ###############
