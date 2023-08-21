@@ -3648,6 +3648,8 @@ function Invoke-ADEnum
 			}
 			
 			$HTMLUnsupportedOSTable = $UnsupportedOSTable | ConvertTo-Html -As List -Fragment
+   			$HTMLUnsupportedOSTable = $HTMLUnsupportedOSTable.Replace("Description", '<a href="https://www.ncsc.gov.uk/collection/device-security-guidance/managing-deployed-devices/keeping-devices-and-software-up-to-date">Description</a>')
+			$HTMLUnsupportedOSTable = $HTMLUnsupportedOSTable.Replace("Remediation", '<a href="https://www.ncsc.gov.uk/collection/device-security-guidance/managing-deployed-devices/obsolete-products">Remediation</a>')
 		}
 
     }
