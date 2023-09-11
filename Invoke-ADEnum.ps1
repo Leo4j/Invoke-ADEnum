@@ -255,7 +255,7 @@ function Invoke-ADEnum
  
  -Domain <domain FQDN>		The Domain to enumerate for. If not specified, the tool will enumerate for all the domains it can find
  
- -Exclude <domain FQDN>		Exclude one or more domains from enumeration				-Exclude contoso.local,ad.example.org
+ -Exclude <domain FQDN>		Exclude one or more domains from enumeration				-Exclude `"contoso.local,ad.example.org`"
  
  -Local <path-on-disk>		Specify the local path to PowerView.ps1					-Local c:\Windows\Temp\PowerView.ps1
  
