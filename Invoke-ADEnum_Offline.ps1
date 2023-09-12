@@ -3668,7 +3668,7 @@ function Invoke-ADEnum
 					$settingValue = ($gpoSetting -split "=")[-1].Trim().Split(",")[-1].Trim()
 					$policySetting = $policySettings[$settingValue]
 
-					$Results = [PSCustomObject]@{
+					$Results += [PSCustomObject]@{
      						Domain = $Domain
 						"GPO Name" = $gpoDisplayName
 						Setting = $settingValue
@@ -3709,7 +3709,7 @@ function Invoke-ADEnum
 					$settingValue = ($gpoSetting -split "=")[-1].Trim().Split(",")[-1].Trim()
 					$policySetting = $policySettings[$settingValue]
 
-					$Results = [PSCustomObject]@{
+					$Results += [PSCustomObject]@{
      						Domain = $AllDomain
 						"GPO Name" = $gpoDisplayName
 						Setting = $settingValue
