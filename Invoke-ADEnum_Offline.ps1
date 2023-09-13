@@ -3415,11 +3415,11 @@ function Invoke-ADEnum
 	}
 	
 	#################################################################################################
-    ########### Users that may have empty passwords or shorter passwords ###############
+    ########### Users with Password-not-required attribute set ###############
 	#################################################################################################
 	
 	Write-Host ""
-	Write-Host "Users that may have empty passwords or shorter passwords:" -ForegroundColor Cyan
+	Write-Host "Users with Password-not-required attribute set:" -ForegroundColor Cyan
 	
 	if ($Domain -and $Server) {
 		
@@ -3477,12 +3477,12 @@ function Invoke-ADEnum
 
  	if ($TempEmptyPasswordUsers) {
 		$TempEmptyPasswordUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
-		$HTMLEmptyPasswordUsers = $TempEmptyPasswordUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users that may have empty passwords or shorter passwords</h2>"
+		$HTMLEmptyPasswordUsers = $TempEmptyPasswordUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users with Password-not-required attribute set</h2>"
 
   		$EmptyPasswordsTable = [PSCustomObject]@{
 			"Risk Rating" = "High - Needs Immediate Attention"
-			"Description" = "Empty passwords can be set for users when password policies allow it or the Password-not-required attribute is enabled. This makes user accounts extremely easy for an attacker to compromise."
-			"Remediation" = "Enforce strong password policies and ensure that all users have a secure and non-empty password. Disable the Password-not-required attribute for all users in the domain."
+			"Description" = "When the Password-not-required attribute is set on an Active Directory user object, it indicates that the user account can be created without a password."
+			"Remediation" = "Disable the Password-not-required attribute for all users in the domain."
 		}
 		
 		$HTMLEmptyPasswordsTable = $EmptyPasswordsTable | ConvertTo-Html -As List -Fragment
