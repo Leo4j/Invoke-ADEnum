@@ -158,7 +158,11 @@ function Invoke-ADEnum
 
  	[Parameter (Mandatory=$False, Position = 35, ValueFromPipeline=$true)]
         [Switch]
-        $NoBypass
+        $NoBypass,
+
+ 	[Parameter (Mandatory=$False, Position = 35, ValueFromPipeline=$true)]
+        [Switch]
+        $SprayEmptyPasswords
 
     )
 	
@@ -303,6 +307,8 @@ function Invoke-ADEnum
  -SecurityGroups		Enumerate for Security Groups (e.g.: Account Operators, Server Operators, and more...)
  
  -Shares			Enumerate for Shares
+
+ -SprayEmptyPasswords		Sprays Empty Passwords - counts towards Bad-Pwd-Count
  
  -TargetsOnly			Show Target Domains only (Stay in scope) - Will not create a Report
 
@@ -3492,76 +3498,35 @@ function Invoke-ADEnum
     ########### Users with Empty Passwords ###############
 	#################################################################################################
 	
-	Write-Host ""
-	Write-Host "Users with empty passwords:" -ForegroundColor Cyan
-	
-	$minDelay = 0
-	$maxDelay = 200
-	$delay = Get-Random -Minimum $minDelay -Maximum $maxDelay
-	
-	if ($Domain -and $Server) {
+	if($SprayEmptyPasswords){
+ 
+	 	Write-Host ""
+		Write-Host "Users with empty passwords:" -ForegroundColor Cyan
 		
-		$PotentialUsersWithEmptyPassword = @()
-		$PotentialComputersWithEmptyPassword = @()
-		$PotentialUsersWithEmptyPassword = Get-DomainUser -Domain $Domain -Server $Server -UACFilter NOT_ACCOUNTDISABLE | Sort-Object samaccountname
-		$PotentialComputersWithEmptyPassword = Get-DomainComputer -Domain $Domain -Server $Server -UACFilter NOT_ACCOUNTDISABLE | Sort-Object samaccountname
-		$TotalPotentialEmptyPass = New-Object System.Collections.ArrayList
-		$null = $TotalPotentialEmptyPass.AddRange($PotentialUsersWithEmptyPassword)
-		$null = $TotalPotentialEmptyPass.AddRange($PotentialComputersWithEmptyPassword)
+		$minDelay = 0
+		$maxDelay = 200
+		$delay = Get-Random -Minimum $minDelay -Maximum $maxDelay
 		
-		Add-Type -AssemblyName "System.DirectoryServices.AccountManagement"
-		$principalContext = New-Object System.DirectoryServices.AccountManagement.PrincipalContext([System.DirectoryServices.AccountManagement.ContextType]::Domain, $Server, $Domain)
-		
-		$TempTotalEmptyPass = foreach($EmptyPasswordUser in $TotalPotentialEmptyPass){
-		
-			$EmptyPasswordUserName = $EmptyPasswordUser.samaccountname
-			
-			$EmptyCheck = $principalContext.ValidateCredentials("$EmptyPasswordUserName", "", 1)
-			
-			if ($EmptyCheck.name -ne $null){
-			
-				[PSCustomObject]@{
-					"User Name" = $EmptyPasswordUser.samaccountname
-					"Enabled" = if ($EmptyPasswordUser.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($EmptyPasswordUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-						"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-					"Last Logon" = $EmptyPasswordUser.lastlogontimestamp
-					"SID" = $EmptyPasswordUser.objectSID
-					"Domain" = $Domain
-				}
-			}
-			
-			Start-Sleep -Milliseconds $delay
-			
-		}
-		
-	}
-	
-	else {
-		
-		$TempTotalEmptyPass = foreach ($AllDomain in $AllDomains) {
+		if ($Domain -and $Server) {
 			
 			$PotentialUsersWithEmptyPassword = @()
 			$PotentialComputersWithEmptyPassword = @()
-			$PotentialUsersWithEmptyPassword = Get-DomainUser -Domain $AllDomain -UACFilter NOT_ACCOUNTDISABLE | Sort-Object samaccountname
-			$PotentialComputersWithEmptyPassword = Get-DomainComputer -Domain $AllDomain -UACFilter NOT_ACCOUNTDISABLE | Sort-Object samaccountname
+			$PotentialUsersWithEmptyPassword = Get-DomainUser -Domain $Domain -Server $Server -UACFilter NOT_ACCOUNTDISABLE | Sort-Object samaccountname
+			$PotentialComputersWithEmptyPassword = Get-DomainComputer -Domain $Domain -Server $Server -UACFilter NOT_ACCOUNTDISABLE | Sort-Object samaccountname
 			$TotalPotentialEmptyPass = New-Object System.Collections.ArrayList
 			$null = $TotalPotentialEmptyPass.AddRange($PotentialUsersWithEmptyPassword)
 			$null = $TotalPotentialEmptyPass.AddRange($PotentialComputersWithEmptyPassword)
 			
 			Add-Type -AssemblyName "System.DirectoryServices.AccountManagement"
-			$EmptyServer = ((Get-NetDomain -Domain $AllDomain).PdcRoleOwner).name
-			$principalContext = New-Object System.DirectoryServices.AccountManagement.PrincipalContext([System.DirectoryServices.AccountManagement.ContextType]::Domain, $EmptyServer, $AllDomain)
-		
-			foreach($EmptyPasswordUser in $TotalPotentialEmptyPass){
+			$principalContext = New-Object System.DirectoryServices.AccountManagement.PrincipalContext([System.DirectoryServices.AccountManagement.ContextType]::Domain, $Server, $Domain)
+			
+			$TempTotalEmptyPass = foreach($EmptyPasswordUser in $TotalPotentialEmptyPass){
 			
 				$EmptyPasswordUserName = $EmptyPasswordUser.samaccountname
 				
 				$EmptyCheck = $principalContext.ValidateCredentials("$EmptyPasswordUserName", "", 1)
 				
-				if ($EmptyCheck){
+				if ($EmptyCheck.name -ne $null){
 				
 					[PSCustomObject]@{
 						"User Name" = $EmptyPasswordUser.samaccountname
@@ -3572,27 +3537,72 @@ function Invoke-ADEnum
 						"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
 						"Last Logon" = $EmptyPasswordUser.lastlogontimestamp
 						"SID" = $EmptyPasswordUser.objectSID
-						"Domain" = $AllDomain
+						"Domain" = $Domain
 					}
 				}
+				
+				Start-Sleep -Milliseconds $delay
 				
 			}
 			
 		}
-	}
-
- 	if ($TempTotalEmptyPass) {
-		$TempTotalEmptyPass | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
-		$HTMLTotalEmptyPass = $TempTotalEmptyPass | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users with empty passwords</h2>"
-
-  		$TotalEmptyPassTable = [PSCustomObject]@{
-			"Risk Rating" = "High - Needs Immediate Attention"
-			"Description" = "Empty passwords can be set for users and computers when password policies allow it or the Password-not-required attribute is enabled. This makes user accounts extremely easy for an attacker to compromise."
-			"Remediation" = "Enforce strong password policies and ensure that all users have a secure and non-empty password. Disable the Password-not-required attribute for all users in the domain."
-		}
 		
-		$HTMLTotalEmptyPassTable = $TotalEmptyPassTable | ConvertTo-Html -As List -Fragment
-	}
+		else {
+			
+			$TempTotalEmptyPass = foreach ($AllDomain in $AllDomains) {
+				
+				$PotentialUsersWithEmptyPassword = @()
+				$PotentialComputersWithEmptyPassword = @()
+				$PotentialUsersWithEmptyPassword = Get-DomainUser -Domain $AllDomain -UACFilter NOT_ACCOUNTDISABLE | Sort-Object samaccountname
+				$PotentialComputersWithEmptyPassword = Get-DomainComputer -Domain $AllDomain -UACFilter NOT_ACCOUNTDISABLE | Sort-Object samaccountname
+				$TotalPotentialEmptyPass = New-Object System.Collections.ArrayList
+				$null = $TotalPotentialEmptyPass.AddRange($PotentialUsersWithEmptyPassword)
+				$null = $TotalPotentialEmptyPass.AddRange($PotentialComputersWithEmptyPassword)
+				
+				Add-Type -AssemblyName "System.DirectoryServices.AccountManagement"
+				$EmptyServer = ((Get-NetDomain -Domain $AllDomain).PdcRoleOwner).name
+				$principalContext = New-Object System.DirectoryServices.AccountManagement.PrincipalContext([System.DirectoryServices.AccountManagement.ContextType]::Domain, $EmptyServer, $AllDomain)
+			
+				foreach($EmptyPasswordUser in $TotalPotentialEmptyPass){
+				
+					$EmptyPasswordUserName = $EmptyPasswordUser.samaccountname
+					
+					$EmptyCheck = $principalContext.ValidateCredentials("$EmptyPasswordUserName", "", 1)
+					
+					if ($EmptyCheck){
+					
+						[PSCustomObject]@{
+							"User Name" = $EmptyPasswordUser.samaccountname
+							"Enabled" = if ($EmptyPasswordUser.useraccountcontrol -band 2) { "False" } else { "True" }
+							"Active" = if ($EmptyPasswordUser.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
+								"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+							"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+							"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+							"Last Logon" = $EmptyPasswordUser.lastlogontimestamp
+							"SID" = $EmptyPasswordUser.objectSID
+							"Domain" = $AllDomain
+						}
+					}
+					
+				}
+				
+			}
+		}
+	
+	 	if ($TempTotalEmptyPass) {
+			$TempTotalEmptyPass | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+			$HTMLTotalEmptyPass = $TempTotalEmptyPass | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users with empty passwords</h2>"
+	
+	  		$TotalEmptyPassTable = [PSCustomObject]@{
+				"Risk Rating" = "High - Needs Immediate Attention"
+				"Description" = "Empty passwords can be set for users and computers when password policies allow it or the Password-not-required attribute is enabled. This makes user accounts extremely easy for an attacker to compromise."
+				"Remediation" = "Enforce strong password policies and ensure that all users have a secure and non-empty password. Disable the Password-not-required attribute for all users in the domain."
+			}
+			
+			$HTMLTotalEmptyPassTable = $TotalEmptyPassTable | ConvertTo-Html -As List -Fragment
+		}
+
+ 	}
 	
 	############################################
     ########### Pre-Windows 2000 ###############
