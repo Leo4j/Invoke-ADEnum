@@ -173,6 +173,8 @@ function Invoke-ADEnum
 	}
 	
 	Set-Variable MaximumHistoryCount 32767
+
+ 	$host.UI.RawUI.BufferSize = New-Object Management.Automation.Host.Size(4096, $Host.UI.RawUI.BufferSize.Height)
 	
 	if($help){}
 	
