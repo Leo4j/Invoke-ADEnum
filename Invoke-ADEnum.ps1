@@ -582,7 +582,7 @@ function Invoke-ADEnum
 			createDownloadLinkForTable('ConstrainedDelegationComputers');
 			createDownloadLinkForTable('ConstrainedDelegationUsers');
 			createDownloadLinkForTable('RBACDObjects');
-			createDownloadLinkForTable('ADComputersCreated');
+			createDownloadLinkForTable('UserCreatedObjects');
 			createDownloadLinkForTable('PasswordSetUsers');
 			createDownloadLinkForTable('PassNotRequired');
 			createDownloadLinkForTable('EmptyPasswordUsers');
@@ -3691,7 +3691,7 @@ function Invoke-ADEnum
 	
 		if ($ADComputersCreated) {
 			$ADComputersCreated | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-			$HTMLADComputersCreated = $ADComputersCreated | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ADComputersCreated'>Computers Objects created by regular users</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ADComputersCreated'>" }
+			$HTMLADComputersCreated = $ADComputersCreated | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='UserCreatedObjects'>Computers Objects created by regular users</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='UserCreatedObjects'>" }
 	
 	  		$ADComputersCreatedTable = [PSCustomObject]@{
 				"Recommendations" = "Review the above computer objects and consider removing any ACE that was set to allow the specific user or group to domain join the computer."
