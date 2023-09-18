@@ -173,6 +173,7 @@ function Invoke-ADEnum
 	}
 	
 	Set-Variable MaximumHistoryCount 32767
+	
 	$originalBufferSize = $host.UI.RawUI.BufferSize
  	$host.UI.RawUI.BufferSize = New-Object Management.Automation.Host.Size(4096, $Host.UI.RawUI.BufferSize.Height)
 	
@@ -355,7 +356,297 @@ function Invoke-ADEnum
 		
 	}
 	
-	$header = "
+	$header = @'
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.16.8/xlsx.full.min.js"></script>
+		<script>
+		function tableToCSV($table, title) {
+			var csv = [];
+			
+			// Add title if provided
+			if (title) {
+				csv.push(title);
+			}
+			
+			$table.find('tr').each(function() {
+				var temp = [];
+				$(this).find('td, th').each(function() {
+					temp.push($(this).text());
+				});
+				csv.push(temp.join(','));
+			});
+			return csv.join('\n');
+		}
+		</script>
+		
+		<script>
+		function createDownloadLinkForTable(tableID) {
+			console.log("Function called for tableID:", tableID);
+			
+			// Get the title from the associated h2 element
+			var title = $("h2[data-linked-table='" + tableID + "']").text();
+			
+			var csv = tableToCSV($('#' + tableID), title);
+			console.log("CSV Generated:", csv);
+
+			var csvDataURI = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+			console.log("Data URI:", csvDataURI);
+
+			var titleElement = $("h2[data-linked-table='" + tableID + "']");
+			var originalTitleText = titleElement.text();
+			titleElement.html('<a href="' + csvDataURI + '" class="download-link" download="' + tableID + '.csv">' + originalTitleText + '</a>');
+			console.log("Link created for tableID:", tableID);
+		}
+		
+		function tablesToExcel() {
+			var wb = XLSX.utils.book_new(); // New workbook
+			
+			//Mappings
+			var nameMapping = {
+				'Groups that contain users outside of its domain and return its members': 'Foreign Members',
+				'Enterprise Read-Only Domain Controllers': 'Enterprise RODC',
+				'Vulnerable Certificate Templates': 'Vuln Cert Templates',
+				'Constrained Delegation (Computers)': 'Constrained Delegation (C)',
+				'Resource Based Constrained Delegation': 'Resource Based C.D.',
+				'Computers Objects created by regular users': 'User Created Computers',
+				'Check if any user passwords are set': 'User Passwords Set',
+				'Users with Password-not-required attribute set': 'Pass Not-Req',
+				'Members of Pre-Windows 2000 Compatible Access group': 'Pre-Win2k',
+				'Domain Controllers': 'DCs',
+				'Domains for the current forest': 'Current Forest Domains',
+				'Domain Trusts': 'Trusts',
+				'Trusted Domain Object GUIDs': 'Trusted GUIDs',
+				'Built-In Administrators': 'Built-In Admins',
+				'Enterprise Administrators': 'EAs',
+				'Domain Administrators': 'DAs',
+				'Group Policy Creator Owners': 'GPO Creator Owners',
+				'Read-Only Domain Controllers': 'Read-Only DCs',
+				'Constrained Delegation (U)': 'Constr.Deleg.(Users)',
+				'Accounts with empty passwords': 'Empty Pass',
+				'Hosts running Unsupported OS': 'Unsupported OS',
+				'LM Compatibility Level': 'LM Comp.Lvl',
+				'Machine Account Quota': 'Machine Quota',
+				'Principals with DCSync permissions': 'DCSync Rights',
+				'Members of Exchange Trusted Subsystem group': 'Exch. T.S. Members',
+				'Service Accounts (Kerberoastable)': 'Service Accounts',
+				'Group Managed Service Accounts (GMSA)': 'GMSA',
+				'Users without kerberos preauthentication set (AS-REProastable)': 'AS-REProastable',
+				'Users with AdminCount set to 1 (non-defaults)': 'AdminCount Users',
+				'Groups with AdminCount set to 1 (non-defaults)': 'AdminCount Groups',
+				'Admin Users in \'Protected Users\' Group': 'Admin in Prot.Users',
+				'Admin Users in \'Protected Users\' Group but NOT marked as \'sensitive and not allowed for delegation\'': 'Adm in Prot.Usr not Sens.',
+				'Admin Users NOT in \'Protected Users\' Group': 'Adm NOT in Prot.Users',
+				'Admin Users NOT in \'Protected Users\' Group and NOT marked as \'sensitive and not allowed for delegation\'': 'Adm NOT in Prot.Usr not Sens.',
+				'Non-Admin Users in \'Protected Users\' Group': 'Non-Adm in Prot.Usr',
+				'Privileged users marked as \'sensitive and not allowed for delegation\'': 'Priv. and Sensitive',
+				'Privileged users NOT marked as \'sensitive and not allowed for delegation\'': 'Priv. not Sensitive',
+				'Non-Privileged users marked as \'sensitive and not allowed for delegation\'': 'Non-Priv. and Sensitive',
+				'Machine accounts in privileged groups': 'Machines in Priv.Groups',
+				'Users with sidHistory set': 'sidHistory',
+				'Users with Reversible Encryption': 'Reversible Enc.',
+				'Linked DA accounts using name correlation': 'Linked DA',
+				'Who can create GPOs': 'GPO Creators',
+				'Who can modify existing GPOs': 'GPO Modifiers',
+				'Who can link GPOs': 'GPO Linkers',
+				'Other GPOs where a LAPS Admin seems to be set': 'Other LAPS GPOs',
+				'Who can read LAPS': 'LAPS Readers',
+				'LAPS Extended Rights': 'LAPS Ext.Rights',
+				'Computer objects where LAPS is enabled': 'LAPS Enabled',
+				'GPOs that modify local group memberships': 'GPOs Mod. Local Groups',
+				'Users which are in a local group of a machine using GPO': 'Users in GPO Local Group',
+				'Machines where a specific domain user/group is a member of the Administrators local group': 'Machines Admin Memb.',
+				'Machines where a user is a member of a specific group': 'Machines with User in Group',
+				'Find Domain User Location': 'Find User Location',
+				'Logged on users for all machines in any Server OU': 'Logged Users in Server OU',
+				'Windows 7 and Server 2008 Machines (Windows Remoting Enabled)': 'Win7 and Serv2008',
+				'Interesting Servers (by Keyword)': 'Interesting Servers',
+				'Interesting GPOs (by Keyword)': 'Interesting GPOs',
+				'Interesting Groups (by Keyword)': 'Interesting Groups',
+				'Interesting OUs (by Keyword)': 'Interesting OUs',
+				'Accessible Domain Shares': 'Accessible Shares',
+				'Domain Share Files': 'Share Files',
+				'Domain Share Files (more file extensions)': 'Share Files+',
+				'Interesting ACLs': 'Interesting ACLs',
+				'Domain Password Policy': 'Pass Policy',
+				'Kerberos Password Policy': 'Kerb Policy',
+				'User Accounts Analysis': 'User Analysis',
+				'Computer Account Analysis': 'Comp. Analysis',
+				'Operating Systems Analysis': 'OS Analysis',
+				'All Groups': 'All Groups',
+				'All Domain GPOs': 'All GPOs',
+				'All Domain OUs': 'All OUs',
+				'All Descriptions': 'Descriptions',
+				'EnvironmentInfo': 'Info',
+			};
+
+			// Loop through each table
+			$('table').each(function() {
+				var id = $(this).attr('id');
+				var h2Text = $("h2[data-linked-table='" + id + "']").text();
+				
+				// Determine the sheet name
+				var sheetName = h2Text;
+				if (nameMapping[h2Text]) {
+					sheetName = nameMapping[h2Text];
+				}
+				
+				// Automatically truncate if the name is too long
+				if(sheetName.length > 31) {
+					console.warn("Sheet name too long:", sheetName, "; truncating to 31 characters");
+					sheetName = sheetName.substr(0, 31); // Truncate the name to the first 31 characters
+				}
+				
+				// Convert table to worksheet
+				var ws = XLSX.utils.table_to_sheet(this);
+				
+				// Shift all rows down by one
+				var range = XLSX.utils.decode_range(ws["!ref"]);
+				for (var R = range.e.r; R >= 0; --R) {
+					for (var C = 0; C <= range.e.c; ++C) {
+						var cell_address = {c: C, r: R + 1}; // New location
+						var original_address = {c: C, r: R}; // Original location
+						if (ws[XLSX.utils.encode_cell(original_address)]) {
+							ws[XLSX.utils.encode_cell(cell_address)] = ws[XLSX.utils.encode_cell(original_address)];
+							delete ws[XLSX.utils.encode_cell(original_address)]; // Delete the original cell to avoid duplication
+						}
+					}
+				}
+				range.e.r++;
+				ws["!ref"] = XLSX.utils.encode_range(range);
+
+				// Set the title from the h2 content to the first row, first column
+				ws['A1'] = {v: h2Text, t: 's'};
+				
+				// Autosize columns based on content
+				var colWidths = [];
+				$(this).find('tr').each(function() {
+					$(this).find('td, th').each(function(colIdx, cell) {
+						var cellContentLength = $(cell).text().length;
+						colWidths[colIdx] = Math.max(colWidths[colIdx] || 0, cellContentLength); // find max length for each column
+					});
+				});
+
+				// Convert column widths to the format required by XLSX.js and assign to ws
+				ws['!cols'] = colWidths.map(function(width) {
+					return { wch: width };
+				});
+				
+				// Add worksheet to workbook with name based on the mapping or original h2 text
+				XLSX.utils.book_append_sheet(wb, ws, sheetName);
+			});
+
+			return wb;
+		}
+
+		$(document).ready(function() {
+			$('#downloadAll').on('click', function() {
+				var wb = tablesToExcel();
+				XLSX.writeFile(wb, "ActiveDirectoryAudit.xlsx");
+			});
+			createDownloadLinkForTable('BuiltinAdministrators');
+			createDownloadLinkForTable('TargetDomains');
+			createDownloadLinkForTable('CurrentForestDomains');
+			createDownloadLinkForTable('KrbtgtAccounts');
+			createDownloadLinkForTable('DomainControllers');
+			createDownloadLinkForTable('ForestDomain');
+			createDownloadLinkForTable('ForestGlobalCatalog');
+			createDownloadLinkForTable('GetDomainTrust');
+			createDownloadLinkForTable('TrustAccounts');
+			createDownloadLinkForTable('DomainTrusts');
+			createDownloadLinkForTable('TrustedDomainObjectGUIDs');
+			createDownloadLinkForTable('GroupsForeignDomainMembers');
+			createDownloadLinkForTable('EnterpriseAdmins');
+			createDownloadLinkForTable('DomainAdmins');
+			createDownloadLinkForTable('AccountOperators');
+			createDownloadLinkForTable('BackupOperators');
+			createDownloadLinkForTable('CertPublishers');
+			createDownloadLinkForTable('DNSAdmins');
+			createDownloadLinkForTable('EnterpriseKeyAdmins');
+			createDownloadLinkForTable('EnterpriseRODCs');
+			createDownloadLinkForTable('GPCreatorOwners');
+			createDownloadLinkForTable('KeyAdmins');
+			createDownloadLinkForTable('ProtectedUsers');
+			createDownloadLinkForTable('RODCs');
+			createDownloadLinkForTable('SchemaAdmins');
+			createDownloadLinkForTable('ServerOperators');
+			createDownloadLinkForTable('Subnets');
+			createDownloadLinkForTable('ADCSEndpoints');
+			createDownloadLinkForTable('VulnCertTemplates');
+			createDownloadLinkForTable('Unconstrained');
+			createDownloadLinkForTable('ConstrainedDelegationComputers');
+			createDownloadLinkForTable('ConstrainedDelegationUsers');
+			createDownloadLinkForTable('RBACDObjects');
+			createDownloadLinkForTable('ADComputersCreated');
+			createDownloadLinkForTable('PasswordSetUsers');
+			createDownloadLinkForTable('PassNotRequired');
+			createDownloadLinkForTable('EmptyPasswordUsers');
+			createDownloadLinkForTable('PreWin2kCompatibleAccess');
+			createDownloadLinkForTable('UnsupportedHosts');
+			createDownloadLinkForTable('LMCompatibilityLevel');
+			createDownloadLinkForTable('MachineQuota');
+			createDownloadLinkForTable('ReplicationUsers');
+			createDownloadLinkForTable('ExchangeTrustedSubsystem');
+			createDownloadLinkForTable('ServiceAccounts');
+			createDownloadLinkForTable('GMSAs');
+			createDownloadLinkForTable('nopreauthset');
+			createDownloadLinkForTable('UsersAdminCount');
+			createDownloadLinkForTable('GroupsAdminCount');
+			createDownloadLinkForTable('AdminsInProtectedUsersGroup');
+			createDownloadLinkForTable('NotSensitiveAdminsInProtectedUsersGroup');
+			createDownloadLinkForTable('AdminsNotInProtectedUsersGroup');
+			createDownloadLinkForTable('AdminsNOTinProtectedUsersGroupAndNOTSensitive');
+			createDownloadLinkForTable('NonAdminsInProtectedUsersGroup');
+			createDownloadLinkForTable('PrivilegedSensitiveUsers');
+			createDownloadLinkForTable('PrivilegedNotSensitiveUsers');
+			createDownloadLinkForTable('NonPrivilegedSensitiveUsers');
+			createDownloadLinkForTable('MachineAccountsPriv');
+			createDownloadLinkForTable('sidHistoryUsers');
+			createDownloadLinkForTable('RevEncUsers');
+			createDownloadLinkForTable('LinkedDAAccounts');
+			createDownloadLinkForTable('GPOCreators');
+			createDownloadLinkForTable('GPOsWhocanmodify');
+			createDownloadLinkForTable('GpoLinkResults');
+			createDownloadLinkForTable('LAPSGPOs');
+			createDownloadLinkForTable('LAPSAdminGPOs');
+			createDownloadLinkForTable('LAPSCanRead');
+			createDownloadLinkForTable('LAPSExtended');
+			createDownloadLinkForTable('LapsEnabledComputers');
+			createDownloadLinkForTable('AppLockerGPOs');
+			createDownloadLinkForTable('GPOLocalGroupsMembership');
+			createDownloadLinkForTable('GPOComputerAdmins');
+			createDownloadLinkForTable('GPOMachinesAdminlocalgroup');
+			createDownloadLinkForTable('UsersInGroup');
+			createDownloadLinkForTable('FindLocalAdminAccess');
+			createDownloadLinkForTable('FindDomainUserLocation');
+			createDownloadLinkForTable('LoggedOnUsersServerOU');
+			createDownloadLinkForTable('Win7AndServer2008');
+			createDownloadLinkForTable('InterestingServersEnabled');
+			createDownloadLinkForTable('KeywordDomainGPOs');
+			createDownloadLinkForTable('GroupsByKeyword');
+			createDownloadLinkForTable('DomainOUsByKeyword');
+			createDownloadLinkForTable('DomainShares');
+			createDownloadLinkForTable('DomainShareFiles');
+			createDownloadLinkForTable('InterestingFiles');
+			createDownloadLinkForTable('ACLScannerResults');
+			createDownloadLinkForTable('DomainPolicy');
+			createDownloadLinkForTable('KerberosPolicy');
+			createDownloadLinkForTable('UserAccountAnalysis');
+			createDownloadLinkForTable('ComputerAccountAnalysis');
+			createDownloadLinkForTable('OperatingSystemsAnalysis');
+			createDownloadLinkForTable('ServersEnabled');
+			createDownloadLinkForTable('ServersDisabled');
+			createDownloadLinkForTable('WorkstationsEnabled');
+			createDownloadLinkForTable('WorkstationsDisabled');
+			createDownloadLinkForTable('EnabledUsers');
+			createDownloadLinkForTable('DisabledUsers');
+			createDownloadLinkForTable('OtherGroups');
+			createDownloadLinkForTable('DomainGPOs');
+			createDownloadLinkForTable('AllDomainOUs');
+			createDownloadLinkForTable('AllDescriptions');
+		});
+
+		</script>
+	
 		<style>
 
 			h1 {
@@ -363,7 +654,13 @@ function Invoke-ADEnum
 				font-family: Arial, Helvetica, sans-serif;
 				color: #ff781f;
 				font-size: 35px;
+				cursor: pointer;
 
+			}
+			
+			h1:hover {
+				color: #ff9a4e;
+				text-decoration: underline;
 			}
 			
 			h2 {
@@ -425,19 +722,33 @@ function Invoke-ADEnum
 				color: #008000;
 			}
 			
+			.download-link {
+				color: inherit; /* Use the color of the surrounding text */
+				text-decoration: none; /* Remove underline */
+				font-size: 20px;
+			}
+
+			.download-link:hover {
+				color: #51b2c6;
+				text-decoration: underline; /* Add underline on hover for better UX */
+			}
+			
 		</style>
-	"
+'@
 	
-	$TopLevelBanner = "<h1>Active Directory Audit</h1>"
+	$TopLevelBanner = '<h1 id="downloadAll">Active Directory Audit</h1>'
 	
 	$EnvironmentTable = [PSCustomObject]@{
 		"Ran as User" = "$env:USERDOMAIN\$env:USERNAME"
 		Domain = $env:USERDNSDOMAIN
 		"Ran on Host" = $env:computername + '.' + $env:USERDNSDOMAIN
 		"Date and Time" = Get-Date
+		"Enumeration Tool" = "Invoke-ADEnum"
 	}
 	
-	$HTMLEnvironmentTable = $EnvironmentTable | ConvertTo-Html -As List -Fragment
+	$HTMLEnvironmentTable = $EnvironmentTable | ConvertTo-Html -As List -Fragment -PreContent "<h2 data-linked-table='EnvironmentInfo' style='display: none;'>Environment Info</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='EnvironmentInfo'>" }
+	
+	$HTMLEnvironmentTable = $HTMLEnvironmentTable.Replace("Invoke-ADEnum", '<a href="https://github.com/Leo4j/Invoke-ADEnum" target="_blank">Invoke-ADEnum</a>')
     
     # All Domains
     $ParentDomain = (Get-NetDomain | Select-Object -ExpandProperty Forest | Select-Object -ExpandProperty Name)
@@ -572,7 +883,7 @@ function Invoke-ADEnum
 
     if($TempTargetDomains){
 		$TempTargetDomains | Sort-Object Forest,Parent,Domain | ft -Autosize -Wrap
-		$HTMLTargetDomain = $TempTargetDomains | Sort-Object Forest,Parent,Domain | ConvertTo-Html -Fragment -PreContent "<h2>Target Domains</h2>"
+		$HTMLTargetDomain = $TempTargetDomains | Sort-Object Forest,Parent,Domain | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='TargetDomains'>Target Domains</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='TargetDomains'>" }
     }
 	
 	if($TargetsOnly){
@@ -742,7 +1053,7 @@ function Invoke-ADEnum
 
     if($TempKrbtgtAccount){
 		$TempKrbtgtAccount | Sort-Object Domain | ft -Autosize -Wrap
-		$HTMLKrbtgtAccount = $TempKrbtgtAccount | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2>Krbtgt Accounts</h2>"
+		$HTMLKrbtgtAccount = $TempKrbtgtAccount | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='KrbtgtAccounts'>Krbtgt Accounts</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='KrbtgtAccounts'>" }
 	}
 	
 	#############################################
@@ -766,10 +1077,6 @@ function Invoke-ADEnum
 				"Primary DC" = $primaryDC
 			}
     	}
-		if($TempHTMLdc){
-			$TempHTMLdc | Sort-Object Forest,Domain,"DC Name" | ft -Autosize -Wrap
-			$HTMLdc = $TempHTMLdc | Sort-Object Forest,Domain,"DC Name" | ConvertTo-Html -Fragment -PreContent "<h2>Domain Controllers</h2>"
-		}
     }
     else{
         $TempHTMLdc = foreach($AllDomain in $AllDomains){
@@ -787,11 +1094,12 @@ function Invoke-ADEnum
 				}
         	}
 		}
-		if($TempHTMLdc ){
-			$TempHTMLdc | Sort-Object Forest,Domain,"DC Name" | ft -Autosize -Wrap
-			$HTMLdc = $TempHTMLdc | Sort-Object Forest,Domain,"DC Name" | ConvertTo-Html -Fragment -PreContent "<h2>Domain Controllers</h2>"
-		}
     }
+	
+	if($TempHTMLdc){
+		$TempHTMLdc | Sort-Object Forest,Domain,"DC Name" | ft -Autosize -Wrap
+		$HTMLdc = $TempHTMLdc | Sort-Object Forest,Domain,"DC Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DomainControllers'>Domain Controllers</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DomainControllers'>" }
+	}
 	
 	#############################################
     ###### Domains for the current forest #######
@@ -817,7 +1125,7 @@ function Invoke-ADEnum
 
 	if ($TempForestDomain) {
 		$TempForestDomain | Sort-Object Domain | Format-Table -AutoSize -Wrap
-		$HTMLForestDomain = $TempForestDomain | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2>Domains for the current forest</h2>"
+		$HTMLForestDomain = $TempForestDomain | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='CurrentForestDomains'>Domains for the current forest</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='CurrentForestDomains'>" }
 	}
 
     #############################################
@@ -839,7 +1147,7 @@ function Invoke-ADEnum
 
 	if ($TempForestGlobalCatalog) {
 		$TempForestGlobalCatalog | Sort-Object Forest,Domain,"DC Name" | Format-Table -AutoSize -Wrap
-		$HTMLForestGlobalCatalog = $TempForestGlobalCatalog | Sort-Object Forest,Domain,"DC Name" | ConvertTo-Html -Fragment -PreContent "<h2>Forest Global Catalog</h2>"
+		$HTMLForestGlobalCatalog = $TempForestGlobalCatalog | Sort-Object Forest,Domain,"DC Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ForestGlobalCatalog'>Forest Global Catalog</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ForestGlobalCatalog'>" }
 	}
 
 
@@ -886,7 +1194,7 @@ function Invoke-ADEnum
 
     if($TempGetDomainTrust){
 		$TempGetDomainTrust | Format-Table -AutoSize -Wrap
-		$HTMLGetDomainTrust = $TempGetDomainTrust | ConvertTo-Html -Fragment -PreContent "<h2>Domain Trusts</h2>"
+		$HTMLGetDomainTrust = $TempGetDomainTrust | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DomainTrusts'>Domain Trusts</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DomainTrusts'>" }
 	}
 	
 	#############################################
@@ -909,11 +1217,6 @@ function Invoke-ADEnum
 			}
 		}
 		
-		if($TempTrustAccounts){
-			$TempTrustAccounts | ft -AutoSize -Wrap
-			$HTMLTrustAccounts = $TempTrustAccounts | ConvertTo-Html -Fragment -PreContent "<h2>Trust Accounts</h2>"
-		}
-		
     }
 	
     else{
@@ -931,12 +1234,12 @@ function Invoke-ADEnum
 				}
 			}
 		}
-		
-		if($TempTrustAccounts){
-			$TempTrustAccounts | ft -AutoSize -Wrap
-			$HTMLTrustAccounts = $TempTrustAccounts | ConvertTo-Html -Fragment -PreContent "<h2>Trust Accounts</h2>"
-		}
     }
+	
+	if($TempTrustAccounts){
+		$TempTrustAccounts | ft -AutoSize -Wrap
+		$HTMLTrustAccounts = $TempTrustAccounts | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='TrustAccounts'>Trust Accounts</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='TrustAccounts'>" }
+	}
 	
 	#############################################
     ####### Trusted Domain Object GUIDs #########
@@ -965,10 +1268,6 @@ function Invoke-ADEnum
 				}
 			}
 		}
-		if($TempTrustedDomainObjectGUIDs){
-			$TempTrustedDomainObjectGUIDs | ft -AutoSize -Wrap
-			$HTMLTrustedDomainObjectGUIDs = $TempTrustedDomainObjectGUIDs | ConvertTo-Html -Fragment -PreContent "<h2>Trusted Domain Object GUIDs</h2>"
-		}
     }
 	
     else{
@@ -994,11 +1293,12 @@ function Invoke-ADEnum
 				}
 			}
 		}
-		if($TempTrustedDomainObjectGUIDs){
-			$TempTrustedDomainObjectGUIDs | ft -AutoSize -Wrap
-			$HTMLTrustedDomainObjectGUIDs = $TempTrustedDomainObjectGUIDs | ConvertTo-Html -Fragment -PreContent "<h2>Trusted Domain Object GUIDs</h2>"
-		}
     }
+	
+	if($TempTrustedDomainObjectGUIDs){
+		$TempTrustedDomainObjectGUIDs | ft -AutoSize -Wrap
+		$HTMLTrustedDomainObjectGUIDs = $TempTrustedDomainObjectGUIDs | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='TrustedDomainObjectGUIDs'>Trusted Domain Object GUIDs</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='TrustedDomainObjectGUIDs'>" }
+	}
 	
 	#############################################
     ################ Outsiders ##################
@@ -1110,9 +1410,9 @@ function Invoke-ADEnum
 	}
 
  	if ($TempForeignGroupMembers) {
-			$TempForeignGroupMembers | Format-Table -AutoSize -Wrap
-			$HTMLGetDomainForeignGroupMember = $TempForeignGroupMembers | ConvertTo-Html -Fragment -PreContent "<h2>Groups that contain users outside of its domain and return its members</h2>"
-		}
+		$TempForeignGroupMembers | Format-Table -AutoSize -Wrap
+		$HTMLGetDomainForeignGroupMember = $TempForeignGroupMembers | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='GroupsForeignDomainMembers'>Groups that contain users outside of its domain and return its members</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='GroupsForeignDomainMembers'>" }
+	}
 
 	
 	####################################################
@@ -1212,7 +1512,7 @@ function Invoke-ADEnum
 
  	if ($TempBuiltInAdministrators) {
 		$TempBuiltInAdministrators | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ft -Autosize -Wrap
-		$HTMLBuiltInAdministrators = $TempBuiltInAdministrators | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2>Built-In Administrators</h2>"
+		$HTMLBuiltInAdministrators = $TempBuiltInAdministrators | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='BuiltinAdministrators'>Built-In Administrators</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='BuiltinAdministrators'>" }
 	}
 	
 	######################################################
@@ -1308,7 +1608,7 @@ function Invoke-ADEnum
 
  	if ($TempEnterpriseAdmins) {
 			$TempEnterpriseAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ft -Autosize -Wrap
-			$HTMLEnterpriseAdmins = $TempEnterpriseAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2>Enterprise Administrators</h2>"
+			$HTMLEnterpriseAdmins = $TempEnterpriseAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='EnterpriseAdmins'>Enterprise Administrators</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='EnterpriseAdmins'>" }
 		}
 	
 	##################################################
@@ -1402,7 +1702,7 @@ function Invoke-ADEnum
 
  	if ($TempDomainAdmins) {
 			$TempDomainAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ft -Autosize -Wrap
-			$HTMLDomainAdmins = $TempDomainAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2>Domain Administrators</h2>"
+			$HTMLDomainAdmins = $TempDomainAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DomainAdmins'>Domain Administrators</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DomainAdmins'>" }
 		}
 
  	#################################################### 
@@ -1516,7 +1816,7 @@ function Invoke-ADEnum
 
 		if ($TempAccountOperators) {
 			$TempAccountOperators | Sort-Object -Unique "Group Domain","Member Name","Member SID" | Format-Table -Autosize -Wrap
-			$HTMLAccountOperators = $TempAccountOperators | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2>Account Operators</h2>"
+			$HTMLAccountOperators = $TempAccountOperators | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='AccountOperators'>Account Operators</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='AccountOperators'>" }
 		}
 		
 		#################################################### 
@@ -1625,7 +1925,7 @@ function Invoke-ADEnum
 
 		if ($TempBackupOperators) {
 			$TempBackupOperators | Sort-Object -Unique "Group Domain","Member Name","Member SID" | Format-Table -Autosize -Wrap
-			$HTMLBackupOperators = $TempBackupOperators | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2>Backup Operators</h2>"
+			$HTMLBackupOperators = $TempBackupOperators | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='BackupOperators'>Backup Operators</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='BackupOperators'>" }
 		}
 		
 		#################################################### 
@@ -1733,7 +2033,7 @@ function Invoke-ADEnum
 
 		if ($TempCertPublishersGroup) {
 			$TempCertPublishersGroup | Sort-Object -Unique "Group Domain","Member Name","Member SID" | Format-Table -Autosize -Wrap
-			$HTMLCertPublishersGroup = $TempCertPublishersGroup | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2>Cert Publishers</h2>"
+			$HTMLCertPublishersGroup = $TempCertPublishersGroup | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='CertPublishers'>Cert Publishers</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='CertPublishers'>" }
 		}
 		
 		#################################################### 
@@ -1841,7 +2141,7 @@ function Invoke-ADEnum
 
 		if ($TempDNSAdmins) {
 			$TempDNSAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | Format-Table -Autosize -Wrap
-			$HTMLDNSAdmins = $TempDNSAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2>DNS Admins</h2>"
+			$HTMLDNSAdmins = $TempDNSAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DNSAdmins'>DNS Admins</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DNSAdmins'>" }
 		}
 		
 		#################################################### 
@@ -1949,7 +2249,7 @@ function Invoke-ADEnum
 
 		if ($TempEnterpriseKeyAdmins) {
 			$TempEnterpriseKeyAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | Format-Table -Autosize -Wrap
-			$HTMLEnterpriseKeyAdmins = $TempEnterpriseKeyAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2>Enterprise Key Admins</h2>"
+			$HTMLEnterpriseKeyAdmins = $TempEnterpriseKeyAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='EnterpriseKeyAdmins'>Enterprise Key Admins</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='EnterpriseKeyAdmins'>" }
 		}
 		
 		#################################################### 
@@ -2057,7 +2357,7 @@ function Invoke-ADEnum
 
 		if ($TempEnterpriseRODCs) {
 			$TempEnterpriseRODCs | Sort-Object -Unique "Group Domain","Member Name","Member SID" | Format-Table -Autosize -Wrap
-			$HTMLEnterpriseRODCs = $TempEnterpriseRODCs | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2>Enterprise Read-Only Domain Controllers</h2>"
+			$HTMLEnterpriseRODCs = $TempEnterpriseRODCs | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='EnterpriseRODCs'>Enterprise Read-Only Domain Controllers</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='EnterpriseRODCs'>" }
 		}
 
 		
@@ -2166,7 +2466,7 @@ function Invoke-ADEnum
 
 		if ($TempGPCreatorOwners) {
 			$TempGPCreatorOwners | Sort-Object -Unique "Group Domain","Member Name","Member SID" | Format-Table -Autosize -Wrap
-			$HTMLGPCreatorOwners = $TempGPCreatorOwners | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2>Group Policy Creator Owners</h2>"
+			$HTMLGPCreatorOwners = $TempGPCreatorOwners | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='GPCreatorOwners'>Group Policy Creator Owners</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='GPCreatorOwners'>" }
 		}
 
 		#################################################### 
@@ -2274,7 +2574,7 @@ function Invoke-ADEnum
 
 		if ($TempKeyAdmins) {
 			$TempKeyAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | Format-Table -Autosize -Wrap
-			$HTMLKeyAdmins = $TempKeyAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2>Key Admins</h2>"
+			$HTMLKeyAdmins = $TempKeyAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='KeyAdmins'>Key Admins</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='KeyAdmins'>" }
 		}
 		
 		#################################################### 
@@ -2382,7 +2682,7 @@ function Invoke-ADEnum
 
 		if ($TempProtectedUsers) {
 			$TempProtectedUsers | Sort-Object -Unique "Group Domain","Member Name","Member SID" | Format-Table -Autosize -Wrap
-			$HTMLProtectedUsers = $TempProtectedUsers | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2>Protected Users</h2>"
+			$HTMLProtectedUsers = $TempProtectedUsers | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ProtectedUsers'>Protected Users</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ProtectedUsers'>" }
 		}
 
 		
@@ -2491,7 +2791,7 @@ function Invoke-ADEnum
 
 		if ($TempRODCs) {
 			$TempRODCs | Sort-Object -Unique "Group Domain","Member Name","Member SID" | Format-Table -Autosize -Wrap
-			$HTMLRODCs = $TempRODCs | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2>Read-Only Domain Controllers</h2>"
+			$HTMLRODCs = $TempRODCs | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='RODCs'>Read-Only Domain Controllers</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='RODCs'>" }
 		}
 		
 		
@@ -2605,7 +2905,7 @@ function Invoke-ADEnum
 
 		if ($TempSchemaAdmins) {
 			$TempSchemaAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ft -Autosize -Wrap
-			$HTMLSchemaAdmins = $TempSchemaAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2>Schema Admins</h2>"
+			$HTMLSchemaAdmins = $TempSchemaAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='SchemaAdmins'>Schema Admins</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='SchemaAdmins'>" }
 		}
 		
 		#################################################### 
@@ -2713,11 +3013,47 @@ function Invoke-ADEnum
 
 		if ($TempServerOperators) {
 			$TempServerOperators | Sort-Object -Unique "Group Domain","Member Name","Member SID" | Format-Table -Autosize -Wrap
-			$HTMLServerOperators = $TempServerOperators | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2>Server Operators</h2>"
+			$HTMLServerOperators = $TempServerOperators | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ServerOperators'>Server Operators</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ServerOperators'>" }
 		}
 
+	}
+	
+	#############################################
+    ############### Subnets ###############
+	#############################################
+	
+	Write-Host ""
+	Write-Host "Subnets:" -ForegroundColor Cyan
+	
+    if($Domain -AND $Server) {
+		$GetDomainSubnets = Get-DomainSubnet -Domain $Domain -Server $Server
+		
+		$TempSubnets = foreach ($DomainSubnet in $GetDomainSubnets) {
+			[PSCustomObject]@{
+				"Subnet" = $DomainSubnet.name
+				"Site Object" = $DomainSubnet.siteobject
+				"Domain" = $Domain
+			}
+		}
+    }
+    
+    else{
+        $TempSubnets = foreach($AllDomain in $AllDomains){
+			$GetDomainSubnets = Get-DomainSubnet -Domain $AllDomain
+			
+			foreach ($DomainSubnet in $GetDomainSubnets) {
+				[PSCustomObject]@{
+					"Subnet" = $DomainSubnet.name
+					"Site Object" = $DomainSubnet.siteobject
+					"Domain" = $AllDomain
+				}
+			}
+		}
+    }
 
-
+    if($TempSubnets){
+		$TempSubnets | Sort-Object -Unique Domain,Subnet | Format-Table -AutoSize -Wrap
+		$HTMLSubnets = $TempSubnets | Sort-Object -Unique Domain,Subnet | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='Subnets'>Subnets</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='Subnets'>" }
 	}
 
  	<#
@@ -2851,7 +3187,7 @@ function Invoke-ADEnum
 
     		if ($TempCertPublishers) {
 			$TempCertPublishers | Sort-Object Domain,"Member Name" | Format-Table -AutoSize -Wrap
-			$HTMLCertPublishers = $TempCertPublishers | Sort-Object Domain,"Member Name" | ConvertTo-Html -Fragment -PreContent "<h2>ADCS HTTP Endpoints</h2>"
+			$HTMLCertPublishers = $TempCertPublishers | Sort-Object Domain,"Member Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ADCSEndpoints'>ADCS HTTP Endpoints</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ADCSEndpoints'>" }
 
       			$ADCSEndpointsTable = [PSCustomObject]@{
 				"Risk Rating" = "Critical - Needs Immediate Attention"
@@ -2860,7 +3196,7 @@ function Invoke-ADEnum
 			}
 			
 			$HTMLADCSEndpointsTable = $ADCSEndpointsTable | ConvertTo-Html -As List -Fragment
-   			$HTMLADCSEndpointsTable = $HTMLADCSEndpointsTable.Replace("Remediation", '<a href="https://support.microsoft.com/en-gb/topic/kb5005413-mitigating-ntlm-relay-attacks-on-active-directory-certificate-services-ad-cs-3612b773-4043-4aa9-b23d-b87910cd3429">Remediation</a>')
+   			$HTMLADCSEndpointsTable = $HTMLADCSEndpointsTable.Replace("Remediation", '<a href="https://support.microsoft.com/en-gb/topic/kb5005413-mitigating-ntlm-relay-attacks-on-active-directory-certificate-services-ad-cs-3612b773-4043-4aa9-b23d-b87910cd3429" target="_blank">Remediation</a>')
 		}
 	}
 	
@@ -2965,18 +3301,18 @@ function Invoke-ADEnum
 
 		
 		if ($VulnCertTemplatesFlags) {
-			$HTMLVulnCertTemplates = $VulnCertTemplatesFlags | ConvertTo-Html -Fragment -PreContent "<h2>Vulnerable Certificate Templates</h2>"
+			$HTMLVulnCertTemplates = $VulnCertTemplatesFlags | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='VulnCertTemplates'>Vulnerable Certificate Templates</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='VulnCertTemplates'>" }
 			$HTMLVulnCertComputers = $TempVulnCertComputers | ConvertTo-Html -Fragment
 			$HTMLVulnCertUsers = $TempVulnCertUsers | ConvertTo-Html -Fragment
 		}
 		
 		elseif ($TempVulnCertComputers) {
-			$HTMLVulnCertComputers = $TempVulnCertComputers | ConvertTo-Html -Fragment -PreContent "<h2>Vulnerable Certificate Templates</h2>"
+			$HTMLVulnCertComputers = $TempVulnCertComputers | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='VulnCertTemplates'>Vulnerable Certificate Templates</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='VulnCertTemplates'>" }
 			$HTMLVulnCertUsers = $TempVulnCertUsers | ConvertTo-Html -Fragment
 		}
 		
 		elseif ($TempVulnCertUsers) {
-			$HTMLVulnCertUsers = $TempVulnCertUsers | ConvertTo-Html -Fragment -PreContent "<h2>Vulnerable Certificate Templates</h2>"
+			$HTMLVulnCertUsers = $TempVulnCertUsers | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='VulnCertTemplates'>Vulnerable Certificate Templates</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='VulnCertTemplates'>" }
 		}
 
   		if($VulnCertTemplatesFlags -OR $TempVulnCertComputers -OR $TempVulnCertUsers){
@@ -3037,7 +3373,7 @@ function Invoke-ADEnum
 
   		if ($TempUnconstrained) {
 			$TempUnconstrained | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-			$HTMLUnconstrained = $TempUnconstrained | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Unconstrained Delegation</h2>"
+			$HTMLUnconstrained = $TempUnconstrained | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='Unconstrained'>Unconstrained Delegation</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='Unconstrained'>" }
 
    			$UnconstrainedTable = [PSCustomObject]@{
 				"Risk Rating" = "Critical - Needs Immediate Attention"
@@ -3091,7 +3427,7 @@ function Invoke-ADEnum
 
   		if ($TempConstrainedDelegationComputers) {
 			$TempConstrainedDelegationComputers | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-			$HTMLConstrainedDelegationComputers = $TempConstrainedDelegationComputers | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Constrained Delegation (Computers)</h2>"
+			$HTMLConstrainedDelegationComputers = $TempConstrainedDelegationComputers | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ConstrainedDelegationComputers'>Constrained Delegation (Computers)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ConstrainedDelegationComputers'>" }
 
    			$ConstrainedDelegationComputersTable = [PSCustomObject]@{
 				"Recommendations" = "Regularly review and audit the delegation settings to ensure they align with the principle of least privilege. Limit delegation to only the necessary resources and services."
@@ -3153,7 +3489,7 @@ function Invoke-ADEnum
 
   		if ($TempConstrainedDelegationUsers) {
 			$TempConstrainedDelegationUsers | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-			$HTMLConstrainedDelegationUsers = $TempConstrainedDelegationUsers | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Constrained Delegation (Users)</h2>"
+			$HTMLConstrainedDelegationUsers = $TempConstrainedDelegationUsers | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ConstrainedDelegationUsers'>Constrained Delegation (Users)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ConstrainedDelegationUsers'>" }
 
    			$ConstrainedDelegationUsersTable = [PSCustomObject]@{
 				"Recommendations" = "Regularly review and audit the delegation settings to ensure they align with the principle of least privilege. Limit delegation to only the necessary resources and services."
@@ -3244,7 +3580,7 @@ function Invoke-ADEnum
 
    			if ($RBACDObjects) {
 				$RBACDObjects | Sort-Object Domain,Account,"Computer Object" | Format-Table -AutoSize -Wrap
-				$HTMLRBACDObjects = $RBACDObjects | Sort-Object Domain,Account,"Computer Object" | ConvertTo-Html -Fragment -PreContent "<h2>Resource Based Constrained Delegation</h2>"
+				$HTMLRBACDObjects = $RBACDObjects | Sort-Object Domain,Account,"Computer Object" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='RBACDObjects'>Resource Based Constrained Delegation</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='RBACDObjects'>" }
 
     				$RBCDTable = [PSCustomObject]@{
 					"Recommendations" = "Regularly review and audit the delegation settings to ensure they align with the principle of least privilege. Limit delegation to necessary resources and services only."
@@ -3349,7 +3685,7 @@ function Invoke-ADEnum
 
 	if ($ADComputersCreated) {
 		$ADComputersCreated | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-		$HTMLADComputersCreated = $ADComputersCreated | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Computers Objects created by regular users</h2>"
+		$HTMLADComputersCreated = $ADComputersCreated | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ADComputersCreated'>Computers Objects created by regular users</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ADComputersCreated'>" }
 
   		$ADComputersCreatedTable = [PSCustomObject]@{
 			"Recommendations" = "Review the above computer objects and consider removing any ACE that was set to allow the specific user or group to domain join the computer."
@@ -3426,13 +3762,13 @@ function Invoke-ADEnum
 
  	if ($TempPasswordSetUsers) {
 		$TempPasswordSetUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
-		$HTMLPasswordSetUsers = $TempPasswordSetUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Check if any user passwords are set</h2>"
+		$HTMLPasswordSetUsers = $TempPasswordSetUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='PasswordSetUsers'>Check if any user passwords are set</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='PasswordSetUsers'>" }
 		$TempPasswordSetUsers."User Password" | ForEach-Object {
 			$HTMLPasswordSetUsers = $HTMLPasswordSetUsers -replace "<td>$_</td>","<td class=`"YesStatus`">$_</td>"
 		}
   		$HTMLPasswordSetUsers = $HTMLPasswordSetUsers -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
 
-    		$UserPasswordsSetTable = [PSCustomObject]@{
+    	$UserPasswordsSetTable = [PSCustomObject]@{
 			"Risk Rating" = "High - Needs Immediate Attention"
 			"Description" = "Checks if any user passwords are set via the attribute 'userPassword'."
 			"Remediation" = "Make sure this attribute does not contain a value."
@@ -3504,7 +3840,9 @@ function Invoke-ADEnum
 
  	if ($TempEmptyPasswordUsers) {
 		$TempEmptyPasswordUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
-		$HTMLEmptyPasswordUsers = $TempEmptyPasswordUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users with Password-not-required attribute set</h2>"
+		$HTMLEmptyPasswordUsers = $TempEmptyPasswordUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='PassNotRequired'>Users with Password-not-required attribute set</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='PassNotRequired'>" }
+		
+		$HTMLEmptyPasswordUsers = $HTMLEmptyPasswordUsers -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
 
   		$EmptyPasswordsTable = [PSCustomObject]@{
 			"Risk Rating" = "High - Needs Immediate Attention"
@@ -3516,13 +3854,13 @@ function Invoke-ADEnum
 	}
 
 	#################################################################################################
-    ########### Users with Empty Passwords ###############
+    ########### Accounts with Empty Passwords ###############
 	#################################################################################################
 	
 	if($SprayEmptyPasswords){
  
 	 	Write-Host ""
-		Write-Host "Users with empty passwords:" -ForegroundColor Cyan
+		Write-Host "Accounts with empty passwords:" -ForegroundColor Cyan
 		
 		$minDelay = 0
 		$maxDelay = 200
@@ -3612,12 +3950,14 @@ function Invoke-ADEnum
 	
 	 	if ($TempTotalEmptyPass) {
 			$TempTotalEmptyPass | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
-			$HTMLTotalEmptyPass = $TempTotalEmptyPass | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users with empty passwords</h2>"
+			$HTMLTotalEmptyPass = $TempTotalEmptyPass | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='EmptyPasswordUsers'>Accounts with empty passwords</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='EmptyPasswordUsers'>" }
+			
+			$HTMLTotalEmptyPass = $HTMLTotalEmptyPass -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
 	
 	  		$TotalEmptyPassTable = [PSCustomObject]@{
 				"Risk Rating" = "High - Needs Immediate Attention"
 				"Description" = "Empty passwords can be set for users and computers when password policies allow it or the Password-not-required attribute is enabled. This makes user accounts extremely easy for an attacker to compromise."
-				"Remediation" = "Enforce strong password policies and ensure that all users have a secure and non-empty password. Disable the Password-not-required attribute for all users in the domain."
+				"Remediation" = "Enforce strong password policies and ensure that all user and computer accounts have a secure and non-empty password."
 			}
 			
 			$HTMLTotalEmptyPassTable = $TotalEmptyPassTable | ConvertTo-Html -As List -Fragment
@@ -3678,7 +4018,7 @@ function Invoke-ADEnum
 
  	if ($TempPreWin2kCompatibleAccess) {
 		$TempPreWin2kCompatibleAccess | Sort-Object Domain,Member | Format-Table -AutoSize -Wrap
-		$HTMLPreWin2kCompatibleAccess = $TempPreWin2kCompatibleAccess | Sort-Object Domain,Member | ConvertTo-Html -Fragment -PreContent "<h2>Members of Pre-Windows 2000 Compatible Access group</h2>"
+		$HTMLPreWin2kCompatibleAccess = $TempPreWin2kCompatibleAccess | Sort-Object Domain,Member | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='PreWin2kCompatibleAccess'>Members of Pre-Windows 2000 Compatible Access group</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='PreWin2kCompatibleAccess'>" }
 
   		$PreWindows2000Table = [PSCustomObject]@{
 			"Description" = "Pre-Windows 2000 computer objects used to get assigned a password based on the computer name instead of a random one. This can be leveraged to gain a foothold or to compromise your domain."
@@ -3757,7 +4097,7 @@ function Invoke-ADEnum
 
   		if ($TempUnsupportedHosts) {
 			$TempUnsupportedHosts | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-			$HTMLUnsupportedHosts = $TempUnsupportedHosts | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Hosts running Unsupported OS</h2>"
+			$HTMLUnsupportedHosts = $TempUnsupportedHosts | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='UnsupportedHosts'>Hosts running Unsupported OS</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='UnsupportedHosts'>" }
 
    			$UnsupportedOSTable = [PSCustomObject]@{
 				"Risk Rating" = "Critical - Needs Immediate Attention"
@@ -3766,8 +4106,8 @@ function Invoke-ADEnum
 			}
 			
 			$HTMLUnsupportedOSTable = $UnsupportedOSTable | ConvertTo-Html -As List -Fragment
-   			$HTMLUnsupportedOSTable = $HTMLUnsupportedOSTable.Replace("Description", '<a href="https://www.ncsc.gov.uk/collection/device-security-guidance/managing-deployed-devices/keeping-devices-and-software-up-to-date">Description</a>')
-			$HTMLUnsupportedOSTable = $HTMLUnsupportedOSTable.Replace("Remediation", '<a href="https://www.ncsc.gov.uk/collection/device-security-guidance/managing-deployed-devices/obsolete-products">Remediation</a>')
+   			$HTMLUnsupportedOSTable = $HTMLUnsupportedOSTable.Replace("Description", '<a href="https://www.ncsc.gov.uk/collection/device-security-guidance/managing-deployed-devices/keeping-devices-and-software-up-to-date" target="_blank">Description</a>')
+			$HTMLUnsupportedOSTable = $HTMLUnsupportedOSTable.Replace("Remediation", '<a href="https://www.ncsc.gov.uk/collection/device-security-guidance/managing-deployed-devices/obsolete-products" target="_blank">Remediation</a>')
 		}
 
     }
@@ -3873,7 +4213,7 @@ function Invoke-ADEnum
 
  	if ($TempLMCompatibilityLevel) {
 		$TempLMCompatibilityLevel | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
-		$HTMLLMCompatibilityLevel = $TempLMCompatibilityLevel | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>LM Compatibility Level</h2>"
+		$HTMLLMCompatibilityLevel = $TempLMCompatibilityLevel | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='LMCompatibilityLevel'>LM Compatibility Level</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='LMCompatibilityLevel'>" }
 		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send NTLM response only</td>','<td class="YesStatus">Send NTLM response only</td>'
 		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>2</td>','<td class="YesStatus">2</td>'
 		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send LM & NTLM - use NTLMv2 session security if negotiated</td>','<td class="YesStatus">Send LM and NTLM - use NTLMv2 session security if negotiated</td>'
@@ -3897,8 +4237,8 @@ function Invoke-ADEnum
 		
 		$HTMLLMCompatibilityLevelTable = $LMCompatibilityLevelTable | ConvertTo-Html -As List -Fragment
   		#$HTMLLMCompatibilityLevelTable = $HTMLLMCompatibilityLevelTable.Replace("*", "Description")
-    		$HTMLLMCompatibilityLevelTable = $HTMLLMCompatibilityLevelTable.Replace("Description", '<a href="https://learn.microsoft.com/en-us/windows/security/threat-protection/security-policy-settings/network-security-lan-manager-authentication-level">Description</a>')
-      		$HTMLLMCompatibilityLevelTable = $HTMLLMCompatibilityLevelTable.Replace("More Info", '<a href="https://learn.microsoft.com/en-us/windows/security/threat-protection/security-policy-settings/network-security-restrict-ntlm-ntlm-authentication-in-this-domain">More Info</a>')
+    		$HTMLLMCompatibilityLevelTable = $HTMLLMCompatibilityLevelTable.Replace("Description", '<a href="https://learn.microsoft.com/en-us/windows/security/threat-protection/security-policy-settings/network-security-lan-manager-authentication-level" target="_blank">Description</a>')
+      		$HTMLLMCompatibilityLevelTable = $HTMLLMCompatibilityLevelTable.Replace("More Info", '<a href="https://learn.microsoft.com/en-us/windows/security/threat-protection/security-policy-settings/network-security-restrict-ntlm-ntlm-authentication-in-this-domain" target="_blank">More Info</a>')
 	}
 	
 	#################################################
@@ -3937,7 +4277,7 @@ function Invoke-ADEnum
 
  	if ($TempMachineQuota) {
 	    $TempMachineQuota | Sort-Object Domain | Format-Table -AutoSize
-	    $HTMLMachineQuota = $TempMachineQuota | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2>Machine Account Quota</h2>"
+	    $HTMLMachineQuota = $TempMachineQuota | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='MachineQuota'>Machine Account Quota</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='MachineQuota'>" }
 	    $TempMachineQuota | Sort-Object Quota | Select-Object Quota | ForEach-Object {
 	        if (${_}.Quota -eq 0) {
 	            $HTMLMachineQuota = $HTMLMachineQuota -replace "<td>0</td>", "<td class=`"NoStatus`">0</td>"
@@ -4108,7 +4448,7 @@ function Invoke-ADEnum
 
  	if ($TempReplicationUsers) {
 		$TempReplicationUsers | Sort-Object Domain,"User or Group Name" | Format-Table -AutoSize -Wrap
-		$HTMLReplicationUsers = $TempReplicationUsers | Sort-Object Domain,"User or Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Principals with DCSync permissions</h2>"
+		$HTMLReplicationUsers = $TempReplicationUsers | Sort-Object Domain,"User or Group Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ReplicationUsers'>Principals with DCSync permissions</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ReplicationUsers'>" }
 
   		$DCsyncPrincipalsTable = [PSCustomObject]@{
 			"Recommendations" = "Review the permissions and privileges assigned to these accounts and ensure they align with the principle of least privilege."
@@ -4168,7 +4508,7 @@ function Invoke-ADEnum
 
 	if ($TempExchangeTrustedSubsystem) {
 		$TempExchangeTrustedSubsystem | Sort-Object Domain,Member | Format-Table -AutoSize -Wrap
-		$HTMLExchangeTrustedSubsystem = $TempExchangeTrustedSubsystem | Sort-Object Domain,Member | ConvertTo-Html -Fragment -PreContent "<h2>Members of Exchange Trusted Subsystem group</h2>"
+		$HTMLExchangeTrustedSubsystem = $TempExchangeTrustedSubsystem | Sort-Object Domain,Member | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ExchangeTrustedSubsystem'>Members of Exchange Trusted Subsystem group</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ExchangeTrustedSubsystem'>" }
 	}
 	
 	############################################
@@ -4224,7 +4564,7 @@ function Invoke-ADEnum
 
  	if ($TempServiceAccounts) {
 		$TempServiceAccounts | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-		$HTMLServiceAccounts = $TempServiceAccounts | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Service Accounts (Kerberoastable)</h2>"
+		$HTMLServiceAccounts = $TempServiceAccounts | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ServiceAccounts'>Service Accounts (Kerberoastable)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ServiceAccounts'>" }
 		$HTMLServiceAccounts = $HTMLServiceAccounts -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
 		$HTMLServiceAccounts = $HTMLServiceAccounts -replace '<td>NO</td>','<td class="NoStatus">NO</td>'
 		#$HTMLServiceAccounts = $HTMLServiceAccounts -replace '<td>False</td>','<td class="YesStatus">False</td>'
@@ -4292,7 +4632,7 @@ function Invoke-ADEnum
 
  	if ($TempGMSAs) {
 		$TempGMSAs | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-		$HTMLGMSAs = $TempGMSAs | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Group Managed Service Accounts (GMSA)</h2>"
+		$HTMLGMSAs = $TempGMSAs | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='GMSAs'>Group Managed Service Accounts (GMSA)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='GMSAs'>" }
 		$HTMLGMSAs = $HTMLGMSAs -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
 		$HTMLGMSAs = $HTMLGMSAs -replace '<td>NO</td>','<td class="NoStatus">NO</td>'
 		#$HTMLGMSAs = $HTMLGMSAs -replace '<td>False</td>','<td class="YesStatus">False</td>'
@@ -4356,7 +4696,7 @@ function Invoke-ADEnum
 
  	if ($Tempnopreauthset) {
 		$Tempnopreauthset | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
-		$HTMLnopreauthset = $Tempnopreauthset | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users without kerberos preauthentication set (AS-REProastable)</h2>"
+		$HTMLnopreauthset = $Tempnopreauthset | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='nopreauthset'>Users without kerberos preauthentication set (AS-REProastable)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='nopreauthset'>" }
   		$HTMLnopreauthset = $HTMLnopreauthset -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
 		$HTMLnopreauthset = $HTMLnopreauthset -replace '<td>NO</td>','<td class="NoStatus">NO</td>'
 		#$HTMLnopreauthset = $HTMLnopreauthset -replace '<td>False</td>','<td class="YesStatus">False</td>'
@@ -4446,7 +4786,7 @@ function Invoke-ADEnum
 
  	if ($TempUsersAdminCount) {
 		$TempUsersAdminCount | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
-		$HTMLUsersAdminCount = $TempUsersAdminCount | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users with AdminCount set to 1 (non-defaults)</h2>"
+		$HTMLUsersAdminCount = $TempUsersAdminCount | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='UsersAdminCount'>Users with AdminCount set to 1 (non-defaults)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='UsersAdminCount'>" }
 
   		$AdminCountUsersTable = [PSCustomObject]@{
 			"Description" = "The Users listed below have the attribute 'AdminCount' set to 1. When an object is removed from one of the privileged groups, AdminCount is not set to another value."
@@ -4510,7 +4850,7 @@ function Invoke-ADEnum
 
  	if ($TempGroupsAdminCount) {
 		$TempGroupsAdminCount | Sort-Object Domain,"Group Name" | Format-Table -AutoSize -Wrap
-		$HTMLGroupsAdminCount = $TempGroupsAdminCount | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Groups with AdminCount set to 1 (non-defaults)</h2>"
+		$HTMLGroupsAdminCount = $TempGroupsAdminCount | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='GroupsAdminCount'>Groups with AdminCount set to 1 (non-defaults)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='GroupsAdminCount'>" }
 
   		$AdminCountGroupsTable = [PSCustomObject]@{
 			"Description" = "The Groups listed below have the attribute 'AdminCount' set to 1. When an object is removed from one of the privileged groups, AdminCount is not set to another value."
@@ -4576,7 +4916,7 @@ function Invoke-ADEnum
 
 	if ($TempAdminsInProtectedUsersGroup) {
 		$TempAdminsInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-		$HTMLAdminsInProtectedUsersGroup = $TempAdminsInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users in 'Protected Users' Group</h2>"
+		$HTMLAdminsInProtectedUsersGroup = $TempAdminsInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='AdminsInProtectedUsersGroup'>Admin Users in 'Protected Users' Group</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='AdminsInProtectedUsersGroup'>" }
 	}
 
  	###############################################################################################################################
@@ -4635,7 +4975,7 @@ function Invoke-ADEnum
 	
 	if ($TempNotSensitiveAdminsInProtectedUsersGroup) {
 		$TempNotSensitiveAdminsInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-		$HTMLNotSensitiveAdminsInProtectedUsersGroup = $TempNotSensitiveAdminsInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users in 'Protected Users' Group but NOT marked as 'sensitive and not allowed for delegation'</h2>"
+		$HTMLNotSensitiveAdminsInProtectedUsersGroup = $TempNotSensitiveAdminsInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='NotSensitiveAdminsInProtectedUsersGroup'>Admin Users in 'Protected Users' Group but NOT marked as 'sensitive and not allowed for delegation'</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='NotSensitiveAdminsInProtectedUsersGroup'>" }
 	}
  
 	######################################################################
@@ -4692,7 +5032,7 @@ function Invoke-ADEnum
 
  	if ($TempAdminsNotInProtectedUsersGroup) {
 		$TempAdminsNotInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-		$HTMLAdminsNotInProtectedUsersGroup = $TempAdminsNotInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users NOT in 'Protected Users' Group</h2>"
+		$HTMLAdminsNotInProtectedUsersGroup = $TempAdminsNotInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='AdminsNotInProtectedUsersGroup'>Admin Users NOT in 'Protected Users' Group</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='AdminsNotInProtectedUsersGroup'>" }
 
   		$AdminsNOTinProtectedUsersGroupTable = [PSCustomObject]@{
 			"Recommendations" = "Consider adding the identified Admin Users to the 'Protected Users' group, which offers enhanced security measures such as restrictions on NTLM Authentication and Delegation."
@@ -4756,7 +5096,7 @@ function Invoke-ADEnum
 
  	if ($TempAdminsNOTinProtectedUsersGroupAndNOTSensitive) {
 		$TempAdminsNOTinProtectedUsersGroupAndNOTSensitive | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-		$HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive = $TempAdminsNOTinProtectedUsersGroupAndNOTSensitive | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Admin Users NOT in 'Protected Users' Group and NOT marked as 'sensitive and not allowed for delegation'</h2>"
+		$HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive = $TempAdminsNOTinProtectedUsersGroupAndNOTSensitive | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='AdminsNOTinProtectedUsersGroupAndNOTSensitive'>Admin Users NOT in 'Protected Users' Group and NOT marked as 'sensitive and not allowed for delegation'</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='AdminsNOTinProtectedUsersGroupAndNOTSensitive'>" }
 
   		$AdminsNOTinProtectedUsersGroupAndNOTSensitiveTable = [PSCustomObject]@{
 			"Recommendations" = "Consider adding the identified Admin Users to the 'Protected Users' group or marking them as 'sensitive and not allowed for delegation' to enforce enhanced security measures such as restrictions on NTLM Authentication and Delegation."
@@ -4822,7 +5162,7 @@ function Invoke-ADEnum
 
  	if ($TempNonAdminsInProtectedUsersGroup) {
 		$TempNonAdminsInProtectedUsersGroup | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-		$HTMLNonAdminsInProtectedUsersGroup = $TempNonAdminsInProtectedUsersGroup | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Non-Admin Users in 'Protected Users' Group</h2>"
+		$HTMLNonAdminsInProtectedUsersGroup = $TempNonAdminsInProtectedUsersGroup | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='NonAdminsInProtectedUsersGroup'>Non-Admin Users in 'Protected Users' Group</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='NonAdminsInProtectedUsersGroup'>" }
 	}
 	
 	####################################################################
@@ -4875,7 +5215,7 @@ function Invoke-ADEnum
 
  	if ($TempPrivilegedSensitiveUsers) {
 		$TempPrivilegedSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-		$HTMLPrivilegedSensitiveUsers = $TempPrivilegedSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users marked as 'sensitive and not allowed for delegation'</h2>"
+		$HTMLPrivilegedSensitiveUsers = $TempPrivilegedSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='PrivilegedSensitiveUsers'>Privileged users marked as 'sensitive and not allowed for delegation'</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='PrivilegedSensitiveUsers'>" }
 	}
 
 	
@@ -4929,7 +5269,7 @@ function Invoke-ADEnum
 
  	if ($TempPrivilegedNotSensitiveUsers) {
 		$TempPrivilegedNotSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-		$HTMLPrivilegedNotSensitiveUsers = $TempPrivilegedNotSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Privileged users NOT marked as 'sensitive and not allowed for delegation'</h2>"
+		$HTMLPrivilegedNotSensitiveUsers = $TempPrivilegedNotSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='PrivilegedNotSensitiveUsers'>Privileged users NOT marked as 'sensitive and not allowed for delegation'</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='PrivilegedNotSensitiveUsers'>" }
 
   		$PrivilegedNOTSensitiveDelegationTable = [PSCustomObject]@{
 			"Recommendations" = "Ensure that sensitive and critical accounts are marked as 'sensitive and not allowed for delegation' to enforce tighter control over credential delegation."
@@ -4990,7 +5330,7 @@ function Invoke-ADEnum
 
  	if ($TempNonPrivilegedSensitiveUsers) {
 		$TempNonPrivilegedSensitiveUsers | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-		$HTMLNonPrivilegedSensitiveUsers = $TempNonPrivilegedSensitiveUsers | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Non-Privileged users marked as 'sensitive and not allowed for delegation'</h2>"
+		$HTMLNonPrivilegedSensitiveUsers = $TempNonPrivilegedSensitiveUsers | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='NonPrivilegedSensitiveUsers'>Non-Privileged users marked as 'sensitive and not allowed for delegation'</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='NonPrivilegedSensitiveUsers'>" }
 	}
 	
 	####################################################################
@@ -5040,7 +5380,7 @@ function Invoke-ADEnum
 
  	if ($TempMachineAccountsPriv) {
 		$TempMachineAccountsPriv | Sort-Object "Group Domain",Member | Format-Table -AutoSize -Wrap
-		$HTMLMachineAccountsPriv = $TempMachineAccountsPriv | Sort-Object "Group Domain",Member | ConvertTo-Html -Fragment -PreContent "<h2>Machine accounts in privileged groups</h2>"
+		$HTMLMachineAccountsPriv = $TempMachineAccountsPriv | Sort-Object "Group Domain",Member | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='MachineAccountsPriv'>Machine accounts in privileged groups</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='MachineAccountsPriv'>" }
 
   		$MachineAccountsPrivilegedGroupsTable = [PSCustomObject]@{
 			"Recommendations" = "Evaluate the necessity of the identified computer objects' membership in the privileged group and consider removing them if their inclusion is not essential for their intended purpose."
@@ -5100,7 +5440,7 @@ function Invoke-ADEnum
 
  	if ($TempsidHistoryUsers) {
 		$TempsidHistoryUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
-		$HTMLsidHistoryUsers = $TempsidHistoryUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users with sidHistory set</h2>"
+		$HTMLsidHistoryUsers = $TempsidHistoryUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='sidHistoryUsers'>Users with sidHistory set</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='sidHistoryUsers'>" }
 
   		$SDIHistorysetTable = [PSCustomObject]@{
 			"Recommendations" = "Assess if there are valid reasons for the identified accounts to have the 'sidHistory' attribute set, and consider removing it to mitigate potential security risks."
@@ -5168,7 +5508,7 @@ function Invoke-ADEnum
 
  	if ($TempRevEncUsers | Where-Object {$_.Name -ne $null}) {
 		$TempRevEncUsers | Where-Object {$_.Name -ne $null} | Sort-Object Domain,Name | Format-Table -AutoSize
-		$HTMLRevEncUsers = $TempRevEncUsers | Where-Object {$_.Name -ne $null} | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Users with Reversible Encryption</h2>"
+		$HTMLRevEncUsers = $TempRevEncUsers | Where-Object {$_.Name -ne $null} | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='RevEncUsers'>Users with Reversible Encryption</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='RevEncUsers'>" }
 
   		$ReversibleEncryptionTable = [PSCustomObject]@{
 			"Recommendations" = "Review and disable Reversible Encryption for every account identified, then force a password change to ensure that passwords are securely hashed."
@@ -5238,7 +5578,7 @@ function Invoke-ADEnum
 
  	if ($LinkedDAAccounts) {
 		$LinkedDAAccounts | Sort-Object Domain,Account,"Display Name" | Format-Table -AutoSize -Wrap
-		$HTMLLinkedDAAccounts = $LinkedDAAccounts | Sort-Object Domain,Account,"Display Name" | ConvertTo-Html -Fragment -PreContent "<h2>Linked DA accounts using name correlation</h2>"
+		$HTMLLinkedDAAccounts = $LinkedDAAccounts | Sort-Object Domain,Account,"Display Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='LinkedDAAccounts'>Linked DA accounts using name correlation</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='LinkedDAAccounts'>" }
 	}
 	
 	#######################################
@@ -5277,7 +5617,7 @@ function Invoke-ADEnum
 
 		if ($TempGPOCreators) {
 			$TempGPOCreators | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
-			$HTMLGPOCreators = $TempGPOCreators | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2>Who can create GPOs</h2>"
+			$HTMLGPOCreators = $TempGPOCreators | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='GPOCreators'>Who can create GPOs</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='GPOCreators'>" }
 		}
 
 
@@ -5311,11 +5651,6 @@ function Invoke-ADEnum
        							#"OUs the policy applies to" = ((Get-DomainOU -Domain $Domain -Server $Server -GPLink "$jGPOID").name | Sort-Object -Unique) -join " - "
 						}
 					}
-				}
-
-				if ($TempGPOsWhocanmodify) {
-					$TempGPOsWhocanmodify | Sort-Object Domain,"Policy Name","Who can edit" | Format-Table -AutoSize -Wrap
-					$HTMLGPOsWhocanmodify = $TempGPOsWhocanmodify | Sort-Object Domain,"Policy Name","Who can edit" | ConvertTo-Html -Fragment -PreContent "<h2>Who can modify existing GPOs</h2>"
 				}
 			}
 		}
@@ -5352,11 +5687,11 @@ function Invoke-ADEnum
 					}
 				}
 			}
-
-			if ($TempGPOsWhocanmodify) {
-				$TempGPOsWhocanmodify | Sort-Object Domain,"Policy Name","Who can edit" | Format-Table -AutoSize -Wrap
-				$HTMLGPOsWhocanmodify = $TempGPOsWhocanmodify | Sort-Object Domain,"Policy Name","Who can edit" | ConvertTo-Html -Fragment -PreContent "<h2>Who can modify existing GPOs</h2>"
-			}
+		}
+		
+		if ($TempGPOsWhocanmodify) {
+			$TempGPOsWhocanmodify | Sort-Object Domain,"Policy Name","Who can edit" | Format-Table -AutoSize -Wrap
+			$HTMLGPOsWhocanmodify = $TempGPOsWhocanmodify | Sort-Object Domain,"Policy Name","Who can edit" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='GPOsWhocanmodify'>Who can modify existing GPOs</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='GPOsWhocanmodify'>" }
 		}
 
 
@@ -5374,12 +5709,8 @@ function Invoke-ADEnum
 					"Object Ace Type" = $result.ObjectAceType
 				}
 			}
-
-			if ($TempGpoLinkResults) {
-				$TempGpoLinkResults | Sort-Object Domain,"Who can link","Object DN" | Format-Table -AutoSize -Wrap
-				$HTMLGpoLinkResults = $TempGpoLinkResults | Sort-Object Domain,"Who can link","Object DN" | ConvertTo-Html -Fragment -PreContent "<h2>Who can link GPOs</h2>"
-			}
 		}
+		
 		else {
 			$TempGpoLinkResults = foreach ($AllDomain in $AllDomains) {
 				$gpolinkresult = (Get-DomainOU -Domain $AllDomain | Get-DomainObjectAcl -ResolveGUIDs | Where-Object { $_.ObjectAceType -eq "GP-Link" -and $_.ActiveDirectoryRights -match "WriteProperty" })
@@ -5394,11 +5725,11 @@ function Invoke-ADEnum
 					}
 				}
 			}
-
-			if ($TempGpoLinkResults) {
-				$TempGpoLinkResults | Sort-Object Domain,"Who can link","Object DN" | Format-Table -AutoSize -Wrap
-				$HTMLGpoLinkResults = $TempGpoLinkResults | Sort-Object Domain,"Who can link","Object DN" | ConvertTo-Html -Fragment -PreContent "<h2>Who can link GPOs</h2>"
-			}
+		}
+		
+		if ($TempGpoLinkResults) {
+			$TempGpoLinkResults | Sort-Object Domain,"Who can link","Object DN" | Format-Table -AutoSize -Wrap
+			$HTMLGpoLinkResults = $TempGpoLinkResults | Sort-Object Domain,"Who can link","Object DN" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='GpoLinkResults'>Who can link GPOs</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='GpoLinkResults'>" }
 		}
 
     }
@@ -5444,12 +5775,8 @@ function Invoke-ADEnum
 				$inputString = $null
 				$splitString = $null
 			}
-
-			if ($TempLAPSGPOs) {
-				$TempLAPSGPOs | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
-				$HTMLLAPSGPOs = $TempLAPSGPOs | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>LAPS GPOs</h2>"
-			}
 		}
+		
 		else {
 			$TempLAPSGPOs = foreach ($AllDomain in $AllDomains) {
 				$LAPSGPOs = Get-DomainGPO -Domain $AllDomain | Where-Object { $_.DisplayName -like "*laps*" }
@@ -5485,11 +5812,11 @@ function Invoke-ADEnum
 					$splitString = $null
 				}
 			}
-
-			if ($TempLAPSGPOs) {
-				$TempLAPSGPOs | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
-				$HTMLLAPSGPOs = $TempLAPSGPOs | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>LAPS GPOs</h2>"
-			}
+		}
+		
+		if ($TempLAPSGPOs) {
+			$TempLAPSGPOs | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
+			$HTMLLAPSGPOs = $TempLAPSGPOs | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='LAPSGPOs'>LAPS GPOs</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='LAPSGPOs'>" }
 		}
 		
 		Write-Host ""
@@ -5526,11 +5853,6 @@ function Invoke-ADEnum
 				$LAPSGPOLocation = $null
 				$inputString = $null
 				$splitString = $null
-			}
-
-			if ($TempLAPSAdminGPOs | Where-Object {$_."LAPS Admin"}) {
-				$TempLAPSAdminGPOs | Where-Object {$_."LAPS Admin"} | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
-				$HTMLLAPSAdminGPOs = $TempLAPSAdminGPOs | Where-Object {$_."LAPS Admin"} | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>Other GPOs where a LAPS Admin seems to be set</h2>"
 			}
 		}
 		
@@ -5569,11 +5891,11 @@ function Invoke-ADEnum
 					$splitString = $null
 				}
 			}
-
-			if ($TempLAPSAdminGPOs | Where-Object {$_."LAPS Admin"}) {
-				$TempLAPSAdminGPOs | Where-Object {$_."LAPS Admin"} | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
-				$HTMLLAPSAdminGPOs = $TempLAPSAdminGPOs | Where-Object {$_."LAPS Admin"} | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>Other GPOs where a LAPS Admin seems to be set</h2>"
-			}
+		}
+		
+		if ($TempLAPSAdminGPOs | Where-Object {$_."LAPS Admin"}) {
+			$TempLAPSAdminGPOs | Where-Object {$_."LAPS Admin"} | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
+			$HTMLLAPSAdminGPOs = $TempLAPSAdminGPOs | Where-Object {$_."LAPS Admin"} | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='LAPSAdminGPOs'>Other GPOs where a LAPS Admin seems to be set</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='LAPSAdminGPOs'>" }
 		}
 
   		if($LAPSReadRights -OR $AllEnum){
@@ -5589,11 +5911,6 @@ function Invoke-ADEnum
 						Domain = $Domain
 					}
 				}
-	
-				if ($TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null}) {
-					$TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | Sort-Object Domain,"Delegated Groups","Target OU" | Format-Table -AutoSize -Wrap
-					$HTMLLAPSCanRead = $TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | Sort-Object Domain,"Delegated Groups","Target OU" | ConvertTo-Html -Fragment -PreContent "<h2>Who can read LAPS</h2>"
-				}
 			}
 			else {
 				$TempLAPSCanRead = foreach ($AllDomain in $AllDomains) {
@@ -5606,11 +5923,11 @@ function Invoke-ADEnum
 						}
 					}
 				}
-	
-				if ($TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null}) {
-					$TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | Sort-Object Domain,"Delegated Groups","Target OU" | Format-Table -AutoSize -Wrap
-					$HTMLLAPSCanRead = $TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | Sort-Object Domain,"Delegated Groups","Target OU" | ConvertTo-Html -Fragment -PreContent "<h2>Who can read LAPS</h2>"
-				}
+			}
+			
+			if ($TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null}) {
+				$TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | Sort-Object Domain,"Delegated Groups","Target OU" | Format-Table -AutoSize -Wrap
+				$HTMLLAPSCanRead = $TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | Sort-Object Domain,"Delegated Groups","Target OU" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='LAPSCanRead'>Who can read LAPS</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='LAPSCanRead'>" }
 			}
   		}
 
@@ -5645,13 +5962,7 @@ function Invoke-ADEnum
 						"Domain" = $Domain
 					}
 	
-				}
-				
-				if ($TempLAPSExtended) {
-					$TempLAPSExtended | Sort-Object Domain,"Computer Name","Identity" | Format-Table -AutoSize -Wrap
-					$HTMLLAPSExtended = $TempLAPSExtended | Sort-Object Domain,"Computer Name","Identity" | ConvertTo-Html -Fragment -PreContent "<h2>LAPS Extended Rights</h2>"
-				}
-				
+				}				
 			}
 			
 			else {
@@ -5685,12 +5996,11 @@ function Invoke-ADEnum
 					}
 					
 				}
-				
-				if ($TempLAPSExtended) {
-					$TempLAPSExtended | Sort-Object Domain,"Computer Name","Identity" | Format-Table -AutoSize -Wrap
-					$HTMLLAPSExtended = $TempLAPSExtended | Sort-Object Domain,"Computer Name","Identity" | ConvertTo-Html -Fragment -PreContent "<h2>LAPS Extended Rights</h2>"
-				}
-				
+			}
+			
+			if ($TempLAPSExtended) {
+				$TempLAPSExtended | Sort-Object Domain,"Computer Name","Identity" | Format-Table -AutoSize -Wrap
+				$HTMLLAPSExtended = $TempLAPSExtended | Sort-Object Domain,"Computer Name","Identity" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='LAPSExtended'>LAPS Extended Rights</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='LAPSExtended'>" }
 			}
   		}
 		
@@ -5708,11 +6018,6 @@ function Invoke-ADEnum
 						Domain = $Domain
 					}
 				}
-
-				if ($TempLapsEnabledComputers) {
-					$TempLapsEnabledComputers | Sort-Object Domain,"Name" | Format-Table -AutoSize -Wrap
-					$HTMLLapsEnabledComputers = $TempLapsEnabledComputers | Sort-Object Domain,"Name" | ConvertTo-Html -Fragment -PreContent "<h2>Computer objects where LAPS is enabled</h2>"
-				}
 			}
 			else {
 				$TempLapsEnabledComputers = foreach ($AllDomain in $AllDomains) {
@@ -5726,11 +6031,11 @@ function Invoke-ADEnum
 						}
 					}
 				}
-
-				if ($TempLapsEnabledComputers) {
-					$TempLapsEnabledComputers | Sort-Object Domain,"Name" | Format-Table -AutoSize -Wrap
-					$HTMLLapsEnabledComputers = $TempLapsEnabledComputers | Sort-Object Domain,"Name" | ConvertTo-Html -Fragment -PreContent "<h2>Computer objects where LAPS is enabled</h2>"
-				}
+			}
+			
+			if ($TempLapsEnabledComputers) {
+				$TempLapsEnabledComputers | Sort-Object Domain,"Name" | Format-Table -AutoSize -Wrap
+				$HTMLLapsEnabledComputers = $TempLapsEnabledComputers | Sort-Object Domain,"Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='LapsEnabledComputers'>Computer objects where LAPS is enabled</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='LapsEnabledComputers'>" }
 			}
 		}
 		
@@ -5753,11 +6058,6 @@ function Invoke-ADEnum
 					Domain = $Domain
 				}
 			}
-
-			if ($TempAppLockerGPOs) {
-				$TempAppLockerGPOs | Sort-Object Domain,"Display Name" | Format-Table -AutoSize -Wrap
-				$HTMLAppLockerGPOs = $TempAppLockerGPOs | Sort-Object Domain,"Display Name" | ConvertTo-Html -Fragment -PreContent "<h2>AppLocker GPOs</h2>"
-			}
 		}
 		
 		else {
@@ -5771,11 +6071,11 @@ function Invoke-ADEnum
 					}
 				}
 			}
-
-			if ($TempAppLockerGPOs) {
-				$TempAppLockerGPOs | Sort-Object Domain,"Display Name" | Format-Table -AutoSize -Wrap
-				$HTMLAppLockerGPOs = $TempAppLockerGPOs | Sort-Object Domain,"Display Name" | ConvertTo-Html -Fragment -PreContent "<h2>AppLocker GPOs</h2>"
-			}
+		}
+		
+		if ($TempAppLockerGPOs) {
+			$TempAppLockerGPOs | Sort-Object Domain,"Display Name" | Format-Table -AutoSize -Wrap
+			$HTMLAppLockerGPOs = $TempAppLockerGPOs | Sort-Object Domain,"Display Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='AppLockerGPOs'>AppLocker GPOs</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='AppLockerGPOs'>" }
 		}
 	}
 	
@@ -5794,11 +6094,6 @@ function Invoke-ADEnum
 					"Group Name" = $GPOLocalGroup.GroupName
 				}
 			}
-
-			if ($TempGPOLocalGroupsMembership) {
-				$TempGPOLocalGroupsMembership | Sort-Object Domain,"GPO Display Name","Group Name" | Format-Table -AutoSize -Wrap
-				$HTMLGPOLocalGroupsMembership = $TempGPOLocalGroupsMembership | Sort-Object Domain,"GPO Display Name","Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>GPOs that modify local group memberships</h2>"
-			}
 		}
 		else {
 			$TempGPOLocalGroupsMembership = foreach ($AllDomain in $AllDomains) {
@@ -5810,11 +6105,11 @@ function Invoke-ADEnum
 					}
 				}
 			}
-
-			if ($TempGPOLocalGroupsMembership) {
-				$TempGPOLocalGroupsMembership | Sort-Object Domain,"GPO Display Name","Group Name" | Format-Table -AutoSize -Wrap
-				$HTMLGPOLocalGroupsMembership = $TempGPOLocalGroupsMembership | Sort-Object Domain,"GPO Display Name","Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>GPOs that modify local group memberships</h2>"
-			}
+		}
+		
+		if ($TempGPOLocalGroupsMembership) {
+			$TempGPOLocalGroupsMembership | Sort-Object Domain,"GPO Display Name","Group Name" | Format-Table -AutoSize -Wrap
+			$HTMLGPOLocalGroupsMembership = $TempGPOLocalGroupsMembership | Sort-Object Domain,"GPO Display Name","Group Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='GPOLocalGroupsMembership'>GPOs that modify local group memberships</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='GPOLocalGroupsMembership'>" }
 		}
     }
 	
@@ -5838,11 +6133,6 @@ function Invoke-ADEnum
 					Domain = $Domain
 				}
 			}
-
-			if ($TempGPOComputerAdmins) {
-				$TempGPOComputerAdmins | Sort-Object Domain,"Computer Name" | Format-Table -AutoSize -Wrap
-				$HTMLGPOComputerAdmins = $TempGPOComputerAdmins | Sort-Object Domain,"Computer Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users which are in a local group of a machine using GPO</h2>"
-			}
 		}
 		else {
 			$TempGPOComputerAdmins = foreach ($AllDomain in $AllDomains) {
@@ -5859,11 +6149,11 @@ function Invoke-ADEnum
 					}
 				}
 			}
-
-			if ($TempGPOComputerAdmins) {
-				$TempGPOComputerAdmins | Sort-Object Domain,"Computer Name" | Format-Table -AutoSize -Wrap
-				$HTMLGPOComputerAdmins = $TempGPOComputerAdmins | Sort-Object Domain,"Computer Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users which are in a local group of a machine using GPO</h2>"
-			}
+		}
+		
+		if ($TempGPOComputerAdmins) {
+			$TempGPOComputerAdmins | Sort-Object Domain,"Computer Name" | Format-Table -AutoSize -Wrap
+			$HTMLGPOComputerAdmins = $TempGPOComputerAdmins | Sort-Object Domain,"Computer Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='GPOComputerAdmins'>Users which are in a local group of a machine using GPO</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='GPOComputerAdmins'>" }
 		}
     }
 	
@@ -5885,11 +6175,6 @@ function Invoke-ADEnum
 					Domain = $Domain
 				}
 			}
-
-			if ($TempGPOMachinesAdminlocalgroup) {
-				$TempGPOMachinesAdminlocalgroup | Sort-Object Domain,"Object Name" | Format-Table -AutoSize -Wrap
-				$HTMLGPOMachinesAdminlocalgroup = $TempGPOMachinesAdminlocalgroup | Sort-Object Domain,"Object Name" | ConvertTo-Html -Fragment -PreContent "<h2>Machines where a specific domain user/group is a member of the Administrators local group</h2>"
-			}
 		}
 		else {
 			$TempGPOMachinesAdminlocalgroup = foreach ($AllDomain in $AllDomains) {
@@ -5904,11 +6189,11 @@ function Invoke-ADEnum
 					}
 				}
 			}
-
-			if ($TempGPOMachinesAdminlocalgroup) {
-				$TempGPOMachinesAdminlocalgroup | Sort-Object Domain,"Object Name" | Format-Table -AutoSize -Wrap
-				$HTMLGPOMachinesAdminlocalgroup = $TempGPOMachinesAdminlocalgroup | Sort-Object Domain,"Object Name" | ConvertTo-Html -Fragment -PreContent "<h2>Machines where a specific domain user/group is a member of the Administrators local group</h2>"
-			}
+		}
+		
+		if ($TempGPOMachinesAdminlocalgroup) {
+			$TempGPOMachinesAdminlocalgroup | Sort-Object Domain,"Object Name" | Format-Table -AutoSize -Wrap
+			$HTMLGPOMachinesAdminlocalgroup = $TempGPOMachinesAdminlocalgroup | Sort-Object Domain,"Object Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='GPOMachinesAdminlocalgroup'>Machines where a specific domain user/group is a member of the Administrators local group</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='GPOMachinesAdminlocalgroup'>" }
 		}
 	}
 		
@@ -5931,11 +6216,6 @@ function Invoke-ADEnum
 					"GPO Path" = $userInGroup.GPOPath
 				}
 			}
-
-			if ($TempUsersInGroup) {
-				$TempUsersInGroup | Sort-Object Domain,"Object Name" | Format-Table -AutoSize -Wrap
-				$HTMLUsersInGroup = $TempUsersInGroup | Sort-Object Domain,"Object Name" | ConvertTo-Html -Fragment -PreContent "<h2>Machines where a user is a member of a specific group</h2>"
-			}
 		}
 		else {
 			$TempUsersInGroup = foreach ($AllDomain in $AllDomains) {
@@ -5951,11 +6231,11 @@ function Invoke-ADEnum
 					}
 				}
 			}
-
-			if ($TempUsersInGroup) {
-				$TempUsersInGroup | Sort-Object Domain,"Object Name" | Format-Table -AutoSize -Wrap
-				$HTMLUsersInGroup = $TempUsersInGroup | Sort-Object Domain,"Object Name" | ConvertTo-Html -Fragment -PreContent "<h2>Machines where a user is a member of a specific group</h2>"
-			}
+		}
+		
+		if ($TempUsersInGroup) {
+			$TempUsersInGroup | Sort-Object Domain,"Object Name" | Format-Table -AutoSize -Wrap
+			$HTMLUsersInGroup = $TempUsersInGroup | Sort-Object Domain,"Object Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='UsersInGroup'>Machines where a user is a member of a specific group</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='UsersInGroup'>" }
 		}
 
 	}
@@ -5977,11 +6257,6 @@ function Invoke-ADEnum
 					"Domain" = $Domain
 				}
 			}
-
-			if ($TempFindLocalAdminAccess) {
-				$TempFindLocalAdminAccess | Sort-Object Domain,Target | Format-Table -AutoSize -Wrap
-				$HTMLFindLocalAdminAccess = $TempFindLocalAdminAccess | Sort-Object Domain,Target | ConvertTo-Html -Fragment -PreContent "<h2>Local Admin Access</h2>"
-			}
 		}
 		else {
 			$TempFindLocalAdminAccess = foreach ($AllDomain in $AllDomains) {
@@ -5995,11 +6270,10 @@ function Invoke-ADEnum
 					}
 				}
 			}
-
-			if ($TempFindLocalAdminAccess) {
-				$TempFindLocalAdminAccess | Sort-Object Domain,Target | Format-Table -AutoSize -Wrap
-				$HTMLFindLocalAdminAccess = $TempFindLocalAdminAccess | Sort-Object Domain,Target | ConvertTo-Html -Fragment -PreContent "<h2>Local Admin Access</h2>"
-			}
+		}
+		if ($TempFindLocalAdminAccess) {
+			$TempFindLocalAdminAccess | Sort-Object Domain,Target | Format-Table -AutoSize -Wrap
+			$HTMLFindLocalAdminAccess = $TempFindLocalAdminAccess | Sort-Object Domain,Target | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='FindLocalAdminAccess'>Local Admin Access</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='FindLocalAdminAccess'>" }
 		}
     }
 	
@@ -6024,11 +6298,6 @@ function Invoke-ADEnum
 					"Local Admin" = $UserLocation.LocalAdmin
 				}
 			}
-
-			if ($TempFindDomainUserLocation) {
-				$TempFindDomainUserLocation | Sort-Object "User Domain","User Name","Computer Name" | Format-Table -AutoSize -Wrap
-				$HTMLFindDomainUserLocation = $TempFindDomainUserLocation | Sort-Object "User Domain","User Name","Computer Name" | ConvertTo-Html -Fragment -PreContent "<h2>Find Domain User Location</h2>"
-			}
 		}
 		else {
 			$TempFindDomainUserLocation = foreach ($AllDomain in $AllDomains) {
@@ -6046,11 +6315,11 @@ function Invoke-ADEnum
 					}
 				}
 			}
-
-			if ($TempFindDomainUserLocation) {
-				$TempFindDomainUserLocation | Sort-Object "User Domain","User Name","Computer Name" | Format-Table -AutoSize -Wrap
-				$HTMLFindDomainUserLocation = $TempFindDomainUserLocation | Sort-Object "User Domain","User Name","Computer Name" | ConvertTo-Html -Fragment -PreContent "<h2>Find Domain User Location</h2>"
-			}
+		}
+		
+		if ($TempFindDomainUserLocation) {
+			$TempFindDomainUserLocation | Sort-Object "User Domain","User Name","Computer Name" | Format-Table -AutoSize -Wrap
+			$HTMLFindDomainUserLocation = $TempFindDomainUserLocation | Sort-Object "User Domain","User Name","Computer Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='FindDomainUserLocation'>Find Domain User Location</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='FindDomainUserLocation'>" }
 		}
 
     }
@@ -6087,7 +6356,7 @@ function Invoke-ADEnum
 
   		if ($TempLoggedOnUsersServerOU) {
 			$TempLoggedOnUsersServerOU | Sort-Object Domain,User | Format-Table -AutoSize -Wrap
-			$HTMLLoggedOnUsersServerOU = $TempLoggedOnUsersServerOU | Sort-Object Domain,User | ConvertTo-Html -Fragment -PreContent "<h2>Logged on users for all machines in any Server OU</h2>"
+			$HTMLLoggedOnUsersServerOU = $TempLoggedOnUsersServerOU | Sort-Object Domain,User | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='LoggedOnUsersServerOU'>Logged on users for all machines in any Server OU</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='LoggedOnUsersServerOU'>" }
 		}
 	}
 
@@ -6130,7 +6399,7 @@ function Invoke-ADEnum
 
 	if ($TempWin7AndServer2008) {
 		$TempWin7AndServer2008 | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-		$HTMLWin7AndServer2008 = $TempWin7AndServer2008 | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Windows 7 and Server 2008 Machines (Windows Remoting Enabled)</h2>"
+		$HTMLWin7AndServer2008 = $TempWin7AndServer2008 | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='Win7AndServer2008'>Windows 7 and Server 2008 Machines (Windows Remoting Enabled)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='Win7AndServer2008'>" }
 	}
 
  	############################################################
@@ -6176,7 +6445,7 @@ function Invoke-ADEnum
 
 	if ($TempInterestingServersEnabled) {
 		$TempInterestingServersEnabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-		$HTMLInterestingServersEnabled = $TempInterestingServersEnabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Interesting Servers (by Keyword)</h2>"
+		$HTMLInterestingServersEnabled = $TempInterestingServersEnabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='InterestingServersEnabled'>Interesting Servers (by Keyword)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='InterestingServersEnabled'>" }
 	}
 
  	#######################################
@@ -6218,7 +6487,7 @@ function Invoke-ADEnum
 
  	if ($TempKeywordDomainGPOs) {
 		$TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | Format-Table -AutoSize -Wrap
-		$HTMLKeywordDomainGPOs = $TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting GPOs (by Keyword)</h2>"
+		$HTMLKeywordDomainGPOs = $TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='KeywordDomainGPOs'>Interesting GPOs (by Keyword)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='KeywordDomainGPOs'>" }
 	}
 	
 	#########################################
@@ -6264,7 +6533,7 @@ function Invoke-ADEnum
 
  	if ($TempGroupsByKeyword) {
 		$TempGroupsByKeyword | Sort-Object Domain,Keyword,"Group Name" | Format-Table -AutoSize -Wrap
-		$HTMLGroupsByKeyword = $TempGroupsByKeyword | Sort-Object Domain,Keyword,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting Groups (by Keyword)</h2>"
+		$HTMLGroupsByKeyword = $TempGroupsByKeyword | Sort-Object Domain,Keyword,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='GroupsByKeyword'>Interesting Groups (by Keyword)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='GroupsByKeyword'>" }
 	}
 	
 	#############################################
@@ -6321,7 +6590,7 @@ function Invoke-ADEnum
 
  	if($TempDomainOUsByKeyword) {
 		$TempDomainOUsByKeyword | Sort-Object Domain,Keyword,Name | Format-Table -AutoSize -Wrap
-		$HTMLDomainOUsByKeyword = $TempDomainOUsByKeyword | Sort-Object Domain,Keyword,Name | ConvertTo-Html -Fragment -PreContent "<h2>Interesting OUs (by Keyword)</h2>"
+		$HTMLDomainOUsByKeyword = $TempDomainOUsByKeyword | Sort-Object Domain,Keyword,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DomainOUsByKeyword'>Interesting OUs (by Keyword)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DomainOUsByKeyword'>" }
 	}
 	
 	#######################################
@@ -6359,7 +6628,7 @@ function Invoke-ADEnum
 
   		if ($TempDomainShares) {
 			$TempDomainShares | Sort-Object Domain,"Computer Name",Name | Format-Table -AutoSize -Wrap
-			$HTMLDomainShares = $TempDomainShares | Sort-Object Domain,"Computer Name",Name | ConvertTo-Html -Fragment -PreContent "<h2>Accessible Domain Shares</h2>"
+			$HTMLDomainShares = $TempDomainShares | Sort-Object Domain,"Computer Name",Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DomainShares'>Accessible Domain Shares</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DomainShares'>" }
 		}
 
 
@@ -6390,7 +6659,7 @@ function Invoke-ADEnum
 
   		if($TempDomainShareFiles){
 			$TempDomainShareFiles | Sort-Object Domain,Owner,Path | Format-Table -AutoSize -Wrap
-			$HTMLDomainShareFiles = $TempDomainShareFiles | Sort-Object Domain,Owner,Path | ConvertTo-Html -Fragment -PreContent "<h2>Domain Share Files</h2>"
+			$HTMLDomainShareFiles = $TempDomainShareFiles | Sort-Object Domain,Owner,Path | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DomainShareFiles'>Domain Share Files</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DomainShareFiles'>" }
 		}
 
         
@@ -6421,7 +6690,7 @@ function Invoke-ADEnum
 
   		if ($TempInterestingFiles) {
 			$TempInterestingFiles | Sort-Object Domain,Owner,Path | Format-Table -AutoSize -Wrap
-			$HTMLInterestingFiles = $TempInterestingFiles | Sort-Object Domain,Owner,Path | ConvertTo-Html -Fragment -PreContent "<h2>Domain Share Files (more file extensions)</h2>"
+			$HTMLInterestingFiles = $TempInterestingFiles | Sort-Object Domain,Owner,Path | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='InterestingFiles'>Domain Share Files (more file extensions)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='InterestingFiles'>" }
 		}
 
     	}
@@ -6462,7 +6731,7 @@ function Invoke-ADEnum
 
   		if ($TempACLScannerResults) {
 			$TempACLScannerResults | Sort-Object Domain,"Identity Reference Name","Object DN" | Format-Table -AutoSize -Wrap
-			$HTMLACLScannerResults = $TempACLScannerResults | Sort-Object Domain,"Identity Reference Name","Object DN" | ConvertTo-Html -Fragment -PreContent "<h2>Interesting ACLs:</h2>"
+			$HTMLACLScannerResults = $TempACLScannerResults | Sort-Object Domain,"Identity Reference Name","Object DN" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ACLScannerResults'>Interesting ACLs</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ACLScannerResults'>" }
 		}
 
     	}
@@ -6514,7 +6783,7 @@ function Invoke-ADEnum
 
  	if ($TempDomainPolicy) {
 		$TempDomainPolicy | Sort-Object Domain | Format-Table -AutoSize -Wrap
-		$HTMLDomainPolicy = $TempDomainPolicy | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2>Domain Password Policy</h2>"
+		$HTMLDomainPolicy = $TempDomainPolicy | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DomainPolicy'>Domain Password Policy</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DomainPolicy'>" }
 	}
 
 	
@@ -6551,7 +6820,7 @@ function Invoke-ADEnum
 
  	if ($TempKerberosPolicy) {
 		$TempKerberosPolicy | Sort-Object Domain | Format-Table -AutoSize -Wrap
-		$HTMLKerberosPolicy = $TempKerberosPolicy | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2>Kerberos Password Policy</h2>"
+		$HTMLKerberosPolicy = $TempKerberosPolicy | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='KerberosPolicy'>Kerberos Password Policy</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='KerberosPolicy'>" }
 	}
 	
 	##################################################
@@ -6602,7 +6871,7 @@ function Invoke-ADEnum
 
  	if ($TempUserAccountAnalysis) {
 		$TempUserAccountAnalysis | Sort-Object Domain | Format-Table -AutoSize
-		$HTMLUserAccountAnalysis = $TempUserAccountAnalysis | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2>User Accounts Analysis</h2>"
+		$HTMLUserAccountAnalysis = $TempUserAccountAnalysis | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='UserAccountAnalysis'>User Accounts Analysis</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='UserAccountAnalysis'>" }
 
   		$UserAccountAnalysisTable = [PSCustomObject]@{
 			"Recommendations" = "Review Inactive and Disabled User Accounts and consider deleting them from AD"
@@ -6654,7 +6923,7 @@ function Invoke-ADEnum
 
  	if ($TempComputerAccountAnalysis) {
 		$TempComputerAccountAnalysis | Sort-Object Domain | Format-Table -AutoSize
-		$HTMLComputerAccountAnalysis = $TempComputerAccountAnalysis | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2>Computer Account Analysis</h2>"
+		$HTMLComputerAccountAnalysis = $TempComputerAccountAnalysis | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ComputerAccountAnalysis'>Computer Account Analysis</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ComputerAccountAnalysis'>" }
 
   		$ComputerAccountAnalysisTable = [PSCustomObject]@{
 			"Recommendations" = "Review Inactive and Disabled Computer Accounts and consider deleting them from AD"
@@ -6714,7 +6983,7 @@ function Invoke-ADEnum
 
  	if ($TempOperatingSystemsAnalysis) {
 		$TempOperatingSystemsAnalysis | Sort-Object Domain,'Operating System' | Format-Table -AutoSize
-		$HTMLOperatingSystemsAnalysis = $TempOperatingSystemsAnalysis | Sort-Object Domain,'Operating System' | ConvertTo-Html -Fragment -PreContent "<h2>Operating Systems Analysis</h2>"
+		$HTMLOperatingSystemsAnalysis = $TempOperatingSystemsAnalysis | Sort-Object Domain,'Operating System' | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='OperatingSystemsAnalysis'>Operating Systems Analysis</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='OperatingSystemsAnalysis'>" }
 	}
 	
 	############################################
@@ -6760,7 +7029,7 @@ function Invoke-ADEnum
 
   		if ($TempServersEnabled) {
 			$TempServersEnabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-			$HTMLServersEnabled = $TempServersEnabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Servers (Enabled)</h2>"
+			$HTMLServersEnabled = $TempServersEnabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ServersEnabled'>Servers (Enabled)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ServersEnabled'>" }
 		}
     }
 	
@@ -6807,7 +7076,7 @@ function Invoke-ADEnum
 
     		if ($TempServersDisabled) {
 			$TempServersDisabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-			$HTMLServersDisabled = $TempServersDisabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Servers (Disabled)</h2>"
+			$HTMLServersDisabled = $TempServersDisabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ServersDisabled'>Servers (Disabled)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ServersDisabled'>" }
 		}
     }
 	
@@ -6853,7 +7122,7 @@ function Invoke-ADEnum
 
   		if ($TempWorkstationsEnabled) {
 			$TempWorkstationsEnabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-			$HTMLWorkstationsEnabled = $TempWorkstationsEnabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Workstations (Enabled)</h2>"
+			$HTMLWorkstationsEnabled = $TempWorkstationsEnabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='WorkstationsEnabled'>Workstations (Enabled)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='WorkstationsEnabled'>" }
 		}
 
 	}
@@ -6900,7 +7169,7 @@ function Invoke-ADEnum
 
     		if ($TempWorkstationsDisabled) {
 			$TempWorkstationsDisabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-			$HTMLWorkstationsDisabled = $TempWorkstationsDisabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>Workstations (Disabled)</h2>"
+			$HTMLWorkstationsDisabled = $TempWorkstationsDisabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='WorkstationsDisabled'>Workstations (Disabled)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='WorkstationsDisabled'>" }
 		}
     }
 
@@ -6951,7 +7220,7 @@ function Invoke-ADEnum
 
   		if ($TempEnabledUsers) {
 			$TempEnabledUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
-			$HTMLEnabledUsers = $TempEnabledUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users (Enabled)</h2>"
+			$HTMLEnabledUsers = $TempEnabledUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='EnabledUsers'>Users (Enabled)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='EnabledUsers'>" }
 		}
 	}
 
@@ -7003,7 +7272,7 @@ function Invoke-ADEnum
 
   		if ($TempDisabledUsers) {
 			$TempDisabledUsers | Where-Object {$_."User Name" -ne "krbtgt"} | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
-			$HTMLDisabledUsers = $TempDisabledUsers | Where-Object {$_."User Name" -ne "krbtgt"} | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2>Users (Disabled)</h2>"
+			$HTMLDisabledUsers = $TempDisabledUsers | Where-Object {$_."User Name" -ne "krbtgt"} | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DisabledUsers'>Users (Disabled)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DisabledUsers'>" }
 		}
 	}
 
@@ -7124,7 +7393,7 @@ function Invoke-ADEnum
 
   		if ($TempOtherGroups) {
 			$TempOtherGroups | Sort-Object Domain,"Group Name" | Format-Table -AutoSize -Wrap
-			$HTMLOtherGroups = $TempOtherGroups | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>All Groups</h2>"
+			$HTMLOtherGroups = $TempOtherGroups | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='OtherGroups'>All Groups</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='OtherGroups'>" }
 		}
 	}
 
@@ -7166,7 +7435,7 @@ function Invoke-ADEnum
 
   		if ($TempDomainGPOs) {
 			$TempDomainGPOs | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
-			$HTMLDomainGPOs = $TempDomainGPOs | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2>All Domain GPOs</h2>"
+			$HTMLDomainGPOs = $TempDomainGPOs | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DomainGPOs'>All Domain GPOs</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DomainGPOs'>" }
 		}
 	}
 	
@@ -7217,7 +7486,7 @@ function Invoke-ADEnum
 
   		if($TempAllDomainOUs) {
 			$TempAllDomainOUs | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-			$HTMLAllDomainOUs = $TempAllDomainOUs | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2>All Domain OUs</h2>"
+			$HTMLAllDomainOUs = $TempAllDomainOUs | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='AllDomainOUs'>All Domain OUs</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='AllDomainOUs'>" }
 		}
 	}
 
@@ -7255,7 +7524,7 @@ function Invoke-ADEnum
 	
 		if ($TempAllDescriptions) {
 			$TempAllDescriptions | Sort-Object Domain,"Domain Object" | Format-Table -Autosize -Wrap
-			$HTMLAllDescriptions = $TempAllDescriptions | Sort-Object Domain,"Domain Object" | ConvertTo-Html -Fragment -PreContent "<h2>All Descriptions</h2>"
+			$HTMLAllDescriptions = $TempAllDescriptions | Sort-Object Domain,"Domain Object" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='AllDescriptions'>All Descriptions</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='AllDescriptions'>" }
 		}
   	}
 
@@ -7265,21 +7534,22 @@ function Invoke-ADEnum
     
     # Stop capturing the output and display it on the console
     Stop-Transcript | Out-Null
-    $host.UI.RawUI.BufferSize = $originalBufferSize
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLProtectedUsers $HTMLRODCs $HTMLSchemaAdmins $HTMLServerOperators $HTMLGetCurrUserGroup $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLADComputersCreated $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLTotalEmptyPass $HTMLPreWin2kCompatibleAccess $HTMLUnsupportedHosts $HTMLLMCompatibilityLevel $HTMLMachineQuota $InterestingDataBanner $HTMLReplicationUsers $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLGMSAs $HTMLnopreauthset $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLNotSensitiveAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLLinkedDAAccounts $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLWin7AndServer2008 $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
-	$ClientReport = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLCertTemplatesTable $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLTotalEmptyPass $HTMLTotalEmptyPassTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLMachineQuota $HTMLMachineAccountQuotaTable $InterestingDataBanner $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLUsersAdminCount $HTMLAdminCountUsersTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupTable $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitiveTable $HTMLPrivilegedNotSensitiveUsers $HTMLPrivilegedNOTSensitiveDelegationTable $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLServersDisabled $HTMLWorkstationsDisabled $HTMLDisabledUsers" -Title "Active Directory Audit" -Head $header
-	$HTMLOutputFilePath = $OutputFilePath.Replace(".txt", ".html")
-	$HTMLClientOutputFilePath = $HTMLOutputFilePath.Replace("Invoke-ADEnum", "Invoke-ADEnum_Client-Report")
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLProtectedUsers $HTMLRODCs $HTMLSchemaAdmins $HTMLServerOperators $HTMLGetCurrUserGroup $HTMLSubnets $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLADComputersCreated $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLTotalEmptyPass $HTMLPreWin2kCompatibleAccess $HTMLUnsupportedHosts $HTMLLMCompatibilityLevel $HTMLMachineQuota $InterestingDataBanner $HTMLReplicationUsers $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLGMSAs $HTMLnopreauthset $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLNotSensitiveAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLLinkedDAAccounts $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLWin7AndServer2008 $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
+	$ClientReport = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLSubnets $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLCertTemplatesTable $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLTotalEmptyPass $HTMLTotalEmptyPassTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLMachineQuota $HTMLMachineAccountQuotaTable $InterestingDataBanner $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLUsersAdminCount $HTMLAdminCountUsersTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupTable $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitiveTable $HTMLPrivilegedNotSensitiveUsers $HTMLPrivilegedNOTSensitiveDelegationTable $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLServersDisabled $HTMLWorkstationsDisabled $HTMLDisabledUsers" -Title "Active Directory Audit" -Head $header
+ 	$HTMLOutputFilePath = $OutputFilePath.Replace(".txt", ".html")
+  	$HTMLClientOutputFilePath = $HTMLOutputFilePath.Replace("Invoke-ADEnum", "Invoke-ADEnum_Client-Report")
 	$Report | Out-File $HTMLOutputFilePath
-	$ClientReport | Out-File $HTMLClientOutputFilePath
+ 	$ClientReport | Out-File $HTMLClientOutputFilePath
 	
 	Write-Host ""
 	Write-Host "Output files: " -ForegroundColor Yellow
 	Write-Host "$OutputFilePath"
 	Write-Host "$HTMLOutputFilePath"
-	Write-Host "$HTMLClientOutputFilePath"
+ 	Write-Host "$HTMLClientOutputFilePath"
 	Write-Host ""
+	
+	$host.UI.RawUI.BufferSize = $originalBufferSize
     
     # Clean up error lines from output
     (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'TerminatingError' } | Set-Content $OutputFilePath
