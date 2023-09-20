@@ -485,62 +485,96 @@ function Invoke-ADEnum
 				'All Descriptions': 'Descriptions',
 				'EnvironmentInfo': 'Info',
 			};
+			
+			var ws = null;
+			var lastSheetName = null;
 
 			// Loop through each table
 			$('table').each(function() {
 				var id = $(this).attr('id');
 				var h2Text = $("h2[data-linked-table='" + id + "']").text();
 				
-				// Determine the sheet name
-				var sheetName = h2Text;
-				if (nameMapping[h2Text]) {
-					sheetName = nameMapping[h2Text];
-				}
-				
-				// Automatically truncate if the name is too long
-				if(sheetName.length > 31) {
-					console.warn("Sheet name too long:", sheetName, "; truncating to 31 characters");
-					sheetName = sheetName.substr(0, 31); // Truncate the name to the first 31 characters
-				}
-				
-				// Convert table to worksheet
-				var ws = XLSX.utils.table_to_sheet(this);
-				
-				// Shift all rows down by one
-				var range = XLSX.utils.decode_range(ws["!ref"]);
-				for (var R = range.e.r; R >= 0; --R) {
-					for (var C = 0; C <= range.e.c; ++C) {
-						var cell_address = {c: C, r: R + 1}; // New location
-						var original_address = {c: C, r: R}; // Original location
-						if (ws[XLSX.utils.encode_cell(original_address)]) {
-							ws[XLSX.utils.encode_cell(cell_address)] = ws[XLSX.utils.encode_cell(original_address)];
-							delete ws[XLSX.utils.encode_cell(original_address)]; // Delete the original cell to avoid duplication
+				if (h2Text) {
+					// If there's a current working sheet (from the last iteration), append it to the workbook
+					if (ws) {
+						XLSX.utils.book_append_sheet(wb, ws, lastSheetName);
+					}
+
+					// Reset the working worksheet and process the new table
+					ws = XLSX.utils.table_to_sheet(this);
+
+					// Determine the sheet name
+					var sheetName = h2Text;
+					if (nameMapping[h2Text]) {
+						sheetName = nameMapping[h2Text];
+					}
+					
+					// Automatically truncate if the name is too long
+					if(sheetName.length > 31) {
+						console.warn("Sheet name too long:", sheetName, "; truncating to 31 characters");
+						sheetName = sheetName.substr(0, 31); // Truncate the name to the first 31 characters
+					}
+					
+					// Shift all rows down by one
+					var range = XLSX.utils.decode_range(ws["!ref"]);
+					for (var R = range.e.r; R >= 0; --R) {
+						for (var C = 0; C <= range.e.c; ++C) {
+							var cell_address = {c: C, r: R + 1}; // New location
+							var original_address = {c: C, r: R}; // Original location
+							if (ws[XLSX.utils.encode_cell(original_address)]) {
+								ws[XLSX.utils.encode_cell(cell_address)] = ws[XLSX.utils.encode_cell(original_address)];
+								delete ws[XLSX.utils.encode_cell(original_address)]; // Delete the original cell to avoid duplication
+							}
 						}
 					}
-				}
-				range.e.r++;
-				ws["!ref"] = XLSX.utils.encode_range(range);
+					range.e.r++;
+					ws["!ref"] = XLSX.utils.encode_range(range);
 
-				// Set the title from the h2 content to the first row, first column
-				ws['A1'] = {v: h2Text, t: 's'};
-				
-				// Autosize columns based on content
-				var colWidths = [];
-				$(this).find('tr').each(function() {
-					$(this).find('td, th').each(function(colIdx, cell) {
-						var cellContentLength = $(cell).text().length;
-						colWidths[colIdx] = Math.max(colWidths[colIdx] || 0, cellContentLength); // find max length for each column
+					// Set the title from the h2 content to the first row, first column
+					ws['A1'] = {v: h2Text, t: 's'};
+					
+					// Autosize columns based on content
+					var colWidths = [];
+					$(this).find('tr').each(function() {
+						$(this).find('td, th').each(function(colIdx, cell) {
+							var cellContentLength = $(cell).text().length;
+							colWidths[colIdx] = Math.max(colWidths[colIdx] || 0, cellContentLength); // find max length for each column
+						});
 					});
-				});
 
-				// Convert column widths to the format required by XLSX.js and assign to ws
-				ws['!cols'] = colWidths.map(function(width) {
-					return { wch: width };
-				});
+					// Convert column widths to the format required by XLSX.js and assign to ws
+					ws['!cols'] = colWidths.map(function(width) {
+						return { wch: width };
+					});
+					
+					// Store the current sheet name
+					lastSheetName = sheetName;
+				}
 				
-				// Add worksheet to workbook with name based on the mapping or original h2 text
-				XLSX.utils.book_append_sheet(wb, ws, sheetName);
+				else if (ws) { // If there's no title and we have a current worksheet
+					// Append the current table's rows to the existing worksheet
+					var currWs = XLSX.utils.table_to_sheet(this);
+					var wsRange = XLSX.utils.decode_range(ws["!ref"]);
+					var currRange = XLSX.utils.decode_range(currWs["!ref"]);
+
+					for (var R = 0; R <= currRange.e.r; R++) {
+						for (var C = 0; C <= currRange.e.c; C++) {
+							var cell = currWs[XLSX.utils.encode_cell({c: C, r: R})];
+							if (cell) {
+								ws[XLSX.utils.encode_cell({c: C, r: wsRange.e.r + R + 1})] = cell;
+							}
+						}
+					}
+
+					wsRange.e.r += currRange.e.r + 1;
+					ws["!ref"] = XLSX.utils.encode_range(wsRange);
+				}
 			});
+			
+			// After processing all tables, check if there's any residual data in ws
+			if (ws) {
+				XLSX.utils.book_append_sheet(wb, ws, lastSheetName);
+			}
 
 			return wb;
 		}
