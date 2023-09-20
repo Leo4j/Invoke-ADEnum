@@ -415,7 +415,8 @@ function Invoke-ADEnum
 				'Constrained Delegation (Computers)': 'Constrained Delegation (C)',
 				'Resource Based Constrained Delegation': 'Resource Based C.D.',
 				'Computers Objects created by regular users': 'User Created Computers',
-				'Check if any user passwords are set': 'User Passwords Set',
+				'Check if any User Passwords are set': 'User Passwords Set',
+				'Check if any Unix User Passwords are set': 'Unix Passwords Set',
 				'Users with Password-not-required attribute set': 'Pass Not-Req',
 				'Members of Pre-Windows 2000 Compatible Access group': 'Pre-Win2k',
 				'Domain Controllers': 'DCs',
@@ -584,6 +585,7 @@ function Invoke-ADEnum
 			createDownloadLinkForTable('RBACDObjects');
 			createDownloadLinkForTable('UserCreatedObjects');
 			createDownloadLinkForTable('PasswordSetUsers');
+   			createDownloadLinkForTable('UnixPasswordSet');
 			createDownloadLinkForTable('PassNotRequired');
 			createDownloadLinkForTable('EmptyPasswordUsers');
 			createDownloadLinkForTable('PreWin2kCompatibleAccess');
@@ -3707,7 +3709,7 @@ function Invoke-ADEnum
 	###############################################################
 	
 	Write-Host ""
-	Write-Host "Check if any user passwords are set:" -ForegroundColor Cyan
+	Write-Host "Check if any User Passwords are set:" -ForegroundColor Cyan
 	
 	if ($Domain -and $Server) {
 		
@@ -3726,7 +3728,7 @@ function Invoke-ADEnum
 				#"DA" = if ($PasswordSetUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 				#"EA" = if ($PasswordSetUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 				"User Password" = $PasswordSetUser.Password
-				"Hex User Password" = ($PasswordSetUser.userPassword) -join ' '
+				"Raw Password" = ($PasswordSetUser.userPassword) -join ' '
 				"Last Logon" = $PasswordSetUser.lastlogontimestamp
 				"SID" = $PasswordSetUser.objectSID
 				#"Groups Membership" = (Get-DomainGroup -Domain $Domain -Server $Server -UserName $PasswordSetUser.samaccountname).Name -join ' - '
@@ -3755,7 +3757,7 @@ function Invoke-ADEnum
 					#"DA" = if ($PasswordSetUser.memberof -match 'Domain Admins') { "YES" } else { "NO" }
 					#"EA" = if ($PasswordSetUser.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
 					"User Password" = $PasswordSetUser.Password
-					"Hex User Password" = ($PasswordSetUser.userPassword) -join ' '
+					"Raw Password" = ($PasswordSetUser.userPassword) -join ' '
 					"Last Logon" = $PasswordSetUser.lastlogontimestamp
 					"SID" = $PasswordSetUser.objectSID
 					#"Groups Membership" = (Get-DomainGroup -Domain $AllDomain -UserName $PasswordSetUser.samaccountname).Name -join ' - '
@@ -3769,7 +3771,7 @@ function Invoke-ADEnum
 
  	if ($TempPasswordSetUsers) {
 		$TempPasswordSetUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
-		$HTMLPasswordSetUsers = $TempPasswordSetUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='PasswordSetUsers'>Check if any user passwords are set</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='PasswordSetUsers'>" }
+		$HTMLPasswordSetUsers = $TempPasswordSetUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='PasswordSetUsers'>Check if any User Passwords are set</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='PasswordSetUsers'>" }
 		$TempPasswordSetUsers."User Password" | ForEach-Object {
 			$HTMLPasswordSetUsers = $HTMLPasswordSetUsers -replace "<td>$_</td>","<td class=`"YesStatus`">$_</td>"
 		}
@@ -3782,6 +3784,88 @@ function Invoke-ADEnum
 		}
 		
 		$HTMLUserPasswordsSetTable = $UserPasswordsSetTable | ConvertTo-Html -As List -Fragment
+	}
+
+ 	###############################################################
+    ########### Check if any unix passwords are set ###############
+	###############################################################
+	
+	Write-Host ""
+	Write-Host "Check if any Unix User Passwords are set:" -ForegroundColor Cyan
+	
+	if ($Domain -and $Server) {
+		
+		$UnixPasswordSetUsers = Get-DomainUser -LDAPFilter '(unixUserPassword=*)' -Domain $Domain -Server $Server | % {Add-Member -InputObject $_ NoteProperty 'Password' "$([System.Text.Encoding]::ASCII.GetString($_.userPassword))" -PassThru}
+		
+		$TempUnixPasswordSet = foreach($UnixPasswordSet in $UnixPasswordSetUsers){
+			
+			[PSCustomObject]@{
+				"User Name" = $UnixPasswordSet.samaccountname
+				"Enabled" = if ($UnixPasswordSet.useraccountcontrol -band 2) { "False" } else { "True" }
+				"Active" = if ($UnixPasswordSet.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
+    				"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $UnixPasswordSet.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $UnixPasswordSet.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $UnixPasswordSet.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				#"Adm" = if ($UnixPasswordSet.memberof -match 'Administrators') { "YES" } else { "NO" }
+				#"DA" = if ($UnixPasswordSet.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+				#"EA" = if ($UnixPasswordSet.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+				"User Password" = $UnixPasswordSet.Password
+				"Raw Password" = ($UnixPasswordSet.userPassword) -join ' '
+				"Last Logon" = $UnixPasswordSet.lastlogontimestamp
+				"SID" = $UnixPasswordSet.objectSID
+				#"Groups Membership" = (Get-DomainGroup -Domain $Domain -Server $Server -UserName $UnixPasswordSet.samaccountname).Name -join ' - '
+				"Domain" = $Domain
+			}
+			
+		}
+	}
+	
+	else {
+		
+		$TempUnixPasswordSet = foreach ($AllDomain in $AllDomains) {
+			
+			$UnixPasswordSetUsers = Get-DomainUser -LDAPFilter '(unixUserPassword=*)' -Domain $AllDomain | % {Add-Member -InputObject $_ NoteProperty 'Password' "$([System.Text.Encoding]::ASCII.GetString($_.userPassword))" -PassThru}
+		
+			foreach($UnixPasswordSet in $UnixPasswordSetUsers){
+				
+				[PSCustomObject]@{
+					"User Name" = $UnixPasswordSet.samaccountname
+					"Enabled" = if ($UnixPasswordSet.useraccountcontrol -band 2) { "False" } else { "True" }
+					"Active" = if ($UnixPasswordSet.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
+     					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $UnixPasswordSet.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $UnixPasswordSet.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $UnixPasswordSet.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					#"Adm" = if ($UnixPasswordSet.memberof -match 'Administrators') { "YES" } else { "NO" }
+					#"DA" = if ($UnixPasswordSet.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					#"EA" = if ($UnixPasswordSet.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+					"User Password" = $UnixPasswordSet.Password
+					"Raw Password" = ($UnixPasswordSet.userPassword) -join ' '
+					"Last Logon" = $UnixPasswordSet.lastlogontimestamp
+					"SID" = $UnixPasswordSet.objectSID
+					#"Groups Membership" = (Get-DomainGroup -Domain $AllDomain -UserName $UnixPasswordSet.samaccountname).Name -join ' - '
+					"Domain" = $AllDomain
+				}
+				
+			}
+			
+		}
+	}
+
+ 	if ($TempUnixPasswordSet) {
+		$TempUnixPasswordSet | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+		$HTMLUnixPasswordSet = $TempUnixPasswordSet | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='UnixPasswordSet'>Check if any Unix User Passwords are set</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='UnixPasswordSet'>" }
+		$TempUnixPasswordSet."User Password" | ForEach-Object {
+			$HTMLUnixPasswordSet = $HTMLUnixPasswordSet -replace "<td>$_</td>","<td class=`"YesStatus`">$_</td>"
+		}
+  		$HTMLUnixPasswordSet = $HTMLUnixPasswordSet -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
+
+    	$UnixPasswordSetTable = [PSCustomObject]@{
+			"Risk Rating" = "High - Needs Immediate Attention"
+			"Description" = "Checks if any user passwords are set via the attribute 'unixUserPassword'."
+			"Remediation" = "Make sure this attribute does not contain a value."
+		}
+		
+		$HTMLUnixPasswordSetTable = $UnixPasswordSetTable | ConvertTo-Html -As List -Fragment
 	}
 	
 	#################################################################################################
@@ -7542,8 +7626,8 @@ function Invoke-ADEnum
     # Stop capturing the output and display it on the console
     Stop-Transcript | Out-Null
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLProtectedUsers $HTMLRODCs $HTMLSchemaAdmins $HTMLServerOperators $HTMLGetCurrUserGroup $HTMLSubnets $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLADComputersCreated $HTMLPasswordSetUsers $HTMLEmptyPasswordUsers $HTMLTotalEmptyPass $HTMLPreWin2kCompatibleAccess $HTMLUnsupportedHosts $HTMLLMCompatibilityLevel $HTMLMachineQuota $InterestingDataBanner $HTMLReplicationUsers $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLGMSAs $HTMLnopreauthset $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLNotSensitiveAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLLinkedDAAccounts $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLWin7AndServer2008 $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
-	$ClientReport = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLSubnets $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLCertTemplatesTable $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLTotalEmptyPass $HTMLTotalEmptyPassTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLMachineQuota $HTMLMachineAccountQuotaTable $InterestingDataBanner $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLUsersAdminCount $HTMLAdminCountUsersTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupTable $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitiveTable $HTMLPrivilegedNotSensitiveUsers $HTMLPrivilegedNOTSensitiveDelegationTable $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLServersDisabled $HTMLWorkstationsDisabled $HTMLDisabledUsers" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLProtectedUsers $HTMLRODCs $HTMLSchemaAdmins $HTMLServerOperators $HTMLGetCurrUserGroup $HTMLSubnets $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLADComputersCreated $HTMLPasswordSetUsers $HTMLUnixPasswordSet $HTMLEmptyPasswordUsers $HTMLTotalEmptyPass $HTMLPreWin2kCompatibleAccess $HTMLUnsupportedHosts $HTMLLMCompatibilityLevel $HTMLMachineQuota $InterestingDataBanner $HTMLReplicationUsers $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLGMSAs $HTMLnopreauthset $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLNotSensitiveAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLLinkedDAAccounts $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLWin7AndServer2008 $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
+	$ClientReport = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLSubnets $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLCertTemplatesTable $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLTotalEmptyPass $HTMLTotalEmptyPassTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLMachineQuota $HTMLMachineAccountQuotaTable $InterestingDataBanner $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLUsersAdminCount $HTMLAdminCountUsersTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupTable $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitiveTable $HTMLPrivilegedNotSensitiveUsers $HTMLPrivilegedNOTSensitiveDelegationTable $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLServersDisabled $HTMLWorkstationsDisabled $HTMLDisabledUsers" -Title "Active Directory Audit" -Head $header
  	$HTMLOutputFilePath = $OutputFilePath.Replace(".txt", ".html")
   	$HTMLClientOutputFilePath = $HTMLOutputFilePath.Replace("Invoke-ADEnum", "Invoke-ADEnum_Client-Report")
 	$Report | Out-File $HTMLOutputFilePath
