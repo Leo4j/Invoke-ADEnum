@@ -471,6 +471,7 @@ function Invoke-ADEnum
 				'Interesting Groups (by Keyword)': 'Interesting Groups',
 				'Interesting OUs (by Keyword)': 'Interesting OUs',
 				'Accessible Domain Shares': 'Accessible Shares',
+    				'Readable and Writable Shares': 'R+W Shares',
 				'Domain Share Files': 'Share Files',
 				'Domain Share Files (more file extensions)': 'Share Files+',
 				'Interesting ACLs': 'Interesting ACLs',
@@ -607,6 +608,7 @@ function Invoke-ADEnum
 			createDownloadLinkForTable('GPCreatorOwners');
 			createDownloadLinkForTable('KeyAdmins');
 			createDownloadLinkForTable('ProtectedUsers');
+   			createDownloadLinkForTable('RWShares');
 			createDownloadLinkForTable('RODCs');
 			createDownloadLinkForTable('SchemaAdmins');
 			createDownloadLinkForTable('ServerOperators');
@@ -6819,6 +6821,65 @@ function Invoke-ADEnum
 		}
 
     	}
+
+     	####################################################
+    ######### Readable Writable Shares ###############
+	####################################################
+	
+	Write-Host ""
+	Write-Host "Readable and Writable Shares:" -ForegroundColor Cyan
+	
+	if ($Domain -and $Server) {
+		
+		$AllCompMachines = Get-DomainComputer -Properties dnshostname -Domain $Domain | Select-Object -ExpandProperty dnshostname
+		
+		$SharesResults = Invoke-ShareHunter -Computers $AllCompMachines -Domain $Domain
+		
+		$SharesResultsTable = foreach ($obj in $SharesResults) {
+			if($obj.Readable -eq "YES"){
+				[PSCustomObject]@{
+					'Targets'  = $obj.Targets
+					'Operating System' = Get-OSFromFQDN -FQDN $obj.Targets
+					'Share Name'    = $obj."Share Name"
+					'Readable' = $obj.Readable
+					'Writable' = $obj.Writable
+					'Hidden'   = $obj.Hidden
+					'Domain'   = $obj.Domain
+				}
+			}
+		}
+	}
+	
+	
+	else {
+		
+		$SharesResultsTable = foreach ($AllDomain in $AllDomains) {
+		
+			$AllCompMachines = Get-DomainComputer -Properties dnshostname -Domain $AllDomain | Select-Object -ExpandProperty dnshostname
+		
+			$SharesResults = Invoke-ShareHunter -Computers $AllCompMachines -Domain $AllDomain
+			
+			foreach ($obj in $SharesResults) {
+				if($obj.Readable -eq "YES"){
+					[PSCustomObject]@{
+						'Targets'  = $obj.Targets
+						'Operating System' = Get-OSFromFQDN -FQDN $obj.Targets
+						'Share Name'    = $obj."Share Name"
+						'Readable' = $obj.Readable
+						'Writable' = $obj.Writable
+						'Hidden'   = $obj.Hidden
+						'Domain'   = $obj.Domain
+					}
+				}
+			}
+		}
+	}
+	
+	
+	if ($SharesResultsTable) {
+		$SharesResultsTable | Sort-Object -Unique "Domain","Writable","Targets","Share Name" | Format-Table -AutoSize -Wrap
+		$HTMLSharesResultsTable = $SharesResultsTable | Sort-Object -Unique "Domain","Writable","Targets","Share Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='RWShares'>Readable and Writable Shares</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='RWShares'>" }
+	}
 	
 	#####################################
     ######### Domain ACLs ###############
@@ -7660,8 +7721,8 @@ function Invoke-ADEnum
     # Stop capturing the output and display it on the console
     Stop-Transcript | Out-Null
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLProtectedUsers $HTMLRODCs $HTMLSchemaAdmins $HTMLServerOperators $HTMLGetCurrUserGroup $HTMLSubnets $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLADComputersCreated $HTMLPasswordSetUsers $HTMLUnixPasswordSet $HTMLEmptyPasswordUsers $HTMLTotalEmptyPass $HTMLPreWin2kCompatibleAccess $HTMLUnsupportedHosts $HTMLLMCompatibilityLevel $HTMLMachineQuota $InterestingDataBanner $HTMLReplicationUsers $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLGMSAs $HTMLnopreauthset $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLNotSensitiveAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLLinkedDAAccounts $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLWin7AndServer2008 $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
-	$ClientReport = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLSubnets $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLCertTemplatesTable $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLTotalEmptyPass $HTMLTotalEmptyPassTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLMachineQuota $HTMLMachineAccountQuotaTable $InterestingDataBanner $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLUsersAdminCount $HTMLAdminCountUsersTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupTable $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitiveTable $HTMLPrivilegedNotSensitiveUsers $HTMLPrivilegedNOTSensitiveDelegationTable $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLServersDisabled $HTMLWorkstationsDisabled $HTMLDisabledUsers" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLProtectedUsers $HTMLRODCs $HTMLSchemaAdmins $HTMLServerOperators $HTMLGetCurrUserGroup $HTMLSubnets $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLADComputersCreated $HTMLPasswordSetUsers $HTMLUnixPasswordSet $HTMLEmptyPasswordUsers $HTMLTotalEmptyPass $HTMLPreWin2kCompatibleAccess $HTMLUnsupportedHosts $HTMLLMCompatibilityLevel $HTMLMachineQuota $InterestingDataBanner $HTMLReplicationUsers $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLGMSAs $HTMLnopreauthset $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLNotSensitiveAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLLinkedDAAccounts $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLWin7AndServer2008 $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLSharesResultsTable $HTMLACLScannerResults $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
+	$ClientReport = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLSubnets $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLCertTemplatesTable $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLTotalEmptyPass $HTMLTotalEmptyPassTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLMachineQuota $HTMLMachineAccountQuotaTable $InterestingDataBanner $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLUsersAdminCount $HTMLAdminCountUsersTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupTable $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitiveTable $HTMLPrivilegedNotSensitiveUsers $HTMLPrivilegedNOTSensitiveDelegationTable $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLSharesResultsTable $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLServersDisabled $HTMLWorkstationsDisabled $HTMLDisabledUsers" -Title "Active Directory Audit" -Head $header
  	$HTMLOutputFilePath = $OutputFilePath.Replace(".txt", ".html")
   	$HTMLClientOutputFilePath = $HTMLOutputFilePath.Replace("Invoke-ADEnum", "Invoke-ADEnum_Client-Report")
 	$Report | Out-File $HTMLOutputFilePath
@@ -7698,4 +7759,341 @@ function Invoke-ADEnum
     (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Transcript started, output file is' } | Set-Content $OutputFilePath
     (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Parameter name: enumType""' } | Set-Content $OutputFilePath
     
+}
+
+function Invoke-ShareHunter{
+	
+	[CmdletBinding()] Param(
+		
+		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+		[String]
+		$Domain,
+		
+		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+		[array]
+		$Computers
+		
+	)
+	
+	$ErrorActionPreference = "SilentlyContinue"
+
+	$runspacePool = [runspacefactory]::CreateRunspacePool(1, 10)
+	$runspacePool.Open()
+
+	$runspaces = @()
+
+	foreach ($Computer in $Computers) {
+		$scriptBlock = {
+			param($Computer, $Timeout)
+
+			$tcpClient = New-Object System.Net.Sockets.TcpClient
+			$asyncResult = $tcpClient.BeginConnect($Computer, 445, $null, $null)
+			$wait = $asyncResult.AsyncWaitHandle.WaitOne(50)
+			if ($wait) { 
+				try {
+					$tcpClient.EndConnect($asyncResult)
+					$connected = $true
+					return $Computer
+				} catch {
+					$connected = $false
+				}
+			} else {
+				$Connect = $false
+			}
+
+			$tcpClient.Close()
+		}
+
+		$runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($Computer).AddArgument($Timeout)
+		$runspace.RunspacePool = $runspacePool
+
+		$runspaces += [PSCustomObject]@{
+			Runspace = $runspace
+			Status   = $runspace.BeginInvoke()
+			Computer = $Computer
+		}
+	}
+
+	# Initialize an array to store all reachable hosts
+	$reachable_hosts = @()
+
+	# Collect the results from each runspace
+	$runspaces | ForEach-Object {
+		$hostResult = $_.Runspace.EndInvoke($_.Status)
+		if ($hostResult) {
+			$reachable_hosts += $hostResult
+		}
+	}
+
+	# Close and clean up the runspace pool
+	$runspacePool.Close()
+	$runspacePool.Dispose()
+
+	$Computers = $reachable_hosts
+	
+	$functiontable = @()
+	
+	# Create runspace pool
+	$runspacePool = [runspacefactory]::CreateRunspacePool(1, 10)
+	$runspacePool.Open()
+
+	$runspaces = @()
+
+	foreach ($Computer in $Computers) {
+		$scriptBlock = {
+			param($Computer)
+
+			# Getting all shares including hidden ones
+			$allResults = net view \\$Computer /ALL | Out-String
+
+			# Getting only non-hidden shares
+			$visibleResults = net view \\$Computer | Out-String
+
+			$startDelimiter = "-------------------------------------------------------------------------------"
+			$endDelimiter = "The command completed successfully."
+
+			$extractShares = {
+				param($results)
+				
+				$startIndex = $results.IndexOf($startDelimiter)
+				$endIndex = $results.IndexOf($endDelimiter)
+
+				$capturedContent = $results.Substring($startIndex + $startDelimiter.Length, $endIndex - $startIndex - $startDelimiter.Length).Trim()
+
+				return ($capturedContent -split "`n") | Where-Object { $_ -match '^(\S+)\s+Disk' } | ForEach-Object { $matches[1] }
+			}
+
+			$allShares = & $extractShares $allResults
+			$visibleShares = & $extractShares $visibleResults
+
+			# Determine hidden shares
+			$hiddenShares = $allShares | Where-Object { $_ -notin $visibleShares }
+
+			# Create hashtable for each share
+			return $allShares | ForEach-Object {
+				@{
+					'Targets'  = $Computer
+					'Share'    = $_
+					'FullShareName'    = $null
+					'Readable' = 'NO'
+					'Writable' = 'NO'
+					'Hidden'   = if ($_ -in $hiddenShares) { 'True' } else { 'False' }
+					'Domain'   = $Domain  # Assuming $Domain is available in this context
+				}
+			}
+		}
+
+		$runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($Computer)
+		$runspace.RunspacePool = $runspacePool
+
+		$runspaces += [PSCustomObject]@{
+			Runspace = $runspace
+			Status   = $runspace.BeginInvoke()
+			Computer = $Computer
+		}
+	}
+
+	# Collect the results from each runspace
+	$runspaces | ForEach-Object {
+		$shares = $_.Runspace.EndInvoke($_.Status)
+		if ($shares) { 
+			$functiontable += $shares
+		}
+	}
+
+	# Close and clean up the runspace pool
+	$runspacePool.Close()
+	$runspacePool.Dispose()
+	
+	# Initialize an array to store all shares
+	$AllShares = @()
+	
+	foreach($obj in $functiontable){
+		$obj.Domain = $Domain
+		$sharename = "\\" + $obj.Targets + "\" + $obj.Share
+		$obj.FullShareName = $sharename
+		$AllShares += $sharename
+	}
+
+	$runspacePool = [runspacefactory]::CreateRunspacePool(1, 10)
+	$runspacePool.Open()
+
+	$runspaces = @()
+
+	foreach ($obj in $functiontable) {
+		$Share = $obj.FullShareName
+		$scriptBlock = {
+			param($Share)
+
+			$Error.clear()
+			ls $Share > $null
+			if (!$error[0]) {
+				return $Share
+			} else {
+				return $null
+			}
+		}
+
+		$runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($Share)
+		$runspace.RunspacePool = $runspacePool
+
+		$runspaces += [PSCustomObject]@{
+			Runspace = $runspace
+			Status   = $runspace.BeginInvoke()
+			Share    = $Share
+		}
+	}
+
+	# Initialize an array to store all readable shares
+	$ReadableShares = @()
+
+	# Collect the results from each runspace
+	$runspaces | ForEach-Object {
+		$shareResult = $_.Runspace.EndInvoke($_.Status)
+		if ($shareResult) {
+			$ReadableShares += $shareResult
+		}
+	}
+
+	# Close and clean up the runspace pool
+	$runspacePool.Close()
+	$runspacePool.Dispose()
+	
+	foreach ($Share in $ReadableShares) {
+		foreach ($obj in $functiontable) {
+			if($obj.FullShareName -eq $Share){
+				$obj.Readable = "YES"
+			}
+		}
+	}
+
+	$runspacePool = [runspacefactory]::CreateRunspacePool(1, 10)
+	$runspacePool.Open()
+
+	$runspaces = @()
+
+	foreach ($Share in $ReadableShares) {
+		$scriptBlock = {
+			
+			param(
+				[Parameter(Mandatory=$true)]
+				[string]$Share
+			)
+			
+			function Test-Write {
+				[CmdletBinding()]
+				param (
+					[parameter()]
+					[string] $Path
+				)
+				try {
+					$testPath = Join-Path $Path ([IO.Path]::GetRandomFileName())
+					$fileStream = [IO.File]::Create($testPath, 1, 'DeleteOnClose')
+					$fileStream.Close()
+					return "$Path"
+				} finally {
+					Remove-Item $testPath -ErrorAction SilentlyContinue
+				}
+			}
+			
+			try {
+				$result = Test-Write -Path $Share
+				return @{
+					Share = $Share
+					Result = $result
+					Error = $null
+				}
+			} catch {
+				return @{
+					Share = $Share
+					Result = $null
+					Error = $_.Exception.Message
+				}
+			}
+		}
+
+
+		$runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($Share)
+
+		$runspace.RunspacePool = $runspacePool
+
+		$runspaces += [PSCustomObject]@{
+			Runspace = $runspace
+			Status   = $runspace.BeginInvoke()
+			Share    = $Share
+		}
+	}
+
+	# Initialize an array to store all writable shares
+	$WritableShares = @()
+
+	# Collect the results from each runspace
+	$runspaces | ForEach-Object {
+		$runspaceData = $_.Runspace.EndInvoke($_.Status)
+		if ($runspaceData.Result) {
+			$WritableShares += $runspaceData.Result
+		}
+	}
+
+	# Close and clean up the runspace pool
+	$runspacePool.Close()
+	$runspacePool.Dispose()
+	
+	foreach ($Share in $WritableShares) {
+		foreach ($obj in $functiontable) {
+			if($obj.FullShareName -eq $Share){
+				$obj.Writable = "YES"
+			}
+		}
+	}
+	
+	$FinalTable = @()
+	
+	$FinalTable = foreach ($obj in $functiontable) {
+		if($obj.Readable -eq "YES"){
+			[PSCustomObject]@{
+				'Targets'  = $obj.Targets
+				'Operating System' = Get-OSFromFQDN -FQDN $obj.Targets
+				'Share Name'    = $obj.FullShareName
+				'Readable' = $obj.Readable
+				'Writable' = $obj.Writable
+				'Hidden'   = $obj.Hidden
+				'Domain'   = $obj.Domain
+			}
+		}
+	}
+	
+	$FinalTable
+
+}
+
+function Get-OSFromFQDN {
+    param (
+        [string]$FQDN
+    )
+
+    # Convert the domain part of the FQDN to a distinguished name for the search root
+    $domainPart = $FQDN.Split('.',2)[1] # This takes everything after the first dot
+    $domainDistinguishedName = "DC=" + ($domainPart -replace "\.", ",DC=")
+
+    # Set the LDAP path for the domain
+    $ldapQuery = "LDAP://$domainDistinguishedName"
+
+    # Create a DirectoryEntry object and searcher
+    $directoryEntry = New-Object System.DirectoryServices.DirectoryEntry $ldapQuery
+    $searcher = New-Object System.DirectoryServices.DirectorySearcher
+    $searcher.SearchRoot = $directoryEntry
+    $searcher.Filter = "(&(objectClass=computer)(dNSHostName=$FQDN))"
+    $searcher.PropertiesToLoad.Add("OperatingSystem") | Out-Null
+
+    # Execute the search
+    $result = $searcher.FindOne()
+
+    # Return the OperatingSystem property
+    if ($result -and $result.Properties["OperatingSystem"].Count -gt 0) {
+        return $result.Properties["OperatingSystem"][0]
+    } else {
+        Write-Error "Unable to find the OS for the given FQDN or the OS attribute is not set."
+        return $null
+    }
 }
