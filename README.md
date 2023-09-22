@@ -14,7 +14,7 @@ NOTE: By clicking on the table titles, you'll be able to export a csv version of
 ![image](https://github.com/Leo4j/Invoke-ADEnum/assets/61951374/32736c18-7ee2-4031-a670-584af3a87065)
 
 
-An offline version of the tool is now also available, which won't load PowerView from the internet (useful against web filtering or lab scenarios). PowerView is instead encrypted within the script and will decrypt and load in memory, therefore it shouldn't trigger AVs when you drop it on disk (tested against Defender and Sophos). AMSI bypass is also embedded.
+An offline version of the tool is also available, which won't load PowerView from the internet (useful against web filtering or lab scenarios).
 
 Invoke-ADEnum is a tool for any IT professional working with Active Directory.
 
