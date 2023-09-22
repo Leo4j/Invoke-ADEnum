@@ -39,7 +39,7 @@ Invoke-ADEnum -TargetsOnly
 Recommended Coverage
 
 ```
-Invoke-ADEnum -SecurityGroups -GPOsRights -LAPSReadRights -LAPSExtended -RBCD -AllGroups -SprayEmptyPasswords -UserCreatedObjects
+Invoke-ADEnum -SecurityGroups -GPOsRights -LAPSReadRights -RBCD -AllGroups -SprayEmptyPasswords -UserCreatedObjects
 ```
 
 +++> NOTE: If you use `-CustomURL` or `-Local` parameters you'll have to bypass AMSI manually <+++
