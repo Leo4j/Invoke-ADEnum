@@ -1,13 +1,18 @@
-# Invoke-ADEnum
+![image](https://github.com/Leo4j/Invoke-ADEnum/assets/61951374/c3fa36ab-0a53-4b15-b449-bc3e50c4ae4a)# Invoke-ADEnum
 Active Directory Enumeration
 
 Invoke-ADEnum is an Active Directory enumeration tool designed to automate the process of gathering information from an Active Directory environment, leveraging the capabilities of PowerView.
 
-With Invoke-ADEnum, you can quickly and efficiently enumerate various aspects of Active Directory, including forests, domains, trusts, domain controllers, users, groups, computers, shares, ACLs, OUs, GPOs, and more.
+With Invoke-ADEnum, you can quickly and efficiently enumerate various aspects of Active Directory, including forests, domains, trusts, domain controllers, users, groups, computers, shares, subnets, ACLs, OUs, GPOs, and more.
 
 One of the features of Invoke-ADEnum is its ability to generate an Active Directory Audit Report in HTML format. Whether performing security assessments, compliance audits, or general Active Directory enumeration tasks, the report will provide a detailed overview of the Active Directory infrastructure, in an easy-to-navigate layout.
 
-Invoke-ADEnum will now generate a client-oriented report as well, which will include only relevant findings and list remediations/recommendations.
+Invoke-ADEnum will generate a client-oriented report as well, which will include only relevant findings and list remediations/recommendations.
+
+NOTE: By clicking on the table titles, you'll be able to export a csv version of the findings. You can also click on "Active Directory Audit" at the top of the HTML report to export an xlsx version of the whole HTML, which will contain a Sheet per table of findings.
+
+![image](https://github.com/Leo4j/Invoke-ADEnum/assets/61951374/32736c18-7ee2-4031-a670-584af3a87065)
+
 
 An offline version of the tool is now also available, which won't load PowerView from the internet (useful against web filtering or lab scenarios). PowerView is instead encrypted within the script and will decrypt and load in memory, therefore it shouldn't trigger AVs when you drop it on disk (tested against Defender and Sophos). AMSI bypass is also embedded.
 
@@ -29,6 +34,12 @@ Check your targets first, and make sure you stay in scope
 
 ```
 Invoke-ADEnum -TargetsOnly
+```
+
+Recommended Coverage
+
+```
+Invoke-ADEnum -SecurityGroups -GPOsRights -LAPSReadRights -LAPSExtended -RBCD -AllGroups -SprayEmptyPasswords -UserCreatedObjects
 ```
 
 +++> NOTE: If you use `-CustomURL` or `-Local` parameters you'll have to bypass AMSI manually <+++
