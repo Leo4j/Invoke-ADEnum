@@ -170,20 +170,14 @@ function Invoke-ADEnum
 
     )
 	
-	if($Debugging){}
-	else{
+	if(!$Debugging){
 		$ErrorActionPreference = "SilentlyContinue"
 		$WarningPreference = "SilentlyContinue"
 	}
 	
 	Set-Variable MaximumHistoryCount 32767
 	
-	$originalBufferSize = $host.UI.RawUI.BufferSize
- 	$host.UI.RawUI.BufferSize = New-Object Management.Automation.Host.Size(4096, $Host.UI.RawUI.BufferSize.Height)
-	
-	if($help){}
-	
-	else{
+	if(!$help){
 	
 		if($Local){ipmo $Local -Force}
 		
@@ -240,6 +234,8 @@ function Invoke-ADEnum
     
 	if($TargetsOnly -OR $Help){}
 	else{
+ 		$originalBufferSize = $host.UI.RawUI.BufferSize
+ 		$host.UI.RawUI.BufferSize = New-Object Management.Automation.Host.Size(4096, $Host.UI.RawUI.BufferSize.Height)
 		# Start capturing the script's output and save it to the file
 		Start-Transcript -Path $OutputFilePath | Out-Null
 	}
