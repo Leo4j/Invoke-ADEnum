@@ -1,4 +1,4 @@
-![image](https://github.com/Leo4j/Invoke-ADEnum/assets/61951374/c3fa36ab-0a53-4b15-b449-bc3e50c4ae4a)# Invoke-ADEnum
+Invoke-ADEnum
 Active Directory Enumeration
 
 Invoke-ADEnum is an Active Directory enumeration tool designed to automate the process of gathering information from an Active Directory environment, leveraging the capabilities of PowerView.
