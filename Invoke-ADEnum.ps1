@@ -327,7 +327,7 @@ function Invoke-ADEnum
 
  -SecurityGroups		Enumerate for Security Groups (e.g.: Account Operators, Server Operators, and more...)
  
- -Shares			Enumerate for Shares
+ -Shares			Enumerate for Shares and Files (slow)
 
  -SprayEmptyPasswords		Sprays Empty Passwords - counts towards Bad-Pwd-Count
  
