@@ -9,7 +9,7 @@ One of the features of Invoke-ADEnum is its ability to generate an Active Direct
 
 Invoke-ADEnum will generate a client-oriented report as well, which will include only relevant findings and list remediations/recommendations.
 
-NOTE: By clicking on the table titles, you'll be able to export a csv version of the findings. You can also click on "Active Directory Audit" at the top of the HTML report to export an xlsx version of the whole HTML, which will contain a Sheet per table of findings.
+NOTE: By clicking on the tables' titles, you can generate and download a CSV version of the results. Additionally, you have the option to export the entire HTML report in XLSX format by clicking on "Active Directory Audit" at the top of the page. The XLSX export will include a separate sheet for each table of findings.
 
 ![image](https://github.com/Leo4j/Invoke-ADEnum/assets/61951374/32736c18-7ee2-4031-a670-584af3a87065)
 
