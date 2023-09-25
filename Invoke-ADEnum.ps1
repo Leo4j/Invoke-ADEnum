@@ -7788,7 +7788,6 @@ function Invoke-ShareHunter{
 			if ($wait) { 
 				try {
 					$tcpClient.EndConnect($asyncResult)
-					$connected = $true
 					return $Computer
 				} catch{}
 			}
