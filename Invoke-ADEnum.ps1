@@ -7790,7 +7790,7 @@ function Invoke-ShareHunter{
 					$tcpClient.EndConnect($asyncResult)
 					$connected = $true
 					return $Computer
-				}
+				} catch{}
 			}
 
 			$tcpClient.Close()
