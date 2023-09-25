@@ -3069,9 +3069,15 @@ function Invoke-ADEnum
 		$GetDomainSubnets = Get-DomainSubnet -Domain $Domain -Server $Server
 		
 		$TempSubnets = foreach ($DomainSubnet in $GetDomainSubnets) {
+
+			$SiteObject = $DomainSubnet.siteobject
+
+			if ($SiteObject -match "CN=([^,]+)") {$Site = $matches[1]}
+			
 			[PSCustomObject]@{
+   				"Site" = $Site
 				"Subnet" = $DomainSubnet.name
-				"Site Object" = $DomainSubnet.siteobject
+				"Description" = $DomainSubnet.siteobject
 				"Domain" = $Domain
 			}
 		}
@@ -3082,9 +3088,15 @@ function Invoke-ADEnum
 			$GetDomainSubnets = Get-DomainSubnet -Domain $AllDomain
 			
 			foreach ($DomainSubnet in $GetDomainSubnets) {
+
+				$SiteObject = $DomainSubnet.siteobject
+
+				if ($SiteObject -match "CN=([^,]+)") {$Site = $matches[1]}
+   
 				[PSCustomObject]@{
+					"Site" = $Site
 					"Subnet" = $DomainSubnet.name
-					"Site Object" = $DomainSubnet.siteobject
+					"Description" = $DomainSubnet.siteobject
 					"Domain" = $AllDomain
 				}
 			}
@@ -3092,8 +3104,8 @@ function Invoke-ADEnum
     }
 
     if($TempSubnets){
-		$TempSubnets | Sort-Object -Unique Domain,Subnet | Format-Table -AutoSize -Wrap
-		$HTMLSubnets = $TempSubnets | Sort-Object -Unique Domain,Subnet | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='Subnets'>Subnets</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='Subnets'>" }
+		$TempSubnets | Sort-Object -Unique Domain,Site | Format-Table -AutoSize -Wrap
+		$HTMLSubnets = $TempSubnets | Sort-Object -Unique Domain,Site | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='Subnets'>Subnets</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='Subnets'>" }
 	}
 
  	<#
