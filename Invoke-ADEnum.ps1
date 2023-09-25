@@ -4685,7 +4685,7 @@ function Invoke-ADEnum
 		}
 	}
 
- 	if ($TempServiceAccounts) {
+ 	if ($TempServiceAccounts | Where-Object {$_.Account -ne "krbtgt"}) {
 		$TempServiceAccounts | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
 		$HTMLServiceAccounts = $TempServiceAccounts | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ServiceAccounts'>Service Accounts (Kerberoastable)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ServiceAccounts'>" }
 		$HTMLServiceAccounts = $HTMLServiceAccounts -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
