@@ -3077,7 +3077,7 @@ function Invoke-ADEnum
 			[PSCustomObject]@{
    				"Site" = $Site
 				"Subnet" = $DomainSubnet.name
-				"Description" = $DomainSubnet.siteobject
+				"Description" = $DomainSubnet.description
 				"Domain" = $Domain
 			}
 		}
@@ -3096,7 +3096,7 @@ function Invoke-ADEnum
 				[PSCustomObject]@{
 					"Site" = $Site
 					"Subnet" = $DomainSubnet.name
-					"Description" = $DomainSubnet.siteobject
+					"Description" = $DomainSubnet.description
 					"Domain" = $AllDomain
 				}
 			}
