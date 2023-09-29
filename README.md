@@ -1,7 +1,7 @@
 # Invoke-ADEnum
 Active Directory Enumeration
 
-Invoke-ADEnum is an Active Directory enumeration tool designed to automate the process of gathering information from an Active Directory environment, leveraging the capabilities of PowerView.
+Invoke-ADEnum is an Active Directory enumeration tool designed to automate the process of gathering information from an Active Directory environment, leveraging the capabilities of PowerView
 
 With Invoke-ADEnum, you can quickly and efficiently enumerate various aspects of Active Directory, including forests, domains, trusts, domain controllers, users, groups, computers, shares, subnets, ACLs, OUs, GPOs, and more.
 
