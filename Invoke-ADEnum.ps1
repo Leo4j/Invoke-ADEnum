@@ -7770,6 +7770,14 @@ function Invoke-ADEnum
 }
 
 function Invoke-ShareHunter{
+
+	<#
+
+	.SYNOPSIS
+	Invoke-ShareHunter Author: Rob LP (@L3o4j)
+	https://github.com/Leo4j/Invoke-ShareHunter
+
+ 	#>
 	
 	[CmdletBinding()] Param(
 		
@@ -7792,7 +7800,7 @@ function Invoke-ShareHunter{
 
 	foreach ($Computer in $Computers) {
 		$scriptBlock = {
-			param($Computer, $Timeout)
+			param($Computer)
 
 			$tcpClient = New-Object System.Net.Sockets.TcpClient
 			$asyncResult = $tcpClient.BeginConnect($Computer, 445, $null, $null)
@@ -7849,9 +7857,6 @@ function Invoke-ShareHunter{
 			# Getting all shares including hidden ones
 			$allResults = net view \\$Computer /ALL | Out-String
 
-			# Getting only non-hidden shares
-			$visibleResults = net view \\$Computer | Out-String
-
 			$startDelimiter = "-------------------------------------------------------------------------------"
 			$endDelimiter = "The command completed successfully."
 
@@ -7867,10 +7872,6 @@ function Invoke-ShareHunter{
 			}
 
 			$allShares = & $extractShares $allResults
-			$visibleShares = & $extractShares $visibleResults
-
-			# Determine hidden shares
-			$hiddenShares = $allShares | Where-Object { $_ -notin $visibleShares }
 
 			# Create hashtable for each share
 			return $allShares | ForEach-Object {
@@ -7880,7 +7881,6 @@ function Invoke-ShareHunter{
 					'FullShareName'    = $null
 					'Readable' = 'NO'
 					'Writable' = 'NO'
-					'Hidden'   = if ($_ -in $hiddenShares) { 'True' } else { 'False' }
 					'Domain'   = $Domain  # Assuming $Domain is available in this context
 				}
 			}
@@ -7896,27 +7896,27 @@ function Invoke-ShareHunter{
 		}
 	}
 
+ 	# Initialize an array to store all shares
+	$AllShares = @()
+
 	# Collect the results from each runspace
 	$runspaces | ForEach-Object {
 		$shares = $_.Runspace.EndInvoke($_.Status)
 		if ($shares) { 
 			$functiontable += $shares
+
+   			foreach($shareObj in $shares) {
+				$shareObj.Domain = $Domain
+				$sharename = "\\" + $shareObj.Targets + "\" + $shareObj.Share
+				$shareObj.FullShareName = $sharename
+				$AllShares += $sharename
+			}
 		}
 	}
 
 	# Close and clean up the runspace pool
 	$runspacePool.Close()
 	$runspacePool.Dispose()
-	
-	# Initialize an array to store all shares
-	$AllShares = @()
-	
-	foreach($obj in $functiontable){
-		$obj.Domain = $Domain
-		$sharename = "\\" + $obj.Targets + "\" + $obj.Share
-		$obj.FullShareName = $sharename
-		$AllShares += $sharename
-	}
 
 	$runspacePool = [runspacefactory]::CreateRunspacePool(1, 10)
 	$runspacePool.Open()
@@ -7924,26 +7924,26 @@ function Invoke-ShareHunter{
 	$runspaces = @()
 
 	foreach ($obj in $functiontable) {
-		$Share = $obj.FullShareName
 		$scriptBlock = {
-			param($Share)
+			param($obj)
 
 			$Error.clear()
-			ls $Share > $null
+			ls $obj.FullShareName > $null
 			if (!$error[0]) {
-				return $Share
+   				$obj.Readable = "YES"
+				return $obj.FullShareName
 			} else {
 				return $null
 			}
 		}
 
-		$runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($Share)
+		$runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($obj)
 		$runspace.RunspacePool = $runspacePool
 
 		$runspaces += [PSCustomObject]@{
 			Runspace = $runspace
 			Status   = $runspace.BeginInvoke()
-			Share    = $Share
+			Share    = $obj
 		}
 	}
 
@@ -7961,14 +7961,6 @@ function Invoke-ShareHunter{
 	# Close and clean up the runspace pool
 	$runspacePool.Close()
 	$runspacePool.Dispose()
-	
-	foreach ($Share in $ReadableShares) {
-		foreach ($obj in $functiontable) {
-			if($obj.FullShareName -eq $Share){
-				$obj.Readable = "YES"
-			}
-		}
-	}
 
 	$runspacePool = [runspacefactory]::CreateRunspacePool(1, 10)
 	$runspacePool.Open()
@@ -8056,47 +8048,13 @@ function Invoke-ShareHunter{
 		if($obj.Readable -eq "YES"){
 			[PSCustomObject]@{
 				'Targets'  = $obj.Targets
-				'Operating System' = Get-OSFromFQDN -FQDN $obj.Targets
 				'Share Name'    = $obj.FullShareName
 				'Readable' = $obj.Readable
 				'Writable' = $obj.Writable
-				'Hidden'   = $obj.Hidden
 				'Domain'   = $obj.Domain
 			}
 		}
 	}
 	
 	$FinalTable
-
-}
-
-function Get-OSFromFQDN {
-    param (
-        [string]$FQDN
-    )
-
-    # Convert the domain part of the FQDN to a distinguished name for the search root
-    $domainPart = $FQDN.Split('.',2)[1] # This takes everything after the first dot
-    $domainDistinguishedName = "DC=" + ($domainPart -replace "\.", ",DC=")
-
-    # Set the LDAP path for the domain
-    $ldapQuery = "LDAP://$domainDistinguishedName"
-
-    # Create a DirectoryEntry object and searcher
-    $directoryEntry = New-Object System.DirectoryServices.DirectoryEntry $ldapQuery
-    $searcher = New-Object System.DirectoryServices.DirectorySearcher
-    $searcher.SearchRoot = $directoryEntry
-    $searcher.Filter = "(&(objectClass=computer)(dNSHostName=$FQDN))"
-    $searcher.PropertiesToLoad.Add("OperatingSystem") | Out-Null
-
-    # Execute the search
-    $result = $searcher.FindOne()
-
-    # Return the OperatingSystem property
-    if ($result -and $result.Properties["OperatingSystem"].Count -gt 0) {
-        return $result.Properties["OperatingSystem"][0]
-    } else {
-        Write-Error "Unable to find the OS for the given FQDN or the OS attribute is not set."
-        return $null
-    }
 }
