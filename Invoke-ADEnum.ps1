@@ -6851,7 +6851,8 @@ function Invoke-ADEnum
 		$SharesResults = Invoke-ShareHunter -Computers $AllCompMachines -Domain $Domain
 		
 		$SharesResultsTable = foreach ($obj in $SharesResults) {
-  			if (-not ($obj."Share Name" -in $excludedShares -and $obj.Writable -ne "YES")) {
+  			$shareName = ($obj."Share Name" -split '\\')[-1]
+  			if (-not ($shareName -in $excludedShares -and $obj.Writable -ne "YES")) {
 				if($obj.Readable -eq "YES"){
 					[PSCustomObject]@{
 						'Targets'  = $obj.Targets
@@ -6880,7 +6881,8 @@ function Invoke-ADEnum
 			$SharesResults = Invoke-ShareHunter -Computers $AllCompMachines -Domain $AllDomain
 			
 			foreach ($obj in $SharesResults) {
-   				if (-not ($obj."Share Name" -in $excludedShares -and $obj.Writable -ne "YES")) {
+   				$shareName = ($obj."Share Name" -split '\\')[-1]
+   				if (-not ($shareName -in $excludedShares -and $obj.Writable -ne "YES")) {
 					if($obj.Readable -eq "YES"){
 						[PSCustomObject]@{
 							'Targets'  = $obj.Targets
