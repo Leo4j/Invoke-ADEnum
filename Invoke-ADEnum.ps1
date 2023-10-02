@@ -6847,11 +6847,9 @@ function Invoke-ADEnum
 			if($obj.Readable -eq "YES"){
 				[PSCustomObject]@{
 					'Targets'  = $obj.Targets
-					'Operating System' = Get-OSFromFQDN -FQDN $obj.Targets
 					'Share Name'    = $obj."Share Name"
 					'Readable' = $obj.Readable
 					'Writable' = $obj.Writable
-					'Hidden'   = $obj.Hidden
 					'Domain'   = $obj.Domain
 				}
 			}
@@ -6871,11 +6869,9 @@ function Invoke-ADEnum
 				if($obj.Readable -eq "YES"){
 					[PSCustomObject]@{
 						'Targets'  = $obj.Targets
-						'Operating System' = Get-OSFromFQDN -FQDN $obj.Targets
 						'Share Name'    = $obj."Share Name"
 						'Readable' = $obj.Readable
 						'Writable' = $obj.Writable
-						'Hidden'   = $obj.Hidden
 						'Domain'   = $obj.Domain
 					}
 				}
