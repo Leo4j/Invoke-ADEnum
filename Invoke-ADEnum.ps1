@@ -6844,9 +6844,7 @@ function Invoke-ADEnum
 		$AllCompMachines = Get-DomainComputer -Properties dnshostname -Domain $Domain | Select-Object -ExpandProperty dnshostname
 
   		$HostFQDN = [System.Net.Dns]::GetHostByName(($env:computerName)).HostName
-    		$Computers = $Computers | Where-Object {$_ -ne "$HostFQDN"}
-    		$AllCompMachines = $AllCompMachines | Where-Object {-not ($_ -cmatch "$env:computername")}
-      		$AllCompMachines = $AllCompMachines | Where-Object {$_ -ne "$env:computername"}
+    		$AllCompMachines = $AllCompMachines | Where-Object {$_ -ne "$HostFQDN"}
 		
 		$SharesResults = Invoke-ShareHunter -Computers $AllCompMachines -Domain $Domain
 		
@@ -6874,9 +6872,7 @@ function Invoke-ADEnum
 			$AllCompMachines = Get-DomainComputer -Properties dnshostname -Domain $AllDomain | Select-Object -ExpandProperty dnshostname
 
    			$HostFQDN = [System.Net.Dns]::GetHostByName(($env:computerName)).HostName
-    			$Computers = $Computers | Where-Object {$_ -ne "$HostFQDN"}
-    			$AllCompMachines = $AllCompMachines | Where-Object {-not ($_ -cmatch "$env:computername")}
-      			$AllCompMachines = $AllCompMachines | Where-Object {$_ -ne "$env:computername"}
+    			$AllCompMachines = $AllCompMachines | Where-Object {$_ -ne "$HostFQDN"}
 		
 			$SharesResults = Invoke-ShareHunter -Computers $AllCompMachines -Domain $AllDomain
 			
