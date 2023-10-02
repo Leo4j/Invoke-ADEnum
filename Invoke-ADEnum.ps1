@@ -6836,36 +6836,22 @@ function Invoke-ADEnum
 	
 	Write-Host ""
 	Write-Host "Readable and Writable Shares:" -ForegroundColor Cyan
+
+ 	$excludedShares = @('SYSVOL', 'Netlogon', 'print$', 'IPC$')
 	
 	if ($Domain -and $Server) {
 		
 		$AllCompMachines = Get-DomainComputer -Properties dnshostname -Domain $Domain | Select-Object -ExpandProperty dnshostname
+
+  		$HostFQDN = [System.Net.Dns]::GetHostByName(($env:computerName)).HostName
+    		$Computers = $Computers | Where-Object {$_ -ne "$HostFQDN"}
+    		$AllCompMachines = $AllCompMachines | Where-Object {-not ($_ -cmatch "$env:computername")}
+      		$AllCompMachines = $AllCompMachines | Where-Object {$_ -ne "$env:computername"}
 		
 		$SharesResults = Invoke-ShareHunter -Computers $AllCompMachines -Domain $Domain
 		
 		$SharesResultsTable = foreach ($obj in $SharesResults) {
-			if($obj.Readable -eq "YES"){
-				[PSCustomObject]@{
-					'Targets'  = $obj.Targets
-					'Share Name'    = $obj."Share Name"
-					'Readable' = $obj.Readable
-					'Writable' = $obj.Writable
-					'Domain'   = $obj.Domain
-				}
-			}
-		}
-	}
-	
-	
-	else {
-		
-		$SharesResultsTable = foreach ($AllDomain in $AllDomains) {
-		
-			$AllCompMachines = Get-DomainComputer -Properties dnshostname -Domain $AllDomain | Select-Object -ExpandProperty dnshostname
-		
-			$SharesResults = Invoke-ShareHunter -Computers $AllCompMachines -Domain $AllDomain
-			
-			foreach ($obj in $SharesResults) {
+  			if (-not ($obj."Share Name" -in $excludedShares -and $obj.Writable -ne "YES")) {
 				if($obj.Readable -eq "YES"){
 					[PSCustomObject]@{
 						'Targets'  = $obj.Targets
@@ -6875,6 +6861,36 @@ function Invoke-ADEnum
 						'Domain'   = $obj.Domain
 					}
 				}
+   			}
+		}
+	}
+	
+	
+	else {
+		
+		$SharesResultsTable = foreach ($AllDomain in $AllDomains) {
+		
+			$AllCompMachines = Get-DomainComputer -Properties dnshostname -Domain $AllDomain | Select-Object -ExpandProperty dnshostname
+
+   			$HostFQDN = [System.Net.Dns]::GetHostByName(($env:computerName)).HostName
+    			$Computers = $Computers | Where-Object {$_ -ne "$HostFQDN"}
+    			$AllCompMachines = $AllCompMachines | Where-Object {-not ($_ -cmatch "$env:computername")}
+      			$AllCompMachines = $AllCompMachines | Where-Object {$_ -ne "$env:computername"}
+		
+			$SharesResults = Invoke-ShareHunter -Computers $AllCompMachines -Domain $AllDomain
+			
+			foreach ($obj in $SharesResults) {
+   				if (-not ($obj."Share Name" -in $excludedShares -and $obj.Writable -ne "YES")) {
+					if($obj.Readable -eq "YES"){
+						[PSCustomObject]@{
+							'Targets'  = $obj.Targets
+							'Share Name'    = $obj."Share Name"
+							'Readable' = $obj.Readable
+							'Writable' = $obj.Writable
+							'Domain'   = $obj.Domain
+						}
+					}
+    				}
 			}
 		}
 	}
