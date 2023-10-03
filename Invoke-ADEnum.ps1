@@ -58,7 +58,7 @@ function Invoke-ADEnum
         
         [Parameter (Mandatory=$False, Position = 10, ValueFromPipeline=$true)]
         [Switch]
-        $$SharesFiles,
+        $SharesFiles,
         
         [Parameter (Mandatory=$False, Position = 11, ValueFromPipeline=$true)]
         [Switch]
