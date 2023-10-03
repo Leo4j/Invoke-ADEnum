@@ -981,10 +981,10 @@ function Invoke-ADEnum
 						Domain = $dc.Domain
       						"OS Version" = $dc.OSVersion
 						"IP Address" = $dc.IPAddress
-						"Primary DC" = $primaryDC
       						"LDAP" = $TestingLDAP.LDAP
 						"LDAPS" = $TestingLDAP.LDAPS
     						"AvailablePorts" = $TestingLDAP.AvailablePorts
+	  					"Primary DC" = $primaryDC
 					}
 		    	}
 				if($TempHTMLdc){
@@ -993,7 +993,7 @@ function Invoke-ADEnum
 		    }
 		    else{
 		        $TempHTMLdc = foreach($AllDomain in $AllDomains){
-					$domainControllers = Get-DomainController -Domain $AllDomain
+				$domainControllers = Get-DomainController -Domain $AllDomain
 		        	foreach ($dc in $domainControllers) {
 	   					$TestingLDAP = Test-LDAP -ComputerName $dc
 						$isPrimaryDC = $dc.Roles -like "RidRole"
@@ -1004,10 +1004,10 @@ function Invoke-ADEnum
 							Domain = $dc.Domain
        							"OS Version" = $dc.OSVersion
 							"IP Address" = $dc.IPAddress
-							"Primary DC" = $primaryDC
        							"LDAP" = $TestingLDAP.LDAP
 							"LDAPS" = $TestingLDAP.LDAPS
     							"AvailablePorts" = $TestingLDAP.AvailablePorts
+	   						"Primary DC" = $primaryDC
 						}
 		        	}
 				}
@@ -1120,10 +1120,10 @@ function Invoke-ADEnum
 				Domain = $dc.Domain
     				"OS Version" = $dc.OSVersion
 				"IP Address" = $dc.IPAddress
-				"Primary DC" = $primaryDC
     				"LDAP" = $TestingLDAP.LDAP
 				"LDAPS" = $TestingLDAP.LDAPS
     				"AvailablePorts" = $TestingLDAP.AvailablePorts
+				"Primary DC" = $primaryDC
 			}
     	}
     }
@@ -1140,10 +1140,10 @@ function Invoke-ADEnum
 					Domain = $dc.Domain
      					"OS Version" = $dc.OSVersion
 					"IP Address" = $dc.IPAddress
-					"Primary DC" = $primaryDC
      					"LDAP" = $TestingLDAP.LDAP
 					"LDAPS" = $TestingLDAP.LDAPS
     					"AvailablePorts" = $TestingLDAP.AvailablePorts
+	 				"Primary DC" = $primaryDC
 				}
         	}
 		}
