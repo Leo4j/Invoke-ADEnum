@@ -472,7 +472,7 @@ function Invoke-ADEnum
 				'Kerberos Password Policy': 'Kerb Policy',
 				'User Accounts Analysis': 'User Analysis',
 				'Computer Account Analysis': 'Comp. Analysis',
-				'Operating Systems Analysis': 'OS Analysis',
+				'Operating Systems Insights': 'OS Insights',
 				'All Groups': 'All Groups',
 				'All Domain GPOs': 'All GPOs',
 				'All Domain OUs': 'All OUs',
@@ -7101,11 +7101,11 @@ function Invoke-ADEnum
 	}
 	
 	######################################################
-    ########### Operating Systems Analysis ###############
+    ########### Operating Systems Insights ###############
 	######################################################
 	
 	Write-Host ""
-	Write-Host "Operating Systems Analysis:" -ForegroundColor Cyan
+	Write-Host "Operating Systems Insights:" -ForegroundColor Cyan
 
 	if ($Domain -and $Server) {
 		
@@ -7150,7 +7150,7 @@ function Invoke-ADEnum
 
  	if ($TempOperatingSystemsAnalysis) {
 		$TempOperatingSystemsAnalysis | Sort-Object Domain,'Operating System' | Format-Table -AutoSize
-		$HTMLOperatingSystemsAnalysis = $TempOperatingSystemsAnalysis | Sort-Object Domain,'Operating System' | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='OperatingSystemsAnalysis'>Operating Systems Analysis</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='OperatingSystemsAnalysis'>" }
+		$HTMLOperatingSystemsAnalysis = $TempOperatingSystemsAnalysis | Sort-Object Domain,'Operating System' | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='OperatingSystemsAnalysis'>Operating Systems Insights</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='OperatingSystemsAnalysis'>" }
 	}
 	
 	############################################
