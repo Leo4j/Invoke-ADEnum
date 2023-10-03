@@ -3955,7 +3955,7 @@ function Invoke-ADEnum
 		}
   		$HTMLPasswordSetUsers = $HTMLPasswordSetUsers -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
 
-    	$UserPasswordsSetTable = [PSCustomObject]@{
+    		$UserPasswordsSetTable = [PSCustomObject]@{
 			"Risk Rating" = "High - Needs Immediate Attention"
 			"Description" = "Checks if any user passwords are set via the attribute 'userPassword'."
 			"Remediation" = "Make sure this attribute does not contain a value."
@@ -4037,7 +4037,7 @@ function Invoke-ADEnum
 		}
   		$HTMLUnixPasswordSet = $HTMLUnixPasswordSet -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
 
-    	$UnixPasswordSetTable = [PSCustomObject]@{
+    		$UnixPasswordSetTable = [PSCustomObject]@{
 			"Risk Rating" = "High - Needs Immediate Attention"
 			"Description" = "Checks if any user passwords are set via the attribute 'unixUserPassword'."
 			"Remediation" = "Make sure this attribute does not contain a value."
@@ -5183,7 +5183,7 @@ function Invoke-ADEnum
 
 	}
 
-	if ($TempAdminsInProtectedUsersGroup) {
+	if ($TempAdminsInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"}) {
 		$TempAdminsInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
 		$HTMLAdminsInProtectedUsersGroup = $TempAdminsInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='AdminsInProtectedUsersGroup'>Admin Users in 'Protected Users' Group</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='AdminsInProtectedUsersGroup'>" }
 	}
@@ -5242,7 +5242,7 @@ function Invoke-ADEnum
 
 	}
 	
-	if ($TempNotSensitiveAdminsInProtectedUsersGroup) {
+	if ($TempNotSensitiveAdminsInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"}) {
 		$TempNotSensitiveAdminsInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
 		$HTMLNotSensitiveAdminsInProtectedUsersGroup = $TempNotSensitiveAdminsInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='NotSensitiveAdminsInProtectedUsersGroup'>Admin Users in 'Protected Users' Group but NOT marked as 'sensitive and not allowed for delegation'</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='NotSensitiveAdminsInProtectedUsersGroup'>" }
 	}
@@ -5299,7 +5299,7 @@ function Invoke-ADEnum
 		}
 	}
 
- 	if ($TempAdminsNotInProtectedUsersGroup) {
+ 	if ($TempAdminsNotInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"}) {
 		$TempAdminsNotInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
 		$HTMLAdminsNotInProtectedUsersGroup = $TempAdminsNotInProtectedUsersGroup | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='AdminsNotInProtectedUsersGroup'>Admin Users NOT in 'Protected Users' Group</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='AdminsNotInProtectedUsersGroup'>" }
 
@@ -5363,7 +5363,7 @@ function Invoke-ADEnum
 		}
 	}
 
- 	if ($TempAdminsNOTinProtectedUsersGroupAndNOTSensitive) {
+ 	if ($TempAdminsNOTinProtectedUsersGroupAndNOTSensitive | Where-Object {$_.Account -ne "krbtgt"}) {
 		$TempAdminsNOTinProtectedUsersGroupAndNOTSensitive | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
 		$HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive = $TempAdminsNOTinProtectedUsersGroupAndNOTSensitive | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='AdminsNOTinProtectedUsersGroupAndNOTSensitive'>Admin Users NOT in 'Protected Users' Group and NOT marked as 'sensitive and not allowed for delegation'</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='AdminsNOTinProtectedUsersGroupAndNOTSensitive'>" }
 
@@ -5482,7 +5482,7 @@ function Invoke-ADEnum
 		}
 	}
 
- 	if ($TempPrivilegedSensitiveUsers) {
+ 	if ($TempPrivilegedSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"}) {
 		$TempPrivilegedSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
 		$HTMLPrivilegedSensitiveUsers = $TempPrivilegedSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='PrivilegedSensitiveUsers'>Privileged users marked as 'sensitive and not allowed for delegation'</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='PrivilegedSensitiveUsers'>" }
 	}
@@ -5536,7 +5536,7 @@ function Invoke-ADEnum
 		}
 	}
 
- 	if ($TempPrivilegedNotSensitiveUsers) {
+ 	if ($TempPrivilegedNotSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"}) {
 		$TempPrivilegedNotSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
 		$HTMLPrivilegedNotSensitiveUsers = $TempPrivilegedNotSensitiveUsers | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='PrivilegedNotSensitiveUsers'>Privileged users NOT marked as 'sensitive and not allowed for delegation'</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='PrivilegedNotSensitiveUsers'>" }
 
@@ -7437,7 +7437,7 @@ function Invoke-ADEnum
 			}
 		}
 
-  		if ($TempDisabledUsers) {
+  		if ($TempDisabledUsers | Where-Object {$_."User Name" -ne "krbtgt"}) {
 			$TempDisabledUsers | Where-Object {$_."User Name" -ne "krbtgt"} | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
 			$HTMLDisabledUsers = $TempDisabledUsers | Where-Object {$_."User Name" -ne "krbtgt"} | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DisabledUsers'>Users (Disabled)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DisabledUsers'>" }
 		}
