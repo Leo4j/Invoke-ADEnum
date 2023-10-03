@@ -1669,13 +1669,13 @@ function Invoke-ADEnum
 	}
 
  	####################################################
-    ########### Privileged and Security Groups ################
+    ########### Built-In and Security Groups ################
 	####################################################
 
 
- 	$SecurityGroupsBanner = "<h3>Privileged and Security Groups</h3>"
+ 	$SecurityGroupsBanner = "<h3>Built-In and Security Groups</h3>"
 		Write-Host ""
-		Write-Host "Privileged and Security Groups" -ForegroundColor Red
+		Write-Host "Built-In and Security Groups" -ForegroundColor Red
 		Write-Host ""
 
 	
