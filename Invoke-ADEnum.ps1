@@ -1467,6 +1467,207 @@ function Invoke-ADEnum
 		$HTMLGetDomainForeignGroupMember = $TempForeignGroupMembers | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='GroupsForeignDomainMembers'>Groups that contain users outside of its domain and return its members</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='GroupsForeignDomainMembers'>" }
 	}
 
+ 	################################################
+    ######### Domain Analysis ###############
+	################################################
+	
+	$AnalysisBanner = "<h3>Active Directory Domain Analysis</h3>"
+	Write-Host ""
+	Write-Host "Active Directory Domain Analysis" -ForegroundColor Red
+	Write-Host ""
+	
+	################################################
+    ######### Domain Password Policy ###############
+	################################################
+	
+	
+	Write-Host ""
+	Write-Host "Domain Password Policy:" -ForegroundColor Cyan
+	if ($Domain -and $Server) {
+		$DomainPolicy = Get-DomainPolicy -Domain $Domain -Server $Server
+		$TempDomainPolicy = [PSCustomObject]@{
+			"Domain" = $Domain
+   			"Pwd Complexity" = $DomainPolicy.SystemAccess.PasswordComplexity
+      			"Min Pwd Length" = $DomainPolicy.SystemAccess.MinimumPasswordLength
+			"Min Pwd Age" = $DomainPolicy.SystemAccess.MinimumPasswordAge
+			"Max Pwd Age" = $DomainPolicy.SystemAccess.MaximumPasswordAge
+			"Password History" = $DomainPolicy.SystemAccess.PasswordHistorySize
+			"Lockout Bad Count" = $DomainPolicy.SystemAccess.LockoutBadCount
+			"Reset Lockout Count" = $DomainPolicy.SystemAccess.ResetLockoutCount
+			"Lockout Duration" = $DomainPolicy.SystemAccess.LockoutDuration
+			"Require Logon To Change Pwd" = $DomainPolicy.SystemAccess.RequireLogonToChangePassword
+		}
+	}
+	else {
+		$TempDomainPolicy = foreach ($AllDomain in $AllDomains) {
+			$DomainPolicy = Get-DomainPolicy -Domain $AllDomain
+			[PSCustomObject]@{
+				"Domain" = $AllDomain
+    				"Pwd Complexity" = $DomainPolicy.SystemAccess.PasswordComplexity
+				"Min Pwd Length" = $DomainPolicy.SystemAccess.MinimumPasswordLength
+				"Min Pwd Age" = $DomainPolicy.SystemAccess.MinimumPasswordAge
+				"Max Pwd Age" = $DomainPolicy.SystemAccess.MaximumPasswordAge
+				"Password History" = $DomainPolicy.SystemAccess.PasswordHistorySize
+				"Lockout Bad Count" = $DomainPolicy.SystemAccess.LockoutBadCount
+				"Reset Lockout Count" = $DomainPolicy.SystemAccess.ResetLockoutCount
+				"Lockout Duration" = $DomainPolicy.SystemAccess.LockoutDuration
+				"Require Logon To Change Pwd" = $DomainPolicy.SystemAccess.RequireLogonToChangePassword
+			}
+		}
+	}
+
+ 	if ($TempDomainPolicy) {
+		$TempDomainPolicy | Sort-Object Domain | Format-Table -AutoSize -Wrap
+		$HTMLDomainPolicy = $TempDomainPolicy | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DomainPolicy'>Domain Password Policy</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DomainPolicy'>" }
+	}
+
+	
+	#########################################
+    ######### Kerberos Policy ###############
+	#########################################
+	
+	Write-Host ""
+	Write-Host "Kerberos Password Policy:" -ForegroundColor Cyan
+	if ($Domain -and $Server) {
+		$KerberosPolicy = Get-DomainPolicy -Domain $Domain -Server $Server
+		$TempKerberosPolicy = [PSCustomObject]@{
+			"Domain" = $Domain
+			"Max Ticket Age" = $KerberosPolicy.KerberosPolicy.MaxTicketAge
+			"Max Renew Age" = $KerberosPolicy.KerberosPolicy.MaxRenewAge
+			"Max Service Age" = $KerberosPolicy.KerberosPolicy.MaxServiceAge
+			"Max Clock Skew" = $KerberosPolicy.KerberosPolicy.MaxClockSkew
+			"Ticket Validate Client" = $KerberosPolicy.KerberosPolicy.TicketValidateClient
+		}
+	}
+	else {
+		$TempKerberosPolicy = foreach ($AllDomain in $AllDomains) {
+			$KerberosPolicy = Get-DomainPolicy -Domain $AllDomain
+			[PSCustomObject]@{
+				"Domain" = $AllDomain
+				"Max Ticket Age" = $KerberosPolicy.KerberosPolicy.MaxTicketAge
+				"Max Renew Age" = $KerberosPolicy.KerberosPolicy.MaxRenewAge
+				"Max Service Age" = $KerberosPolicy.KerberosPolicy.MaxServiceAge
+				"Max Clock Skew" = $KerberosPolicy.KerberosPolicy.MaxClockSkew
+				"Ticket Validate Client" = $KerberosPolicy.KerberosPolicy.TicketValidateClient
+			}
+		}
+	}
+
+ 	if ($TempKerberosPolicy) {
+		$TempKerberosPolicy | Sort-Object Domain | Format-Table -AutoSize -Wrap
+		$HTMLKerberosPolicy = $TempKerberosPolicy | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='KerberosPolicy'>Kerberos Password Policy</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='KerberosPolicy'>" }
+	}
+	
+	##################################################
+    ########### User Accounts Analysis ###############
+	##################################################
+	
+	Write-Host ""
+	Write-Host "User Accounts Analysis:" -ForegroundColor Cyan
+
+	if ($Domain -and $Server) {
+		
+		$UserAccountAnalysis = Get-DomainUser -Domain $Domain -Server $Server
+		
+		$TempUserAccountAnalysis = [PSCustomObject]@{
+  			Domain = $Domain
+			'Nb User Accounts' = $UserAccountAnalysis.Name.count
+			'Nb Enabled' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -notmatch "ACCOUNTDISABLE" }).Name.Count
+			'Nb Disabled' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -band 2 }).Name.Count
+			'Nb Active' = ($UserAccountAnalysis | Where-Object { $_.lastlogontimestamp -ge $inactiveThreshold}).Name.count
+			'Nb Inactive' = ($UserAccountAnalysis | Where-Object { $_.lastlogontimestamp -lt $inactiveThreshold}).Name.count
+			'Nb Locked' = ($UserAccountAnalysis | Where-Object { $_.lockouttime -ne $null }).Name.Count
+			'Nb Pwd Never Expire' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -match "DONT_EXPIRE_PASSWORD" }).Name.Count
+			'Nb Password not Req.' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -match "PASSWD_NOTREQD" }).Name.Count
+			'Nb Reversible Password' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -band 128 }).Name.count
+		}		
+	}
+	
+	else{
+		
+		$TempUserAccountAnalysis = foreach ($AllDomain in $AllDomains) {
+			$UserAccountAnalysis = Get-DomainUser -Domain $AllDomain
+			
+			[PSCustomObject]@{
+   				Domain = $AllDomain
+				'Nb User Accounts' = $UserAccountAnalysis.Name.count
+				'Nb Enabled' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -notmatch "ACCOUNTDISABLE" }).Name.Count
+				'Nb Disabled' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -band 2 }).Name.Count
+				'Nb Active' = ($UserAccountAnalysis | Where-Object { $_.lastlogontimestamp -ge $inactiveThreshold}).Name.count
+				'Nb Inactive' = ($UserAccountAnalysis | Where-Object { $_.lastlogontimestamp -lt $inactiveThreshold}).Name.count
+				'Nb Locked' = ($UserAccountAnalysis | Where-Object { $_.lockouttime -ne $null }).Name.Count
+				'Nb Pwd Never Expire' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -match "DONT_EXPIRE_PASSWORD" }).Name.Count
+				'Nb Password not Req.' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -match "PASSWD_NOTREQD" }).Name.Count
+				'Nb Reversible Password' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -band 128 }).Name.count
+			}
+			
+		}
+	}
+
+ 	if ($TempUserAccountAnalysis) {
+		$TempUserAccountAnalysis | Sort-Object Domain | Format-Table -AutoSize
+		$HTMLUserAccountAnalysis = $TempUserAccountAnalysis | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='UserAccountAnalysis'>User Accounts Analysis</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='UserAccountAnalysis'>" }
+
+  		$UserAccountAnalysisTable = [PSCustomObject]@{
+			"Recommendations" = "Review Inactive and Disabled User Accounts and consider deleting them from AD"
+		}
+		
+		$HTMLUserAccountAnalysisTable = $UserAccountAnalysisTable | ConvertTo-Html -As List -Fragment
+  		$HTMLUserAccountAnalysisTable = $HTMLUserAccountAnalysisTable.Replace("*", "Recommendations")
+	}
+	
+	######################################################
+    ########### Computer Accounts Analysis ###############
+	######################################################
+	
+	Write-Host ""
+	Write-Host "Computer Account Analysis:" -ForegroundColor Cyan
+
+	if ($Domain -and $Server) {
+		
+		$ComputerAccountAnalysis = Get-DomainComputer -Domain $Domain -Server $Server
+		
+		$TempComputerAccountAnalysis = [PSCustomObject]@{
+  			Domain = $Domain
+			'Nb Computer Accounts' = $ComputerAccountAnalysis.Name.count
+			'Nb Enabled' = ($ComputerAccountAnalysis | Where-Object { $_.useraccountcontrol -notmatch "ACCOUNTDISABLE" }).Name.Count
+			'Nb Disabled' = $ComputerAccountAnalysis.Name.count - ($ComputerAccountAnalysis | Where-Object { $_.useraccountcontrol -notmatch "ACCOUNTDISABLE" }).Name.Count
+			'Nb Active' = ($ComputerAccountAnalysis | Where-Object { $_.lastlogontimestamp -ge $inactiveThreshold}).Name.count
+			'Nb Inactive' = ($ComputerAccountAnalysis | Where-Object { $_.lastlogontimestamp -lt $inactiveThreshold}).Name.count
+			'Unconstrained Delegations' = ($TempUnconstrained | Where-Object {$_.Domain -eq $Domain}).Name.Count
+		}
+	}
+	
+	else{
+		
+		$TempComputerAccountAnalysis = foreach ($AllDomain in $AllDomains) {
+			$ComputerAccountAnalysis = Get-DomainComputer -Domain $AllDomain
+			
+			[PSCustomObject]@{
+   				Domain = $AllDomain
+				'Nb Computer Accounts' = $ComputerAccountAnalysis.Name.count
+				'Nb Enabled' = ($ComputerAccountAnalysis | Where-Object { $_.useraccountcontrol -notmatch "ACCOUNTDISABLE" }).Name.Count
+				'Nb Disabled' = $ComputerAccountAnalysis.Name.count - ($ComputerAccountAnalysis | Where-Object { $_.useraccountcontrol -notmatch "ACCOUNTDISABLE" }).Name.Count
+				'Nb Active' = ($ComputerAccountAnalysis | Where-Object { $_.lastlogontimestamp -ge $inactiveThreshold}).Name.count
+				'Nb Inactive' = ($ComputerAccountAnalysis | Where-Object { $_.lastlogontimestamp -lt $inactiveThreshold}).Name.count
+				'Unconstrained Delegations' = ($TempUnconstrained | Where-Object {$_.Domain -eq $AllDomain}).Name.Count
+			}
+			
+		}
+	}
+
+ 	if ($TempComputerAccountAnalysis) {
+		$TempComputerAccountAnalysis | Sort-Object Domain | Format-Table -AutoSize
+		$HTMLComputerAccountAnalysis = $TempComputerAccountAnalysis | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ComputerAccountAnalysis'>Computer Account Analysis</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ComputerAccountAnalysis'>" }
+
+  		$ComputerAccountAnalysisTable = [PSCustomObject]@{
+			"Recommendations" = "Review Inactive and Disabled Computer Accounts and consider deleting them from AD"
+		}
+		
+		$HTMLComputerAccountAnalysisTable = $ComputerAccountAnalysisTable | ConvertTo-Html -As List -Fragment
+  		$HTMLComputerAccountAnalysisTable = $HTMLComputerAccountAnalysisTable.Replace("*", "Recommendations")
+	}
+
  	####################################################
     ########### Privileged and Security Groups ################
 	####################################################
@@ -6885,203 +7086,15 @@ function Invoke-ADEnum
 		}
 
     	}
-	
-	$AnalysisBanner = "<h3>Active Directory Domain Analysis</h3>"
-	Write-Host ""
-	Write-Host "Active Directory Domain Analysis" -ForegroundColor Red
-	Write-Host ""
-	
-	################################################
-    ######### Domain Password Policy ###############
+
+     ################################################
+    ######### Domain Object Insights ###############
 	################################################
 	
-	
+	$DomainObjectsInsightsBanner = "<h3>Domain Objects Insights</h3>"
 	Write-Host ""
-	Write-Host "Domain Password Policy:" -ForegroundColor Cyan
-	if ($Domain -and $Server) {
-		$DomainPolicy = Get-DomainPolicy -Domain $Domain -Server $Server
-		$TempDomainPolicy = [PSCustomObject]@{
-			"Domain" = $Domain
-   			"Pwd Complexity" = $DomainPolicy.SystemAccess.PasswordComplexity
-      			"Min Pwd Length" = $DomainPolicy.SystemAccess.MinimumPasswordLength
-			"Min Pwd Age" = $DomainPolicy.SystemAccess.MinimumPasswordAge
-			"Max Pwd Age" = $DomainPolicy.SystemAccess.MaximumPasswordAge
-			"Password History" = $DomainPolicy.SystemAccess.PasswordHistorySize
-			"Lockout Bad Count" = $DomainPolicy.SystemAccess.LockoutBadCount
-			"Reset Lockout Count" = $DomainPolicy.SystemAccess.ResetLockoutCount
-			"Lockout Duration" = $DomainPolicy.SystemAccess.LockoutDuration
-			"Require Logon To Change Pwd" = $DomainPolicy.SystemAccess.RequireLogonToChangePassword
-		}
-	}
-	else {
-		$TempDomainPolicy = foreach ($AllDomain in $AllDomains) {
-			$DomainPolicy = Get-DomainPolicy -Domain $AllDomain
-			[PSCustomObject]@{
-				"Domain" = $AllDomain
-    				"Pwd Complexity" = $DomainPolicy.SystemAccess.PasswordComplexity
-				"Min Pwd Length" = $DomainPolicy.SystemAccess.MinimumPasswordLength
-				"Min Pwd Age" = $DomainPolicy.SystemAccess.MinimumPasswordAge
-				"Max Pwd Age" = $DomainPolicy.SystemAccess.MaximumPasswordAge
-				"Password History" = $DomainPolicy.SystemAccess.PasswordHistorySize
-				"Lockout Bad Count" = $DomainPolicy.SystemAccess.LockoutBadCount
-				"Reset Lockout Count" = $DomainPolicy.SystemAccess.ResetLockoutCount
-				"Lockout Duration" = $DomainPolicy.SystemAccess.LockoutDuration
-				"Require Logon To Change Pwd" = $DomainPolicy.SystemAccess.RequireLogonToChangePassword
-			}
-		}
-	}
-
- 	if ($TempDomainPolicy) {
-		$TempDomainPolicy | Sort-Object Domain | Format-Table -AutoSize -Wrap
-		$HTMLDomainPolicy = $TempDomainPolicy | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DomainPolicy'>Domain Password Policy</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DomainPolicy'>" }
-	}
-
-	
-	#########################################
-    ######### Kerberos Policy ###############
-	#########################################
-	
+	Write-Host "Domain Objects Insights" -ForegroundColor Red
 	Write-Host ""
-	Write-Host "Kerberos Password Policy:" -ForegroundColor Cyan
-	if ($Domain -and $Server) {
-		$KerberosPolicy = Get-DomainPolicy -Domain $Domain -Server $Server
-		$TempKerberosPolicy = [PSCustomObject]@{
-			"Domain" = $Domain
-			"Max Ticket Age" = $KerberosPolicy.KerberosPolicy.MaxTicketAge
-			"Max Renew Age" = $KerberosPolicy.KerberosPolicy.MaxRenewAge
-			"Max Service Age" = $KerberosPolicy.KerberosPolicy.MaxServiceAge
-			"Max Clock Skew" = $KerberosPolicy.KerberosPolicy.MaxClockSkew
-			"Ticket Validate Client" = $KerberosPolicy.KerberosPolicy.TicketValidateClient
-		}
-	}
-	else {
-		$TempKerberosPolicy = foreach ($AllDomain in $AllDomains) {
-			$KerberosPolicy = Get-DomainPolicy -Domain $AllDomain
-			[PSCustomObject]@{
-				"Domain" = $AllDomain
-				"Max Ticket Age" = $KerberosPolicy.KerberosPolicy.MaxTicketAge
-				"Max Renew Age" = $KerberosPolicy.KerberosPolicy.MaxRenewAge
-				"Max Service Age" = $KerberosPolicy.KerberosPolicy.MaxServiceAge
-				"Max Clock Skew" = $KerberosPolicy.KerberosPolicy.MaxClockSkew
-				"Ticket Validate Client" = $KerberosPolicy.KerberosPolicy.TicketValidateClient
-			}
-		}
-	}
-
- 	if ($TempKerberosPolicy) {
-		$TempKerberosPolicy | Sort-Object Domain | Format-Table -AutoSize -Wrap
-		$HTMLKerberosPolicy = $TempKerberosPolicy | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='KerberosPolicy'>Kerberos Password Policy</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='KerberosPolicy'>" }
-	}
-	
-	##################################################
-    ########### User Accounts Analysis ###############
-	##################################################
-	
-	Write-Host ""
-	Write-Host "User Accounts Analysis:" -ForegroundColor Cyan
-
-	if ($Domain -and $Server) {
-		
-		$UserAccountAnalysis = Get-DomainUser -Domain $Domain -Server $Server
-		
-		$TempUserAccountAnalysis = [PSCustomObject]@{
-  			Domain = $Domain
-			'Nb User Accounts' = $UserAccountAnalysis.Name.count
-			'Nb Enabled' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -notmatch "ACCOUNTDISABLE" }).Name.Count
-			'Nb Disabled' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -band 2 }).Name.Count
-			'Nb Active' = ($UserAccountAnalysis | Where-Object { $_.lastlogontimestamp -ge $inactiveThreshold}).Name.count
-			'Nb Inactive' = ($UserAccountAnalysis | Where-Object { $_.lastlogontimestamp -lt $inactiveThreshold}).Name.count
-			'Nb Locked' = ($UserAccountAnalysis | Where-Object { $_.lockouttime -ne $null }).Name.Count
-			'Nb Pwd Never Expire' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -match "DONT_EXPIRE_PASSWORD" }).Name.Count
-			'Nb Password not Req.' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -match "PASSWD_NOTREQD" }).Name.Count
-			'Nb Reversible Password' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -band 128 }).Name.count
-		}		
-	}
-	
-	else{
-		
-		$TempUserAccountAnalysis = foreach ($AllDomain in $AllDomains) {
-			$UserAccountAnalysis = Get-DomainUser -Domain $AllDomain
-			
-			[PSCustomObject]@{
-   				Domain = $AllDomain
-				'Nb User Accounts' = $UserAccountAnalysis.Name.count
-				'Nb Enabled' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -notmatch "ACCOUNTDISABLE" }).Name.Count
-				'Nb Disabled' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -band 2 }).Name.Count
-				'Nb Active' = ($UserAccountAnalysis | Where-Object { $_.lastlogontimestamp -ge $inactiveThreshold}).Name.count
-				'Nb Inactive' = ($UserAccountAnalysis | Where-Object { $_.lastlogontimestamp -lt $inactiveThreshold}).Name.count
-				'Nb Locked' = ($UserAccountAnalysis | Where-Object { $_.lockouttime -ne $null }).Name.Count
-				'Nb Pwd Never Expire' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -match "DONT_EXPIRE_PASSWORD" }).Name.Count
-				'Nb Password not Req.' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -match "PASSWD_NOTREQD" }).Name.Count
-				'Nb Reversible Password' = ($UserAccountAnalysis | Where-Object { $_.useraccountcontrol -band 128 }).Name.count
-			}
-			
-		}
-	}
-
- 	if ($TempUserAccountAnalysis) {
-		$TempUserAccountAnalysis | Sort-Object Domain | Format-Table -AutoSize
-		$HTMLUserAccountAnalysis = $TempUserAccountAnalysis | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='UserAccountAnalysis'>User Accounts Analysis</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='UserAccountAnalysis'>" }
-
-  		$UserAccountAnalysisTable = [PSCustomObject]@{
-			"Recommendations" = "Review Inactive and Disabled User Accounts and consider deleting them from AD"
-		}
-		
-		$HTMLUserAccountAnalysisTable = $UserAccountAnalysisTable | ConvertTo-Html -As List -Fragment
-  		$HTMLUserAccountAnalysisTable = $HTMLUserAccountAnalysisTable.Replace("*", "Recommendations")
-	}
-	
-	######################################################
-    ########### Computer Accounts Analysis ###############
-	######################################################
-	
-	Write-Host ""
-	Write-Host "Computer Account Analysis:" -ForegroundColor Cyan
-
-	if ($Domain -and $Server) {
-		
-		$ComputerAccountAnalysis = Get-DomainComputer -Domain $Domain -Server $Server
-		
-		$TempComputerAccountAnalysis = [PSCustomObject]@{
-  			Domain = $Domain
-			'Nb Computer Accounts' = $ComputerAccountAnalysis.Name.count
-			'Nb Enabled' = ($ComputerAccountAnalysis | Where-Object { $_.useraccountcontrol -notmatch "ACCOUNTDISABLE" }).Name.Count
-			'Nb Disabled' = $ComputerAccountAnalysis.Name.count - ($ComputerAccountAnalysis | Where-Object { $_.useraccountcontrol -notmatch "ACCOUNTDISABLE" }).Name.Count
-			'Nb Active' = ($ComputerAccountAnalysis | Where-Object { $_.lastlogontimestamp -ge $inactiveThreshold}).Name.count
-			'Nb Inactive' = ($ComputerAccountAnalysis | Where-Object { $_.lastlogontimestamp -lt $inactiveThreshold}).Name.count
-			'Unconstrained Delegations' = ($TempUnconstrained | Where-Object {$_.Domain -eq $Domain}).Name.Count
-		}
-	}
-	
-	else{
-		
-		$TempComputerAccountAnalysis = foreach ($AllDomain in $AllDomains) {
-			$ComputerAccountAnalysis = Get-DomainComputer -Domain $AllDomain
-			
-			[PSCustomObject]@{
-   				Domain = $AllDomain
-				'Nb Computer Accounts' = $ComputerAccountAnalysis.Name.count
-				'Nb Enabled' = ($ComputerAccountAnalysis | Where-Object { $_.useraccountcontrol -notmatch "ACCOUNTDISABLE" }).Name.Count
-				'Nb Disabled' = $ComputerAccountAnalysis.Name.count - ($ComputerAccountAnalysis | Where-Object { $_.useraccountcontrol -notmatch "ACCOUNTDISABLE" }).Name.Count
-				'Nb Active' = ($ComputerAccountAnalysis | Where-Object { $_.lastlogontimestamp -ge $inactiveThreshold}).Name.count
-				'Nb Inactive' = ($ComputerAccountAnalysis | Where-Object { $_.lastlogontimestamp -lt $inactiveThreshold}).Name.count
-				'Unconstrained Delegations' = ($TempUnconstrained | Where-Object {$_.Domain -eq $AllDomain}).Name.Count
-			}
-			
-		}
-	}
-
- 	if ($TempComputerAccountAnalysis) {
-		$TempComputerAccountAnalysis | Sort-Object Domain | Format-Table -AutoSize
-		$HTMLComputerAccountAnalysis = $TempComputerAccountAnalysis | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ComputerAccountAnalysis'>Computer Account Analysis</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ComputerAccountAnalysis'>" }
-
-  		$ComputerAccountAnalysisTable = [PSCustomObject]@{
-			"Recommendations" = "Review Inactive and Disabled Computer Accounts and consider deleting them from AD"
-		}
-		
-		$HTMLComputerAccountAnalysisTable = $ComputerAccountAnalysisTable | ConvertTo-Html -As List -Fragment
-  		$HTMLComputerAccountAnalysisTable = $HTMLComputerAccountAnalysisTable.Replace("*", "Recommendations")
-	}
 	
 	######################################################
     ########### Operating Systems Analysis ###############
@@ -7685,8 +7698,8 @@ function Invoke-ADEnum
     # Stop capturing the output and display it on the console
     Stop-Transcript | Out-Null
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $SecurityGroupsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLProtectedUsers $HTMLRODCs $HTMLSchemaAdmins $HTMLServerOperators $HTMLSubnets $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLADComputersCreated $HTMLPasswordSetUsers $HTMLUnixPasswordSet $HTMLEmptyPasswordUsers $HTMLTotalEmptyPass $HTMLPreWin2kCompatibleAccess $HTMLUnsupportedHosts $HTMLLMCompatibilityLevel $HTMLMachineQuota $InterestingDataBanner $HTMLReplicationUsers $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLGMSAs $HTMLnopreauthset $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLNotSensitiveAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLLinkedDAAccounts $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLWin7AndServer2008 $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLSharesResultsTable $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
-	$ClientReport = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $SecurityGroupsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLSubnets $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLCertTemplatesTable $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLTotalEmptyPass $HTMLTotalEmptyPassTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLMachineQuota $HTMLMachineAccountQuotaTable $InterestingDataBanner $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLUsersAdminCount $HTMLAdminCountUsersTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupTable $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitiveTable $HTMLPrivilegedNotSensitiveUsers $HTMLPrivilegedNOTSensitiveDelegationTable $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLSharesResultsTable $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLServersDisabled $HTMLWorkstationsDisabled $HTMLDisabledUsers" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $SecurityGroupsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLProtectedUsers $HTMLRODCs $HTMLSchemaAdmins $HTMLServerOperators $HTMLSubnets $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLADComputersCreated $HTMLPasswordSetUsers $HTMLUnixPasswordSet $HTMLEmptyPasswordUsers $HTMLTotalEmptyPass $HTMLPreWin2kCompatibleAccess $HTMLUnsupportedHosts $HTMLLMCompatibilityLevel $HTMLMachineQuota $InterestingDataBanner $HTMLReplicationUsers $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLGMSAs $HTMLnopreauthset $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLNotSensitiveAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLLinkedDAAccounts $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLWin7AndServer2008 $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLSharesResultsTable $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $DomainObjectsInsightsBanner $HTMLOperatingSystemsAnalysis $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
+	$ClientReport = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $SecurityGroupsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLSubnets $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLCertTemplatesTable $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLTotalEmptyPass $HTMLTotalEmptyPassTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLMachineQuota $HTMLMachineAccountQuotaTable $InterestingDataBanner $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLUsersAdminCount $HTMLAdminCountUsersTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupTable $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitiveTable $HTMLPrivilegedNotSensitiveUsers $HTMLPrivilegedNOTSensitiveDelegationTable $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLSharesResultsTable $DomainObjectsInsightsBanner $HTMLOperatingSystemsAnalysis $HTMLServersDisabled $HTMLWorkstationsDisabled $HTMLDisabledUsers" -Title "Active Directory Audit" -Head $header
  	$HTMLOutputFilePath = $OutputFilePath.Replace(".txt", ".html")
   	$HTMLClientOutputFilePath = $HTMLOutputFilePath.Replace("Invoke-ADEnum", "Invoke-ADEnum_Client-Report")
 	$Report | Out-File $HTMLOutputFilePath
