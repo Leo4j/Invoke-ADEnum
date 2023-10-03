@@ -7830,14 +7830,14 @@ function Invoke-ShareHunter{
 			$endDelimiter = "The command completed successfully."
 
 			$extractShares = {
-				param($results)
-				
-				$startIndex = $results.IndexOf($startDelimiter)
-				$endIndex = $results.IndexOf($endDelimiter)
-
-				$capturedContent = $results.Substring($startIndex + $startDelimiter.Length, $endIndex - $startIndex - $startDelimiter.Length).Trim()
-
-				return ($capturedContent -split "`n") | Where-Object { $_ -match '^(\S+)\s+Disk' } | ForEach-Object { $matches[1] }
+			    param($results)
+			    
+			    $startIndex = $results.IndexOf($startDelimiter)
+			    $endIndex = $results.IndexOf($endDelimiter)
+			
+			    $capturedContent = $results.Substring($startIndex + $startDelimiter.Length, $endIndex - $startIndex - $startDelimiter.Length).Trim()
+			
+			    return ($capturedContent -split "`n") | Where-Object { $_ -match '^(.+?)\s{2,}' } | ForEach-Object { $matches[1] }
 			}
 
 			$allShares = & $extractShares $allResults
