@@ -7788,7 +7788,7 @@ function Invoke-ShareHunter{
 			$tcpClient.Close()
 		}
 
-		$runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($Computer).AddArgument($Timeout)
+		$runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($Computer)
 		$runspace.RunspacePool = $runspacePool
 
 		$runspaces += [PSCustomObject]@{
