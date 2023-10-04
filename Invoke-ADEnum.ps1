@@ -7766,54 +7766,53 @@ function Invoke-ShareHunter{
 	
 	$ErrorActionPreference = "SilentlyContinue"
 
+	# Initialize the runspace pool
 	$runspacePool = [runspacefactory]::CreateRunspacePool(1, 10)
 	$runspacePool.Open()
 
-	$runspaces = @()
-
-	foreach ($Computer in $Computers) {
-		$scriptBlock = {
-			param($Computer)
-
-			$tcpClient = New-Object System.Net.Sockets.TcpClient
-			$asyncResult = $tcpClient.BeginConnect($Computer, 445, $null, $null)
-			$wait = $asyncResult.AsyncWaitHandle.WaitOne(50)
-			if ($wait) { 
-				try {
-					$tcpClient.EndConnect($asyncResult)
-					return $Computer
-				} catch{}
-			}
-
-			$tcpClient.Close()
+	# Define the script block outside the loop for better efficiency
+	$scriptBlock = {
+		param ($computer)
+		$tcpClient = New-Object System.Net.Sockets.TcpClient
+		$asyncResult = $tcpClient.BeginConnect($computer, 445, $null, $null)
+		$wait = $asyncResult.AsyncWaitHandle.WaitOne(50)
+		if ($wait) {
+			try {
+				$tcpClient.EndConnect($asyncResult)
+				return $computer
+			} catch {}
 		}
-
-		$runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($Computer)
-		$runspace.RunspacePool = $runspacePool
-
-		$runspaces += [PSCustomObject]@{
-			Runspace = $runspace
-			Status   = $runspace.BeginInvoke()
-			Computer = $Computer
-		}
+		$tcpClient.Close()
+		return $null
 	}
 
-	# Initialize an array to store all reachable hosts
+	# Use a generic list for better performance when adding items
+	$runspaces = New-Object 'System.Collections.Generic.List[System.Object]'
+
+	foreach ($computer in $Computers) {
+		$powerShellInstance = [powershell]::Create().AddScript($scriptBlock).AddArgument($computer)
+		$powerShellInstance.RunspacePool = $runspacePool
+		$runspaces.Add([PSCustomObject]@{
+			Instance = $powerShellInstance
+			Status   = $powerShellInstance.BeginInvoke()
+		})
+	}
+
+	# Collect the results
 	$reachable_hosts = @()
-
-	# Collect the results from each runspace
-	$runspaces | ForEach-Object {
-		$hostResult = $_.Runspace.EndInvoke($_.Status)
-		if ($hostResult) {
-			$reachable_hosts += $hostResult
+	foreach ($runspace in $runspaces) {
+		$result = $runspace.Instance.EndInvoke($runspace.Status)
+		if ($result) {
+			$reachable_hosts += $result
 		}
 	}
 
-	# Close and clean up the runspace pool
+	# Update the $Computers variable with the list of reachable hosts
+	$Computers = $reachable_hosts
+
+	# Close and dispose of the runspace pool for good resource management
 	$runspacePool.Close()
 	$runspacePool.Dispose()
-
-	$Computers = $reachable_hosts
 	
 	$functiontable = @()
 	
