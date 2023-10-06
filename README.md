@@ -50,3 +50,11 @@ Invoke-ADEnum -SecurityGroups -GPOsRights -LAPSReadRights -RBCD -AllGroups -Spra
 ![2023-06-03_15-28](https://github.com/Leo4j/Invoke-ADEnum/assets/61951374/ab4d4280-bffe-4d23-a327-65a616d8c967)
 ![2023-06-03_15-25](https://github.com/Leo4j/Invoke-ADEnum/assets/61951374/062e0c9c-aa06-4170-b4b5-1b0148bb6c0d)
 ![2023-06-03_15-26_1](https://github.com/Leo4j/Invoke-ADEnum/assets/61951374/a0e78a2b-8b75-4bab-ad6a-3ae9a20fc98c)
+
+# Disclaimer
+
+Invoke-ADEnum is intended exclusively for research, education, and authorized testing. Its purpose is to assist professionals and researchers in identifying vulnerabilities and enhancing system security. 
+
+Users must secure explicit, mutual consent from all parties involved before utilizing this tool on any system, network, or digital environment, as unauthorized activities can lead to serious legal consequences. Users are responsible for adhering to all applicable laws and regulations related to cybersecurity and digital access.
+
+The creator of Invoke-ADEnum disclaims liability for any misuse or illicit use of the tool and is not responsible for any resulting damages or losses.
