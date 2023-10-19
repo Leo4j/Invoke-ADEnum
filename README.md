@@ -18,7 +18,7 @@ An offline version of the tool is also available, which won't load PowerView fro
 
 Invoke-ADEnum is a tool for any IT professional working with Active Directory.
 
-Run as follows:
+Load the script in memory:
   
 ```
 iex(new-object net.webclient).downloadstring('https://raw.githubusercontent.com/Leo4j/Invoke-ADEnum/main/Invoke-ADEnum.ps1')
