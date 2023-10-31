@@ -47,8 +47,6 @@ Invoke-ADEnum -SecurityGroups -GPOsRights -LAPSReadRights -RBCD -AllGroups -Spra
 
 +++> NOTE: If you use `-CustomURL` or `-Local` parameters you'll have to bypass AMSI manually <+++
 
-<a href='https://ko-fi.com/leo4j' target='_blank'><img height='35' style='border:0px;height:46px;' src='https://az743702.vo.msecnd.net/cdn/kofi3.png?v=0' border='0' alt='Buy Me a Coffee at ko-fi.com' />
-
 ![2023-06-03_15-25](https://github.com/Leo4j/Invoke-ADEnum/assets/61951374/062e0c9c-aa06-4170-b4b5-1b0148bb6c0d)
 ![2023-06-03_15-26_1](https://github.com/Leo4j/Invoke-ADEnum/assets/61951374/a0e78a2b-8b75-4bab-ad6a-3ae9a20fc98c)
 ![2023-06-03_15-27](https://github.com/Leo4j/Invoke-ADEnum/assets/61951374/b1f72991-2177-4ff3-ae38-07b4ae43dd90)
