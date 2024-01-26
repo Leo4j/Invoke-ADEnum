@@ -974,6 +974,10 @@ function Invoke-ADEnum
        				$TestingLDAP = Test-LDAP -ComputerName $dc
 		        	$isPrimaryDC = $dc.Roles -like "RidRole"
 		        	$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
+	   			$LastBootUpTime = (Get-WmiObject -Class Win32_OperatingSystem -ComputerName "$dc").LastBootUpTime
+       				$ReadableLastBootUpTime = [Management.ManagementDateTimeConverter]::ToDateTime($LastBootUpTime)
+	   			$CurrentTime = Get-Date
+       				$Uptime = $CurrentTime - $ReadableLastBootUpTime
 		        	
 					[PSCustomObject]@{
 						"DC Name" = $dc.Name
@@ -984,6 +988,7 @@ function Invoke-ADEnum
       						"LDAP" = $TestingLDAP.LDAP
 						"LDAPS" = $TestingLDAP.LDAPS
     						"AvailablePorts" = $TestingLDAP.AvailablePorts
+	  					"Uptime" = $Uptime + " days"
 	  					"Primary DC" = $primaryDC
 					}
 		    	}
@@ -998,6 +1003,10 @@ function Invoke-ADEnum
 	   					$TestingLDAP = Test-LDAP -ComputerName $dc
 						$isPrimaryDC = $dc.Roles -like "RidRole"
 						$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
+      						$LastBootUpTime = (Get-WmiObject -Class Win32_OperatingSystem -ComputerName "$dc").LastBootUpTime
+		       				$ReadableLastBootUpTime = [Management.ManagementDateTimeConverter]::ToDateTime($LastBootUpTime)
+			   			$CurrentTime = Get-Date
+		       				$Uptime = $CurrentTime - $ReadableLastBootUpTime
 						[PSCustomObject]@{
 							"DC Name" = $dc.Name
 							Forest = $dc.Forest
@@ -1007,6 +1016,7 @@ function Invoke-ADEnum
        							"LDAP" = $TestingLDAP.LDAP
 							"LDAPS" = $TestingLDAP.LDAPS
     							"AvailablePorts" = $TestingLDAP.AvailablePorts
+	   						"Uptime" = $Uptime + " days"
 	   						"Primary DC" = $primaryDC
 						}
 		        	}
