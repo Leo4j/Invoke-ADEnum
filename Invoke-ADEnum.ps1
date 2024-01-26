@@ -1165,7 +1165,7 @@ function Invoke-ADEnum
 					"IP Address" = $dc.IPAddress
      					"LDAP" = $TestingLDAP.LDAP
 					"LDAPS" = $TestingLDAP.LDAPS
-    					"AvailablePorts" = $TestingLDAP.AvailablePorts
+    					"OpenPorts" = $TestingLDAP.AvailablePorts
 	 				"Uptime" = $UptimeString
 	 				"Primary DC" = $primaryDC
 				}
