@@ -968,17 +968,66 @@ function Invoke-ADEnum
 
 		    Write-Host ""
 		    Write-Host "Domain Controllers:" -ForegroundColor Cyan
+
+# Define the custom type with the API declaration
+$code = @"
+using System;
+using System.Runtime.InteropServices;
+
+public class NativeMethods
+{
+    [DllImport("Netapi32.dll", CharSet = CharSet.Unicode)]
+    public static extern uint NetStatisticsGet(
+        string server,
+        string service,
+        int level,
+        int options,
+        out IntPtr bufptr);
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct STAT_WORKSTATION_0
+    {
+        public long StatisticsStartTime;
+        // Other fields omitted for brevity
+    }
+
+    [DllImport("Netapi32.dll")]
+    public static extern int NetApiBufferFree(IntPtr Buffer);
+
+    public static DateTime GetStartupTime(string server)
+    {
+        IntPtr buffer = IntPtr.Zero;
+        uint ret = NetStatisticsGet(server, "LanmanWorkstation", 0, 0, out buffer);
+        if (ret != 0)
+        {
+            Console.WriteLine("GetStartupTime " + server + " returned " + ret);
+            return DateTime.MinValue;
+        }
+        try
+        {
+            STAT_WORKSTATION_0 data = (STAT_WORKSTATION_0)Marshal.PtrToStructure(buffer, typeof(STAT_WORKSTATION_0));
+            return DateTime.FromFileTime(data.StatisticsStartTime);
+        }
+        finally
+        {
+            NetApiBufferFree(buffer);
+        }
+    }
+}
+"@
+
+# Add the type to the current PowerShell session
+Add-Type -TypeDefinition $code
+      
 		    if($Domain -AND $Server) {
 		        $domainControllers = Get-DomainController -Domain $Domain
 		    	$TempHTMLdc = foreach ($dc in $domainControllers) {
        				$TestingLDAP = Test-LDAP -ComputerName $dc
 		        	$isPrimaryDC = $dc.Roles -like "RidRole"
 		        	$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
-	   			$LastBootUpTime = (Get-WmiObject -Class Win32_OperatingSystem -ComputerName "$dc").LastBootUpTime
-       				$ReadableLastBootUpTime = [Management.ManagementDateTimeConverter]::ToDateTime($LastBootUpTime)
-	   			$CurrentTime = Get-Date
-       				$Uptime = $CurrentTime - $ReadableLastBootUpTime
-	   			$UptimeString = "$($Uptime.Days)" + " days"
+	   			$startupTime = [NativeMethods]::GetStartupTime("$dc")
+       				$uptime = New-TimeSpan -Start $startupTime -End (Get-Date)
+	   			$UptimeString = "$($uptime.Days) days"
 		        	
 					[PSCustomObject]@{
 						"DC Name" = $dc.Name
@@ -1004,11 +1053,9 @@ function Invoke-ADEnum
 	   					$TestingLDAP = Test-LDAP -ComputerName $dc
 						$isPrimaryDC = $dc.Roles -like "RidRole"
 						$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
-      						$LastBootUpTime = (Get-WmiObject -Class Win32_OperatingSystem -ComputerName "$dc").LastBootUpTime
-		       				$ReadableLastBootUpTime = [Management.ManagementDateTimeConverter]::ToDateTime($LastBootUpTime)
-			   			$CurrentTime = Get-Date
-		       				$Uptime = $CurrentTime - $ReadableLastBootUpTime
-	     					$UptimeString = "$($Uptime.Days)" + " days"
+      						$startupTime = [NativeMethods]::GetStartupTime("$dc")
+       						$uptime = New-TimeSpan -Start $startupTime -End (Get-Date)
+	   					$UptimeString = "$($uptime.Days) days"
 						[PSCustomObject]@{
 							"DC Name" = $dc.Name
 							Forest = $dc.Forest
@@ -1116,6 +1163,53 @@ function Invoke-ADEnum
 	#############################################
     ########## Domain Controllers ###############
 	#############################################
+
+# Define the custom type with the API declaration
+$code = @"
+using System;
+using System.Runtime.InteropServices;
+
+public class NativeMethods
+{
+    [DllImport("Netapi32.dll", CharSet = CharSet.Unicode)]
+    public static extern uint NetStatisticsGet(
+        string server,
+        string service,
+        int level,
+        int options,
+        out IntPtr bufptr);
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct STAT_WORKSTATION_0
+    {
+        public long StatisticsStartTime;
+        // Other fields omitted for brevity
+    }
+
+    [DllImport("Netapi32.dll")]
+    public static extern int NetApiBufferFree(IntPtr Buffer);
+
+    public static DateTime GetStartupTime(string server)
+    {
+        IntPtr buffer = IntPtr.Zero;
+        uint ret = NetStatisticsGet(server, "LanmanWorkstation", 0, 0, out buffer);
+        if (ret != 0)
+        {
+            Console.WriteLine("GetStartupTime " + server + " returned " + ret);
+            return DateTime.MinValue;
+        }
+        try
+        {
+            STAT_WORKSTATION_0 data = (STAT_WORKSTATION_0)Marshal.PtrToStructure(buffer, typeof(STAT_WORKSTATION_0));
+            return DateTime.FromFileTime(data.StatisticsStartTime);
+        }
+        finally
+        {
+            NetApiBufferFree(buffer);
+        }
+    }
+}
+"@
 	
 	Write-Host ""
     Write-Host "Domain Controllers:" -ForegroundColor Cyan
@@ -1125,11 +1219,9 @@ function Invoke-ADEnum
      		$TestingLDAP = Test-LDAP -ComputerName $dc
         	$isPrimaryDC = $dc.Roles -like "RidRole"
         	$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
-	 	$LastBootUpTime = (Get-WmiObject -Class Win32_OperatingSystem -ComputerName "$dc").LastBootUpTime
-		$ReadableLastBootUpTime = [Management.ManagementDateTimeConverter]::ToDateTime($LastBootUpTime)
-		$CurrentTime = Get-Date
-		$Uptime = $CurrentTime - $ReadableLastBootUpTime
-		$UptimeString = "$($Uptime.Days)" + " days"
+	 	$startupTime = [NativeMethods]::GetStartupTime("$dc")
+       		$uptime = New-TimeSpan -Start $startupTime -End (Get-Date)
+	   	$UptimeString = "$($uptime.Days) days"
         	
 			[PSCustomObject]@{
 				"DC Name" = $dc.Name
@@ -1152,11 +1244,9 @@ function Invoke-ADEnum
 	 			$TestingLDAP = Test-LDAP -ComputerName $dc
 				$isPrimaryDC = $dc.Roles -like "RidRole"
 				$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
-    				$LastBootUpTime = (Get-WmiObject -Class Win32_OperatingSystem -ComputerName "$dc").LastBootUpTime
-				$ReadableLastBootUpTime = [Management.ManagementDateTimeConverter]::ToDateTime($LastBootUpTime)
-				$CurrentTime = Get-Date
-				$Uptime = $CurrentTime - $ReadableLastBootUpTime
-				$UptimeString = "$($Uptime.Days)" + " days"
+    				$startupTime = [NativeMethods]::GetStartupTime("$dc")
+       				$uptime = New-TimeSpan -Start $startupTime -End (Get-Date)
+	   			$UptimeString = "$($uptime.Days) days"
 				[PSCustomObject]@{
 					"DC Name" = $dc.Name
 					Forest = $dc.Forest
