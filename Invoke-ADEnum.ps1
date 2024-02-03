@@ -4671,7 +4671,7 @@ public class NativeMethods
 	    }
 
      		$MachineAccountQuotaTable = [PSCustomObject]@{
-			"Description" = "A machine account creation quota higher than 0 increases the risk of unauthorized or excessive machine account creation, which can be leveraged to bypass security measures."
+			"Description" = "The creators of these machine accounts gain write access to sensitive attributes, enabling privilege escalation and abuse of Resource-Based Constrained Delegation."
 			#"Recommendation" = "It is recommended to set the machine account creation quota to 0 to mitigate these risks."
 		}
 		
