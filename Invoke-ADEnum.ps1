@@ -4671,7 +4671,7 @@ public class NativeMethods
 	    }
 
      		$MachineAccountQuotaTable = [PSCustomObject]@{
-			"Description" = "The creators of these machine accounts gain write access to sensitive attributes, enabling privilege escalation and abuse of Resource-Based Constrained Delegation."
+			"Description" = "The creators of machine accounts gain write access to their sensitive attributes, enabling privilege escalation and abuse of Resource-Based Constrained Delegation."
 			#"Recommendation" = "It is recommended to set the machine account creation quota to 0 to mitigate these risks."
 		}
 		
