@@ -468,7 +468,7 @@ function Invoke-ADEnum
 				'Domain Share Files': 'Share Files',
 				'Domain Share Files (more file extensions)': 'Share Files+',
 				'Interesting ACLs': 'Interesting ACLs',
-				'Domain Password Policy': 'Pass Policy',
+				'Default Domain Policy': 'Pass Policy',
 				'Kerberos Password Policy': 'Kerb Policy',
 				'User Accounts Analysis': 'User Analysis',
 				'Computer Account Analysis': 'Comp. Analysis',
@@ -1210,6 +1210,9 @@ public class NativeMethods
     }
 }
 "@
+
+# Add the type to the current PowerShell session
+Add-Type -TypeDefinition $code
 	
 	Write-Host ""
     Write-Host "Domain Controllers:" -ForegroundColor Cyan
@@ -1596,7 +1599,7 @@ public class NativeMethods
 	
 	
 	Write-Host ""
-	Write-Host "Domain Password Policy:" -ForegroundColor Cyan
+	Write-Host "Default Domain Policy:" -ForegroundColor Cyan
 	if ($Domain -and $Server) {
 		$DomainPolicy = Get-DomainPolicy -Domain $Domain -Server $Server
 		$TempDomainPolicy = [PSCustomObject]@{
@@ -1609,7 +1612,7 @@ public class NativeMethods
 			"Lockout Bad Count" = $DomainPolicy.SystemAccess.LockoutBadCount
 			"Reset Lockout Count" = $DomainPolicy.SystemAccess.ResetLockoutCount
 			"Lockout Duration" = $DomainPolicy.SystemAccess.LockoutDuration
-			"Require Logon To Change Pwd" = $DomainPolicy.SystemAccess.RequireLogonToChangePassword
+			"Reversible Encryption" = $DomainPolicy.SystemAccess.ClearTextPassword
 		}
 	}
 	else {
@@ -1625,14 +1628,14 @@ public class NativeMethods
 				"Lockout Bad Count" = $DomainPolicy.SystemAccess.LockoutBadCount
 				"Reset Lockout Count" = $DomainPolicy.SystemAccess.ResetLockoutCount
 				"Lockout Duration" = $DomainPolicy.SystemAccess.LockoutDuration
-				"Require Logon To Change Pwd" = $DomainPolicy.SystemAccess.RequireLogonToChangePassword
+				"Reversible Encryption" = $DomainPolicy.SystemAccess.ClearTextPassword
 			}
 		}
 	}
 
  	if ($TempDomainPolicy) {
 		$TempDomainPolicy | Sort-Object Domain | Format-Table -AutoSize -Wrap
-		$HTMLDomainPolicy = $TempDomainPolicy | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DomainPolicy'>Domain Password Policy</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DomainPolicy'>" }
+		$HTMLDomainPolicy = $TempDomainPolicy | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DomainPolicy'>Default Domain Policy</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DomainPolicy'>" }
 	}
 
 	
