@@ -402,7 +402,7 @@ function Invoke-ADEnum
 			
 			//Mappings
 			var nameMapping = {
-				'Groups that contain users outside of its domain and return its members': 'Foreign Members',
+				'Foreign Domain Members': 'Foreign Members',
 				'Enterprise Read-Only Domain Controllers': 'Enterprise RODC',
 				'Vulnerable Certificate Templates': 'Vuln Cert Templates',
 				'Constrained Delegation (Computers)': 'Constrained Delegation (C)',
@@ -589,7 +589,7 @@ function Invoke-ADEnum
 			createDownloadLinkForTable('TrustAccounts');
 			createDownloadLinkForTable('DomainTrusts');
 			createDownloadLinkForTable('TrustedDomainObjectGUIDs');
-			createDownloadLinkForTable('GroupsForeignDomainMembers');
+			createDownloadLinkForTable('ForeignDomainMembers');
 			createDownloadLinkForTable('EnterpriseAdmins');
 			createDownloadLinkForTable('DomainAdmins');
 			createDownloadLinkForTable('AccountOperators');
@@ -600,6 +600,7 @@ function Invoke-ADEnum
 			createDownloadLinkForTable('EnterpriseRODCs');
 			createDownloadLinkForTable('GPCreatorOwners');
 			createDownloadLinkForTable('KeyAdmins');
+			createDownloadLinkForTable('PrintOperators');
 			createDownloadLinkForTable('ProtectedUsers');
    			createDownloadLinkForTable('RWShares');
 			createDownloadLinkForTable('RODCs');
@@ -1475,7 +1476,7 @@ Add-Type -TypeDefinition $code
 	#############################################
         
     Write-Host ""
-	Write-Host "Groups that contain users outside of its domain and return its members:" -ForegroundColor Cyan
+	Write-Host "Foreign Domain Members:" -ForegroundColor Cyan
 	if($Domain -AND $Server) {
 		$ForeignGroupMembers = Get-DomainForeignGroupMember -Domain $Domain -Server $Server
 
@@ -1581,7 +1582,7 @@ Add-Type -TypeDefinition $code
 
  	if ($TempForeignGroupMembers) {
 		$TempForeignGroupMembers | Format-Table -AutoSize -Wrap
-		$HTMLGetDomainForeignGroupMember = $TempForeignGroupMembers | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='GroupsForeignDomainMembers'>Groups that contain users outside of its domain and return its members</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='GroupsForeignDomainMembers'>" }
+		$HTMLGetDomainForeignGroupMember = $TempForeignGroupMembers | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ForeignDomainMembers'>Foreign Domain Members</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ForeignDomainMembers'>" }
 	}
 
  	################################################
@@ -1783,6 +1784,195 @@ Add-Type -TypeDefinition $code
 		
 		$HTMLComputerAccountAnalysisTable = $ComputerAccountAnalysisTable | ConvertTo-Html -As List -Fragment
   		$HTMLComputerAccountAnalysisTable = $HTMLComputerAccountAnalysisTable.Replace("*", "Recommendations")
+	}
+	
+	######################################################
+    ########### Operating Systems Insights ###############
+	######################################################
+	
+	Write-Host ""
+	Write-Host "Operating Systems Insights:" -ForegroundColor Cyan
+
+	if ($Domain -and $Server) {
+		
+		$AllSystems = Get-DomainComputer -Domain $Domain -Server $Server
+		$OperatingSystemsAnalysis = $AllSystems | Select-Object -ExpandProperty operatingsystem | Sort-Object -Unique
+		
+		$TempOperatingSystemsAnalysis = foreach($OperatingSystem in $OperatingSystemsAnalysis){
+		
+			[PSCustomObject]@{
+				Domain = $Domain
+    				'Operating System' = $OperatingSystem
+				'Nb OS' = ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem}).Name.count
+				'Nb Enabled' = ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem} | Where-Object { $_.useraccountcontrol -notmatch "ACCOUNTDISABLE" }).Name.Count
+				'Nb Disabled' = ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem}).Name.count - ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem} | Where-Object { $_.useraccountcontrol -notmatch "ACCOUNTDISABLE" }).Name.Count
+				'Nb Active' = ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem} | Where-Object { $_.lastlogontimestamp -ge $inactiveThreshold}).Name.count
+				'Nb Inactive' = ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem} | Where-Object { $_.lastlogontimestamp -lt $inactiveThreshold}).Name.count
+			}
+			
+		}
+	}
+	
+	else{
+		
+		$TempOperatingSystemsAnalysis = foreach ($AllDomain in $AllDomains) {
+			$AllSystems = Get-DomainComputer -Domain $AllDomain
+			$OperatingSystemsAnalysis = $AllSystems | Select-Object -ExpandProperty operatingsystem | Sort-Object -Unique
+			
+			foreach($OperatingSystem in $OperatingSystemsAnalysis){
+				[PSCustomObject]@{
+    					Domain = $AllDomain
+					'Operating System' = $OperatingSystem
+					'Nb OS' = ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem}).Name.count
+					'Nb Enabled' = ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem} | Where-Object { $_.useraccountcontrol -notmatch "ACCOUNTDISABLE" }).Name.Count
+					'Nb Disabled' = ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem}).Name.count - ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem} | Where-Object { $_.useraccountcontrol -notmatch "ACCOUNTDISABLE" }).Name.Count
+					'Nb Active' = ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem} | Where-Object { $_.lastlogontimestamp -ge $inactiveThreshold}).Name.count
+					'Nb Inactive' = ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem} | Where-Object { $_.lastlogontimestamp -lt $inactiveThreshold}).Name.count
+				}
+			}
+			
+		}
+	}
+
+ 	if ($TempOperatingSystemsAnalysis) {
+		$TempOperatingSystemsAnalysis | Sort-Object Domain,'Operating System' | Format-Table -AutoSize
+		$HTMLOperatingSystemsAnalysis = $TempOperatingSystemsAnalysis | Sort-Object Domain,'Operating System' | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='OperatingSystemsAnalysis'>Operating Systems Insights</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='OperatingSystemsAnalysis'>" }
+	}
+	
+	########################################################
+    ########### Hosts running Unsupported OS ###############
+	########################################################
+	
+    if($NoUnsupportedOS){}
+    else{
+        Write-Host ""
+		Write-Host "Hosts running Unsupported OS:" -ForegroundColor Cyan
+		if ($Domain -and $Server) {
+			$UnsupportedHosts = Get-DomainComputer -Domain $Domain -Server $Server | Where-Object {
+				($_.OperatingSystem -like "Windows Me*") -or
+				($_.OperatingSystem -like "Windows NT*") -or
+				($_.OperatingSystem -like "Windows 95*") -or
+				($_.OperatingSystem -like "Windows 98*") -or
+				($_.OperatingSystem -like "Windows XP*") -or
+				($_.OperatingSystem -like "Windows 7*") -or
+				($_.OperatingSystem -like "Windows Vista*") -or
+				($_.OperatingSystem -like "Windows 2000*") -or
+				($_.OperatingSystem -like "Windows 8*") -or
+				($_.OperatingSystem -like "Windows Server 2012*") -or
+				($_.OperatingSystem -like "Windows Server 2008*") -or
+				($_.OperatingSystem -like "Windows Server 2003*") -or
+				($_.OperatingSystem -like "Windows Server 2000*")
+			}
+
+			$TempUnsupportedHosts = foreach ($UnsupportedHost in $UnsupportedHosts) {
+				[PSCustomObject]@{
+					"Name" = $UnsupportedHost.samaccountname
+					"Enabled" = if ($UnsupportedHost.useraccountcontrol -band 2) { "False" } else { "True" }
+					"Active" = if ($UnsupportedHost.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
+					"IP Address" = (Resolve-DnsName -Name $UnsupportedHost.DnsHostName -Type A).IPAddress
+					"Account SID" = $UnsupportedHost.objectsid
+					"Operating System" = $UnsupportedHost.operatingsystem
+					Domain = $Domain
+				}
+			}
+		}
+		else {
+			$TempUnsupportedHosts = foreach ($AllDomain in $AllDomains) {
+				$UnsupportedHosts = Get-DomainComputer -Domain $AllDomain | Where-Object {
+					($_.OperatingSystem -like "Windows Me*") -or
+					($_.OperatingSystem -like "Windows NT*") -or
+					($_.OperatingSystem -like "Windows 95*") -or
+					($_.OperatingSystem -like "Windows 98*") -or
+					($_.OperatingSystem -like "Windows XP*") -or
+					($_.OperatingSystem -like "Windows 7*") -or
+					($_.OperatingSystem -like "Windows Vista*") -or
+					($_.OperatingSystem -like "Windows 2000*") -or
+					($_.OperatingSystem -like "Windows 8*") -or
+					($_.OperatingSystem -like "Windows Server 2012*") -or
+					($_.OperatingSystem -like "Windows Server 2008*") -or
+					($_.OperatingSystem -like "Windows Server 2003*") -or
+					($_.OperatingSystem -like "Windows Server 2000*")
+				}
+
+				foreach ($UnsupportedHost in $UnsupportedHosts) {
+					[PSCustomObject]@{
+						"Name" = $UnsupportedHost.samaccountname
+						"Enabled" = if ($UnsupportedHost.useraccountcontrol -band 2) { "False" } else { "True" }
+						"Active" = if ($UnsupportedHost.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
+						"IP Address" = (Resolve-DnsName -Name $UnsupportedHost.DnsHostName -Type A).IPAddress
+						"Account SID" = $UnsupportedHost.objectsid
+						"Operating System" = $UnsupportedHost.operatingsystem
+						Domain = $AllDomain
+					}
+				}
+			}
+		}
+
+  		if ($TempUnsupportedHosts) {
+			$TempUnsupportedHosts | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+			$HTMLUnsupportedHosts = $TempUnsupportedHosts | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='UnsupportedHosts'>Hosts running Unsupported OS</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='UnsupportedHosts'>" }
+
+   			$UnsupportedOSTable = [PSCustomObject]@{
+				"Risk Rating" = "Critical - Needs Immediate Attention"
+				"Description" = "These systems no longer receive security updates and patches from the vendor. This increases the likelihood of successful attacks, and exposes the entire domain to potential security breaches."
+				"Remediation" = "It is essential to prioritize isolating, migrating or upgrading these machines to supported and regularly updated operating systems to mitigate these risks."
+			}
+			
+			$HTMLUnsupportedOSTable = $UnsupportedOSTable | ConvertTo-Html -As List -Fragment
+   			$HTMLUnsupportedOSTable = $HTMLUnsupportedOSTable.Replace("Description", '<a href="https://www.ncsc.gov.uk/collection/device-security-guidance/managing-deployed-devices/keeping-devices-and-software-up-to-date" target="_blank">Description</a>')
+			$HTMLUnsupportedOSTable = $HTMLUnsupportedOSTable.Replace("Remediation", '<a href="https://www.ncsc.gov.uk/collection/device-security-guidance/managing-deployed-devices/obsolete-products" target="_blank">Remediation</a>')
+		}
+
+    }
+	
+	#############################################
+    ############### Subnets ###############
+	#############################################
+	
+	Write-Host ""
+	Write-Host "Subnets:" -ForegroundColor Cyan
+	
+    if($Domain -AND $Server) {
+		$GetDomainSubnets = Get-DomainSubnet -Domain $Domain -Server $Server
+		
+		$TempSubnets = foreach ($DomainSubnet in $GetDomainSubnets) {
+
+			$SiteObject = $DomainSubnet.siteobject
+
+			if ($SiteObject -match "CN=([^,]+)") {$Site = $matches[1]}
+			
+			[PSCustomObject]@{
+   				"Site" = $Site
+				"Subnet" = $DomainSubnet.name
+				"Description" = $DomainSubnet.description
+				"Domain" = $Domain
+			}
+		}
+    }
+    
+    else{
+        $TempSubnets = foreach($AllDomain in $AllDomains){
+			$GetDomainSubnets = Get-DomainSubnet -Domain $AllDomain
+			
+			foreach ($DomainSubnet in $GetDomainSubnets) {
+
+				$SiteObject = $DomainSubnet.siteobject
+
+				if ($SiteObject -match "CN=([^,]+)") {$Site = $matches[1]}
+   
+				[PSCustomObject]@{
+					"Site" = $Site
+					"Subnet" = $DomainSubnet.name
+					"Description" = $DomainSubnet.description
+					"Domain" = $AllDomain
+				}
+			}
+		}
+    }
+
+    if($TempSubnets){
+		$TempSubnets | Sort-Object -Unique Domain,Site | Format-Table -AutoSize -Wrap
+		$HTMLSubnets = $TempSubnets | Sort-Object -Unique Domain,Site | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='Subnets'>Subnets</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='Subnets'>" }
 	}
 
  	####################################################
@@ -2958,6 +3148,115 @@ Add-Type -TypeDefinition $code
 		if ($TempKeyAdmins) {
 			$TempKeyAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | Format-Table -Autosize -Wrap
 			$HTMLKeyAdmins = $TempKeyAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='KeyAdmins'>Key Admins</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='KeyAdmins'>" }
+		}
+		
+		#################################################### 
+		########### Print Operators ################
+		####################################################
+		
+		Write-Host ""
+		Write-Host "Print Operators:" -ForegroundColor Cyan
+		if ($Domain -and $Server) {
+			$PrintOperators = Get-DomainGroupMember -Domain $Domain -Server $Server -Identity "Print Operators" -Recurse
+			$TempPrintOperators = foreach($PrintOperator in $PrintOperators){
+
+   				$convertedMemberName = $null
+				$PlaceHolderDomain = $null
+				
+				foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+					try {
+						$convertedMemberName = ConvertFrom-SID $PrintOperator.MemberSID -Domain $PlaceHolderDomain
+						if ($null -ne $convertedMemberName) { break }
+					}
+					catch {
+						continue
+					}
+				}
+
+    				if($convertedMemberName){}
+				else {
+					$ForeignGroupMemberAccount = $null
+					$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $PrintOperator.MemberSID
+					$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
+				}
+				
+				$domainObject = Get-DomainObject -Identity $PrintOperator.MemberName -Domain $Domain -Server $Server -Properties lastlogontimestamp
+				$memberName = if ($PrintOperator.MemberName) { $PrintOperator.MemberName } else { $convertedMemberName }
+				$isEnabled = if ($PrintOperator.useraccountcontrol -band 2) { "False" } else { "True" }
+				$lastLogon = $domainObject.lastlogontimestamp
+				$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
+
+				[PSCustomObject]@{
+					"Member Name" = $memberName
+					"Enabled" = $isEnabled
+					"Active" = $isActive
+     					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $PrintOperator.MemberName.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $PrintOperator.MemberName.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $PrintOperator.MemberName.Contains($_) }) { "YES" } else { "NO" }
+					#"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+					#"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+					#"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+					"Last Logon" = $lastLogon
+					"Member SID" = $PrintOperator.MemberSID
+					"Group Domain" = $PrintOperator.GroupDomain
+					#"Description" = $domainObject.description
+				}
+			}
+		}
+		else {
+			$TempPrintOperators = foreach ($AllDomain in $AllDomains) {
+				$PrintOperators = Get-DomainGroupMember -Domain $AllDomain -Identity "Print Operators" -Recurse
+				foreach($PrintOperator in $PrintOperators){
+
+    					$convertedMemberName = $null
+					$PlaceHolderDomain = $null
+					
+					foreach ($PlaceHolderDomain in $PlaceHolderDomains) {
+						try {
+							$convertedMemberName = ConvertFrom-SID $PrintOperator.MemberSID -Domain $PlaceHolderDomain
+							if ($null -ne $convertedMemberName) { break }
+						}
+						catch {
+							continue
+						}
+					}
+
+     					if($convertedMemberName){}
+					else {
+						$ForeignGroupMemberAccount = $null
+						$ForeignGroupMemberAccount = New-Object System.Security.Principal.SecurityIdentifier $PrintOperator.MemberSID
+						$convertedMemberName = $ForeignGroupMemberAccount.Translate([System.Security.Principal.NTAccount]).Value
+					}
+					
+					$domainObject = Get-DomainObject -Identity $PrintOperator.MemberName -Domain $AllDomain -Properties lastlogontimestamp
+					$memberName = if ($PrintOperator.MemberName) { $PrintOperator.MemberName } else { $convertedMemberName }
+					$isEnabled = if ($PrintOperator.useraccountcontrol -band 2) { "False" } else { "True" }
+					$lastLogon = $domainObject.lastlogontimestamp
+
+					$isActive = if ($lastLogon -ge $inactiveThreshold) { "True" } elseif ($lastLogon -eq $null) { "" } else { "False" }
+
+					[PSCustomObject]@{
+						"Member Name" = $memberName
+						"Enabled" = $isEnabled
+						"Active" = $isActive
+      						"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $PrintOperator.MemberName.Contains($_) }) { "YES" } else { "NO" }
+						"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $PrintOperator.MemberName.Contains($_) }) { "YES" } else { "NO" }
+						"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $PrintOperator.MemberName.Contains($_) }) { "YES" } else { "NO" }
+						#"Adm" = if ($domainObject.memberof -match 'Administrators') { "YES" } else { "NO" }
+						#"DA" = if ($domainObject.memberof -match 'Domain Admins') { "YES" } else { "NO" }
+						#"EA" = if ($domainObject.memberof -match 'Enterprise Admins') { "YES" } else { "NO" }
+						"Last Logon" = $lastLogon
+						"Member SID" = $PrintOperator.MemberSID
+						"Group Domain" = $PrintOperator.GroupDomain
+						#"Description" = $domainObject.description
+					}
+				}
+			}
+		}
+
+		if ($TempPrintOperators) {
+			$TempPrintOperators | Sort-Object -Unique "Group Domain","Member Name","Member SID" | Format-Table -Autosize -Wrap
+			$HTMLPrintOperators = $TempPrintOperators | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='PrintOperators'>Print Operators</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='PrintOperators'>" }
 		}
 		
 		#################################################### 
@@ -4413,90 +4712,6 @@ Add-Type -TypeDefinition $code
 		
 		$HTMLPreWindows2000Table = $PreWindows2000Table | ConvertTo-Html -As List -Fragment
 	}
-
- 	########################################################
-    ########### Hosts running Unsupported OS ###############
-	########################################################
-	
-    if($NoUnsupportedOS){}
-    else{
-        Write-Host ""
-		Write-Host "Hosts running Unsupported OS:" -ForegroundColor Cyan
-		if ($Domain -and $Server) {
-			$UnsupportedHosts = Get-DomainComputer -Domain $Domain -Server $Server | Where-Object {
-				($_.OperatingSystem -like "Windows Me*") -or
-				($_.OperatingSystem -like "Windows NT*") -or
-				($_.OperatingSystem -like "Windows 95*") -or
-				($_.OperatingSystem -like "Windows 98*") -or
-				($_.OperatingSystem -like "Windows XP*") -or
-				($_.OperatingSystem -like "Windows 7*") -or
-				($_.OperatingSystem -like "Windows Vista*") -or
-				($_.OperatingSystem -like "Windows 2000*") -or
-				($_.OperatingSystem -like "Windows 8*") -or
-				($_.OperatingSystem -like "Windows Server 2008*") -or
-				($_.OperatingSystem -like "Windows Server 2003*") -or
-				($_.OperatingSystem -like "Windows Server 2000*")
-			}
-
-			$TempUnsupportedHosts = foreach ($UnsupportedHost in $UnsupportedHosts) {
-				[PSCustomObject]@{
-					"Name" = $UnsupportedHost.samaccountname
-					"Enabled" = if ($UnsupportedHost.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if ($UnsupportedHost.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-					"IP Address" = (Resolve-DnsName -Name $UnsupportedHost.DnsHostName -Type A).IPAddress
-					"Account SID" = $UnsupportedHost.objectsid
-					"Operating System" = $UnsupportedHost.operatingsystem
-					Domain = $Domain
-				}
-			}
-		}
-		else {
-			$TempUnsupportedHosts = foreach ($AllDomain in $AllDomains) {
-				$UnsupportedHosts = Get-DomainComputer -Domain $AllDomain | Where-Object {
-					($_.OperatingSystem -like "Windows Me*") -or
-					($_.OperatingSystem -like "Windows NT*") -or
-					($_.OperatingSystem -like "Windows 95*") -or
-					($_.OperatingSystem -like "Windows 98*") -or
-					($_.OperatingSystem -like "Windows XP*") -or
-					($_.OperatingSystem -like "Windows 7*") -or
-					($_.OperatingSystem -like "Windows Vista*") -or
-					($_.OperatingSystem -like "Windows 2000*") -or
-					($_.OperatingSystem -like "Windows 8*") -or
-					($_.OperatingSystem -like "Windows Server 2008*") -or
-					($_.OperatingSystem -like "Windows Server 2003*") -or
-					($_.OperatingSystem -like "Windows Server 2000*")
-				}
-
-				foreach ($UnsupportedHost in $UnsupportedHosts) {
-					[PSCustomObject]@{
-						"Name" = $UnsupportedHost.samaccountname
-						"Enabled" = if ($UnsupportedHost.useraccountcontrol -band 2) { "False" } else { "True" }
-						"Active" = if ($UnsupportedHost.lastlogontimestamp -ge $inactiveThreshold) { "True" } else { "False" }
-						"IP Address" = (Resolve-DnsName -Name $UnsupportedHost.DnsHostName -Type A).IPAddress
-						"Account SID" = $UnsupportedHost.objectsid
-						"Operating System" = $UnsupportedHost.operatingsystem
-						Domain = $AllDomain
-					}
-				}
-			}
-		}
-
-  		if ($TempUnsupportedHosts) {
-			$TempUnsupportedHosts | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
-			$HTMLUnsupportedHosts = $TempUnsupportedHosts | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='UnsupportedHosts'>Hosts running Unsupported OS</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='UnsupportedHosts'>" }
-
-   			$UnsupportedOSTable = [PSCustomObject]@{
-				"Risk Rating" = "Critical - Needs Immediate Attention"
-				"Description" = "These systems no longer receive security updates and patches from the vendor. This increases the likelihood of successful attacks, and exposes the entire domain to potential security breaches."
-				"Remediation" = "It is essential to prioritize isolating, migrating or upgrading these machines to supported and regularly updated operating systems to mitigate these risks."
-			}
-			
-			$HTMLUnsupportedOSTable = $UnsupportedOSTable | ConvertTo-Html -As List -Fragment
-   			$HTMLUnsupportedOSTable = $HTMLUnsupportedOSTable.Replace("Description", '<a href="https://www.ncsc.gov.uk/collection/device-security-guidance/managing-deployed-devices/keeping-devices-and-software-up-to-date" target="_blank">Description</a>')
-			$HTMLUnsupportedOSTable = $HTMLUnsupportedOSTable.Replace("Remediation", '<a href="https://www.ncsc.gov.uk/collection/device-security-guidance/managing-deployed-devices/obsolete-products" target="_blank">Remediation</a>')
-		}
-
-    }
 	
 	##################################################
     ########### LM Compatibility Level ###############
@@ -7158,116 +7373,15 @@ Add-Type -TypeDefinition $code
 
     	}
 
-     ################################################
-    ######### Domain Object Insights ###############
-	################################################
-	
-	$DomainObjectsInsightsBanner = "<h3>Domain Objects Insights</h3>"
-	Write-Host ""
-	Write-Host "Domain Objects Insights" -ForegroundColor Red
-	Write-Host ""
-
- 	#############################################
-    ############### Subnets ###############
-	#############################################
-	
-	Write-Host ""
-	Write-Host "Subnets:" -ForegroundColor Cyan
-	
-    if($Domain -AND $Server) {
-		$GetDomainSubnets = Get-DomainSubnet -Domain $Domain -Server $Server
+    if(!$NoServers -OR $Workstations -OR $AllEnum -OR $DomainUsers -OR $AllGroups -OR $AllGPOs -OR $DomainOUs -OR $AllDescriptions){
+		################################################
+		######### Domain Object Insights ###############
+		################################################
 		
-		$TempSubnets = foreach ($DomainSubnet in $GetDomainSubnets) {
-
-			$SiteObject = $DomainSubnet.siteobject
-
-			if ($SiteObject -match "CN=([^,]+)") {$Site = $matches[1]}
-			
-			[PSCustomObject]@{
-   				"Site" = $Site
-				"Subnet" = $DomainSubnet.name
-				"Description" = $DomainSubnet.description
-				"Domain" = $Domain
-			}
-		}
-    }
-    
-    else{
-        $TempSubnets = foreach($AllDomain in $AllDomains){
-			$GetDomainSubnets = Get-DomainSubnet -Domain $AllDomain
-			
-			foreach ($DomainSubnet in $GetDomainSubnets) {
-
-				$SiteObject = $DomainSubnet.siteobject
-
-				if ($SiteObject -match "CN=([^,]+)") {$Site = $matches[1]}
-   
-				[PSCustomObject]@{
-					"Site" = $Site
-					"Subnet" = $DomainSubnet.name
-					"Description" = $DomainSubnet.description
-					"Domain" = $AllDomain
-				}
-			}
-		}
-    }
-
-    if($TempSubnets){
-		$TempSubnets | Sort-Object -Unique Domain,Site | Format-Table -AutoSize -Wrap
-		$HTMLSubnets = $TempSubnets | Sort-Object -Unique Domain,Site | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='Subnets'>Subnets</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='Subnets'>" }
-	}
-	
-	######################################################
-    ########### Operating Systems Insights ###############
-	######################################################
-	
-	Write-Host ""
-	Write-Host "Operating Systems Insights:" -ForegroundColor Cyan
-
-	if ($Domain -and $Server) {
-		
-		$AllSystems = Get-DomainComputer -Domain $Domain -Server $Server
-		$OperatingSystemsAnalysis = $AllSystems | Select-Object -ExpandProperty operatingsystem | Sort-Object -Unique
-		
-		$TempOperatingSystemsAnalysis = foreach($OperatingSystem in $OperatingSystemsAnalysis){
-		
-			[PSCustomObject]@{
-				Domain = $Domain
-    				'Operating System' = $OperatingSystem
-				'Nb OS' = ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem}).Name.count
-				'Nb Enabled' = ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem} | Where-Object { $_.useraccountcontrol -notmatch "ACCOUNTDISABLE" }).Name.Count
-				'Nb Disabled' = ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem}).Name.count - ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem} | Where-Object { $_.useraccountcontrol -notmatch "ACCOUNTDISABLE" }).Name.Count
-				'Nb Active' = ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem} | Where-Object { $_.lastlogontimestamp -ge $inactiveThreshold}).Name.count
-				'Nb Inactive' = ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem} | Where-Object { $_.lastlogontimestamp -lt $inactiveThreshold}).Name.count
-			}
-			
-		}
-	}
-	
-	else{
-		
-		$TempOperatingSystemsAnalysis = foreach ($AllDomain in $AllDomains) {
-			$AllSystems = Get-DomainComputer -Domain $AllDomain
-			$OperatingSystemsAnalysis = $AllSystems | Select-Object -ExpandProperty operatingsystem | Sort-Object -Unique
-			
-			foreach($OperatingSystem in $OperatingSystemsAnalysis){
-				[PSCustomObject]@{
-    					Domain = $AllDomain
-					'Operating System' = $OperatingSystem
-					'Nb OS' = ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem}).Name.count
-					'Nb Enabled' = ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem} | Where-Object { $_.useraccountcontrol -notmatch "ACCOUNTDISABLE" }).Name.Count
-					'Nb Disabled' = ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem}).Name.count - ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem} | Where-Object { $_.useraccountcontrol -notmatch "ACCOUNTDISABLE" }).Name.Count
-					'Nb Active' = ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem} | Where-Object { $_.lastlogontimestamp -ge $inactiveThreshold}).Name.count
-					'Nb Inactive' = ($AllSystems | Where-Object {$_.operatingsystem -eq $OperatingSystem} | Where-Object { $_.lastlogontimestamp -lt $inactiveThreshold}).Name.count
-				}
-			}
-			
-		}
-	}
-
- 	if ($TempOperatingSystemsAnalysis) {
-		$TempOperatingSystemsAnalysis | Sort-Object Domain,'Operating System' | Format-Table -AutoSize
-		$HTMLOperatingSystemsAnalysis = $TempOperatingSystemsAnalysis | Sort-Object Domain,'Operating System' | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='OperatingSystemsAnalysis'>Operating Systems Insights</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='OperatingSystemsAnalysis'>" }
+		$DomainObjectsInsightsBanner = "<h3>Domain Objects Insights</h3>"
+		Write-Host ""
+		Write-Host "Domain Objects Insights" -ForegroundColor Red
+		Write-Host ""
 	}
 	
 	############################################
@@ -7819,8 +7933,8 @@ Add-Type -TypeDefinition $code
     # Stop capturing the output and display it on the console
     Stop-Transcript | Out-Null
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $SecurityGroupsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLProtectedUsers $HTMLRODCs $HTMLSchemaAdmins $HTMLServerOperators $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLADComputersCreated $HTMLPasswordSetUsers $HTMLUnixPasswordSet $HTMLEmptyPasswordUsers $HTMLTotalEmptyPass $HTMLPreWin2kCompatibleAccess $HTMLUnsupportedHosts $HTMLLMCompatibilityLevel $HTMLMachineQuota $InterestingDataBanner $HTMLReplicationUsers $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLGMSAs $HTMLnopreauthset $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLNotSensitiveAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLLinkedDAAccounts $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLWin7AndServer2008 $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLSharesResultsTable $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $DomainObjectsInsightsBanner $HTMLSubnets $HTMLOperatingSystemsAnalysis $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
-	$ClientReport = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $SecurityGroupsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLCertTemplatesTable $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLTotalEmptyPass $HTMLTotalEmptyPassTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLMachineQuota $HTMLMachineAccountQuotaTable $InterestingDataBanner $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLUsersAdminCount $HTMLAdminCountUsersTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupTable $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitiveTable $HTMLPrivilegedNotSensitiveUsers $HTMLPrivilegedNOTSensitiveDelegationTable $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLSharesResultsTable $DomainObjectsInsightsBanner $HTMLSubnets $HTMLOperatingSystemsAnalysis $HTMLServersDisabled $HTMLWorkstationsDisabled $HTMLDisabledUsers" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLComputerAccountAnalysis $HTMLOperatingSystemsAnalysis $HTMLUnsupportedHosts $HTMLSubnets $SecurityGroupsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLSchemaAdmins $HTMLServerOperators $MisconfigurationsBanner $HTMLCertPublishers $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLUnconstrained $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationUsers $HTMLRBACDObjects $HTMLADComputersCreated $HTMLPasswordSetUsers $HTMLUnixPasswordSet $HTMLEmptyPasswordUsers $HTMLTotalEmptyPass $HTMLPreWin2kCompatibleAccess $HTMLLMCompatibilityLevel $HTMLMachineQuota $InterestingDataBanner $HTMLReplicationUsers $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLGMSAs $HTMLnopreauthset $HTMLUsersAdminCount $HTMLGroupsAdminCount $HTMLAdminsInProtectedUsersGroup $HTMLNotSensitiveAdminsInProtectedUsersGroup $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLNonAdminsInProtectedUsersGroup $HTMLPrivilegedSensitiveUsers $HTMLPrivilegedNotSensitiveUsers $HTMLNonPrivilegedSensitiveUsers $HTMLMachineAccountsPriv $HTMLsidHistoryUsers $HTMLRevEncUsers $HTMLLinkedDAAccounts $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $HTMLGPOComputerAdmins $HTMLGPOMachinesAdminlocalgroup $HTMLUsersInGroup $HTMLFindLocalAdminAccess $HTMLFindDomainUserLocation $HTMLLoggedOnUsersServerOU $HTMLWin7AndServer2008 $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $HTMLSharesResultsTable $HTMLDomainShareFiles $HTMLInterestingFiles $HTMLACLScannerResults $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
+	$ClientReport = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $HTMLSubnets $SecurityGroupsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLVulnCertComputers $HTMLVulnCertUsers $HTMLCertTemplatesTable $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLTotalEmptyPass $HTMLTotalEmptyPassTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLMachineQuota $HTMLMachineAccountQuotaTable $InterestingDataBanner $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLUsersAdminCount $HTMLAdminCountUsersTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLAdminsNotInProtectedUsersGroup $HTMLAdminsNOTinProtectedUsersGroupTable $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitive $HTMLAdminsNOTinProtectedUsersGroupAndNOTSensitiveTable $HTMLPrivilegedNotSensitiveUsers $HTMLPrivilegedNOTSensitiveDelegationTable $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLSharesResultsTable $DomainObjectsInsightsBanner $HTMLServersDisabled $HTMLWorkstationsDisabled $HTMLDisabledUsers" -Title "Active Directory Audit" -Head $header
  	$HTMLOutputFilePath = $OutputFilePath.Replace(".txt", ".html")
   	$HTMLClientOutputFilePath = $HTMLOutputFilePath.Replace("Invoke-ADEnum", "Invoke-ADEnum_Client-Report")
 	$Report | Out-File $HTMLOutputFilePath
