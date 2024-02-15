@@ -265,6 +265,7 @@ function Invoke-ADEnum
 		if($Domain){
 			if(!$Server){
 				$Server = Get-DomainController -Domain $Domain | Where-Object {$_.Roles -like "RidRole"} | Select-Object -ExpandProperty Name
+				if(!$Server){$Server = Get-DomainController -Domain $Domain | Select-Object -First 1 -ExpandProperty Name}
 				if(!$Server){$Server = Read-Host "Enter the DC FQDN"}
 			}
 		}
@@ -1091,25 +1092,29 @@ Add-Type -TypeDefinition $code
 		    if($Domain -AND $Server) {
 		        $domainControllers = Get-DomainController -Domain $Domain
 		    	$TempHTMLdc = foreach ($dc in $domainControllers) {
-       				$TestingLDAP = Test-LDAP -ComputerName $dc
-		        	$isPrimaryDC = $dc.Roles -like "RidRole"
-		        	$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
-	   			$startupTime = [NativeMethods]::GetStartupTime("$dc")
-       				$uptime = New-TimeSpan -Start $startupTime -End (Get-Date)
-	   			$UptimeString = "$($uptime.Days) days"
-		        	
-					[PSCustomObject]@{
-						"DC Name" = $dc.Name
-						Forest = $dc.Forest
-						Domain = $dc.Domain
-      						"OS Version" = $dc.OSVersion
-						"IP Address" = $dc.IPAddress
-      						"LDAP" = $TestingLDAP.LDAP
-						"LDAPS" = $TestingLDAP.LDAPS
-    						"OpenPorts" = $TestingLDAP.AvailablePorts
-	  					"Uptime" = $UptimeString
-	  					"Primary DC" = $primaryDC
+					$TestingLDAP = Test-LDAP -ComputerName $dc
+					$isPrimaryDC = $dc.Roles -like "RidRole"
+					$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
+					$startupTime = [NativeMethods]::GetStartupTime("$dc")
+					if($startupTime -eq "01 January 0001 00:00:00"){
+						$UptimeString = "No Access"
 					}
+					else{
+						$uptime = New-TimeSpan -Start $startupTime -End (Get-Date)
+						$UptimeString = "$($uptime.Days) days"
+					}
+						[PSCustomObject]@{
+							"DC Name" = $dc.Name
+							Forest = $dc.Forest
+							Domain = $dc.Domain
+							"OS Version" = $dc.OSVersion
+							"IP Address" = $dc.IPAddress
+							"LDAP" = $TestingLDAP.LDAP
+							"LDAPS" = $TestingLDAP.LDAPS
+							"OpenPorts" = $TestingLDAP.AvailablePorts
+							"Uptime" = $UptimeString
+							"Primary DC" = $primaryDC
+						}
 		    	}
 				if($TempHTMLdc){
 					$TempHTMLdc | Sort-Object Forest,Domain,"DC Name" | ft -Autosize -Wrap
@@ -1122,18 +1127,23 @@ Add-Type -TypeDefinition $code
 	   					$TestingLDAP = Test-LDAP -ComputerName $dc
 						$isPrimaryDC = $dc.Roles -like "RidRole"
 						$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
-      						$startupTime = [NativeMethods]::GetStartupTime("$dc")
-       						$uptime = New-TimeSpan -Start $startupTime -End (Get-Date)
-	   					$UptimeString = "$($uptime.Days) days"
+      					$startupTime = [NativeMethods]::GetStartupTime("$dc")
+						if($startupTime -eq "01 January 0001 00:00:00"){
+							$UptimeString = "No Access"
+						}
+						else{
+							$uptime = New-TimeSpan -Start $startupTime -End (Get-Date)
+							$UptimeString = "$($uptime.Days) days"
+						}
 						[PSCustomObject]@{
 							"DC Name" = $dc.Name
 							Forest = $dc.Forest
 							Domain = $dc.Domain
-       							"OS Version" = $dc.OSVersion
+       						"OS Version" = $dc.OSVersion
 							"IP Address" = $dc.IPAddress
-       							"LDAP" = $TestingLDAP.LDAP
+       						"LDAP" = $TestingLDAP.LDAP
 							"LDAPS" = $TestingLDAP.LDAPS
-    							"OpenPorts" = $TestingLDAP.AvailablePorts
+    						"OpenPorts" = $TestingLDAP.AvailablePorts
 	   						"Uptime" = $UptimeString
 	   						"Primary DC" = $primaryDC
 						}
@@ -1290,10 +1300,14 @@ Add-Type -TypeDefinition $code
      		$TestingLDAP = Test-LDAP -ComputerName $dc
         	$isPrimaryDC = $dc.Roles -like "RidRole"
         	$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
-	 	$startupTime = [NativeMethods]::GetStartupTime("$dc")
-       		$uptime = New-TimeSpan -Start $startupTime -End (Get-Date)
-	   	$UptimeString = "$($uptime.Days) days"
-        	
+			$startupTime = [NativeMethods]::GetStartupTime("$dc")
+			if($startupTime -eq "01 January 0001 00:00:00"){
+				$UptimeString = "No Access"
+			}
+			else{
+				$uptime = New-TimeSpan -Start $startupTime -End (Get-Date)
+				$UptimeString = "$($uptime.Days) days"
+			}
 			[PSCustomObject]@{
 				"DC Name" = $dc.Name
 				Forest = $dc.Forest
@@ -1315,9 +1329,14 @@ Add-Type -TypeDefinition $code
 	 			$TestingLDAP = Test-LDAP -ComputerName $dc
 				$isPrimaryDC = $dc.Roles -like "RidRole"
 				$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
-    				$startupTime = [NativeMethods]::GetStartupTime("$dc")
-       				$uptime = New-TimeSpan -Start $startupTime -End (Get-Date)
-	   			$UptimeString = "$($uptime.Days) days"
+    			$startupTime = [NativeMethods]::GetStartupTime("$dc")
+				if($startupTime -eq "01 January 0001 00:00:00"){
+					$UptimeString = "No Access"
+				}
+				else{
+					$uptime = New-TimeSpan -Start $startupTime -End (Get-Date)
+					$UptimeString = "$($uptime.Days) days"
+				}
 				[PSCustomObject]@{
 					"DC Name" = $dc.Name
 					Forest = $dc.Forest
@@ -8538,7 +8557,7 @@ function Find-LocalAdminAccess {
 	$Computers = $Computers | Where-Object {$_ -ne "$TempHostname"}
 	
 	# Create a runspace pool
-	$runspacePool = [runspacefactory]::CreateRunspacePool(1, $Threads)
+	$runspacePool = [runspacefactory]::CreateRunspacePool(1, 10)
 	$runspacePool.Open()
 	$runspaces = New-Object System.Collections.ArrayList
 
