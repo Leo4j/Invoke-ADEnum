@@ -13,8 +13,6 @@ NOTE: By clicking on the tables' titles, you can generate and download a CSV ver
 
 ![image](https://github.com/Leo4j/Invoke-ADEnum/assets/61951374/32736c18-7ee2-4031-a670-584af3a87065)
 
-An offline version of the tool is also available, which won't load PowerView from the internet (useful against web filtering or lab scenarios).
-
 Invoke-ADEnum is a tool for any IT professional working with Active Directory.
 
 **If you find Invoke-ADEnum valuable and use it in your work, please consider giving us a star on GitHub. Your support motivates the developer to continue improving and maintaining this project**
