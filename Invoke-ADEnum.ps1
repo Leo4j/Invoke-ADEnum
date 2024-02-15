@@ -2550,7 +2550,7 @@ Add-Type -TypeDefinition $code
         Write-Host ""
 		Write-Host "Find Local Admin Access:" -ForegroundColor Cyan
 		if ($Domain -and $Server) {
-			$LocalAdminAccess = Find-LocalAdminAccess -DomainController $Server -Domain $Domain
+			$LocalAdminAccess = Find-LocalAdminAccess
 			$TempFindLocalAdminAccess = foreach ($AdminAccess in $LocalAdminAccess) {
 				[PSCustomObject]@{
 					"Target" = $AdminAccess.ComputerName
@@ -8488,7 +8488,8 @@ function Find-LocalAdminAccess {
 		[string]$Targets,
 		[string]$Command,
 		[string]$Domain,
-		[string]$DomainController
+		[string]$DomainController,
+		[switch]$ShowErrors
 	)
 	
 	if(!$ShowErrors){
