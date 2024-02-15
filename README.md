@@ -47,10 +47,9 @@ Invoke-ADEnum -SecurityGroups -GPOsRights -LAPSReadRights -RBCD -AllGroups -Spra
 
 +++> NOTE: If you use `-CustomURL` or `-Local` parameters you'll have to bypass AMSI manually <+++
 
-![2023-06-03_15-25](https://github.com/Leo4j/Invoke-ADEnum/assets/61951374/062e0c9c-aa06-4170-b4b5-1b0148bb6c0d)
-![2023-06-03_15-26_1](https://github.com/Leo4j/Invoke-ADEnum/assets/61951374/a0e78a2b-8b75-4bab-ad6a-3ae9a20fc98c)
-![2023-06-03_15-27](https://github.com/Leo4j/Invoke-ADEnum/assets/61951374/b1f72991-2177-4ff3-ae38-07b4ae43dd90)
-![2023-06-03_15-28](https://github.com/Leo4j/Invoke-ADEnum/assets/61951374/ab4d4280-bffe-4d23-a327-65a616d8c967)
+![image](https://github.com/Leo4j/Invoke-ADEnum/assets/61951374/6f2ae901-818f-490e-abe4-a13314628f2f)
+
+![image](https://github.com/Leo4j/Invoke-ADEnum/assets/61951374/5a1f8f67-7445-48b5-a294-dc9e725a5d40)
 
 # Disclaimer
 
