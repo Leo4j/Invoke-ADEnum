@@ -2,19 +2,17 @@
 ![ADEnum](https://github.com/Leo4j/Invoke-ADEnum/assets/61951374/93fe1fed-6056-4ba0-ae5b-6f3ac4c62ddc)
 
 ### Active Directory Enumeration
-Invoke-ADEnum is an Active Directory enumeration tool designed to automate the process of gathering information from an Active Directory environment, leveraging the capabilities of PowerView.
+Invoke-ADEnum is an enumeration tool designed to automate the process of gathering information from an Active Directory environment.
 
-With Invoke-ADEnum, you can quickly and efficiently enumerate various aspects of Active Directory, including forests, domains, trusts, domain controllers, users, groups, computers, shares, subnets, ACLs, OUs, GPOs, and more.
+With Invoke-ADEnum, you can enumerate various aspects of Active Directory, including forests, domains, trusts, domain controllers, users, groups, computers, shares, subnets, ACLs, OUs, GPOs, and more.
 
 One of the features of Invoke-ADEnum is its ability to generate an Active Directory Audit Report in HTML format. Whether performing security assessments, compliance audits, or general Active Directory enumeration tasks, the report will provide a detailed overview of the Active Directory infrastructure in an easy-to-navigate layout, as well as recommendations to remediate findings.
 
 NOTE: By clicking on the tables' titles, you can generate and download a CSV version of the results. Additionally, you have the option to export the entire HTML report in XLSX format by clicking on "Active Directory Audit" at the top of the page. The XLSX export will include a separate sheet for each table of findings.
 
-![image](https://github.com/Leo4j/Invoke-ADEnum/assets/61951374/32736c18-7ee2-4031-a670-584af3a87065)
-
-Invoke-ADEnum is a tool for any IT professional working with Active Directory.
-
 **If you find Invoke-ADEnum valuable and use it in your work, please consider giving us a star on GitHub. Your support motivates the developer to continue improving and maintaining this project**
+
+![ADEnum](https://github.com/Leo4j/Invoke-ADEnum/assets/61951374/67527c9b-330b-4437-8d4d-7b7d5742607e)
 
 ### Usage
 
@@ -24,7 +22,7 @@ Load the script in memory:
 iex(new-object net.webclient).downloadstring('https://raw.githubusercontent.com/Leo4j/Invoke-ADEnum/main/Invoke-ADEnum.ps1')
 ```
 
-For usage, please refer to the Help page:
+Help page:
 
 ```
 Invoke-ADEnum -Help
@@ -39,15 +37,26 @@ Invoke-ADEnum -TargetsOnly
 Recommended Coverage
 
 ```
-Invoke-ADEnum -SecurityGroups -GPOsRights -LAPSReadRights -RBCD -AllGroups -SprayEmptyPasswords -UserCreatedObjects
+Invoke-ADEnum -Recommended -SprayEmptyPasswords
 ```
 
-+++> NOTE: If you use `-CustomURL` or `-Local` parameters you'll have to bypass AMSI manually <+++
+Specify a single domain to enumerate and a DC to bind to
 
-![image](https://github.com/Leo4j/Invoke-ADEnum/assets/61951374/6f2ae901-818f-490e-abe4-a13314628f2f)
+```
+Invoke-ADEnum -Domain contoso.local -Server DC01.contoso.local
+```
 
-![image](https://github.com/Leo4j/Invoke-ADEnum/assets/61951374/5a1f8f67-7445-48b5-a294-dc9e725a5d40)
+Exclude out-of-scope domains
 
+```
+Invoke-ADEnum -Exclude "contoso.local,domain.local"
+```
+
+Full Coverage (may take a long time depending on domain size)
+
+```
+Invoke-ADEnum -AllEnum -Force
+```
 # Disclaimer
 
 Invoke-ADEnum is intended exclusively for research, education, and authorized testing. Its purpose is to assist professionals and researchers in identifying vulnerabilities and enhancing system security. 
