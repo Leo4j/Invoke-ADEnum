@@ -1,10 +1,10 @@
-function Invoke-ADEnum
-{
+function Invoke-ADEnum {
 
 	<#
 
 	.SYNOPSIS
 	Invoke-ADEnum | Author: Rob LP (@L3o4j)
+ 	https://github.com/Leo4j/Invoke-ADEnum
 	
 	.DESCRIPTION
 	Automate Active Directory Enumeration
