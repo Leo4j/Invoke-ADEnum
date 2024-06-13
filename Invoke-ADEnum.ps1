@@ -143,8 +143,15 @@ function Invoke-ADEnum {
 		
 		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
-        $Recommended
-
+        $Recommended,
+		
+		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Switch]
+        $SaveToDisk,
+		
+		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Switch]
+        $LoadFromDisk
     )
 	
 	$stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -169,8 +176,6 @@ function Invoke-ADEnum {
 	else{
  		$originalBufferSize = $host.UI.RawUI.BufferSize
  		$host.UI.RawUI.BufferSize = New-Object Management.Automation.Host.Size(4096, $Host.UI.RawUI.BufferSize.Height)
-		# Start capturing the script's output and save it to the file
-		#Start-Transcript -Path $OutputFilePath | Out-Null
 	}
     
 	if($NoClear){}
@@ -373,6 +378,7 @@ $xlsHeader = @'
 				'Protected and \'Sensitive and Not Allowed for Delegation\' status (Admin Count)': 'Prot and Sens Status (AdmCount)',
 				'Machine accounts in privileged groups': 'Machines in Priv.Groups',
 				'Users with sidHistory set': 'sidHistory',
+				'WebDAV Enabled Machines': 'WebDAV Enabled',
 				'Users with Reversible Encryption': 'Reversible Enc.',
 				'Linked DA accounts using name correlation': 'Linked DA',
 				'Who can create GPOs': 'GPO Creators',
@@ -534,6 +540,8 @@ $xlsHeader = @'
 			createDownloadLinkForTable('SQLServers');
 			createDownloadLinkForTable('SCCMServers');
 			createDownloadLinkForTable('WSUSServers');
+			createDownloadLinkForTable('WebDavEnabled');
+			createDownloadLinkForTable('SMBSigningNotRequired');
 			createDownloadLinkForTable('DuplicateSPNs');
 			createDownloadLinkForTable('Printers');
    			createDownloadLinkForTable('RWShares');
@@ -591,6 +599,7 @@ $xlsHeader = @'
 			createDownloadLinkForTable('GroupsByKeyword');
 			createDownloadLinkForTable('DomainOUsByKeyword');
 			createDownloadLinkForTable('Subnets');
+			createDownloadLinkForTable('VulnLMCompLevelComp');
 			createDownloadLinkForTable('DomainPolicy');
 			createDownloadLinkForTable('OtherPolicies');
 			createDownloadLinkForTable('KerberosPolicy');
@@ -700,11 +709,35 @@ $xlsHeader = @'
 		</style>
 '@
 
-# Set the path and filename for the output file
-$DateFormat = Get-Date -Format "dd.MM.yy-HH.mm"
+	# Set the path and filename for the output file
+	$DateFormat = Get-Date -Format "dd.MM.yy-HH.mm"
 
-if($Domain){$xlsHeader = $xlsHeader -Replace "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","$($DateFormat)_AD-Audit_$Domain"}
-else{$OutDomain=($env:userdnsdomain).ToLower();$xlsHeader = $xlsHeader -Replace "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","$($DateFormat)_AD-Audit_$OutDomain"}
+	if($Domain){$xlsHeader = $xlsHeader -Replace "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","$($DateFormat)_AD-Audit_$Domain"}
+	else{$OutDomain=($env:userdnsdomain).ToLower();$xlsHeader = $xlsHeader -Replace "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","$($DateFormat)_AD-Audit_$OutDomain"}
+
+	if($Output){
+		$Output = $Output.TrimEnd('\')
+		if($Domain){
+			$OutputFilePath = "$Output\$($DateFormat)_AD-Audit_$Domain.txt"
+		}
+		else{
+			$OutDomain=($env:userdnsdomain).ToLower()
+			$OutputFilePath = "$Output\$($DateFormat)_AD-Audit_$OutDomain.txt"
+		}
+	}
+	else{
+		if($Domain){
+			$OutputFilePath = "$pwd\$($DateFormat)_AD-Audit_$Domain.txt"
+		}
+		else{
+			$OutDomain=($env:userdnsdomain).ToLower()
+			$OutputFilePath = "$pwd\$($DateFormat)_AD-Audit_$OutDomain.txt"
+		}
+	}
+	
+	# Start capturing the script's output and save it to the file
+	
+	if(!($TargetsOnly -OR $Help)){Start-Transcript -Path $OutputFilePath | Out-Null}
 
 $toggleScript = @"
 <script>
@@ -747,86 +780,94 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 		}
 	}
 	
+	# All Domains
+	$FindCurrentDomain = [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain()
+	if(!$FindCurrentDomain){$FindCurrentDomain = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().DomainName.Trim()}
+	if(!$FindCurrentDomain){$FindCurrentDomain = $env:USERDNSDOMAIN}
+	if(!$FindCurrentDomain){$FindCurrentDomain = Get-WmiObject -Namespace root\cimv2 -Class Win32_ComputerSystem | Select Domain | Format-Table -HideTableHeaders | out-string | ForEach-Object { $_.Trim() }}
+	
+	$ParentDomain = ($FindCurrentDomain | Select-Object -ExpandProperty Forest | Select-Object -ExpandProperty Name)
+	$DomainContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Domain', $ParentDomain)
+	$ChildContext = [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain($DomainContext)
+	$ChildDomains = @($ChildContext | Select-Object -ExpandProperty Children | Select-Object -ExpandProperty Name)
+	
+	$AllDomains = @($ParentDomain)
+	
+	if($ChildDomains){
+		foreach($ChildDomain in $ChildDomains){
+			$AllDomains += $ChildDomain
+		}
+	}
+	
+	# Trust Domains (save to variable)
+	
+	if($Domain -AND $Server) {
+		$TrustTargetNames = @((FindDomainTrusts -Domain $Domain -Server $Server).TargetName)
+		$TrustTargetNames = $TrustTargetNames | Sort-Object -Unique
+		$TrustTargetNames = $TrustTargetNames | Where-Object { $_ -notin $Domain }
+	}
+	
+	else{
+		$TrustTargetNames = @(foreach($AllDomain in $AllDomains){(FindDomainTrusts -Domain $AllDomain).TargetName})
+		$TrustTargetNames = $TrustTargetNames | Sort-Object -Unique
+		$TrustTargetNames = $TrustTargetNames | Where-Object { $_ -notin $AllDomains }
+	}
+	
+	# Remove Outbound Trust from $AllDomains
+	
+	if($Domain -AND $Server) {
+		$OutboundTrusts = @(FindDomainTrusts -Domain $Domain -Server $Server | Where-Object { $_.TrustDirection -eq 'Outbound' } | Select-Object -ExpandProperty TargetName)
+	}
+	
+	else{
+		$OutboundTrusts = @(foreach($AllDomain in $AllDomains){FindDomainTrusts -Domain $AllDomain | Where-Object { $_.TrustDirection -eq 'Outbound' } | Select-Object -ExpandProperty TargetName})
+	}
+	
+	foreach($TrustTargetName in $TrustTargetNames){
+		$AllDomains += $TrustTargetName
+	}
+	
+	$AllDomains = $AllDomains | Sort-Object -Unique
+	
+	$PlaceHolderDomains = $AllDomains
+	$AllDomains = $AllDomains | Where-Object { $_ -notin $OutboundTrusts }
+	
+	if($Exclude){
+		$ExcludeDomains = @($Exclude -split ',')
+		$AllDomains = $AllDomains | Where-Object { $_ -notin $ExcludeDomains }
+	}
+	
+	### Remove Unreachable domains
+
+	$ReachableDomains = $AllDomains
+
+	foreach($AllDomain in $AllDomains){
+		$ReachableResult = $null
+		$DomainContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Domain', $AllDomain)
+		$ReachableResult = [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain($DomainContext)
+		if($ReachableResult){}
+		else{$ReachableDomains = $ReachableDomains | Where-Object { $_ -ne $AllDomain }}
+	}
 	
 	if($Domain){$AllDomains = $Domain}
 	else{
-		# All Domains
-		$FindCurrentDomain = [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain()
-		if(!$FindCurrentDomain){$FindCurrentDomain = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().DomainName.Trim()}
-		if(!$FindCurrentDomain){$FindCurrentDomain = $env:USERDNSDOMAIN}
-		if(!$FindCurrentDomain){$FindCurrentDomain = Get-WmiObject -Namespace root\cimv2 -Class Win32_ComputerSystem | Select Domain | Format-Table -HideTableHeaders | out-string | ForEach-Object { $_.Trim() }}
-		
-		$ParentDomain = ($FindCurrentDomain | Select-Object -ExpandProperty Forest | Select-Object -ExpandProperty Name)
-		$DomainContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Domain', $ParentDomain)
-		$ChildContext = [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain($DomainContext)
-		$ChildDomains = @($ChildContext | Select-Object -ExpandProperty Children | Select-Object -ExpandProperty Name)
-		
-		$AllDomains = @($ParentDomain)
-		
-		if($ChildDomains){
-			foreach($ChildDomain in $ChildDomains){
-				$AllDomains += $ChildDomain
-			}
-		}
-		
-		# Trust Domains (save to variable)
-		
-		if($Domain -AND $Server) {
-			$TrustTargetNames = @((FindDomainTrusts -Domain $Domain -Server $Server).TargetName)
-			$TrustTargetNames = $TrustTargetNames | Sort-Object -Unique
-			$TrustTargetNames = $TrustTargetNames | Where-Object { $_ -notin $Domain }
-		}
-		
-		else{
-			$TrustTargetNames = @(foreach($AllDomain in $AllDomains){(FindDomainTrusts -Domain $AllDomain).TargetName})
-			$TrustTargetNames = $TrustTargetNames | Sort-Object -Unique
-			$TrustTargetNames = $TrustTargetNames | Where-Object { $_ -notin $AllDomains }
-		}
-		
-		# Remove Outbound Trust from $AllDomains
-		
-		if($Domain -AND $Server) {
-			$OutboundTrusts = @(FindDomainTrusts -Domain $Domain -Server $Server | Where-Object { $_.TrustDirection -eq 'Outbound' } | Select-Object -ExpandProperty TargetName)
-		}
-		
-		else{
-			$OutboundTrusts = @(foreach($AllDomain in $AllDomains){FindDomainTrusts -Domain $AllDomain | Where-Object { $_.TrustDirection -eq 'Outbound' } | Select-Object -ExpandProperty TargetName})
-		}
-		
-		foreach($TrustTargetName in $TrustTargetNames){
-			$AllDomains += $TrustTargetName
-		}
-		
-		$AllDomains = $AllDomains | Sort-Object -Unique
-		
-		$PlaceHolderDomains = $AllDomains
-		$AllDomains = $AllDomains | Where-Object { $_ -notin $OutboundTrusts }
-		
-		if($Exclude){
-			$ExcludeDomains = @($Exclude -split ',')
-			$AllDomains = $AllDomains | Where-Object { $_ -notin $ExcludeDomains }
-		}
-		
-		### Remove Unreachable domains
-
-		$ReachableDomains = $AllDomains
-
-		foreach($AllDomain in $AllDomains){
-			$ReachableResult = $null
-			$DomainContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Domain', $AllDomain)
-			$ReachableResult = [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain($DomainContext)
-			if($ReachableResult){}
-			else{$ReachableDomains = $ReachableDomains | Where-Object { $_ -ne $AllDomain }}
-		}
-
 		$AllDomains = $ReachableDomains
-		
 		if($AllDomains -eq $null){
 			Write-Host ""
 			Write-Host " [-] No Domains in scope" -ForegroundColor Red
 			Write-Host ""
 			break
 		}
+	}
+	
+	if($SaveToDisk){
+		# Create Folders
+		if(!(Test-Path c:\Users\Public\Documents\ADEnum)){
+			New-Item -Path c:\Users\Public\Documents\ADEnum -ItemType Directory -Force > $null
+		}
+		
+		# Save Domains into file
+		$AllDomains | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\Domains.json
 	}
 	
 	$inactiveThreshold = (Get-Date).AddMonths(-6)
@@ -837,60 +878,58 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 	
 	#Write-Host ""
     Write-Host ""
-    Write-Host "Data Collection in Progress..." -ForegroundColor Cyan
-	
-	$ActiveDirectoryObjects = @()
-	
-	if ($Domain -and $Server) {
-		if($TargetsOnly){
-			try{$ActiveDirectoryObjects += Collect-ADObjects -Domain $Domain -Server $Server -Collect DomainControllers}
-			catch{$ActiveDirectoryObjects += Collect-ADObjects -Domain $Domain -Collect DomainControllers}
-		}
-		else{
-			try{$ActiveDirectoryObjects += Collect-ADObjects -Domain $Domain -Server $Server}
-			catch{$ActiveDirectoryObjects += Collect-ADObjects -Domain $Domain}
-		}
-	}
-	
-	else{
-		foreach($AllDomain in $AllDomains){
-			if($TargetsOnly){
-				$ActiveDirectoryObjects += Collect-ADObjects -Domain $AllDomain -Collect DomainControllers
-			}
-			else{$ActiveDirectoryObjects += Collect-ADObjects -Domain $AllDomain}
-		}
-	}
+	if($LoadFromDisk){Write-Host "Loading Data..." -ForegroundColor Cyan}
+    else{Write-Host "Data Collection in Progress..." -ForegroundColor Cyan}
 	
 	if($TargetsOnly){
+		
+		$ActiveDirectoryObjects = @()
+		
+		if ($Domain -and $Server) {
+			$TargetsOnlyCollection = @()
+			$ActiveDirectoryObjects += Collect-ADObjects -Domain $Domain -Server $Server -Collect DomainControllers
+			$TargetsOnlyCollection += Collect-ADObjects -Domain $Domain -Server $Server -Collect Users -Property samaccounttype,userAccountControl,samaccountname
+			$TargetsOnlyCollection += Collect-ADObjects -Domain $Domain -Server $Server -Collect Computers -Property samaccounttype,userAccountControl,samaccountname,operatingSystem
+		}
+		
+		else{
+			foreach($AllDomain in $AllDomains){
+				$TargetsOnlyCollection = @()
+				$ActiveDirectoryObjects += Collect-ADObjects -Domain $AllDomain -Collect DomainControllers
+				$TargetsOnlyCollection += Collect-ADObjects -Domain $AllDomain -Collect Users -Property samaccounttype,userAccountControl,samaccountname
+				$TargetsOnlyCollection += Collect-ADObjects -Domain $AllDomain -Collect Computers -Property samaccounttype,userAccountControl,samaccountname,operatingSystem
+			}
+		}
+		
 		# All Users
-		$TotalEnabledDisabledUsers = @($ActiveDirectoryObjects | Where-Object { $_.samaccounttype -eq 805306368 })
+		$TotalEnabledDisabledUsers = @($TargetsOnlyCollection | Where-Object { $_.samaccounttype -eq 805306368 })
 		
 		# Enabled Users
-		$TotalEnabledUsers = @($ActiveDirectoryObjects | Where-Object { $_.samaccounttype -eq 805306368 -and ([int]$_.userAccountControl -band 2) -eq 0 })
+		$TotalEnabledUsers = @($TargetsOnlyCollection | Where-Object { $_.samaccounttype -eq 805306368 -and ([int]$_.userAccountControl -band 2) -eq 0 })
 
 		# Disabled Users
-		$TotalDisabledUsers = @($ActiveDirectoryObjects | Where-Object { $_.samaccounttype -eq 805306368 -and ([int]$_.userAccountControl -band 2) -ne 0 })
+		$TotalDisabledUsers = @($TargetsOnlyCollection | Where-Object { $_.samaccounttype -eq 805306368 -and ([int]$_.userAccountControl -band 2) -ne 0 })
 
 		# All Computers
-		$TotalEnabledDisabledMachines = @($ActiveDirectoryObjects | Where-Object { $_.samaccounttype -eq 805306369 })
+		$TotalEnabledDisabledMachines = @($TargetsOnlyCollection | Where-Object { $_.samaccounttype -eq 805306369 })
 		
 		# Enabled Computers
-		$TotalEnabledMachines = @($ActiveDirectoryObjects | Where-Object { $_.samaccounttype -eq 805306369 -and ([int]$_.userAccountControl -band 2) -eq 0 })
+		$TotalEnabledMachines = @($TargetsOnlyCollection | Where-Object { $_.samaccounttype -eq 805306369 -and ([int]$_.userAccountControl -band 2) -eq 0 })
 
 		# Disabled Computers
-		$TotalDisabledMachines = @($ActiveDirectoryObjects | Where-Object { $_.samaccounttype -eq 805306369 -and ([int]$_.userAccountControl -band 2) -ne 0 })
+		$TotalDisabledMachines = @($TargetsOnlyCollection | Where-Object { $_.samaccounttype -eq 805306369 -and ([int]$_.userAccountControl -band 2) -ne 0 })
 
 		# Enabled Servers including Domain Controllers
-		$TotalEnabledServers = @($ActiveDirectoryObjects | Where-Object { $_.objectCategory -like '*Computer*' -and $_.operatingSystem -like '*Server*' -and ([int]$_.userAccountControl -band 2) -eq 0 })
+		$TotalEnabledServers = @($TargetsOnlyCollection | Where-Object { $_.samaccounttype -eq 805306369 -and $_.operatingSystem -like '*Server*' -and ([int]$_.userAccountControl -band 2) -eq 0 })
 
 		# Disabled Servers including Domain Controllers
-		$TotalDisabledServers = @($ActiveDirectoryObjects | Where-Object { $_.objectCategory -like '*Computer*' -and $_.operatingSystem -like '*Server*' -and ([int]$_.userAccountControl -band 2) -ne 0 })
+		$TotalDisabledServers = @($TargetsOnlyCollection | Where-Object { $_.samaccounttype -eq 805306369 -and $_.operatingSystem -like '*Server*' -and ([int]$_.userAccountControl -band 2) -ne 0 })
 
 		# Enabled Workstations
-		$TotalEnabledWorkstations = @($ActiveDirectoryObjects | Where-Object { $_.objectCategory -like '*Computer*' -and ($_.operatingSystem -notlike '*Server*') -and ([int]$_.userAccountControl -band 2) -eq 0 })
+		$TotalEnabledWorkstations = @($TargetsOnlyCollection | Where-Object { $_.samaccounttype -eq 805306369 -and ($_.operatingSystem -notlike '*Server*') -and ([int]$_.userAccountControl -band 2) -eq 0 })
 
 		# Disabled Workstations
-		$TotalDisabledWorkstations = @($ActiveDirectoryObjects | Where-Object { $_.objectCategory -like '*Computer*' -and ($_.operatingSystem -notlike '*Server*') -and ([int]$_.userAccountControl -band 2) -ne 0 })
+		$TotalDisabledWorkstations = @($TargetsOnlyCollection | Where-Object { $_.samaccounttype -eq 805306369 -and ($_.operatingSystem -notlike '*Server*') -and ([int]$_.userAccountControl -band 2) -ne 0 })
 		
 		# Domain Policies
 		$DomainPolicy = $ActiveDirectoryObjects | Where-Object { $_.objectClass -contains 'domainDNS' }
@@ -916,55 +955,302 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 	}
 	
 	else{
-	
+		$ActiveDirectoryObjects = @()
+		$TotalEnabledUsers = @()
+		$TotalDisabledUsers = @()
+		$TotalEnabledDisabledUsers = @()
+		$TotalEnabledMachines = @()
+		$TotalDisabledMachines = @()
+		$TotalEnabledServers = @()
+		$TotalDisabledServers = @()
+		$TotalEnabledWorkstations = @()
+		$TotalDisabledWorkstations = @()
+		$TotalEnabledDisabledMachines = @()
+		$TotalGroups = @()
+		$AllCollectedGPOs = @()
+		$AllCollectedOUs = @()
+		$CollectEverythingElse = @()
+		$AllkrbtgtAccounts = @()
+		$TotalDomainControllers = @()
+		$AllCertTemplates = @()
+		$PrintersCollection = @()
+		$DomainPolicy = @()
+		$PolicyTargets = @()
+		$CollectrIDManagers = @()
+		$AllForeignSecurityPrincipals = @()
+		$CollectGMSAs = @()
+		$CollectSCCMServers = @()
+		$AllDomainTrusts = @()
+		
+		if($LoadFromDisk){
+			$CatchTheError = $false
+			$ErrorActionPreference = "Stop"
+			try{$AllkrbtgtAccounts = Get-Content -Path c:\Users\Public\Documents\ADEnum\krbtgtAccounts.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load krbtgtAccounts.json";$CatchTheError = $true}
+			try{$TotalDomainControllers = Get-Content -Path c:\Users\Public\Documents\ADEnum\DomainControllers.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load DomainControllers.json";$CatchTheError = $true}
+			try{$CollectrIDManagers = Get-Content -Path c:\Users\Public\Documents\ADEnum\rIDManagers.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load rIDManagers.json";$CatchTheError = $true}
+			try{$DomainPolicy = Get-Content -Path c:\Users\Public\Documents\ADEnum\DomainPolicy.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load DomainPolicy.json";$CatchTheError = $true}
+			try{$PolicyTargets = Get-Content -Path c:\Users\Public\Documents\ADEnum\PolicyTargets.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load PolicyTargets.json";$CatchTheError = $true}
+			try{$TotalEnabledUsers = Get-Content -Path c:\Users\Public\Documents\ADEnum\EnabledUsers.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load EnabledUsers.json";$CatchTheError = $true}
+			try{$TotalDisabledUsers = Get-Content -Path c:\Users\Public\Documents\ADEnum\DisabledUsers.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load DisabledUsers.json";$CatchTheError = $true}
+			$TotalEnabledDisabledUsers += @($TotalEnabledUsers + $TotalDisabledUsers)
+			try{$AllForeignSecurityPrincipals = Get-Content -Path c:\Users\Public\Documents\ADEnum\ForeignSecurityPrincipals.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load ForeignSecurityPrincipals.json";$CatchTheError = $true}
+			try{$TotalEnabledMachines = Get-Content -Path c:\Users\Public\Documents\ADEnum\EnabledMachines.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load EnabledMachines.json";$CatchTheError = $true}
+			try{$TotalDisabledMachines = Get-Content -Path c:\Users\Public\Documents\ADEnum\DisabledMachines.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load DisabledMachines.json";$CatchTheError = $true}
+			$TotalEnabledDisabledMachines += @($TotalEnabledMachines + $TotalDisabledMachines)
+			$TotalEnabledServers += @($TotalEnabledMachines | Where-Object { $_.operatingSystem -like '*Server*'})
+			$TotalDisabledServers += @($TotalDisabledMachines | Where-Object { $_.operatingSystem -like '*Server*'})
+			$TotalEnabledWorkstations += @($TotalEnabledMachines | Where-Object { $_.operatingSystem -notlike '*Server*'})
+			$TotalDisabledWorkstations += @($TotalDisabledMachines | Where-Object { $_.operatingSystem -notlike '*Server*'})
+			try{$CollectGMSAs = Get-Content -Path c:\Users\Public\Documents\ADEnum\GMSAs.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load GMSAs.json";$CatchTheError = $true}
+			try{$CollectSCCMServers = Get-Content -Path c:\Users\Public\Documents\ADEnum\SCCMServers.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load SCCMServers.json";$CatchTheError = $true}
+			try{$PrintersCollection = Get-Content -Path c:\Users\Public\Documents\ADEnum\Printers.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load Printers.json";$CatchTheError = $true}
+			try{$TotalGroups = Get-Content -Path c:\Users\Public\Documents\ADEnum\Groups.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load Groups.json";$CatchTheError = $true}
+			try{$AllCollectedGPOs = Get-Content -Path c:\Users\Public\Documents\ADEnum\GPOs.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load GPOs.json";$CatchTheError = $true}
+			try{$AllCollectedOUs = Get-Content -Path c:\Users\Public\Documents\ADEnum\OUs.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load OUs.json";$CatchTheError = $true}
+			try{$AllCertTemplates = Get-Content -Path c:\Users\Public\Documents\ADEnum\CertTemplates.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load CertTemplates.json";$CatchTheError = $true}
+			try{$AllDomainTrusts = Get-Content -Path c:\Users\Public\Documents\ADEnum\DomainTrusts.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load DomainTrusts.json";$CatchTheError = $true}
+			if($CatchTheError){Stop-Transcript | Out-Null;Write-Output "";break}
+		}
+		else{
+			if ($Domain -and $Server) {
+				Write-Output "[*] Collecting Krbtgt..."
+					
+				# krbtgt
+				$AllkrbtgtAccounts += @(Collect-ADObjects -Domain $Domain -Server $Server -Identity krbtgt -Property samaccountname,objectsid,whencreated,pwdlastset,serviceprincipalname)
+				
+				Write-Output "[*] Collecting Domain Trusts..."
+				
+				# Domain Trusts
+				$AllDomainTrusts += FindDomainTrusts -Domain $Domain
+				
+				Write-Output "[*] Collecting Domain Controllers..."
+				
+				# Domain Controllers
+				$TotalDomainControllers += @(Collect-ADObjects -Domain $Domain -Server $Server -Collect DomainControllers -Property name,dnshostname,Roles,operatingsystem)
+				
+				# rIDManagers
+				$CollectrIDManagers += @(Collect-ADObjects -Domain $Domain -Server $Server -Collect rIDManagers -Property name,fSMORoleOwner)
+				
+				Write-Output "[*] Collecting Policies..."
+				
+				# Domain Policies
+				$DomainPolicy += @(Collect-ADObjects -Domain $Domain -Server $Server -Collect DomainPolicy -Property minPwdAge,maxPwdAge,pwdProperties,minPwdLength,pwdHistoryLength,lockoutThreshold,ms-ds-machineaccountquota)
+				
+				# All Policies
+				$PolicyTargets += @(Collect-ADObjects -Domain $Domain -Server $Server -Collect OtherPolicies -Property distinguishedname)
+				
+				Write-Output "[*] Collecting Users..."
+				
+				# Enabled Users
+				$TotalEnabledUsers += @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Users -Enabled -Property name,objectClass,objectCategory,distinguishedName,samaccountname,objectsid,lastlogontimestamp,pwdlastset,cn,memberof,admincount,serviceprincipalname,sidHistory,description,objectGuid,samAccountType,displayname,userPassword,unixUserPassword,homedirectory,msds-allowedtodelegateto,userAccountControl)
+
+				# Disabled Users
+				$TotalDisabledUsers += @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Users -Disabled -Property samaccountname)
+				
+				# All Users
+				$TotalEnabledDisabledUsers += @($TotalEnabledUsers + $TotalDisabledUsers)
+				
+				# Foreign Members
+				$AllForeignSecurityPrincipals += @(Collect-ADObjects -Domain $Domain -Server $Server -LDAP "(&(objectCategory=foreignSecurityPrincipal)(CN=S-1-5-21*))")
+				
+				Write-Output "[*] Collecting Machines..."
+				
+				# Enabled Computers
+				$TotalEnabledMachines += @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Computers -Enabled -Property name,objectClass,objectCategory,distinguishedName,samaccountname,objectsid,lastlogontimestamp,pwdlastset,cn,operatingsystem,DnsHostName,memberof,admincount,serviceprincipalname,ms-DS-CreatorSID,description,samAccountType,displayname,ms-Mcs-AdmPwdExpirationTime,msds-allowedtodelegateto,whencreated,userAccountControl)
+
+				# Disabled Computers
+				$TotalDisabledMachines += @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Computers -Disabled -Property samaccountname,operatingsystem,dnshostname,name)
+				
+				# All Computers
+				$TotalEnabledDisabledMachines += @($TotalEnabledMachines + $TotalDisabledMachines)
+
+				# Enabled Servers including Domain Controllers
+				$TotalEnabledServers += @($TotalEnabledMachines | Where-Object { $_.operatingSystem -like '*Server*'})
+
+				# Disabled Servers including Domain Controllers
+				$TotalDisabledServers += @($TotalDisabledMachines | Where-Object { $_.operatingSystem -like '*Server*'})
+
+				# Enabled Workstations
+				$TotalEnabledWorkstations += @($TotalEnabledMachines | Where-Object { $_.operatingSystem -notlike '*Server*'})
+
+				# Disabled Workstations
+				$TotalDisabledWorkstations += @($TotalDisabledMachines | Where-Object { $_.operatingSystem -notlike '*Server*'})
+				
+				# GMSA
+				$CollectGMSAs += @(Collect-ADObjects -Domain $Domain -Server $Server -LDAP "objectClass=msDS-GroupManagedServiceAccount" -Property samaccountname,lastlogontimestamp,msds-managedpasswordinterval,pwdlastset,objectSID,objectGuid)
+				
+				# Collect SCCM Servers
+				$CollectSCCMServers += @(Collect-ADObjects -Domain $Domain -Server $Server -LDAP "objectClass=mSSMSManagementPoint" -Property mssmsmpname)
+				
+				# Printers
+				$PrintersCollection += @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Printers -Property servername,shortservername,printsharename,portname,drivername,url)
+				
+				Write-Output "[*] Collecting Groups..."
+				
+				# All Groups
+				$TotalGroups += @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Groups -Property name,objectClass,objectCategory,member,distinguishedName,samaccountname,objectsid,cn,memberof,admincount,description)
+				
+				Write-Output "[*] Collecting GPOs..."
+				
+				# All GPOs
+				$AllCollectedGPOs += @(Collect-ADObjects -Domain $Domain -Server $Server -Collect GPOs -Property gpcfilesyspath,displayname,cn,distinguishedname,name)
+				
+				Write-Output "[*] Collecting OUs..."
+				
+				# All OUs
+				$AllCollectedOUs += @(Collect-ADObjects -Domain $Domain -Server $Server -Collect OUs -Property gplink,name,distinguishedname)
+				
+				Write-Output "[*] Collecting Certificate Templates..."
+				
+				# Cert Templates
+				if(!$NoVulnCertTemplates){$AllCertTemplates += @(Collect-ADCertificateTemplates -Domain $Domain -Server $Server)}
+			}
+			
+			else{
+				foreach($AllDomain in $AllDomains){
+					
+					Write-Output "[*] Collecting Krbtgt..."
+					
+					# krbtgt
+					$AllkrbtgtAccounts += @(Collect-ADObjects -Domain $AllDomain -Identity krbtgt -Property samaccountname,objectsid,whencreated,pwdlastset,serviceprincipalname)
+					
+					Write-Output "[*] Collecting Domain Trusts..."
+				
+					# Domain Trusts
+					$AllDomainTrusts += FindDomainTrusts -Domain $AllDomain
+					
+					Write-Output "[*] Collecting Domain Controllers..."
+					
+					# Domain Controllers
+					$TotalDomainControllers += @(Collect-ADObjects -Domain $AllDomain -Collect DomainControllers -Property name,dnshostname,Roles,operatingsystem)
+					
+					# rIDManagers
+					$CollectrIDManagers += @(Collect-ADObjects -Domain $AllDomain -Collect rIDManagers -Property name,fSMORoleOwner)
+					
+					Write-Output "[*] Collecting Policies..."
+					
+					# Domain Policies
+					$DomainPolicy += @(Collect-ADObjects -Domain $AllDomain -Collect DomainPolicy -Property minPwdAge,maxPwdAge,pwdProperties,minPwdLength,pwdHistoryLength,lockoutThreshold,ms-ds-machineaccountquota)
+					
+					# All Policies
+					$PolicyTargets += @(Collect-ADObjects -Domain $AllDomain -Collect OtherPolicies -Property distinguishedname)
+					
+					Write-Output "[*] Collecting Users..."
+					
+					# Enabled Users
+					$TotalEnabledUsers += @(Collect-ADObjects -Domain $AllDomain -Collect Users -Enabled -Property name,objectClass,objectCategory,distinguishedName,samaccountname,objectsid,lastlogontimestamp,pwdlastset,cn,memberof,admincount,serviceprincipalname,sidHistory,description,objectGuid,samAccountType,displayname,userPassword,unixUserPassword,homedirectory,msds-allowedtodelegateto,userAccountControl)
+
+					# Disabled Users
+					$TotalDisabledUsers += @(Collect-ADObjects -Domain $AllDomain -Collect Users -Disabled -Property samaccountname)
+					
+					# All Users
+					$TotalEnabledDisabledUsers += @($TotalEnabledUsers + $TotalDisabledUsers)
+					
+					# Foreign Members
+					$AllForeignSecurityPrincipals += @(Collect-ADObjects -Domain $AllDomain -LDAP "(&(objectCategory=foreignSecurityPrincipal)(CN=S-1-5-21*))")
+					
+					Write-Output "[*] Collecting Machines..."
+					
+					# Enabled Computers
+					$TotalEnabledMachines += @(Collect-ADObjects -Domain $AllDomain -Collect Computers -Enabled -Property name,objectClass,objectCategory,distinguishedName,samaccountname,objectsid,lastlogontimestamp,pwdlastset,cn,operatingsystem,DnsHostName,memberof,admincount,serviceprincipalname,ms-DS-CreatorSID,description,samAccountType,displayname,ms-Mcs-AdmPwdExpirationTime,msds-allowedtodelegateto,whencreated,userAccountControl)
+
+					# Disabled Computers
+					$TotalDisabledMachines += @(Collect-ADObjects -Domain $AllDomain -Collect Computers -Disabled -Property samaccountname,operatingsystem,dnshostname,name)
+					
+					# All Computers
+					$TotalEnabledDisabledMachines += @($TotalEnabledMachines + $TotalDisabledMachines)
+
+					# Enabled Servers including Domain Controllers
+					$TotalEnabledServers += @($TotalEnabledMachines | Where-Object { $_.operatingSystem -like '*Server*'})
+
+					# Disabled Servers including Domain Controllers
+					$TotalDisabledServers += @($TotalDisabledMachines | Where-Object { $_.operatingSystem -like '*Server*'})
+
+					# Enabled Workstations
+					$TotalEnabledWorkstations += @($TotalEnabledMachines | Where-Object { $_.operatingSystem -notlike '*Server*'})
+
+					# Disabled Workstations
+					$TotalDisabledWorkstations += @($TotalDisabledMachines | Where-Object { $_.operatingSystem -notlike '*Server*'})
+					
+					# GMSA
+					$CollectGMSAs += @(Collect-ADObjects -Domain $AllDomain -LDAP "objectClass=msDS-GroupManagedServiceAccount" -Property samaccountname,lastlogontimestamp,msds-managedpasswordinterval,pwdlastset,objectSID,objectGuid)
+					
+					# Collect SCCM Servers
+					$CollectSCCMServers += @(Collect-ADObjects -Domain $AllDomain -LDAP "objectClass=mSSMSManagementPoint" -Property mssmsmpname)
+					
+					# Printers
+					$PrintersCollection += @(Collect-ADObjects -Domain $AllDomain -Collect Printers -Property servername,shortservername,printsharename,portname,drivername,url)
+					
+					Write-Output "[*] Collecting Groups..."
+					
+					# All Groups
+					$TotalGroups += @(Collect-ADObjects -Domain $AllDomain -Collect Groups -Property name,objectClass,objectCategory,member,distinguishedName,samaccountname,objectsid,cn,memberof,admincount,description)
+					
+					Write-Output "[*] Collecting GPOs..."
+					
+					# All GPOs
+					$AllCollectedGPOs += @(Collect-ADObjects -Domain $AllDomain -Collect GPOs -Property gpcfilesyspath,displayname,cn,distinguishedname,name)
+					
+					Write-Output "[*] Collecting OUs..."
+					
+					# All OUs
+					$AllCollectedOUs += @(Collect-ADObjects -Domain $AllDomain -Collect OUs -Property gplink,name,distinguishedname)
+					
+					Write-Output "[*] Collecting Certificate Templates..."
+					
+					# Cert Templates
+					if(!$NoVulnCertTemplates){$AllCertTemplates += @(Collect-ADCertificateTemplates -Domain $AllDomain)}
+				}
+			}
+		}
+		
+		#$ActiveDirectoryObjects = @($TotalEnabledDisabledUsers + $TotalEnabledDisabledMachines + $TotalGroups + $AllCollectedGPOs + $AllCollectedOUs + $CollectEverythingElse)
+		
 		# All GUIDs Mappings
-		$AllGUIDMappings = Get-ADGuidMapping -Domains $AllDomains
+		if($LoadFromDisk){
+			# Import the JSON data from the file
+			$jsonData = Get-Content -Path c:\Users\Public\Documents\ADEnum\GUIDMappings.json -Raw | ConvertFrom-Json
+			$AllGUIDMappings = @{}
+			foreach ($domain in $jsonData.PSObject.Properties.Name) {
+				$AllGUIDMappings[$domain] = @{}
+				$domainData = $jsonData.$domain
+				
+				foreach ($guid in $domainData.PSObject.Properties.Name) {
+					$guidKey = [Guid]::Parse($guid)
+					$AllGUIDMappings[$domain][$guidKey] = $domainData.$guid
+				}
+			}
+		}
 		
-		# All Users
-		$TotalEnabledDisabledUsers = @($ActiveDirectoryObjects | Where-Object { $_.samaccounttype -eq 805306368 })
+		else{
+			Write-Output "[*] Collecting GUID Mappings..."
+			if ($Domain -and $Server) {
+				$AllGUIDMappings = Get-ADGuidMapping -Domain $Domain -Server $Server
+			}
+			else{
+				$AllGUIDMappings = foreach($AllDomain in $AllDomains){
+					Get-ADGuidMapping -Domain $AllDomain
+				}
+			}
+			
+			if($SaveToDisk){
+				# Convert the hash table keys to strings
+				$TransformedGUIDMappings = @{}
+				foreach ($domain in $AllGUIDMappings.Keys) {
+					$TransformedGUIDMappings[$domain] = @{}
+					foreach ($guid in $AllGUIDMappings[$domain].Keys) {
+						$TransformedGUIDMappings[$domain][$guid.ToString()] = $AllGUIDMappings[$domain][$guid]
+					}
+				}
+				$TransformedGUIDMappings | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\GUIDMappings.json
+			}
+		}
 		
-		# Enabled Users
-		$TotalEnabledUsers = @($ActiveDirectoryObjects | Where-Object { $_.samaccounttype -eq 805306368 -and ([int]$_.userAccountControl -band 2) -eq 0 })
-
-		# Disabled Users
-		$TotalDisabledUsers = @($ActiveDirectoryObjects | Where-Object { $_.samaccounttype -eq 805306368 -and ([int]$_.userAccountControl -band 2) -ne 0 })
-
-		# All Computers
-		$TotalEnabledDisabledMachines = @($ActiveDirectoryObjects | Where-Object { $_.samaccounttype -eq 805306369 })
-		
-		# Enabled Computers
-		$TotalEnabledMachines = @($ActiveDirectoryObjects | Where-Object { $_.samaccounttype -eq 805306369 -and ([int]$_.userAccountControl -band 2) -eq 0 })
-
-		# Disabled Computers
-		$TotalDisabledMachines = @($ActiveDirectoryObjects | Where-Object { $_.samaccounttype -eq 805306369 -and ([int]$_.userAccountControl -band 2) -ne 0 })
-
-		# Enabled Servers including Domain Controllers
-		$TotalEnabledServers = @($ActiveDirectoryObjects | Where-Object { $_.objectCategory -like '*Computer*' -and $_.operatingSystem -like '*Server*' -and ([int]$_.userAccountControl -band 2) -eq 0 })
-
-		# Disabled Servers including Domain Controllers
-		$TotalDisabledServers = @($ActiveDirectoryObjects | Where-Object { $_.objectCategory -like '*Computer*' -and $_.operatingSystem -like '*Server*' -and ([int]$_.userAccountControl -band 2) -ne 0 })
-
-		# Enabled Workstations
-		$TotalEnabledWorkstations = @($ActiveDirectoryObjects | Where-Object { $_.objectCategory -like '*Computer*' -and ($_.operatingSystem -notlike '*Server*') -and ([int]$_.userAccountControl -band 2) -eq 0 })
-
-		# Disabled Workstations
-		$TotalDisabledWorkstations = @($ActiveDirectoryObjects | Where-Object { $_.objectCategory -like '*Computer*' -and ($_.operatingSystem -notlike '*Server*') -and ([int]$_.userAccountControl -band 2) -ne 0 })
-		
-		# All Groups
-		$TotalGroups = @($ActiveDirectoryObjects | Where-Object { $_.objectClass -contains 'group'})
-		#$TotalGroups = @($ActiveDirectoryObjects | Where-Object { $_.objectClass -contains 'group' -or $_.objectCategory -like '*Group*' })
-		
-		# Domain Policies
-		$DomainPolicy = $ActiveDirectoryObjects | Where-Object { $_.objectClass -contains 'domainDNS' }
-		
-		# krbtgt
-		$AllkrbtgtAccounts = @($ActiveDirectoryObjects | Where-Object { $_.name -eq 'krbtgt' })
+		## PARSING
+		if(!$LoadFromDisk){Write-Output "[*] Parsing Data..."}
 		
 		# All Groups, Users and Computers
-		$SumGroupsUsers = @()
-		$SumGroupsUsers += $TotalGroups
-		$SumGroupsUsers += $TotalEnabledUsers
-		$SumGroupsUsers += $TotalEnabledMachines
+		$SumGroupsUsers = @($TotalGroups + $TotalEnabledUsers + $TotalEnabledMachines + $AllForeignSecurityPrincipals)
 		
 		# Protected users
 		$ProtectedUsers = @(RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Identity "Protected Users")
@@ -983,8 +1269,8 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 		$DAEABA = @()
 		$TempDAEABA = @()
 		
-		$TempDAEABA = foreach ($Group in $DAEABAGroups) {
-			RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Identity $Group |
+		foreach ($Group in $DAEABAGroups) {
+			$TempDAEABA += RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Identity $Group |
 				Group-Object domain, samaccountname |  # Group by domain and samaccountname
 				ForEach-Object { $_.Group | Select-Object -First 1 }  # Select the first object from each group
 		}
@@ -992,26 +1278,6 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 		# To ensure uniqueness across the entire collection
 		$DAEABA = @($TempDAEABA | Group-Object domain, samaccountname | ForEach-Object { $_.Group | Select-Object -First 1 })
 		
-		<# $RemainingADObjects = @()
-
-		foreach ($AllDomain in $AllDomains) {
-			# Filter $TempDAEABA for the current domain
-			$TempDAEABACurrentDomain = $DAEABA | Where-Object { $_.domain -eq $AllDomain }
-
-			# Get the list of samaccountnames from $TempDAEABACurrentDomain
-			$ExcludedSamAccountNames = $TempDAEABACurrentDomain.samaccountname
-
-			# Filter $SumGroupsUsers for the current domain and exclude the samaccountnames
-			$RemainingADObjectsForDomain = $SumGroupsUsers | Where-Object {
-				$_.domain -eq $AllDomain -and 
-				$_.samaccountname -notin $DAEABAGroups -and 
-				$_.samaccountname -notin $ExcludedSamAccountNames
-			}
-
-			# Add the remaining objects for the domain to the overall list
-			$RemainingADObjects += $RemainingADObjectsForDomain
-		} #>
-
 		# Security Groups Users
 		
 		$AllSecurityGroups = @(
@@ -1048,45 +1314,14 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 		# Admin Count Users
 		$AllAdminCountUsers = @($TotalEnabledUsers | Where-Object { $_.admincount -eq 1 })
 		
-		# Domain Controllers
-		$TotalDomainControllers = @($ActiveDirectoryObjects | Where-Object { $_.objectCategory -like '*Computer*' -and ([int]$_.userAccountControl -band 8192) -eq 8192 } | Sort-Object -Unique -Property domain,dnshostname)
-		
 		# RIDRole DCs
-		$ridManager = @($ActiveDirectoryObjects | Where-Object { $_.objectClass -contains 'rIDManager' } | Sort-Object -Unique -Property domain,name)
+		$ridManager = @($CollectrIDManagers | Sort-Object -Unique -Property domain,name)
 		$fsmoRoleOwnerDN = @($ridManager.fSMORoleOwner)
 		$dcDNs = @($fsmoRoleOwnerDN -replace '^CN=NTDS Settings,')
 		$ExtrDCs = @()
 		foreach($dcDN in $dcDNs){$ExtrDCs += ($dcDN -split ',')[0] -replace 'CN=', ''}
 		$RIDRoleDCs = @()
-		#foreach($ExtrDC in $ExtrDCs){$RIDRoleDCs += $TotalDomainControllers | Where-Object { $_.name -like "$ExtrDC*"}}
 		$RIDRoleDCs += $TotalDomainControllers | Where-Object { $ExtrDCs -contains $_.name }
-		
-		# All GPOs
-		$AllCollectedGPOs = @($ActiveDirectoryObjects | Where-Object { $_.gpcfilesyspath})
-		
-		# All OUs
-		$AllCollectedOUs = @($ActiveDirectoryObjects | Where-Object { $_.objectCategory -like '*Organizational-Unit*' })
-		
-		# All Policies
-		$PolicyTargets = $ActiveDirectoryObjects | Where-Object {$_.distinguishedname -like "CN=Policies*"}
-		
-		# Cert Templates
-		$AllCertTemplates = @()
-		if(!$NoVulnCertTemplates){
-			if ($Domain -and $Server) {
-				if($TargetsOnly){}
-				else{
-					$AllCertTemplates = Collect-ADCertificateTemplates -Domain $Domain
-				}
-			}
-			
-			else{
-				foreach($AllDomain in $AllDomains){
-					if($TargetsOnly){}
-					else{$AllCertTemplates += Collect-ADCertificateTemplates -Domain $AllDomain}
-				}
-			}
-		}
 		
 		# Subnets
 		$AllSubnets = @()
@@ -1094,13 +1329,26 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 			Subnets -Domain $AllDomain
 		}
 		
-		<#
-		foreach($AllDomain in $AllDomains){
-			$DomainContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Domain', $AllDomain)
-			$ExpandContext = [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain($DomainContext)
-			$TotalDomainControllers += $ExpandContext.DomainControllers
+		if($SaveToDisk){
+			$AllkrbtgtAccounts | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\krbtgtAccounts.json
+			$TotalDomainControllers | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\DomainControllers.json
+			$CollectrIDManagers | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\rIDManagers.json
+			$DomainPolicy | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\DomainPolicy.json
+			$PolicyTargets | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\PolicyTargets.json
+			$TotalEnabledUsers | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\EnabledUsers.json
+			$TotalDisabledUsers | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\DisabledUsers.json
+			$AllForeignSecurityPrincipals | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\ForeignSecurityPrincipals.json
+			$TotalEnabledMachines | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\EnabledMachines.json
+			$TotalDisabledMachines | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\DisabledMachines.json
+			$CollectGMSAs | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\GMSAs.json
+			$CollectSCCMServers | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\SCCMServers.json
+			$PrintersCollection | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\Printers.json
+			$TotalGroups | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\Groups.json
+			$AllCollectedGPOs | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\GPOs.json
+			$AllCollectedOUs | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\OUs.json
+			$AllCertTemplates | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\CertTemplates.json
+			$AllDomainTrusts | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\DomainTrusts.json
 		}
-		#>
 	}
 	
 	#############################################
@@ -1256,7 +1504,7 @@ Add-Type -TypeDefinition $code
 	if($TargetsOnly){
 		
 	    $TempGetDomainTrust = foreach($AllDomain in $AllDomains){
-			$GetDomainTrusts = FindDomainTrusts -Domain $AllDomain
+			$GetDomainTrusts = @($AllDomainTrusts | Where-Object {$_.SourceName -eq $AllDomain})
 			
 			foreach ($GetDomainTrust in $GetDomainTrusts) {
 				[PSCustomObject]@{
@@ -1284,15 +1532,15 @@ Add-Type -TypeDefinition $code
 		
 		Write-Host ""
 		Write-Host "Domain Controllers:" -ForegroundColor Cyan
-      
-		$TempHTMLdc = foreach($AllDomain in $AllDomains){
+		$TempHTMLdc = @()
+		foreach($AllDomain in $AllDomains){
 			$domainControllers = $TotalDomainControllers | Where-Object {$_.domain -eq $AllDomain}
 			foreach ($dc in $domainControllers) {
 				$TestingLDAP = Test-LDAPConnectivity -ComputerName $dc.dnshostname
 				$isPrimaryDC = $dc.Roles -like "RidRole"
 				$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
 				$startupTime = [NativeMethods]::GetStartupTime($dc.dnshostname)
-				$ipaddress = (Resolve-DnsName -Name $dc.DnsHostName -Type A).IPAddress
+				if($dc.DnsHostName){$ipaddress = (Resolve-DnsName -Name $dc.DnsHostName -Type A).IPAddress}
 				if($ipaddress.count -gt 1){$ipaddress = $ipaddress -join ", "}
 				if($startupTime -eq "01 January 0001 00:00:00"){
 					$UptimeString = "No Access"
@@ -1309,7 +1557,7 @@ Add-Type -TypeDefinition $code
 				$TextFuncLevel = $functionalLevelMapping[[int]$dcBehaviorVersion]
 				$MaxFunctionalLevel = "$TextFuncLevel ($dcBehaviorVersion)"
 				
-				[PSCustomObject]@{
+				$TempHTMLdc += [PSCustomObject]@{
 					"DC Name" = $dc.Name
 					"OS Version" = $dc.operatingsystem
 					"IP Address" = $ipaddress
@@ -1324,16 +1572,52 @@ Add-Type -TypeDefinition $code
 			}
 		}
 		
+		if($OutboundTrusts){
+			foreach($OutTrust in $OutboundTrusts){
+				$result = nslookup -type=all "_ldap._tcp.dc._msdcs.$OutTrust" 2>$null
+				if ($result) {
+					$OutTrustDCs = @($result | Where-Object { $_ -like '*svr hostname*' } | ForEach-Object { $_.Split('=')[-1].Trim() })
+					
+					foreach ($dc in $OutTrustDCs) {
+						$dcIP = ($result | Where-Object { $_ -like "*$dc*" -AND $_ -like "*internet address*" } | Select-Object -First 1).Split('=')[-1].Trim()
+						$dcname = $dc -replace "\.$OutTrust","$"
+						if ($dcIP) {
+							$TempHTMLdc += [PSCustomObject]@{
+								"DC Name"   = $dcname
+								"OS Version" = ""
+								"IP Address" = $dcIP
+								"Max Functional Level" = ""
+								"LDAP" = ""
+								"LDAPS" = ""
+								"OpenPorts" = ""
+								"Uptime" = ""
+								Domain = $OutTrust
+							}
+						} else {
+							$TempHTMLdc += [PSCustomObject]@{
+								"DC Name"   = $dcname
+								"OS Version" = ""
+								"IP Address" = "Not found"
+								Domain = $OutTrust
+							}
+						}
+					}
+				}
+			}
+		}
+		
 		if($TempHTMLdc ){
 			$TempHTMLdc | Sort-Object Domain,"DC Name" | ft -Autosize -Wrap
 		}
 		
-		<# Write-Host ""
+		Write-Host ""
 		Write-Host "Accounts Analysis:" -ForegroundColor Cyan
 		
 		$QuickDomainAnalysis = foreach($AllDomain in $AllDomains){
 				
 			[PSCustomObject]@{
+				"Total Users" = @($TotalEnabledDisabledUsers | Where-Object {$_.domain -eq $AllDomain}).count
+				"Total Machines" = @($TotalEnabledDisabledMachines | Where-Object {$_.domain -eq $AllDomain}).count
 				"Enabled Users" = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain}).count
 				"Disabled Users" = @($TotalDisabledUsers | Where-Object {$_.domain -eq $AllDomain}).count
 				"Enabled Servers" = @($TotalEnabledServers | Where-Object {$_.domain -eq $AllDomain}).count
@@ -1345,7 +1629,7 @@ Add-Type -TypeDefinition $code
 			
 		}
 		
-		$QuickDomainAnalysis | ft -Autosize -Wrap #>
+		$QuickDomainAnalysis | ft -Autosize -Wrap
 		
 		break
 	}
@@ -1383,14 +1667,15 @@ Add-Type -TypeDefinition $code
 	
 	Write-Host ""
     Write-Host "Domain Controllers:" -ForegroundColor Cyan
-    $TempHTMLdc = foreach($AllDomain in $AllDomains){
+	$TempHTMLdc = @()
+    foreach($AllDomain in $AllDomains){
 		$domainControllers = $TotalDomainControllers | Where-Object {$_.domain -eq $AllDomain}
 		foreach ($dc in $domainControllers) {
 			$TestingLDAP = Test-LDAPConnectivity -ComputerName $dc.dnshostname
 			$isPrimaryDC = $dc.Roles -like "RidRole"
 			$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
 			$startupTime = [NativeMethods]::GetStartupTime($dc.dnshostname)
-			$ipaddress = (Resolve-DnsName -Name $dc.DnsHostName -Type A).IPAddress
+			if($dc.DnsHostName){$ipaddress = (Resolve-DnsName -Name $dc.DnsHostName -Type A).IPAddress}
 			if($ipaddress.count -gt 1){$ipaddress = $ipaddress -join ", "}
 			if($startupTime -eq "01 January 0001 00:00:00"){
 				$UptimeString = "No Access"
@@ -1407,7 +1692,7 @@ Add-Type -TypeDefinition $code
 			$TextFuncLevel = $functionalLevelMapping[[int]$dcBehaviorVersion]
 			$MaxFunctionalLevel = "$TextFuncLevel ($dcBehaviorVersion)"
 			
-			[PSCustomObject]@{
+			$TempHTMLdc += [PSCustomObject]@{
 				"DC Name" = $dc.Name
 				"OS Version" = $dc.operatingsystem
 				"IP Address" = $ipaddress
@@ -1418,6 +1703,40 @@ Add-Type -TypeDefinition $code
 				"Uptime" = $UptimeString
 				"Primary" = if($RIDRoleDCs.dnshostname -contains $dc.dnshostname) {"YES"} else {"NO"}
 				Domain = $dc.Domain
+			}
+		}
+	}
+	
+	if($OutboundTrusts){
+		foreach($OutTrust in $OutboundTrusts){
+			$result = nslookup -type=all "_ldap._tcp.dc._msdcs.$OutTrust" 2>$null
+			if ($result) {
+				$OutTrustDCs = @($result | Where-Object { $_ -like '*svr hostname*' } | ForEach-Object { $_.Split('=')[-1].Trim() })
+				
+				foreach ($dc in $OutTrustDCs) {
+					$dcIP = ($result | Where-Object { $_ -like "*$dc*" -AND $_ -like "*internet address*" } | Select-Object -First 1).Split('=')[-1].Trim()
+					$dcname = $dc -replace "\.$OutTrust","$"
+					if ($dcIP) {
+						$TempHTMLdc += [PSCustomObject]@{
+							"DC Name"   = $dcname
+							"OS Version" = ""
+							"IP Address" = $dcIP
+							"Max Functional Level" = ""
+							"LDAP" = ""
+							"LDAPS" = ""
+							"OpenPorts" = ""
+							"Uptime" = ""
+							Domain = $OutTrust
+						}
+					} else {
+						$TempHTMLdc += [PSCustomObject]@{
+							"DC Name"   = $dcname
+							"OS Version" = ""
+							"IP Address" = "Not found"
+							Domain = $OutTrust
+						}
+					}
+				}
 			}
 		}
 	}
@@ -1489,7 +1808,7 @@ Add-Type -TypeDefinition $code
 	Write-Host "Domain Trusts:" -ForegroundColor Cyan
 	
     $TempGetDomainTrust = foreach($AllDomain in $AllDomains){
-		$GetDomainTrusts = FindDomainTrusts -Domain $AllDomain
+		$GetDomainTrusts = @($AllDomainTrusts | Where-Object {$_.SourceName -eq $AllDomain})
 		
 		foreach ($GetDomainTrust in $GetDomainTrusts) {
 			[PSCustomObject]@{
@@ -1516,7 +1835,7 @@ Add-Type -TypeDefinition $code
     Write-Host ""
     Write-Host "Trust Accounts:" -ForegroundColor Cyan
     $TempTrustAccounts = foreach($AllDomain in $AllDomains){
-		$TrustAccounts = @($ActiveDirectoryObjects | Where-Object {$_.domain -eq $AllDomain -AND $_.objectCategory -like '*person*' -AND $_.objectClass -contains 'user' -AND ([int]$_.userAccountControl -band 2048) -ne 0})
+		$TrustAccounts = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND ([int]$_.userAccountControl -band 2048) -ne 0})
 		
 		foreach($TrustAccount in $TrustAccounts){
 			
@@ -1524,7 +1843,11 @@ Add-Type -TypeDefinition $code
 				Domain = $AllDomain
 				Name = $TrustAccount.samaccountname
 				"Object SID" = GetSID-FromBytes -sidBytes $TrustAccount.objectsid
-				"Object GUID" = (New-Object System.Guid('{0:X2}{1:X2}{2:X2}{3:X2}-{4:X2}{5:X2}-{6:X2}{7:X2}-{8:X2}{9:X2}-{10:X2}{11:X2}{12:X2}{13:X2}{14:X2}{15:X2}' -f $TrustAccount.objectguid)).guid
+				"Object GUID" = ([guid]::New(([string]::Join('', ($TrustAccount.objectGuid | ForEach-Object { "{0:X2}" -f $_ }))[0..7] -join '') + "-" + 
+                                              ([string]::Join('', ($TrustAccount.objectGuid | ForEach-Object { "{0:X2}" -f $_ }))[8..11] -join '') + "-" +
+                                              ([string]::Join('', ($TrustAccount.objectGuid | ForEach-Object { "{0:X2}" -f $_ }))[12..15] -join '') + "-" +
+                                              ([string]::Join('', ($TrustAccount.objectGuid | ForEach-Object { "{0:X2}" -f $_ }))[16..19] -join '') + "-" +
+                                              ([string]::Join('', ($TrustAccount.objectGuid | ForEach-Object { "{0:X2}" -f $_ }))[20..31] -join ''))).Guid
 				"Account Type" = switch ($TrustAccount.samAccountType) {
 					805306368 { "User" }
 					805306369 { "Computer" }
@@ -1546,7 +1869,7 @@ Add-Type -TypeDefinition $code
 
     Write-Host ""
     Write-Host "Trusted Domain Object GUIDs:" -ForegroundColor Cyan
-    $TDOTargetNames = @(foreach($AllDomain in $AllDomains){FindDomainTrusts -Domain $AllDomain | Where-Object { $_.TrustDirection -eq 'Outbound' } | Select-Object -ExpandProperty TargetName})
+    $TDOTargetNames = @(foreach($AllDomain in $AllDomains){$AllDomainTrusts | Where-Object { $_.SourceName -eq $AllDomain -AND $_.TrustDirection -eq 'Outbound' } | Select-Object -ExpandProperty TargetName})
 	$TDOTrustDirection = "Outbound"
 	
 	$TempTrustedDomainObjectGUIDs = foreach($AllDomain in $AllDomains){
@@ -1554,14 +1877,18 @@ Add-Type -TypeDefinition $code
 		$TDOSourceDomainName = $TDOSourceDomainName -replace " ", ",DC="
 		foreach($TDOTargetName in $TDOTargetNames){
 			$TDOName = "CN=$TDOTargetName,CN=System,$TDOSourceDomainName"
-			$TrustedDomainObjectGUIDs = @($ActiveDirectoryObjects | Where-Object {$_.domain -eq $AllDomain -AND $_.distinguishedName -eq $TDOName})
+			$TrustedDomainObjectGUIDs = @(Collect-ADObjects -Domain $AllDomain -LDAP "distinguishedname=$TDOName")
 			
 			foreach ($TrustedDomainObjectGUID in $TrustedDomainObjectGUIDs) {
 				[PSCustomObject]@{
 					"Source Name" = $AllDomain
 					"Target Name" = $TDOTargetName
 					"Direction" = $TDOTrustDirection
-					"Object GUID" = (New-Object System.Guid('{0:X2}{1:X2}{2:X2}{3:X2}-{4:X2}{5:X2}-{6:X2}{7:X2}-{8:X2}{9:X2}-{10:X2}{11:X2}{12:X2}{13:X2}{14:X2}{15:X2}' -f $TrustedDomainObjectGUID.objectGuid)).guid
+					"Object GUID" = ([guid]::New(([string]::Join('', ($TrustedDomainObjectGUID.objectGuid | ForEach-Object { "{0:X2}" -f $_ }))[0..7] -join '') + "-" + 
+                                              ([string]::Join('', ($TrustedDomainObjectGUID.objectGuid | ForEach-Object { "{0:X2}" -f $_ }))[8..11] -join '') + "-" +
+                                              ([string]::Join('', ($TrustedDomainObjectGUID.objectGuid | ForEach-Object { "{0:X2}" -f $_ }))[12..15] -join '') + "-" +
+                                              ([string]::Join('', ($TrustedDomainObjectGUID.objectGuid | ForEach-Object { "{0:X2}" -f $_ }))[16..19] -join '') + "-" +
+                                              ([string]::Join('', ($TrustedDomainObjectGUID.objectGuid | ForEach-Object { "{0:X2}" -f $_ }))[20..31] -join ''))).Guid
 				}
 			}
 		}
@@ -1572,43 +1899,71 @@ Add-Type -TypeDefinition $code
 		$HTMLTrustedDomainObjectGUIDs = $TempTrustedDomainObjectGUIDs | Sort-Object "Source Name","Target Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='TrustedDomainObjectGUIDs'>Trusted Domain Object GUIDs</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='TrustedDomainObjectGUIDs'>" }
 	}
 	
-	#############################################
-    ################ Outsiders ##################
-	#############################################
-        
-    Write-Host ""
-	Write-Host "Foreign Domain Members:" -ForegroundColor Cyan
-	
-	$ExcludeGroups = @('Users', 'Domain Users', 'Guests')
-	
-	$ForeignGroupMembers = @()
-	$ForeignGroupMembers = Outsiders -TotalGroups $TotalGroups
-	
-	$TempForeignGroupMembers = @()
-	$TempForeignGroupMembers = foreach ($ForeignGroupMember in $ForeignGroupMembers) {
+	if($PlaceHolderDomains.count -gt 1){
+		#############################################
+		################ Outsiders ##################
+		#############################################
+			
+		Write-Host ""
+		Write-Host "Foreign Domain Members:" -ForegroundColor Cyan
 		
-		$ExtractedObject = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq $ForeignGroupMember.MemberName}
-		$ExtractedMemberName = $ExtractedObject.samaccountname
-		$TargetExtractedDomain = $ExtractedObject.domain
-		$ObjectsForTheDomain = @($ActiveDirectoryObjects | Where-Object {$_.domain -eq $TargetExtractedDomain})
-		$GroupMembers = @()
-		$GroupMembers = if($ExtractedMemberName) {RecursiveGroupMembers -Identity $ExtractedMemberName -AllADObjects $ObjectsForTheDomain} else {""}
-		$FinalMembers = $GroupMembers.MemberName -join ' - '
-		#$convertedMemberName = ($TargetExtractedDomain -split "\.")[0] + "\" + $ExtractedMemberName
+		$ExcludeGroups = @('Users', 'Domain Users', 'Guests')
 		
-		[PSCustomObject]@{
-			"Group Domain" = $ForeignGroupMember.GroupDomain
-			"Group Name" = $ForeignGroupMember.GroupName
-			"Member Domain" = $TargetExtractedDomain
-			"Member or GroupName" = $ExtractedMemberName
-			"Member or Group SID" = $ForeignGroupMember.MemberName
-			"Group Members" = $FinalMembers
-		}
-	}
+		$ForeignGroupMembers = @()
+		$ForeignGroupMembers = foreach ($group in $TotalGroups) {
+			$GroupName = $group.samAccountName
+			$GroupDistinguishedName = $group.distinguishedname
+			$GroupDomain = $group.domain
 
- 	if ($TempForeignGroupMembers | Where-Object {$_."Member or GroupName" -ne $null -or (Test-SidFormat -SidString $_."Member or Group SID")}) {
-		$TempForeignGroupMembers | Where-Object {$_."Member or GroupName" -ne $null -or (Test-SidFormat -SidString $_."Member or Group SID")} | Sort-Object "Group Domain","Group Name" | Format-Table -AutoSize -Wrap
-		$HTMLGetDomainForeignGroupMember = $TempForeignGroupMembers | Where-Object {$_."Member or GroupName" -ne $null -or (Test-SidFormat -SidString $_."Member or Group SID")} | Sort-Object "Group Domain","Group Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ForeignDomainMembers'>Foreign Domain Members</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ForeignDomainMembers'>" }
+			if ($ExcludeGroups -notcontains $GroupName) {
+				foreach ($member in $group.member) {
+					if ($member -match 'CN=S-1-5-21.*-.*' -and $member -match "CN=ForeignSecurityPrincipals") {
+						$MemberDomain = ($member -replace '.*DC=([^,]+),DC=([^,]+).*', '$1.$2')
+						$MemberDistinguishedName = $member
+						$MemberName = ($member -split ',')[0] -replace 'CN=', ''
+
+						[PSCustomObject]@{
+							GroupDomain            = $GroupDomain
+							GroupName              = $GroupName
+							GroupDistinguishedName = $GroupDistinguishedName
+							MemberDomain           = $MemberDomain
+							MemberName             = $MemberName
+							MemberDistinguishedName = $MemberDistinguishedName
+						}
+					}
+				}
+			}
+		}
+		
+		$TempForeignGroupMembers = @()
+		$TempForeignGroupMembers = foreach ($ForeignGroupMember in $ForeignGroupMembers) {
+			
+			$ExtractedObject = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq $ForeignGroupMember.MemberName}
+			if ($ExtractedObject) {
+				$ExtractedMemberName = $ExtractedObject.samaccountname
+				$TargetExtractedDomain = $ExtractedObject.domain
+				$ObjectsForTheDomain = @($SumGroupsUsers | Where-Object {$_.domain -eq $TargetExtractedDomain})
+			}
+			$GroupMembers = @()
+			$GroupMembers = if($ExtractedMemberName) {RecursiveGroupMembers -Identity $ExtractedMemberName -AllADObjects $ObjectsForTheDomain} else {""}
+			$FinalMembers = $GroupMembers.MemberName -join ' - '
+			
+			##$convertedMemberName = ($TargetExtractedDomain -split "\.")[0] + "\" + $ExtractedMemberName
+			
+			[PSCustomObject]@{
+				"Group Domain" = $ForeignGroupMember.GroupDomain
+				"Group Name" = $ForeignGroupMember.GroupName
+				"Member Domain" = $TargetExtractedDomain
+				"Member or Group Name" = $ExtractedMemberName
+				"Member or Group SID" = $ForeignGroupMember.MemberName
+				"Group Members" = $FinalMembers
+			}
+		}
+
+		if ($TempForeignGroupMembers) {
+			$TempForeignGroupMembers | Where-Object {$_."Member or Group Name" -ne $null -or (Test-SidFormat -SidString $_."Member or Group SID")} | Sort-Object "Group Domain","Group Name" | Format-Table -AutoSize -Wrap
+			$HTMLGetDomainForeignGroupMember = $TempForeignGroupMembers | Where-Object {$_."Member or Group Name" -ne $null -or (Test-SidFormat -SidString $_."Member or Group SID")} | Sort-Object "Group Domain","Group Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ForeignDomainMembers'>Foreign Domain Members</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ForeignDomainMembers'>" }
+		}
 	}
 
  	################################################
@@ -1675,7 +2030,7 @@ Add-Type -TypeDefinition $code
 				$TargetGPO = @($AllCollectedGPOs | Where-Object {$_.domain -eq $AllDomain -AND $_.gpcfilesyspath -eq $TempGPOPath -and $_.displayname -ne "Default Domain Policy"})
 				if($TargetGPO){
 					$GPOGuid = ($TargetGPO.gpcfilesyspath -split "}")[-2].split("{")[-1]  # Extracting the GPO's GUID
-					$TargetOUs = @($ActiveDirectoryObjects | Where-Object { $_.domain -eq $AllDomain -AND $_.objectCategory -like '*Organizational-Unit*' -AND $_.gplink -like "*$GPOGuid*"} )
+					$TargetOUs = @($AllCollectedOUs | Where-Object { $_.domain -eq $AllDomain -AND $_.gplink -like "*$GPOGuid*"} )
 					$OUs = $TargetOUs.name -Join " - "
 					
 					# Extracting policy settings from the file content
@@ -1719,9 +2074,8 @@ Add-Type -TypeDefinition $code
 	Write-Host ""
 	Write-Host "Kerberos Password Policy:" -ForegroundColor Cyan
 	$TempKerberosPolicy = foreach ($AllDomain in $AllDomains) {
-		$RelevantGpoPolicies = $ActiveDirectoryObjects | Where-Object {
+		$RelevantGpoPolicies = $AllCollectedGPOs | Where-Object {
 			$_.domain -eq $AllDomain -AND
-			$_.gpcfilesyspath -AND
 			$_.cn -eq "{31B2F340-016D-11D2-945F-00C04FB984F9}"
 		}
 
@@ -1763,13 +2117,13 @@ Add-Type -TypeDefinition $code
 	Write-Host "User Accounts Analysis:" -ForegroundColor Cyan
 
 	$TempUserAccountAnalysis = foreach ($AllDomain in $AllDomains) {
-		$UserAccountAnalysis = @($TotalEnabledDisabledUsers | Where-Object {$_.domain -eq $AllDomain})
+		$UserAccountAnalysis = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain})
 		
 		[PSCustomObject]@{
 			Domain = $AllDomain
-			'Nb User Accounts' = @($UserAccountAnalysis).count
+			'Nb User Accounts' = @($UserAccountAnalysis + ($TotalDisabledUsers | Where-Object {$_.domain -eq $AllDomain})).count
 			'Nb Enabled' = @(($UserAccountAnalysis | Where-Object { ([int]$_.userAccountControl -band 2) -eq 0 })).Count
-			'Nb Disabled' = @(($UserAccountAnalysis | Where-Object { ([int]$_.userAccountControl -band 2) -ne 0 })).Count
+			'Nb Disabled' = @($TotalDisabledUsers | Where-Object {$_.domain -eq $AllDomain}).Count
 			'Nb Active' = @(($UserAccountAnalysis | Where-Object { (Convert-LdapTimestamp -timestamp $_.lastlogontimestamp) -ge $inactiveThreshold})).count
 			'Nb Inactive' = @(($UserAccountAnalysis | Where-Object { (Convert-LdapTimestamp -timestamp $_.lastlogontimestamp) -lt $inactiveThreshold})).count
 			'Nb Locked' = @(($UserAccountAnalysis | Where-Object { $_.lockouttime -ne $null })).Count
@@ -1802,14 +2156,14 @@ Add-Type -TypeDefinition $code
 	Write-Host "Computer Account Analysis:" -ForegroundColor Cyan
 
 	$TempComputerAccountAnalysis = foreach ($AllDomain in $AllDomains) {
-		$ComputerAccountAnalysis = @($TotalEnabledDisabledMachines | Where-Object {$_.domain -eq $AllDomain})
+		$ComputerAccountAnalysis = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain})
 		$Unconstrained = @($ComputerAccountAnalysis | Where-Object {$_.domain -eq $AllDomain -AND $TotalDomainControllers.dnshostname -notcontains $_.dnshostname -AND ([int]$_.userAccountControl -band 524288) -eq 524288})
 		
 		[PSCustomObject]@{
 			Domain = $AllDomain
-			'Nb Computer Accounts' = @($ComputerAccountAnalysis).count
+			'Nb Computer Accounts' = @($ComputerAccountAnalysis + ($TotalDisabledMachines | Where-Object {$_.domain -eq $AllDomain})).count
 			'Nb Enabled' = @(($ComputerAccountAnalysis | Where-Object { ([int]$_.userAccountControl -band 2) -eq 0 })).Count
-			'Nb Disabled' = @(($ComputerAccountAnalysis | Where-Object { ([int]$_.userAccountControl -band 2) -ne 0 })).Count
+			'Nb Disabled' = @($TotalDisabledMachines | Where-Object {$_.domain -eq $AllDomain}).Count
 			'Nb Active' = @(($ComputerAccountAnalysis | Where-Object { (Convert-LdapTimestamp -timestamp $_.lastlogontimestamp) -ge $inactiveThreshold})).count
 			'Nb Inactive' = @(($ComputerAccountAnalysis | Where-Object { (Convert-LdapTimestamp -timestamp $_.lastlogontimestamp) -lt $inactiveThreshold})).count
 			'Unconstrained Delegations' = @($Unconstrained).count
@@ -1840,7 +2194,7 @@ Add-Type -TypeDefinition $code
 
 	$TempOperatingSystemsAnalysis = foreach ($AllDomain in $AllDomains) {
 		$AllSystems = @($TotalEnabledDisabledMachines | Where-Object {$_.domain -eq $AllDomain})
-		$OperatingSystemsAnalysis = @($AllSystems | Select-Object -ExpandProperty operatingsystem | Sort-Object -Unique)
+		$OperatingSystemsAnalysis = @($AllSystems | Where-Object {$_.operatingsystem} | Select-Object -ExpandProperty operatingsystem | Sort-Object -Unique)
 		
 		foreach($OperatingSystem in $OperatingSystemsAnalysis){
 			[PSCustomObject]@{
@@ -1899,7 +2253,7 @@ Add-Type -TypeDefinition $code
 	$llmnrpath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient"
 	$llmnrpropertyName = "EnableMulticast"
 	
-	$TempLLMNR = $TempLLMNR | Sort-Object Domain,'GPO Name'
+	$TempLLMNR = @($TempLLMNR | Sort-Object Domain,'GPO Name')
 	
 	if (Test-Path $llmnrpath) {
 		# Try to get the property value
@@ -1930,96 +2284,6 @@ Add-Type -TypeDefinition $code
 	if($TempLLMNR){
 		$TempLLMNR | Format-Table -AutoSize
 		$HTMLLLMNR = $TempLLMNR | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='LLMNRStatus'>LLMNR Status</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='LLMNRStatus'>" }
-	}
-	
-	##################################################
-    ########### LM Compatibility Level ###############
-	##################################################
-	
-	Write-Host ""
-	Write-Host "LM Compatibility Level:" -ForegroundColor Cyan
-
-	$policySettings = @{
-		"0" = "Send LM & NTLM responses"
-		"1" = "Send LM & NTLM - use NTLMv2 session security if negotiated"
-		"2" = "Send NTLM response only"
-		"3" = "Send NTLMv2 response only"
-		"4" = "Send NTLMv2 response only. Refuse LM"
-		"5" = "Send NTLMv2 response only. Refuse LM and NTLM"
-	}
-
-	$TempLMCompatibilityLevel = foreach ($AllDomain in $AllDomains) {
-		$Results = @()
-		$RelevantGpoPolicies = @($ActiveDirectoryObjects | Where-Object {$_.domain -eq $AllDomain -AND $_.gpcfilesyspath})
-		$RelevantGpoPolicies |
-		ForEach-Object {
-			$gpoPath = $_.gpcfilesyspath.TrimStart("[").TrimEnd("]")
-			$gpoDisplayName = $_.displayname
-			$gpoSetting = (Get-Content -Path "$gpoPath\MACHINE\Microsoft\Windows NT\SecEdit\GptTmpl.inf" -Raw | Select-String -Pattern "LmCompatibilityLevel" | Select-Object -Last 1).Line
-			$gpoSetting = ($gpoSetting | Out-String) -split "`n"
-			$gpoSetting = $gpoSetting | Select-String -Pattern "LmCompatibilityLevel"
-			$gpoSetting = ($gpoSetting | Out-String) -split "`n"
-			$gpoSetting = $gpoSetting.Trim()
-			$gpoSetting = $gpoSetting | Where-Object { $_ -ne "" }
-
-			if ($gpoSetting) {
-				$settingValue = ($gpoSetting -split "=")[-1].Trim().Split(",")[-1].Trim()
-				$policySetting = $policySettings[$settingValue]
-
-				$Results += [PSCustomObject]@{
-					Domain = $AllDomain
-					"GPO Name" = $gpoDisplayName
-					Setting = $settingValue
-					"LM Compatibility Level" = $policySetting
-				}
-			}
-
-		}
-
-		if ($Results.Count -eq 0) {
-				[PSCustomObject]@{
-					Domain = $AllDomain
-					"GPO Name" = "No GPO Set"
-					Setting = "Default"
-					"LM Compatibility Level" = "Dependent on the OS"
-				}
-		}
-		else {
-				$Results
-		}
-
-	}
-
- 	if ($TempLMCompatibilityLevel) {
-		$TempLMCompatibilityLevel | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
-		$HTMLLMCompatibilityLevel = $TempLMCompatibilityLevel | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='LMCompatibilityLevel'>LM Compatibility Level</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='LMCompatibilityLevel'>" }
-		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send NTLM response only</td>','<td class="YesStatus">Send NTLM response only</td>'
-		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>2</td>','<td class="YesStatus">2</td>'
-		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send LM & NTLM - use NTLMv2 session security if negotiated</td>','<td class="YesStatus">Send LM and NTLM - use NTLMv2 session security if negotiated</td>'
-		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>1</td>','<td class="YesStatus">1</td>'
-		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send LM and NTLM responses</td>','<td class="YesStatus">Send LM and NTLM responses</td>'
-		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>0</td>','<td class="YesStatus">0</td>'
-  		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>3</td>','<td class="NoStatus">3</td>'
-      	$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>4</td>','<td class="NoStatus">4</td>'
-	  	$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>5</td>','<td class="NoStatus">5</td>'
-    	$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send NTLMv2 response only</td>','<td class="NoStatus">Send NTLMv2 response only</td>'
-		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send NTLMv2 response only. Refuse LM</td>','<td class="NoStatus">Send NTLMv2 response only. Refuse LM</td>'
-     	$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send NTLMv2 response only. Refuse LM and NTLM</td>','<td class="NoStatus">Send NTLMv2 response only. Refuse LM and NTLM</td>'
-	 	$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Default</td>','<td class="YesStatus">Default</td>'
-   		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>No GPO Set</td>','<td class="YesStatus">No GPO Set</td>'
-
-  		$LMCompatibilityLevelTable = [PSCustomObject]@{
-			"Description" = "Determines which challenge response authentication protocol is used for network logons. If set lower than 3, NTLMv1 auth will be supported, which could be abused to compromise the domain."
-   			"More Info" = "NTLMv1 is enabled on domain controllers to accept the connection of older operating systems. If no GPO defines the LAN Manager Authentication Level, the DCs fall back to the non secure default."
-			#"Recommendation" = "Evaluate the necessity of enabling support for NTLMv1 authentication in your network, and consider raising the Compatibility Level to a minimum value of 3."
-		}
-		
-		$HTMLLMCompatibilityLevelTable = $LMCompatibilityLevelTable | ConvertTo-Html -As List -Fragment
-  		#$HTMLLMCompatibilityLevelTable = $HTMLLMCompatibilityLevelTable.Replace("*", "Description")
-    	$HTMLLMCompatibilityLevelTable = $HTMLLMCompatibilityLevelTable.Replace("Description", '<a href="https://learn.microsoft.com/en-us/windows/security/threat-protection/security-policy-settings/network-security-lan-manager-authentication-level" target="_blank">Description</a>')
-      	$HTMLLMCompatibilityLevelTable = $HTMLLMCompatibilityLevelTable.Replace("More Info", '<a href="https://learn.microsoft.com/en-us/windows/security/threat-protection/security-policy-settings/network-security-restrict-ntlm-ntlm-authentication-in-this-domain" target="_blank">More Info</a>')
-		
-		$HTMLLMCompatibilityLevelTable = "<div class='report-section' style='display:none;'>$HTMLLMCompatibilityLevelTable</div>"
 	}
 	
 	####################################################################
@@ -2130,6 +2394,181 @@ Add-Type -TypeDefinition $code
 		$HTMLMachineAccountQuotaTable = "<div class='report-section' style='display:none;'>$HTMLMachineAccountQuotaTable</div>"
 	}
 	
+	##################################################
+    ########### LM Compatibility Level ###############
+	##################################################
+	
+	Write-Host ""
+	Write-Host "LM Compatibility Level:" -ForegroundColor Cyan
+
+	$policySettings = @{
+		"0" = "Send LM & NTLM responses"
+		"1" = "Send LM & NTLM - use NTLMv2 session security if negotiated"
+		"2" = "Send NTLM response only"
+		"3" = "Send NTLMv2 response only"
+		"4" = "Send NTLMv2 response only. Refuse LM"
+		"5" = "Send NTLMv2 response only. Refuse LM and NTLM"
+	}
+
+	$TempLMCompatibilityLevel = foreach ($AllDomain in $AllDomains) {
+		$Results = @()
+		$RelevantGpoPolicies = @($AllCollectedGPOs | Where-Object {$_.domain -eq $AllDomain -AND $_.gpcfilesyspath})
+		$RelevantGpoPolicies |
+		ForEach-Object {
+			$settingValue = $null
+			$policySetting = $null
+			$gpoPath = $_.gpcfilesyspath.TrimStart("[").TrimEnd("]")
+			$gpoDisplayName = $_.displayname
+			if(Test-Path "$gpoPath\MACHINE\Microsoft\Windows NT\SecEdit\GptTmpl.inf"){
+				$gpoSetting = (Get-Content -Path "$gpoPath\MACHINE\Microsoft\Windows NT\SecEdit\GptTmpl.inf" -Raw | Select-String -Pattern "LmCompatibilityLevel" | Select-Object -Last 1).Line
+				$gpoSetting = ($gpoSetting | Out-String) -split "`n"
+				$gpoSetting = $gpoSetting | Select-String -Pattern "LmCompatibilityLevel"
+				$gpoSetting = ($gpoSetting | Out-String) -split "`n"
+				$gpoSetting = $gpoSetting.Trim()
+				$gpoSetting = $gpoSetting | Where-Object { $_ -ne "" }
+			}
+
+			if ($gpoSetting) {
+				$settingValue = ($gpoSetting -split "=")[-1].Trim().Split(",")[-1].Trim()
+				$policySetting = $policySettings[$settingValue]
+
+				$Results += [PSCustomObject]@{
+					Domain = $AllDomain
+					"GPO Name" = $gpoDisplayName
+					Setting = $settingValue
+					"LM Compatibility Level" = $policySetting
+				}
+			}
+
+		}
+
+		if ($Results.Count -eq 0) {
+				[PSCustomObject]@{
+					Domain = $AllDomain
+					"GPO Name" = "No GPO Set"
+					Setting = "Default"
+					"LM Compatibility Level" = "Dependent on the OS"
+				}
+		}
+		else {
+				$Results
+		}
+
+	}
+
+ 	if ($TempLMCompatibilityLevel) {
+		$TempLMCompatibilityLevel | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
+		$HTMLLMCompatibilityLevel = $TempLMCompatibilityLevel | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='LMCompatibilityLevel'>LM Compatibility Level</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='LMCompatibilityLevel'>" }
+		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send NTLM response only</td>','<td class="YesStatus">Send NTLM response only</td>'
+		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>2</td>','<td class="YesStatus">2</td>'
+		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send LM & NTLM - use NTLMv2 session security if negotiated</td>','<td class="YesStatus">Send LM and NTLM - use NTLMv2 session security if negotiated</td>'
+		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>1</td>','<td class="YesStatus">1</td>'
+		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send LM and NTLM responses</td>','<td class="YesStatus">Send LM and NTLM responses</td>'
+		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>0</td>','<td class="YesStatus">0</td>'
+  		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>3</td>','<td class="NoStatus">3</td>'
+      	$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>4</td>','<td class="NoStatus">4</td>'
+	  	$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>5</td>','<td class="NoStatus">5</td>'
+    	$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send NTLMv2 response only</td>','<td class="NoStatus">Send NTLMv2 response only</td>'
+		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send NTLMv2 response only. Refuse LM</td>','<td class="NoStatus">Send NTLMv2 response only. Refuse LM</td>'
+     	$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send NTLMv2 response only. Refuse LM and NTLM</td>','<td class="NoStatus">Send NTLMv2 response only. Refuse LM and NTLM</td>'
+	 	$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Default</td>','<td class="YesStatus">Default</td>'
+   		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>No GPO Set</td>','<td class="YesStatus">No GPO Set</td>'
+
+  		$LMCompatibilityLevelTable = [PSCustomObject]@{
+			"Description" = "Determines which challenge response authentication protocol is used for network logons. If set lower than 3, NTLMv1 auth will be supported, which could be abused to compromise the domain."
+   			"More Info" = "NTLMv1 is enabled on domain controllers to accept the connection of older operating systems. If no GPO defines the LAN Manager Authentication Level, the DCs fall back to the non secure default."
+			#"Recommendation" = "Evaluate the necessity of enabling support for NTLMv1 authentication in your network, and consider raising the Compatibility Level to a minimum value of 3."
+		}
+		
+		$HTMLLMCompatibilityLevelTable = $LMCompatibilityLevelTable | ConvertTo-Html -As List -Fragment
+  		#$HTMLLMCompatibilityLevelTable = $HTMLLMCompatibilityLevelTable.Replace("*", "Description")
+    	$HTMLLMCompatibilityLevelTable = $HTMLLMCompatibilityLevelTable.Replace("Description", '<a href="https://learn.microsoft.com/en-us/windows/security/threat-protection/security-policy-settings/network-security-lan-manager-authentication-level" target="_blank">Description</a>')
+      	$HTMLLMCompatibilityLevelTable = $HTMLLMCompatibilityLevelTable.Replace("More Info", '<a href="https://learn.microsoft.com/en-us/windows/security/threat-protection/security-policy-settings/network-security-restrict-ntlm-ntlm-authentication-in-this-domain" target="_blank">More Info</a>')
+		
+		$HTMLLMCompatibilityLevelTable = "<div class='report-section' style='display:none;'>$HTMLLMCompatibilityLevelTable</div>"
+	}
+	
+	#################################################
+    ########### Vulnerable LM Comp Level GPOs ###############
+	#################################################
+	
+	#Write-Host ""
+	#Write-Host "Vulnerable LM Comp Level GPOs:" -ForegroundColor Cyan
+	
+	$VulnerableLMCompLevelPolocies = @()
+	$VulnerableLMCompLevelPolocies = $TempLMCompatibilityLevel | Where-Object {$_.Setting -le 2}
+	$AllOUsToCollect = @()
+	
+	$VulnerableLMCompLevelGPOs = foreach($VulnerableLMCompLevelPolocy in $VulnerableLMCompLevelPolocies){
+		$ExtractedGPOName = $VulnerableLMCompLevelPolocy."GPO Name"
+		$ExtractedGPODomain = $VulnerableLMCompLevelPolocy."Domain"
+		$ExtractedGPO = $AllCollectedGPOs | Where-Object { $_.domain -eq $ExtractedGPODomain -AND  $_.DisplayName -eq $ExtractedGPOName}
+		$GPOGuid = ($ExtractedGPO.gpcfilesyspath -split "}")[-2].split("{")[-1]  # Extracting the GPO's GUID
+		$TargetOUs = @($AllCollectedOUs | Where-Object { $_.domain -eq $ExtractedGPODomain -AND $_.gplink -like "*$GPOGuid*"} )
+		
+		# Add the property to each object in $TargetOUs
+		foreach ($OU in $TargetOUs) {
+			$OU | Add-Member -MemberType NoteProperty -Name "VulnGPO" -Value $ExtractedGPOName
+		}
+		
+		$AllOUsToCollect += $TargetOUs
+		$OUs = $TargetOUs.name -Join " - "
+		[PSCustomObject]@{
+			Domain = $ExtractedGPODomain
+			"GPO Name" = $ExtractedGPO.DisplayName
+			"Path" = ($ExtractedGPO.gpcfilesyspath -split "\\")[-1]
+			"OUs the policy applies to" = $OUs
+		}
+	}
+	<# if($VulnerableLMCompLevelGPOs){
+		$VulnerableLMCompLevelGPOs | Sort-Object -Unique Domain,"GPO Name" | ft -Autosize -Wrap
+		$HTMLVulnLMCompLevelGPOs = $VulnerableLMCompLevelGPOs | Sort-Object -Unique Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='VulnLMCompLevelGPOs'>Vulnerable LM Comp Level GPOs</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='VulnLMCompLevelGPOs'>" }
+	} #>
+	
+	#################################################
+    ########### Vulnerable LM Comp Level OUs ###############
+	#################################################
+	
+	Write-Host ""
+	Write-Host "LM Comp Level Affected Machines:" -ForegroundColor Cyan
+	if($AllOUsToCollect){
+		$VulnerableLMCompLevelComp = @()
+		foreach($OUCollected in $AllOUsToCollect){
+			$ouDN = $OUCollected.distinguishedName
+			$domain = $OUCollected.domain
+			$OUVulnGPO = $OUCollected.VulnGPO
+			
+			# Filter users within this OU
+			#$users = @($TotalEnabledUsers | Where-Object { $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.samaccountname })
+
+			# Filter computers within this OU
+			$computers = @($TotalEnabledMachines | Where-Object { $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object {$_})
+			
+			foreach($comp in $computers){
+				# Create a custom object for each OU with its members
+				if($comp.DnsHostName){$IPAddress = (Resolve-DnsName -Name $comp.DnsHostName -Type A).IPAddress}
+				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
+				$Targetsid = GetSID-FromBytes -sidBytes $comp.objectsid
+				
+				$VulnerableLMCompLevelComp += [PSCustomObject]@{
+					Domain  = $domain
+					"Vulnerble GPO" = $OUVulnGPO
+					"OU Name" = $OUCollected.name
+					Members = $comp.samaccountname
+					"IP Address" = $IPAddress
+					"Operating System" = $comp.operatingsystem
+					"SID" = $Targetsid
+					"Member Domain" = $comp.domain
+				}
+			}
+		}
+		
+		if($VulnerableLMCompLevelComp){
+			$VulnerableLMCompLevelComp | Sort-Object -Unique Domain,"Vulnerble GPO","OU Name",Members | ft -Autosize -Wrap
+			$HTMLVulnLMCompLevelComp = $VulnerableLMCompLevelComp | Sort-Object -Unique Domain,"Vulnerble GPO","OU Name",Members | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='VulnLMCompLevelComp'>LM Comp Level Affected Machines</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='VulnLMCompLevelComp'>" }
+		}
+	}
+	
 	#################################################
     ########### Subnets ###############
 	#################################################
@@ -2161,7 +2600,7 @@ Add-Type -TypeDefinition $code
     Write-Host "Built-In Administrators:" -ForegroundColor Cyan
 	$TempBuiltInAdministrators = foreach ($AllDomain in $AllDomains) {
 		$BuiltInAdministrators = @()
-		$BuiltInAdministrators = RecursiveGroupMembers -AllADObjects $ActiveDirectoryObjects -Raw -Domain $AllDomain -Identity "Administrators"
+		$BuiltInAdministrators = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Administrators"
 		foreach($BuiltInAdministrator in $BuiltInAdministrators){
 			
 			$isEnabled = if ($BuiltInAdministrator.useraccountcontrol -band 2) { "False" } else { "True" }
@@ -2171,9 +2610,9 @@ Add-Type -TypeDefinition $code
 			if(!$membername){
 				$ExtractedMember = @()
 				$ExtractedMember = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq (GetSID-FromBytes -sidBytes $BuiltInAdministrator.objectsid)}
-				$tempmembername = $ExtractedMember.samaccountname
+				$tempmembername = if($ExtractedMember.samaccountname){$ExtractedMember.samaccountname}else{""}
 				$memberdomain = $ExtractedMember.domain
-				$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
+				$membername = if($tempmembername){($memberdomain -split "\.")[0] + "\" + $tempmembername}else{""}
 				if(!$isEnabled){$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }}
 				if(!$isActive){
 					if($ExtractedMember.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp}else{$lastLogon = ""}
@@ -2208,7 +2647,7 @@ Add-Type -TypeDefinition $code
     Write-Host "Enterprise Administrators:" -ForegroundColor Cyan
 	$TempEnterpriseAdmins = foreach ($AllDomain in $AllDomains) {
 		$EnterpriseAdmins = @()
-		$EnterpriseAdmins = RecursiveGroupMembers -AllADObjects $ActiveDirectoryObjects -Raw -Domain $AllDomain -Identity "Enterprise Admins"
+		$EnterpriseAdmins = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Enterprise Admins"
 		foreach ($EnterpriseAdmin in $EnterpriseAdmins) {
 			
 			$isEnabled = if ($EnterpriseAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
@@ -2254,7 +2693,7 @@ Add-Type -TypeDefinition $code
     Write-Host "Domain Administrators:" -ForegroundColor Cyan
     $TempDomainAdmins = foreach ($AllDomain in $AllDomains) {
 		$DomainAdmins = @()
-		$DomainAdmins = RecursiveGroupMembers -AllADObjects $ActiveDirectoryObjects -Raw -Domain $AllDomain -Identity "Domain Admins"
+		$DomainAdmins = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Domain Admins"
 		foreach ($DomainAdmin in $DomainAdmins) {
 			
 			$isEnabled = if ($DomainAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
@@ -2317,7 +2756,7 @@ Add-Type -TypeDefinition $code
 			
 			if($TargetDCSyncPrincipal){
 				
-				try{$TargetObjectMembers = @(RecursiveGroupMembers -Raw -AllADObjects $ActiveDirectoryObjects -Domain $AllDomain -Identity $TargetedObject.samaccountname)}catch{$TargetObjectMembers = $null}
+				try{$TargetObjectMembers = @(RecursiveGroupMembers -Raw -AllADObjects $SumGroupsUsers -Domain $AllDomain -Identity $TargetedObject.samaccountname)}catch{$TargetObjectMembers = $null}
 				$FinalTargetObjectMembers = @()
 				if($TargetObjectMembers){
 					foreach($TargetObjectMember in $TargetObjectMembers){
@@ -2356,7 +2795,7 @@ Add-Type -TypeDefinition $code
 		)
 		
 		foreach($Target in $DAEABAGroups){
-			$TargetObjectMembers = @(RecursiveGroupMembers -Raw -AllADObjects $ActiveDirectoryObjects -Domain $AllDomain -Identity $Target)
+			$TargetObjectMembers = @(RecursiveGroupMembers -Raw -AllADObjects $SumGroupsUsers -Domain $AllDomain -Identity $Target)
 			$CollectAllMembers = @()
 			foreach($TargetObjectMember in $TargetObjectMembers){
 				if($TargetObjectMember.samaccountname){$CollectAllMembers += $TargetObjectMember.samaccountname}
@@ -2398,7 +2837,7 @@ Add-Type -TypeDefinition $code
 	Write-Host ""
 	Write-Host "Protected and 'Sensitive and Not Allowed for Delegation' status (Administrators):" -ForegroundColor Cyan
 	$TempHTMLAdminsProtectedUsersAndSensitive = foreach ($AllDomain in $AllDomains) {
-		$TargetDAEABA = @($DAEABA | Where-Object {$_.domain -eq $AllDomain})
+		$TargetDAEABA = @($DAEABA | Where-Object {$_.domain -eq $AllDomain -AND $_.samaccountname})
 		$TargetProtected = @($ProtectedUsers | Where-Object {$_.domain -eq $AllDomain})
 		$TargetSensitive = @($SensitiveUsers | Where-Object {$_.domain -eq $AllDomain})
 		foreach ($account in $TargetDAEABA) {
@@ -2439,7 +2878,7 @@ Add-Type -TypeDefinition $code
 	Write-Host ""
 	Write-Host "Protected and 'Sensitive and Not Allowed for Delegation' status (Security Groups):" -ForegroundColor Cyan
 	$TempHTMLSecurityProtectedUsersAndSensitive = foreach ($AllDomain in $AllDomains) {
-		$TargetDAEABA = @($DAEABA | Where-Object {$_.domain -eq $AllDomain})
+		$TargetDAEABA = @($DAEABA | Where-Object {$_.domain -eq $AllDomain -AND $_.samaccountname})
 		$TargetSecurity = @($AllSecurityUsers | Where-Object {$_.domain -eq $AllDomain})
 		$UniqueToSecurity = Compare-Object -ReferenceObject $TargetDAEABA -DifferenceObject $TargetSecurity -Property 'samaccountname' -PassThru | Where-Object { $_.SideIndicator -eq '=>' }
 		$TargetProtected = @($ProtectedUsers | Where-Object {$_.domain -eq $AllDomain})
@@ -2483,7 +2922,7 @@ Add-Type -TypeDefinition $code
 	Write-Host "Protected and 'Sensitive and Not Allowed for Delegation' status (Admin Count):" -ForegroundColor Cyan
 	$TempHTMLAdmCountProtectedUsersAndSensitive = foreach ($AllDomain in $AllDomains) {
 		#$UniqueToAdminCountNotInDAEABAOrSecurity = $null
-		$TargetDAEABA = @($DAEABA | Where-Object {$_.domain -eq $AllDomain})
+		$TargetDAEABA = @($DAEABA | Where-Object {$_.domain -eq $AllDomain -AND $_.samaccountname})
 		$TargetSecurity = @($AllSecurityUsers | Where-Object {$_.domain -eq $AllDomain})
 		$TargetAdminCount = @($AllAdminCountUsers | Where-Object {$_.domain -eq $AllDomain})
 		$UniqueToAdminCountNotInDAEABA = @(Compare-Object -ReferenceObject $TargetDAEABA -DifferenceObject $TargetAdminCount -Property 'samaccountname' -PassThru | Where-Object { $_.SideIndicator -eq '=>' })
@@ -2621,7 +3060,7 @@ Add-Type -TypeDefinition $code
 			$LocalAdminAccess = Find-LocalAdminAccess -Targets $OurFinalTargetsForAccess
 			foreach ($AdminAccess in $LocalAdminAccess) {
 				$CompObject = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $_.dnshostname -eq $AdminAccess.ComputerName})
-				$IPAddress = (Resolve-DnsName -Name $AdminAccess.ComputerName -Type A).IPAddress
+				if($AdminAccess.ComputerName){$IPAddress = (Resolve-DnsName -Name $AdminAccess.ComputerName -Type A).IPAddress}
 				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 				[PSCustomObject]@{
 					"Target" = $AdminAccess.ComputerName
@@ -2659,7 +3098,7 @@ Add-Type -TypeDefinition $code
 		$CertPublishers = @()
 		
 		$CertPublishers += foreach ($AllDomain in $AllDomains) {
-			RecursiveGroupMembers -AllADObjects $ActiveDirectoryObjects -Domain $AllDomain -Identity "Cert Publishers"
+			RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Domain $AllDomain -Identity "Cert Publishers"
 		}
 		
 		$TempCertPublishers = foreach ($CertPublisher in $CertPublishers) {
@@ -2667,7 +3106,7 @@ Add-Type -TypeDefinition $code
 			$CAName = $CertPublisher.MemberName.TrimEnd('$')
 			$CAFQDN = $CAName + "." + $CertPublisher.MemberDomain
 			
-			$IPAddress = (Resolve-DnsName -Name $CAFQDN -Type A).IPAddress
+			if($CAFQDN){$IPAddress = (Resolve-DnsName -Name $CAFQDN -Type A).IPAddress}
 			if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 			
 			if($IPAddress){
@@ -2731,10 +3170,22 @@ Add-Type -TypeDefinition $code
 	if($NoVulnCertTemplates){}
 	else{
 		Write-Host ""
-		Write-Host "Certificate Templates (to review):" -ForegroundColor Cyan
+		Write-Host "Certificate Templates:" -ForegroundColor Cyan
 		
 		# Load the required assembly
 		Add-Type -AssemblyName System.DirectoryServices
+		
+		$excludedSIDs = @(
+			"S-1-5-32-544",   # Administrators
+			"S-1-5-32-549",   # Enterprise Admins
+			"S-1-5-32-548",   # Account Operators
+			"S-1-5-9",        # Enterprise Domain Controllers
+			"S-1-5-18",       # Local System
+			"S-1-5-32-580",   # Key Admins
+			"S-1-5-32-581"    # Enterprise Key Admins
+		)
+		
+		$sidPattern = "^S-\d-\d+(-\d+)+-(512|500|519|520)$"
 
 		$VulnCertTemplatesFlags = foreach ($AllDomain in $AllDomains) {
 			
@@ -2752,7 +3203,6 @@ Add-Type -TypeDefinition $code
 			$RemainingTemplates = @()
 
 			$MisconfiguredTemplates = $CertTemplatesObjects | Where-Object {
-					 ($_.objectClass -eq 'pKICertificateTemplate') -and
 					 ($_.pkiExtendedKeyUsage -contains "1.3.6.1.5.5.7.3.2") -and
 					 ($_.'msPKI-Certificate-Name-Flag' -eq 1) -and
 					 !($_.'msPKI-Enrollment-Flag' -band 2) -and
@@ -2770,8 +3220,15 @@ Add-Type -TypeDefinition $code
 				# Collect ACL information
 				$aclInfo = @()
 				$aclInfo = foreach ($ace in $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount])) {
+					if(Test-SidFormat $ace.IdentityReference.Value){
+						if(-not ($ace.IdentityReference.Value -match $sidPattern) -and $excludedSIDs -notcontains $ace.IdentityReference.Value){
+							$aceIdentityReferenceObj = $SumGroupsUsers | Where-Object {$_.domain -eq $AllDomain -AND (GetSID-FromBytes -sidBytes $_.objectsid) -eq $ace.IdentityReference.Value}
+							$aceIdentityReferenceValue = "$(($aceIdentityReferenceObj.domain -split "\.")[0])\$($aceIdentityReferenceObj.samaccountname)"
+						} else {continue}
+					}
+					else{$aceIdentityReferenceValue = $ace.IdentityReference.Value}
 					[PSCustomObject]@{
-						"Delegated Group" = $ace.IdentityReference.Value
+						"Delegated Group" = $aceIdentityReferenceValue
 						"ActiveDirectoryRights" = $ace.ActiveDirectoryRights
 						"ObjectType" = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
 						"InheritedObjectType" = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
@@ -2779,21 +3236,29 @@ Add-Type -TypeDefinition $code
 					}
 				}
 				
-				$aclInfo = $aclInfo | Where-Object {$_."Delegated Group" -notmatch "Domain Admins|Enterprise Admins|Administrators|Local System|Certificate Publishers|Administrator|Domain Controllers|Key Admins|Enterprise Key Admins|NT Authority"}
+				$aclInfo = $aclInfo | Where-Object {$_."Delegated Group"}
 
 				# Filter for specific rights
 				$writeOwnerPrincipals = $aclInfo | Where-Object { $_.ActiveDirectoryRights -band [System.DirectoryServices.ActiveDirectoryRights]::WriteOwner } | Select-Object -ExpandProperty "Delegated Group" -Unique
+				$writeOwnerPrincipals = $writeOwnerPrincipals | Where-Object {$_ -notmatch "Domain Admins|Enterprise Admins|Administrators|Local System|Certificate Publishers|Administrator|Domain Controllers|Key Admins|Enterprise Key Admins|NT Authority"}
+				
 				$writeDaclPrincipals = $aclInfo | Where-Object { $_.ActiveDirectoryRights -band [System.DirectoryServices.ActiveDirectoryRights]::WriteDacl } | Select-Object -ExpandProperty "Delegated Group" -Unique
-				$writePropertyPrincipals = $aclInfo | Where-Object { $_.ActiveDirectoryRights -band [System.DirectoryServices.ActiveDirectoryRights]::WriteProperty } | Select-Object -ExpandProperty "Delegated Group" -Unique
-
+				$writeDaclPrincipals = $writeDaclPrincipals | Where-Object {$_ -notmatch "Domain Admins|Enterprise Admins|Administrators|Local System|Certificate Publishers|Administrator|Domain Controllers|Key Admins|Enterprise Key Admins|NT Authority"}
+				
+				#$writePropertyPrincipals = $aclInfo | Where-Object { $_.ActiveDirectoryRights -band [System.DirectoryServices.ActiveDirectoryRights]::WriteProperty } | Select-Object -ExpandProperty "Delegated Group" -Unique
+				#$writePropertyPrincipals = $writePropertyPrincipals | Where-Object {$_ -notmatch "Domain Admins|Enterprise Admins|Administrators|Local System|Certificate Publishers|Administrator|Domain Controllers|Key Admins|Enterprise Key Admins|NT Authority"}
+				
+				$EnrollmentRights = $aclInfo."Delegated Group"
+				$EnrollmentRights = $EnrollmentRights | Where-Object {$_ -notmatch "Domain Admins|Enterprise Admins|Administrators|Local System|Certificate Publishers|Administrator|Domain Controllers|Key Admins|Enterprise Key Admins|NT Authority"} | Sort-Object -Unique
+				
 				# Add to ACLs list
 				$CertTemplatesACLs += [PSCustomObject]@{
 					"CertificateDN" = $Certificate.distinguishedname
-					"Enrollment" = $aclInfo."Delegated Group" -join ", "
+					"Enrollment" = $EnrollmentRights -join ", "
 					"Owner" = $owner
 					"WriteOwner" = $writeOwnerPrincipals -join ", "
 					"WriteDacl" = $writeDaclPrincipals -join ", "
-					"WriteProperty" = $writePropertyPrincipals -join ", "
+					#"WriteProperty" = $writePropertyPrincipals -join ", "
 				}
 			}
 
@@ -2813,7 +3278,7 @@ Add-Type -TypeDefinition $code
 					"Owner"                    = $aclEntry.Owner
 					"WriteOwner"               = $aclEntry."WriteOwner"
 					"WriteDacl"                = $aclEntry."WriteDacl"
-					"WriteProperty"            = $aclEntry."WriteProperty"
+					#"WriteProperty"            = $aclEntry."WriteProperty"
 					"Domain"                   = $AllDomain
 				}
 			}
@@ -2835,8 +3300,15 @@ Add-Type -TypeDefinition $code
 				# Collect ACL information
 				$aclInfo = @()
 				$aclInfo = foreach ($ace in $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount])) {
+					if(Test-SidFormat $ace.IdentityReference.Value){
+						if(-not ($ace.IdentityReference.Value -match $sidPattern) -and $excludedSIDs -notcontains $ace.IdentityReference.Value){
+							$aceIdentityReferenceObj = $SumGroupsUsers | Where-Object {$_.domain -eq $AllDomain -AND (GetSID-FromBytes -sidBytes $_.objectsid) -eq $ace.IdentityReference.Value}
+							$aceIdentityReferenceValue = "$(($aceIdentityReferenceObj.domain -split "\.")[0])\$($aceIdentityReferenceObj.samaccountname)"
+						} else {continue}
+					}
+					else{$aceIdentityReferenceValue = $ace.IdentityReference.Value}
 					[PSCustomObject]@{
-						"Delegated Group" = $ace.IdentityReference.Value
+						"Delegated Group" = $aceIdentityReferenceValue
 						"ActiveDirectoryRights" = $ace.ActiveDirectoryRights
 						"ObjectType" = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
 						"InheritedObjectType" = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
@@ -2844,22 +3316,30 @@ Add-Type -TypeDefinition $code
 					}
 				}
 				
-				$aclInfo = $aclInfo | Where-Object {$_."Delegated Group" -AND $_."Delegated Group" -notmatch "Domain Admins|Enterprise Admins|Administrators|Local System|Certificate Publishers|Administrator|Domain Controllers|Key Admins|Enterprise Key Admins|NT Authority" -AND $_.ActiveDirectoryRights -match "GenericAll|WriteDacl|WriteOwner"}
+				$aclInfo = $aclInfo | Where-Object {$_."Delegated Group" -AND $_.ActiveDirectoryRights -match "GenericAll|WriteDacl|WriteOwner"}
 
 				if($aclInfo){
 					# Filter for specific rights
 					$writeOwnerPrincipals = $aclInfo | Where-Object { $_.ActiveDirectoryRights -band [System.DirectoryServices.ActiveDirectoryRights]::WriteOwner } | Select-Object -ExpandProperty "Delegated Group" -Unique
+					$writeOwnerPrincipals = $writeOwnerPrincipals | Where-Object {$_ -notmatch "Domain Admins|Enterprise Admins|Administrators|Local System|Certificate Publishers|Administrator|Domain Controllers|Key Admins|Enterprise Key Admins|NT Authority"}
+					
 					$writeDaclPrincipals = $aclInfo | Where-Object { $_.ActiveDirectoryRights -band [System.DirectoryServices.ActiveDirectoryRights]::WriteDacl } | Select-Object -ExpandProperty "Delegated Group" -Unique
-					$writePropertyPrincipals = $aclInfo | Where-Object { $_.ActiveDirectoryRights -band [System.DirectoryServices.ActiveDirectoryRights]::WriteProperty } | Select-Object -ExpandProperty "Delegated Group" -Unique
-
+					$writeDaclPrincipals = $writeDaclPrincipals | Where-Object {$_ -notmatch "Domain Admins|Enterprise Admins|Administrators|Local System|Certificate Publishers|Administrator|Domain Controllers|Key Admins|Enterprise Key Admins|NT Authority"}
+					
+					#$writePropertyPrincipals = $aclInfo | Where-Object { $_.ActiveDirectoryRights -band [System.DirectoryServices.ActiveDirectoryRights]::WriteProperty } | Select-Object -ExpandProperty "Delegated Group" -Unique
+					#$writePropertyPrincipals = $writePropertyPrincipals | Where-Object {$_ -notmatch "Domain Admins|Enterprise Admins|Administrators|Local System|Certificate Publishers|Administrator|Domain Controllers|Key Admins|Enterprise Key Admins|NT Authority"}
+					
+					$EnrollmentRights = $aclInfo."Delegated Group"
+					$EnrollmentRights = $EnrollmentRights | Where-Object {$_ -notmatch "Domain Admins|Enterprise Admins|Administrators|Local System|Certificate Publishers|Administrator|Domain Controllers|Key Admins|Enterprise Key Admins|NT Authority"} | Sort-Object -Unique
+					
 					# Add to ACLs list
 					$MoreCertTemplatesACLs += [PSCustomObject]@{
 						"CertificateDN" = $Certificate.distinguishedname
-						"Enrollment" = $aclInfo."Delegated Group" -join ", "
+						"Enrollment" = $EnrollmentRights -join ", "
 						"Owner" = $owner
 						"WriteOwner" = $writeOwnerPrincipals -join ", "
 						"WriteDacl" = $writeDaclPrincipals -join ", "
-						"WriteProperty" = $writePropertyPrincipals -join ", "
+						#"WriteProperty" = $writePropertyPrincipals -join ", "
 					}
 				}
 			}
@@ -2881,7 +3361,7 @@ Add-Type -TypeDefinition $code
 					"Owner"                    = $aclEntry.Owner
 					"WriteOwner"               = $aclEntry."WriteOwner"
 					"WriteDacl"                = $aclEntry."WriteDacl"
-					"WriteProperty"            = $aclEntry."WriteProperty"
+					#"WriteProperty"            = $aclEntry."WriteProperty"
 					"Domain"                   = $AllDomain
 				}
 			}
@@ -2912,10 +3392,10 @@ Add-Type -TypeDefinition $code
 	Write-Host "Members of Exchange Trusted Subsystem group:" -ForegroundColor Cyan
 	$TempExchangeTrustedSubsystem = foreach ($AllDomain in $AllDomains) {
 		$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
-		$ExchangeTrustedSubsystemMembers = @(RecursiveGroupMembers -AllADObjects $ActiveDirectoryObjects -Domain $AllDomain -Raw -Identity "Exchange Trusted Subsystem")
+		$ExchangeTrustedSubsystemMembers = @(RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Domain $AllDomain -Raw -Identity "Exchange Trusted Subsystem")
 		foreach ($Member in $ExchangeTrustedSubsystemMembers) {
 			$memberName = $Member.samaccountname
-			$ipAddress = Resolve-DnsName -Name $Member.DnsHostName -Type A -Server $ResolveServer | Select-Object -ExpandProperty IPAddress
+			if($Member.DnsHostName){$ipAddress = Resolve-DnsName -Name $Member.DnsHostName -Type A -Server $ResolveServer | Select-Object -ExpandProperty IPAddress}
 			if($ipAddress.count -gt 1){$ipAddress = $ipAddress -join ", "}
 			[PSCustomObject]@{
 				"Member" = $Member.samaccountname
@@ -2984,7 +3464,7 @@ Add-Type -TypeDefinition $code
     Write-Host ""
 	Write-Host "Group Managed Service Accounts (GMSA):" -ForegroundColor Cyan
 	$TempGMSAs = foreach ($AllDomain in $AllDomains) {
-		$GMSAs = @($ActiveDirectoryObjects | Where-Object {$_.domain -eq $AllDomain -AND $_.objectClass -like "*msDS-GroupManagedServiceAccount*"})
+		$GMSAs = @($CollectGMSAs | Where-Object {$_.domain -eq $AllDomain})
 		foreach ($GMSA in $GMSAs) {
 			[PSCustomObject]@{
 				"Account" = $GMSA.samaccountname
@@ -2997,7 +3477,11 @@ Add-Type -TypeDefinition $code
 				"Pwd Interval" = $GMSA."msds-managedpasswordinterval"
 				"Pwd Last Set" = if($GMSA.pwdlastset){Convert-LdapTimestamp -timestamp $GMSA.pwdlastset}else{""}
 				"SID" = GetSID-FromBytes -sidBytes $GMSA.objectSID
-				"Object GUID" = (New-Object System.Guid('{0:X2}{1:X2}{2:X2}{3:X2}-{4:X2}{5:X2}-{6:X2}{7:X2}-{8:X2}{9:X2}-{10:X2}{11:X2}{12:X2}{13:X2}{14:X2}{15:X2}' -f $GMSA.objectguid)).guid
+				"Object GUID" = ([guid]::New(([string]::Join('', ($GMSA.objectGuid | ForEach-Object { "{0:X2}" -f $_ }))[0..7] -join '') + "-" + 
+                                              ([string]::Join('', ($GMSA.objectGuid | ForEach-Object { "{0:X2}" -f $_ }))[8..11] -join '') + "-" +
+                                              ([string]::Join('', ($GMSA.objectGuid | ForEach-Object { "{0:X2}" -f $_ }))[12..15] -join '') + "-" +
+                                              ([string]::Join('', ($GMSA.objectGuid | ForEach-Object { "{0:X2}" -f $_ }))[16..19] -join '') + "-" +
+                                              ([string]::Join('', ($GMSA.objectGuid | ForEach-Object { "{0:X2}" -f $_ }))[20..31] -join ''))).Guid
 				"Domain" = $AllDomain
 			}
 		}
@@ -3218,7 +3702,7 @@ Add-Type -TypeDefinition $code
 	
 		foreach($EmptyPasswordComp in $EmptyPasswordComputers){
 			
-			$IPAddress = (Resolve-DnsName -Name $EmptyPasswordComp.DnsHostName -Type A).IPAddress
+			if($EmptyPasswordComp.DnsHostName){$IPAddress = (Resolve-DnsName -Name $EmptyPasswordComp.DnsHostName -Type A).IPAddress}
 			if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 			
 			[PSCustomObject]@{
@@ -3345,7 +3829,7 @@ Add-Type -TypeDefinition $code
 				$EmptyCheck = $principalContext.ValidateCredentials("$EmptyPasswordCompName", "", 1)
 				
 				if ($EmptyCheck){
-					$IPAddress = (Resolve-DnsName -Name $EmptyPasswordComp.dnshostname -Type A -Server $ResolveServer).IPAddress
+					if($EmptyPasswordComp.dnshostname){$IPAddress = (Resolve-DnsName -Name $EmptyPasswordComp.dnshostname -Type A -Server $ResolveServer).IPAddress}
 					if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 					
 					[PSCustomObject]@{
@@ -3397,7 +3881,7 @@ Add-Type -TypeDefinition $code
 		foreach ($Member in $PreWin2kCompatibleAccessMembers) {
 			$memberName = $Member.samaccountname
 			
-			$ipAddress = Resolve-DnsName -Name $Member.DnsHostName -Type A -Server $ResolveServer | Select-Object -ExpandProperty IPAddress
+			if($Member.DnsHostName){$ipAddress = Resolve-DnsName -Name $Member.DnsHostName -Type A -Server $ResolveServer | Select-Object -ExpandProperty IPAddress}
 			if($ipAddress.count -gt 1){$ipAddress = $ipAddress -join ", "}
 			
 			[PSCustomObject]@{
@@ -3436,7 +3920,7 @@ Add-Type -TypeDefinition $code
 		$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 		$WinRMComputers = @($TotalEnabledMachines | Where-Object { $_.domain -eq $AllDomain -AND ($_.operatingsystem -like "*7*" -OR  $_.operatingsystem -like "*2008*") -AND $_.serviceprincipalname -like "wsman*" })
 		foreach ($Computer in $WinRMComputers) {
-			$ipAddress = (Resolve-DnsName -Name $Computer.DnsHostName -Type A -Server $ResolveServer).IPAddress
+			if($Computer.DnsHostName){$ipAddress = (Resolve-DnsName -Name $Computer.DnsHostName -Type A -Server $ResolveServer).IPAddress}
 			if($ipAddress.count -gt 1){$ipAddress = $ipAddress -join ", "}
 			[PSCustomObject]@{
 				"Name" = $Computer.samaccountname
@@ -3467,12 +3951,31 @@ Add-Type -TypeDefinition $code
 		
 		$PrivilegedGroups = @($TotalGroups | Where-Object {$_.domain -eq $AllDomain -AND $_.admincount -eq 1})
 		$MachinePrivGroupMembers = @()
-		$MachinePrivGroupMembers = foreach($PrivilegedGroup in $PrivilegedGroups){RecursiveGroupMembers -AllADObjects $ActiveDirectoryObjects -Raw -Domain $AllDomain -Identity $PrivilegedGroup.samaccountname | Where-Object {$_.samaccountname -like "*$" | Sort-Object -Unique domain,samaccountname}}
+		$MachinePrivGroupMembers = foreach($PrivilegedGroup in $PrivilegedGroups){RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity $PrivilegedGroup.samaccountname | Where-Object {$_.samaccountname -like "*$" | Sort-Object -Unique domain,samaccountname}}
 		
 		foreach ($GroupMember in $MachinePrivGroupMembers) {
-			$TargetGroups = @(foreach($PrivilegedGroup in $PrivilegedGroups){RecursiveGroupMembers -AllADObjects $ActiveDirectoryObjects -Domain $AllDomain -Identity $PrivilegedGroup.samaccountname | Where-Object {$_.MemberObjectClass -eq "computer" -AND $_.MemberName -eq $GroupMember.samaccountname | Sort-Object -Unique}})
+			$TempTargetGroups = @($GroupMember | Select-Object -ExpandProperty memberof)
+			$TargetGroups = @()
+			foreach($TempTargetGroup in $TempTargetGroups){
+				$TempTargetGroupName = ($TempTargetGroup -split ",")[0]
+				$TargetGroupName = $TempTargetGroupName -replace "CN=",""
+				$dcComponents = @()
+				$TempTargetGroupDomain = $TempTargetGroup -split ","
+				foreach($component in $TempTargetGroupDomain){
+					if ($component -like "DC=*") {
+						$dcComponents += $component.Substring(3)
+					}
+				}
+				$TargetGroupDomain = $dcComponents -join "."
+				if($PrivilegedGroups.samaccountname -contains $TargetGroupName){
+					$TargetGroups += [PSCustomObject]@{
+						GroupName = $TargetGroupName
+						GroupDomain = $TargetGroupDomain
+					}
+				}
+			}
 			#$DomainComputerGroupMember = $TotalAllMachines | Where-Object {$_.domain -eq $AllDomain} | Where-Object {$_.name -eq $GroupMember.MemberName.TrimEnd('$')}
-			$ipAddress = Resolve-DnsName -Name $GroupMember.DnsHostName -Type A -Server $ResolveServer | Select-Object -ExpandProperty IPAddress
+			if($GroupMember.DnsHostName){$ipAddress = Resolve-DnsName -Name $GroupMember.DnsHostName -Type A -Server $ResolveServer | Select-Object -ExpandProperty IPAddress}
 			if($ipAddress.count -gt 1){$ipAddress = $ipAddress -join ", "}
 			$Targetsid = GetSID-FromBytes -sidBytes $GroupMember.objectsid
 			$TargetTimestamp = Convert-LdapTimestamp -timestamp $GroupMember.lastlogontimestamp
@@ -3609,7 +4112,7 @@ Add-Type -TypeDefinition $code
 			}
 
 			foreach ($UnsupportedHost in $UnsupportedHosts) {
-				$IPAddress = (Resolve-DnsName -Name $UnsupportedHost.DnsHostName -Type A).IPAddress
+				if($UnsupportedHost.DnsHostName){$IPAddress = (Resolve-DnsName -Name $UnsupportedHost.DnsHostName -Type A).IPAddress}
 				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 				[PSCustomObject]@{
 					"Name" = $UnsupportedHost.samaccountname
@@ -3676,7 +4179,7 @@ Add-Type -TypeDefinition $code
 			foreach($RetrieveObjectServer in $RetrieveObjectServers){
 				$FileServerShort = $RetrieveObjectServer.name
 				$FileServerDomain = $RetrieveObjectServer.domain
-				$IPAddress = (Resolve-DnsName -Name $RetrieveObjectServer.dnshostname -Type A -Server $ResolveServer).IPAddress
+				if($RetrieveObjectServer.dnshostname){$IPAddress = (Resolve-DnsName -Name $RetrieveObjectServer.dnshostname -Type A -Server $ResolveServer).IPAddress}
 				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 				[PSCustomObject]@{
 					Server = $RetrieveObjectServer.samaccountname
@@ -3726,14 +4229,15 @@ Add-Type -TypeDefinition $code
 			}
 		}
 		
-		$NameExtractedSQLMachines = @($TotalEnabledDisabledMachines | Where-Object {$_.domain -eq $AllDomain -and $_.samaccountname -like "*SQL*" -and $_.objectcategory -like "*CN=Computer*"})
+		$NameExtractedSQLMachines = @($TotalEnabledDisabledMachines | Where-Object {$_.domain -eq $AllDomain -and $_.samaccountname -like "*SQL*" -and $_.operatingsystem})
+		#$NameExtractedSQLMachines = @($TotalEnabledDisabledMachines | Where-Object {$_.domain -eq $AllDomain -and $_.samaccountname -like "*SQL*" -and $_.objectcategory -like "*CN=Computer*"})
 		
 		$FinalExtractedSQLMachines = @($ExtractedSQLMachines + $NameExtractedSQLMachines)
 		
 		$FinalExtractedSQLMachines = $FinalExtractedSQLMachines | Sort-Object -Unique Domain,dnshostname
 		
 		foreach($Machine in $FinalExtractedSQLMachines){
-			$IPAddress = (Resolve-DnsName -Name $Machine.dnshostname -Type A -Server $ResolveServer).IPAddress
+			if($Machine.dnshostname){$IPAddress = (Resolve-DnsName -Name $Machine.dnshostname -Type A -Server $ResolveServer).IPAddress}
 			if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 			[PSCustomObject]@{
 				Server = $Machine.samaccountname
@@ -3771,7 +4275,7 @@ Add-Type -TypeDefinition $code
 		$Searcher.Filter = $SearcherArguments.LDAPFilter
 		$Searcher.PropertiesToLoad.Add($SearcherArguments.Properties) | Out-Null
 		$Results = $Searcher.FindAll() #>
-		$Results = @($ActiveDirectoryObjects | Where-Object {$_.domain -eq $AllDomain -AND $_.objectClass -like "*mSSMSManagementPoint*" -AND $_.mssmsmpname -like "*.*"})
+		$Results = @($CollectSCCMServers | Where-Object {$_.domain -eq $AllDomain -AND $_.mssmsmpname -like "*.*"})
 		$ProcessedSCCMServers = @{}
 		foreach ($Result in $Results) {
 			$dNSHostName = $Result.mssmsmpname
@@ -3779,7 +4283,7 @@ Add-Type -TypeDefinition $code
 			$SCCMServerShort = $dNSHostName.Split('.')[0]
 			$DomainParts = $dNSHostName.Split('.') | Select-Object -Skip 1
 			$SCCMServerDomain = $DomainParts -join '.'
-			$IPAddress = (Resolve-DnsName -Name $dNSHostName -Type A -Server $ResolveServer).IPAddress
+			if($dNSHostName){$IPAddress = (Resolve-DnsName -Name $dNSHostName -Type A -Server $ResolveServer).IPAddress}
 			if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 			#$ObjectRetrieve = $TotalAllMachines | Where-Object {$_.domain -eq $AllDomain} | Where-Object {$_.name -eq $SCCMServerShort}
 			$Enrolled = (Get-WmiObject -Class SMS_Authority -Namespace root\CCM).CurrentManagementPoint -contains $dNSHostName
@@ -3841,7 +4345,7 @@ Add-Type -TypeDefinition $code
 			else{$RetrievedWSUSServer = @($TotalEnabledDisabledMachines | Where-Object {$_.name -eq $wserver})}
 			
 			if($RetrievedWSUSServer){
-				$IPAddress = (Resolve-DnsName -Name $RetrievedWSUSServer.dnshostname -Type A).IPAddress
+				if($RetrievedWSUSServer.dnshostname){$IPAddress = (Resolve-DnsName -Name $RetrievedWSUSServer.dnshostname -Type A).IPAddress}
 				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 				
 				[PSCustomObject]@{
@@ -3857,7 +4361,7 @@ Add-Type -TypeDefinition $code
 			}
 			else{
 				$RetrievedWSUSServer = $wserver
-				$IPAddress = (Resolve-DnsName -Name $RetrievedWSUSServer -Type A).IPAddress
+				if($RetrievedWSUSServer){$IPAddress = (Resolve-DnsName -Name $RetrievedWSUSServer -Type A).IPAddress}
 				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 				
 				[PSCustomObject]@{
@@ -3886,7 +4390,7 @@ Add-Type -TypeDefinition $code
 			
 			if($wserver -like "*.*"){$RetrievedWSUSServer = @($TotalEnabledDisabledMachines | Where-Object {$_.dnshostname -eq $wserver})}
 			else{$RetrievedWSUSServer = @($TotalEnabledDisabledMachines | Where-Object {$_.name -eq $wserver})}
-			$IPAddress = (Resolve-DnsName -Name $RetrievedWSUSServer.dnshostname -Type A).IPAddress
+			if($RetrievedWSUSServer.dnshostname){$IPAddress = (Resolve-DnsName -Name $RetrievedWSUSServer.dnshostname -Type A).IPAddress}
 			if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 			[PSCustomObject]@{
 				Server = $RetrievedWSUSServer.samaccountname
@@ -3907,8 +4411,77 @@ Add-Type -TypeDefinition $code
     }
 	
 	####################################################
+    ######### Check Alive Hosts ###############
+	####################################################
+	
+	$AllAliveTargets = @()
+	$AllAliveTargets = CheckAliveHosts -Targets $TotalEnabledMachines
+	
+	####################################################
     ######### SMB Signing Disabled ###############
 	####################################################
+	
+	Write-Host ""
+    Write-Host "SMB Signing Not Required:" -ForegroundColor Cyan
+	
+	$SMBSigningDisabled = foreach($AllDomain in $AllDomains){
+		$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
+		$SMBSigningTargets = @(CheckSMBSigning -Targets ($AllAliveTargets | Where-Object {$_.domain -eq $AllDomain}))
+		
+		if($SMBSigningTargets){
+			foreach($Target in $SMBSigningTargets){
+				if($Target.dnshostname){$IPAddress = (Resolve-DnsName -Name $Target.dnshostname -Type A -Server $ResolveServer).IPAddress}
+				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
+				[PSCustomObject]@{
+					Machine = $Target.samaccountname
+					"Enabled" = if ($Target.useraccountcontrol -band 2) { "False" } else { "True" }
+					"Active" = if(!$Target.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $ObjectRetrieve.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
+					'IP Address' = $IPAddress
+					"Account SID" = GetSID-FromBytes -sidBytes $Target.objectsid
+					"Operating System" = $Target.operatingsystem
+					Domain = $AllDomain
+				}
+			}
+		}
+	}
+	
+	if($SMBSigningDisabled){
+        $SMBSigningDisabled | Sort-Object -Unique Domain,Machine | Format-Table -AutoSize -Wrap
+        $HTMLSMBSigningDisabled = $SMBSigningDisabled | Sort-Object -Unique Domain,Machine | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='SMBSigningNotRequired'>SMB Signing Not Required</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='SMBSigningNotRequired'>" }
+    }
+	
+	####################################################
+    ######### WebDAV Enabled ###############
+	####################################################
+	
+	Write-Host ""
+    Write-Host "WebDAV Enabled Machines:" -ForegroundColor Cyan
+	
+	$WebDAVStatusResults = foreach($AllDomain in $AllDomains){
+		$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
+		$WebDAVStatusTargets = @(CheckWebDAVStatus -Targets ($AllAliveTargets | Where-Object {$_.domain -eq $AllDomain}))
+		
+		if($WebDAVStatusTargets){
+			foreach($Target in $WebDAVStatusTargets){
+				if($Target.dnshostname){$IPAddress = (Resolve-DnsName -Name $Target.dnshostname -Type A -Server $ResolveServer).IPAddress}
+				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
+				[PSCustomObject]@{
+					Machine = $Target.samaccountname
+					"Enabled" = if ($Target.useraccountcontrol -band 2) { "False" } else { "True" }
+					"Active" = if(!$Target.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $ObjectRetrieve.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
+					'IP Address' = $IPAddress
+					"Account SID" = GetSID-FromBytes -sidBytes $Target.objectsid
+					"Operating System" = $Target.operatingsystem
+					Domain = $AllDomain
+				}
+			}
+		}
+	}
+	
+	if($WebDAVStatusResults){
+        $WebDAVStatusResults | Sort-Object -Unique Domain,Machine | Format-Table -AutoSize -Wrap
+        $HTMLWebDAVStatusResults = $WebDAVStatusResults | Sort-Object -Unique Domain,Machine | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='WebDavEnabled'>WebDAV Enabled Machines</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='WebDavEnabled'>" }
+    }
 	
 	####################################################
     ######### Printers ###############
@@ -3919,10 +4492,10 @@ Add-Type -TypeDefinition $code
 	
 	$TempPrinters = foreach ($AllDomain in $AllDomains) {
 		
-		$TotPrinters = @($ActiveDirectoryObjects | Where-Object {$_.domain -eq $AllDomain -AND $_.objectCategory -like "*Print-Queue*"})
+		$TotPrinters = @($PrintersCollection | Where-Object {$_.domain -eq $AllDomain})
 		
 		foreach($printer in $TotPrinters){
-			$IPAddress = (Resolve-DnsName -Name $printer.servername -Type A).IPAddress
+			if($printer.servername){$IPAddress = (Resolve-DnsName -Name $printer.servername -Type A).IPAddress}
 			if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 			[PSCustomObject]@{
 				Name = $printer.shortservername
@@ -3952,7 +4525,7 @@ Add-Type -TypeDefinition $code
 	
 	foreach ($AllDomain in $AllDomains) {
 		$SPNCache = [ordered] @{}
-		$SPNAccounts = @($ActiveDirectoryObjects | Where-Object {$_.serviceprincipalname -AND $_.domain -eq $AllDomain -AND $_.samaccountname -ne "krbtgt"})
+		$SPNAccounts = @($SumGroupsUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.serviceprincipalname -AND $_.samaccountname -ne "krbtgt"})
 		#$SPNAccounts = $SPNAccounts | Sort-Object -Unique samaccountname
 		foreach ($Account in $SPNAccounts) {
 			foreach ($SPN in $Account.ServicePrincipalName) {
@@ -4009,7 +4582,7 @@ Add-Type -TypeDefinition $code
 	
 	$SharesResultsTable = foreach ($AllDomain in $AllDomains) {
 		
-		$AllCompMachines = $TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain} | Select-Object -ExpandProperty dnshostname
+		$AllCompMachines = $TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $_.dnshostname} | Select-Object -ExpandProperty dnshostname
 
 		$HostFQDN = [System.Net.Dns]::GetHostByName(($env:computerName)).HostName
 		$AllCompMachines = $AllCompMachines | Where-Object {$_ -ne "$HostFQDN"}
@@ -4330,16 +4903,18 @@ Add-Type -TypeDefinition $code
 				$LAPSGPOLocation = $LAPSGPO | select-object -ExpandProperty GPCFileSysPath
 			
 				foreach($LAPSGPOLoc in $LAPSGPOLocation){
-					$inputString = (type $LAPSGPOLoc\Machine\Registry.pol | Out-String)
-					$splitString = $inputString.Substring($inputString.IndexOf('['), $inputString.LastIndexOf(']') - $inputString.IndexOf('[') + 1)
-					$splitString = ($splitString -split '\[|\]').Where{$_ -ne ''}
-					$splitString = ($splitString | Out-String) -split "`n"
-					$splitString = $splitString.Trim()
-					$splitString = $splitString | Where-Object { $_ -ne "" }
-					$splitString = $splitString | ForEach-Object {$_.Trim() -replace '[^A-Za-z0-9\s;]', ''}
-					$adminAccountRow = $splitString | Where-Object {$_ -match 'AdminAccountName'}
-					if ($adminAccountRow) {
-						$LAPSAdminresult = ($adminAccountRow -split ';')[4]
+					if(Test-Path $LAPSGPOLoc\Machine\Registry.pol){
+						$inputString = (type $LAPSGPOLoc\Machine\Registry.pol | Out-String)
+						$splitString = $inputString.Substring($inputString.IndexOf('['), $inputString.LastIndexOf(']') - $inputString.IndexOf('[') + 1)
+						$splitString = ($splitString -split '\[|\]').Where{$_ -ne ''}
+						$splitString = ($splitString | Out-String) -split "`n"
+						$splitString = $splitString.Trim()
+						$splitString = $splitString | Where-Object { $_ -ne "" }
+						$splitString = $splitString | ForEach-Object {$_.Trim() -replace '[^A-Za-z0-9\s;]', ''}
+						$adminAccountRow = $splitString | Where-Object {$_ -match 'AdminAccountName'}
+						if ($adminAccountRow) {
+							$LAPSAdminresult = ($adminAccountRow -split ';')[4]
+						}
 					}
 				}
 				
@@ -4474,7 +5049,7 @@ Add-Type -TypeDefinition $code
 			$TempLapsEnabledComputers = foreach ($AllDomain in $AllDomains) {
 				$LapsEnabledComputers = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $_."ms-Mcs-AdmPwdExpirationTime" -ne $null})
 				foreach ($LapsEnabledComputer in $LapsEnabledComputers) {
-					$IPAddress = Resolve-DnsName -Name $LapsEnabledComputer.DnsHostName -Type A -Server $ResolveServer | Select-Object -ExpandProperty IPAddress
+					if($LapsEnabledComputer.DnsHostName){$IPAddress = Resolve-DnsName -Name $LapsEnabledComputer.DnsHostName -Type A -Server $ResolveServer | Select-Object -ExpandProperty IPAddress}
 					if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 					[PSCustomObject]@{
 						"Name" = $LapsEnabledComputer.samaccountname
@@ -4538,7 +5113,7 @@ Add-Type -TypeDefinition $code
 				$membersCollection = @()
 				
 				$GPOGuid = ($gpo.gpcfilesyspath -split "}")[-2].split("{")[-1]  # Extracting the GPO's GUID
-				$TargetOUs = @($ActiveDirectoryObjects | Where-Object { $_.domain -eq $AllDomain -AND $_.objectCategory -like '*Organizational-Unit*' -AND $_.gplink -like "*$GPOGuid*"} )
+				$TargetOUs = @($AllCollectedOUs | Where-Object { $_.domain -eq $AllDomain -AND $_.gplink -like "*$GPOGuid*"} )
 				$OUs = $TargetOUs.name -Join " - "
 
 				# Check for Restricted Groups settings
@@ -4639,7 +5214,7 @@ Add-Type -TypeDefinition $code
 		$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 		$Unconstrained = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $TotalDomainControllers.dnshostname -notcontains $_.dnshostname -AND $_.userAccountControl -band 524288 })
 		foreach ($Computer in $Unconstrained) {
-			$ipAddress = Resolve-DnsName -Name $Computer.DnsHostName -Type A -Server $ResolveServer | Select-Object -ExpandProperty IPAddress
+			if($Computer.DnsHostName){$ipAddress = Resolve-DnsName -Name $Computer.DnsHostName -Type A -Server $ResolveServer | Select-Object -ExpandProperty IPAddress}
 			if($ipAddress.count -gt 1){$ipAddress = $ipAddress -join ", "}
 			[PSCustomObject]@{
 				"Name" = $Computer.samaccountname
@@ -4681,7 +5256,7 @@ Add-Type -TypeDefinition $code
 			$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 			$ConstrainedDelegationComputers = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $_."msds-allowedtodelegateto"})
 			foreach ($ConstrainedDelegationComputer in $ConstrainedDelegationComputers) {
-				$IPAddress = Resolve-DnsName -Name $ConstrainedDelegationComputer.DnsHostName -Type A -Server $ResolveServer | Select-Object -ExpandProperty IPAddress
+				if($ConstrainedDelegationComputer.DnsHostName){$IPAddress = Resolve-DnsName -Name $ConstrainedDelegationComputer.DnsHostName -Type A -Server $ResolveServer | Select-Object -ExpandProperty IPAddress}
 				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 				[PSCustomObject]@{
 					Domain = $AllDomain
@@ -4756,8 +5331,9 @@ Add-Type -TypeDefinition $code
 		if($RBCD -OR $AllEnum){
 	  		Write-Host ""
 			Write-Host "Resource Based Constrained Delegation:" -ForegroundColor Cyan
-			$ExcludedAccounts = "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions|NT AUTHORITY|SYSTEM|Domain Admins|Enterprise|CREATOR OWNER|BUILTIN|Key Admins|MSOL"
-			$PlusExcludedAccounts = ($DAEABA | Where-Object{$_.domain -eq $AllDomain}).samaccountname -join "|"
+			$ExcludedAccounts = "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions|SELF|SYSTEM|Domain Admins|Enterprise|CREATOR OWNER|BUILTIN|Key Admins|MSOL"
+			$PlusExcludedAccounts = @($DAEABA | Where-Object{$_.domain -eq $AllDomain})
+			$PlusExcludedAccounts = ($PlusExcludedAccounts | Where-Object {$_.samaccountname}).samaccountname -join "|"
 			$ExcludedAccounts = $ExcludedAccounts + "|" + $PlusExcludedAccounts
 			
 			# Load the required assembly
@@ -4852,7 +5428,7 @@ Add-Type -TypeDefinition $code
 					$ComputerCreator = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq (GetSID-FromBytes -sidBytes $ComputerCreated.'ms-DS-CreatorSID')}
 					if(!$ComputerCreator){$ComputerCreator = GetSID-FromBytes -sidBytes $ComputerCreated.'ms-DS-CreatorSID'}
 										
-					$IPAddress = Resolve-DnsName -Name $ComputerCreated.DnsHostName -Type A -Server $ResolveServer | Select-Object -ExpandProperty IPAddress
+					if($ComputerCreated.DnsHostName){$IPAddress = Resolve-DnsName -Name $ComputerCreated.DnsHostName -Type A -Server $ResolveServer | Select-Object -ExpandProperty IPAddress}
 					if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 					
 					[PSCustomObject]@{
@@ -4909,7 +5485,7 @@ Add-Type -TypeDefinition $code
 		$TempAccountOperators = @()
 		$TempAccountOperators = foreach ($AllDomain in $AllDomains) {
 			$AccountOperators = @()
-			$AccountOperators = RecursiveGroupMembers -AllADObjects $ActiveDirectoryObjects -Raw -Domain $AllDomain -Identity "Account Operators"
+			$AccountOperators = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Account Operators"
 			foreach ($AccountOperator in $AccountOperators) {
 
 				$isEnabled = if ($AccountOperator.useraccountcontrol -band 2) { "False" } else { "True" }
@@ -4971,7 +5547,7 @@ Add-Type -TypeDefinition $code
 		$TempBackupOperators = @()
 		$TempBackupOperators = foreach ($AllDomain in $AllDomains) {
 			$BackupOperators = @()
-			$BackupOperators = RecursiveGroupMembers -AllADObjects $ActiveDirectoryObjects -Raw -Domain $AllDomain -Identity "Backup Operators"
+			$BackupOperators = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Backup Operators"
 			foreach($BackupOperator in $BackupOperators){
 				
 				$isEnabled = if ($BackupOperator.useraccountcontrol -band 2) { "False" } else { "True" }
@@ -5017,7 +5593,7 @@ Add-Type -TypeDefinition $code
 		$TempCertPublishersGroup = @()
 		$TempCertPublishersGroup = foreach ($AllDomain in $AllDomains) {
 			$CertPublishers = @()
-			$CertPublishers = RecursiveGroupMembers -AllADObjects $ActiveDirectoryObjects -Raw -Domain $AllDomain -Identity "Cert Publishers"
+			$CertPublishers = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Cert Publishers"
 			foreach ($CertPublisher in $CertPublishers) {
 				
 				$isEnabled = if ($CertPublisher.useraccountcontrol -band 2) { "False" } else { "True" }
@@ -5079,7 +5655,7 @@ Add-Type -TypeDefinition $code
 		$TempDNSAdmins = @()
 		$TempDNSAdmins = foreach ($AllDomain in $AllDomains) {
 			$DNSAdmins = @()
-			$DNSAdmins = RecursiveGroupMembers -AllADObjects $ActiveDirectoryObjects -Raw -Domain $AllDomain -Identity "DNSAdmins"
+			$DNSAdmins = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "DNSAdmins"
 			foreach($DNSAdmin in $DNSAdmins){
 				
 				$isEnabled = if ($DNSAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
@@ -5124,7 +5700,7 @@ Add-Type -TypeDefinition $code
 		$TempEnterpriseKeyAdmins = @()
 		$TempEnterpriseKeyAdmins = foreach ($AllDomain in $AllDomains) {
 			$EnterpriseKeyAdmins = @()
-			$EnterpriseKeyAdmins = RecursiveGroupMembers -AllADObjects $ActiveDirectoryObjects -Raw -Domain $AllDomain -Identity "Enterprise Key Admins"
+			$EnterpriseKeyAdmins = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Enterprise Key Admins"
 			foreach ($EnterpriseKeyAdmin in $EnterpriseKeyAdmins) {
 				
 				$isEnabled = if ($EnterpriseKeyAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
@@ -5177,7 +5753,7 @@ Add-Type -TypeDefinition $code
 		$TempEnterpriseRODCs = @()
 		$TempEnterpriseRODCs = foreach ($AllDomain in $AllDomains) {
 			$EnterpriseRODCs = @()
-			$EnterpriseRODCs = RecursiveGroupMembers -AllADObjects $ActiveDirectoryObjects -Raw -Domain $AllDomain -Identity "Enterprise Read-Only Domain Controllers"
+			$EnterpriseRODCs = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Enterprise Read-Only Domain Controllers"
 			foreach($EnterpriseRODC in $EnterpriseRODCs){
 
 				$isEnabled = if ($EnterpriseRODC.useraccountcontrol -band 2) { "False" } else { "True" }
@@ -5223,7 +5799,7 @@ Add-Type -TypeDefinition $code
 		$TempGPCreatorOwners = @()
 		$TempGPCreatorOwners = foreach ($AllDomain in $AllDomains) {
 			$GPCreatorOwners = @()
-			$GPCreatorOwners = RecursiveGroupMembers -AllADObjects $ActiveDirectoryObjects -Raw -Domain $AllDomain -Identity "Group Policy Creator Owners"
+			$GPCreatorOwners = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Group Policy Creator Owners"
 			foreach ($GPCreatorOwner in $GPCreatorOwners) {
 				
 				$isEnabled = if ($GPCreatorOwner.useraccountcontrol -band 2) { "False" } else { "True" }
@@ -5268,7 +5844,7 @@ Add-Type -TypeDefinition $code
 		$TempKeyAdmins = @()
 		$TempKeyAdmins = foreach ($AllDomain in $AllDomains) {
 			$KeyAdmins = @()
-			$KeyAdmins = RecursiveGroupMembers -AllADObjects $ActiveDirectoryObjects -Raw -Domain $AllDomain -Identity "Key Admins"
+			$KeyAdmins = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Key Admins"
 			foreach ($KeyAdmin in $KeyAdmins) {
 
 				$isEnabled = if ($KeyAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
@@ -5330,7 +5906,7 @@ Add-Type -TypeDefinition $code
 		$TempOrganizationManagement = @()
 		$TempOrganizationManagement = foreach ($AllDomain in $AllDomains) {
 			$OrganizationManagement = @()
-			$OrganizationManagement = RecursiveGroupMembers -AllADObjects $ActiveDirectoryObjects -Raw -Domain $AllDomain -Identity "Organization Management"
+			$OrganizationManagement = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Organization Management"
 			foreach($Organization in $OrganizationManagement){
 
 				$isEnabled = if ($Organization.useraccountcontrol -band 2) { "False" } else { "True" }
@@ -5375,7 +5951,7 @@ Add-Type -TypeDefinition $code
 		$TempPrintOperators = @()
 		$TempPrintOperators = foreach ($AllDomain in $AllDomains) {
 			$PrintOperators = @()
-			$PrintOperators = RecursiveGroupMembers -AllADObjects $ActiveDirectoryObjects -Raw -Domain $AllDomain -Identity "Print Operators"
+			$PrintOperators = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Print Operators"
 			foreach($PrintOperator in $PrintOperators){
 
 				$isEnabled = if ($PrintOperator.useraccountcontrol -band 2) { "False" } else { "True" }
@@ -5420,7 +5996,7 @@ Add-Type -TypeDefinition $code
 		$TempProtectedUsers = @()
 		$TempProtectedUsers = foreach ($AllDomain in $AllDomains) {
 			$ProtectedUsers = @()
-			$ProtectedUsers = RecursiveGroupMembers -AllADObjects $ActiveDirectoryObjects -Raw -Domain $AllDomain -Identity "Protected Users"
+			$ProtectedUsers = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Protected Users"
 			foreach ($ProtectedUser in $ProtectedUsers) {
 
 				$isEnabled = if ($ProtectedUser.useraccountcontrol -band 2) { "False" } else { "True" }
@@ -5483,7 +6059,7 @@ Add-Type -TypeDefinition $code
 		$TempRODCs = @()
 		$TempRODCs = foreach ($AllDomain in $AllDomains) {
 			$RODCs = @()
-			$RODCs = RecursiveGroupMembers -AllADObjects $ActiveDirectoryObjects -Raw -Domain $AllDomain -Identity "Read-Only Domain Controllers"
+			$RODCs = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Read-Only Domain Controllers"
 			foreach($RODC in $RODCs){
 				
 				$isEnabled = if ($RODC.useraccountcontrol -band 2) { "False" } else { "True" }
@@ -5528,7 +6104,7 @@ Add-Type -TypeDefinition $code
 		$TempSchemaAdmins = @()
 		$TempSchemaAdmins = foreach ($AllDomain in $AllDomains) {
 			$SchemaAdmins = @()
-			$SchemaAdmins = RecursiveGroupMembers -AllADObjects $ActiveDirectoryObjects -Raw -Domain $AllDomain -Identity "Schema Admins"
+			$SchemaAdmins = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Schema Admins"
 			foreach ($SchemaAdmin in $SchemaAdmins) {
 				
 				$isEnabled = if ($SchemaAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
@@ -5585,7 +6161,7 @@ Add-Type -TypeDefinition $code
 		$TempServerOperators = @()
 		$TempServerOperators = foreach ($AllDomain in $AllDomains) {
 			$ServerOperators = @()
-			$ServerOperators = RecursiveGroupMembers -AllADObjects $ActiveDirectoryObjects -Raw -Domain $AllDomain -Identity "Server Operators"
+			$ServerOperators = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Server Operators"
 			foreach ($ServerOperator in $ServerOperators) {
 				
 				$isEnabled = if ($ServerOperator.useraccountcontrol -band 2) { "False" } else { "True" }
@@ -5652,7 +6228,7 @@ Add-Type -TypeDefinition $code
 			$InterestingServers = @()
 			foreach($Keyword in $Keywords){$InterestingServers += $TotalEnabledMachines | Where-Object { $_.domain -eq $AllDomain -AND $_.operatingsystem -like "*Server*" -AND $_.samaccountname -like "*$Keyword*" }}
 			foreach ($InterestingServer in $InterestingServers) {
-				$IPAddress = (Resolve-DnsName -Name $InterestingServer.DnsHostName -Type A).IPAddress
+				if($InterestingServer.DnsHostName){$IPAddress = (Resolve-DnsName -Name $InterestingServer.DnsHostName -Type A).IPAddress}
 				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 				[PSCustomObject]@{
 					"Name" = $InterestingServer.samaccountname
@@ -5775,7 +6351,7 @@ Add-Type -TypeDefinition $code
 		$TempServersEnabled = foreach ($AllDomain in $AllDomains) {
 			$ComputerServers = @($TotalEnabledServers | Where-Object {$_.domain -eq $AllDomain})
 			foreach ($ComputerServer in $ComputerServers) {
-				$IPAddress = (Resolve-DnsName -Name $ComputerServer.DnsHostName -Type A).IPAddress
+				if($ComputerServer.DnsHostName){$IPAddress = (Resolve-DnsName -Name $ComputerServer.DnsHostName -Type A).IPAddress}
 				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 				[PSCustomObject]@{
 					"Name" = $ComputerServer.samaccountname
@@ -5796,7 +6372,7 @@ Add-Type -TypeDefinition $code
 		}
     }
 	
-	#############################################
+	<# #############################################
     ########### Servers (Disabled)###############
 	#############################################
 	
@@ -5826,7 +6402,7 @@ Add-Type -TypeDefinition $code
 			$TempServersDisabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
 			$HTMLServersDisabled = $TempServersDisabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ServersDisabled'>Servers (Disabled)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ServersDisabled'>" }
 		}
-    }
+    } #>
 	
 	##################################################
     ########### Workstations (Enabled) ###############
@@ -5838,7 +6414,7 @@ Add-Type -TypeDefinition $code
 		$TempWorkstationsEnabled = foreach ($AllDomain in $AllDomains) {
 			$AllWorkstations = @($TotalEnabledWorkstations | Where-Object {$_.domain -eq $AllDomain})
 			foreach ($Workstation in $AllWorkstations) {
-				$IPAddress = (Resolve-DnsName -Name $Workstation.DnsHostName -Type A).IPAddress
+				if($Workstation.DnsHostName){$IPAddress = (Resolve-DnsName -Name $Workstation.DnsHostName -Type A).IPAddress}
 				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 				[PSCustomObject]@{
 					"Name" = $Workstation.samaccountname
@@ -5860,7 +6436,7 @@ Add-Type -TypeDefinition $code
 
 	}
 	
-	###################################################
+	<# ###################################################
     ########### Workstations (Disabled) ###############
 	###################################################
 	
@@ -5889,7 +6465,7 @@ Add-Type -TypeDefinition $code
 			$TempWorkstationsDisabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
 			$HTMLWorkstationsDisabled = $TempWorkstationsDisabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='WorkstationsDisabled'>Workstations (Disabled)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='WorkstationsDisabled'>" }
 		}
-    }
+    } #>
 
 	#####################################
     ########### Enabled Users ###########
@@ -5922,7 +6498,7 @@ Add-Type -TypeDefinition $code
 	}
 
 	
-	######################################
+	<# ######################################
     ########### Disabled Users ###########
 	######################################
 	
@@ -5950,7 +6526,7 @@ Add-Type -TypeDefinition $code
 			$TempDisabledUsers | Where-Object {$_."User Name" -ne "krbtgt"} | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
 			$HTMLDisabledUsers = $TempDisabledUsers | Where-Object {$_."User Name" -ne "krbtgt"} | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DisabledUsers'>Users (Disabled)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DisabledUsers'>" }
 		}
-	}
+	} #>
 
  	##################################
     ########### All Groups ###########
@@ -5964,7 +6540,7 @@ Add-Type -TypeDefinition $code
 			foreach ($OtherGroup in $OtherGroups) {
 				
 				if($Force){
-					$OtherGroupMembers = @(RecursiveGroupMembers -AllADObjects $ActiveDirectoryObjects -Raw -Domain $AllDomain -Identity $OtherGroup.samaccountname)
+					$OtherGroupMembers = @(RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity $OtherGroup.samaccountname)
 					$FinalGroupMembers = @()
 					$FinalGroupMembers = foreach ($OtherGroupMember in $OtherGroupMembers) {
 						$membername = $OtherGroupMember.samaccountname
@@ -6023,7 +6599,7 @@ Add-Type -TypeDefinition $code
 			$DomainGPOs = @($AllCollectedGPOs | Where-Object { $_.domain -eq $AllDomain })
 			foreach ($DomainGPO in $DomainGPOs) {
 				$GPOGuid = ($DomainGPO.gpcfilesyspath -split "}")[-2].split("{")[-1]  # Extracting the GPO's GUID
-				$TargetOUs = @($ActiveDirectoryObjects | Where-Object { $_.domain -eq $AllDomain -AND $_.objectCategory -like '*Organizational-Unit*' -AND $_.gplink -like "*$GPOGuid*"} )
+				$TargetOUs = @($AllCollectedOUs | Where-Object { $_.domain -eq $AllDomain -AND $_.gplink -like "*$GPOGuid*"} )
 				$OUs = $TargetOUs.name -Join " - "
 				[PSCustomObject]@{
 					"GPO Name" = $DomainGPO.DisplayName
@@ -6141,28 +6717,24 @@ Add-Type -TypeDefinition $code
 	if(!$HTMLGPOCreators -AND !$HTMLGPOsWhocanmodify -AND !$HTMLGpoLinkResults -AND !$HTMLLAPSGPOs -AND !$HTMLLAPSAdminGPOs -AND !$HTMLLAPSCanRead -AND !$HTMLLAPSExtended -AND !$HTMLLapsEnabledComputers -AND !$HTMLAppLockerGPOs -AND !$HTMLGPOLocalGroupsMembership){$GroupPolicyChecksBanner = $null}
 	if(!$HTMLUnconstrained -AND !$HTMLConstrainedDelegationComputers -AND !$HTMLConstrainedDelegationUsers -AND !$HTMLRBACDObjects -AND !$HTMLADComputersCreated){$DelegationChecksBanner = $null}
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLAllForests $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLOtherPolicies $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLLLMNR $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLAddworkstationstodomain $HTMLMachineQuota $HTMLMachineAccountQuotaTable $HTMLSubnets $AdministratorsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLAdminsProtectedUsersAndSensitive $HTMLAdminsProtectedUsersAndSensitiveTable $HTMLSecurityProtectedUsersAndSensitive $HTMLSecurityProtectedUsersAndSensitiveTable $HTMLAdmCountProtectedUsersAndSensitive $HTMLAdmCountProtectedUsersAndSensitiveTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLLinkedDAAccounts $HTMLFindLocalAdminAccess $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLCertTemplatesTable $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLEmptyPasswordComputers $HTMLEmptyPasswordComputersTable $HTMLTotalEmptyPass $HTMLTotalEmptyPassTable $HTMLCompTotalEmptyPass $HTMLCompTotalEmptyPassTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLWin7AndServer2008 $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $ExtendedChecksBanner $HTMLFileServers $HTMLSQLServers $HTMLSCCMServers $HTMLWSUSServers $HTMLPrinters $HTMLSPNAccounts $HTMLSharesResultsTable $HTMLEmptyGroups $GroupPolicyChecksBanner $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $DelegationChecksBanner $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $SecurityGroupsBanner $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLOrganizationManagement $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLSchemaAdmins $HTMLServerOperators $InterestingDataBanner $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLAllForests $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLOtherPolicies $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLLLMNR $HTMLMachineQuota $HTMLMachineAccountQuotaTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLVulnLMCompLevelComp $HTMLSubnets $AdministratorsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLAdminsProtectedUsersAndSensitive $HTMLAdminsProtectedUsersAndSensitiveTable $HTMLSecurityProtectedUsersAndSensitive $HTMLSecurityProtectedUsersAndSensitiveTable $HTMLAdmCountProtectedUsersAndSensitive $HTMLAdmCountProtectedUsersAndSensitiveTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLLinkedDAAccounts $HTMLFindLocalAdminAccess $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLCertTemplatesTable $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLEmptyPasswordComputers $HTMLEmptyPasswordComputersTable $HTMLTotalEmptyPass $HTMLTotalEmptyPassTable $HTMLCompTotalEmptyPass $HTMLCompTotalEmptyPassTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLWin7AndServer2008 $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $ExtendedChecksBanner $HTMLFileServers $HTMLSQLServers $HTMLSCCMServers $HTMLWSUSServers $HTMLSMBSigningDisabled $HTMLWebDAVStatusResults $HTMLPrinters $HTMLSPNAccounts $HTMLSharesResultsTable $HTMLEmptyGroups $GroupPolicyChecksBanner $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $DelegationChecksBanner $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $SecurityGroupsBanner $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLOrganizationManagement $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLSchemaAdmins $HTMLServerOperators $InterestingDataBanner $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
 	
 	if($Output){
 		$Output = $Output.TrimEnd('\')
 		if($Domain){
-			#$OutputFilePath = "$Output\$($DateFormat)_AD-Audit_$Domain.txt"
 			$HTMLOutputFilePath = "$Output\$($DateFormat)_AD-Audit_$Domain.html"
 		}
 		else{
 			$OutDomain=($env:userdnsdomain).ToLower()
-			#$OutputFilePath = "$Output\$($DateFormat)_AD-Audit_$OutDomain.txt"
 			$HTMLOutputFilePath = "$Output\$($DateFormat)_AD-Audit_$OutDomain.html"
 		}
 	}
 	else{
 		if($Domain){
-			#$OutputFilePath = "$pwd\$($DateFormat)_AD-Audit_$Domain.txt"
 			$HTMLOutputFilePath = "$pwd\$($DateFormat)_AD-Audit_$Domain.html"
 		}
 		else{
 			$OutDomain=($env:userdnsdomain).ToLower()
-			#$OutputFilePath = "$pwd\$($DateFormat)_AD-Audit_$OutDomain.txt"
 			$HTMLOutputFilePath = "$pwd\$($DateFormat)_AD-Audit_$OutDomain.html"
 		}
 	}
@@ -6179,17 +6751,17 @@ Add-Type -TypeDefinition $code
 	Write-Host "Elapsed Time: $elapsedTimeString"
 	Write-Host ""
 	Write-Host "Output files: " -ForegroundColor Yellow
-	#Write-Host "$OutputFilePath"
+	Write-Host "$OutputFilePath"
 	Write-Host "$HTMLOutputFilePath"
 	Write-Host ""
 	
 	# Stop capturing the output and display it on the console
-    #Stop-Transcript | Out-Null
+    Stop-Transcript | Out-Null
 	
 	$host.UI.RawUI.BufferSize = $originalBufferSize
     
     # Clean up error lines from output
-	<#
+	
     (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'TerminatingError' } | Set-Content $OutputFilePath
     (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Parameter name: binaryForm""' } | Set-Content $OutputFilePath
     (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'PSEdition:' } | Set-Content $OutputFilePath
@@ -6211,7 +6783,7 @@ Add-Type -TypeDefinition $code
     (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Transcript started, output file is' } | Set-Content $OutputFilePath
     (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Parameter name: enumType""' } | Set-Content $OutputFilePath
 	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Parameter name: sddlForm""' } | Set-Content $OutputFilePath
-    #>
+   
 }
 
 function Invoke-ShareHunter{
@@ -6564,70 +7136,6 @@ function Test-LDAPConnectivity {
     return $customObject
 }
 
-function Outsiders {
-    [CmdletBinding()]
-    Param(
-        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
-        [System.Collections.ArrayList]$TotalGroups,  # Assuming $TotalGroups is an ArrayList of group objects
-
-        [string[]]$ExcludeGroups = @('Users', 'Domain Users', 'Guests')  # Standard group names to ignore
-    )
-
-    PROCESS {
-        foreach ($group in $TotalGroups) {
-            $GroupName = $group.samAccountName
-            $GroupDistinguishedName = $group.distinguishedname
-            $GroupDomain = $GroupDistinguishedName.SubString($GroupDistinguishedName.IndexOf('DC=')) -replace 'DC=','' -replace ',','.'
-
-            # Check if the group is not in the exclude list
-            if ($ExcludeGroups -notcontains $GroupName) {
-                foreach ($member in $group.member) {
-                    $MemberDomain = $member.SubString($member.IndexOf('DC=')) -replace 'DC=','' -replace ',','.'
-
-                    # Filter for foreign SIDs in the cn field for users in another domain,
-                    # or if the DN doesn't end with the proper DN for the queried domain
-                    if ($member -match 'CN=S-1-5-21.*-.*' -or $GroupDomain -ne $MemberDomain) {
-                        $MemberDistinguishedName = $member
-                        $MemberName = $member.Split(',')[0].Split('=')[1]
-
-                        [PSCustomObject]@{
-                            GroupDomain            = $GroupDomain
-                            GroupName              = $GroupName
-                            GroupDistinguishedName = $GroupDistinguishedName
-                            MemberDomain           = $MemberDomain
-                            MemberName             = $MemberName
-                            MemberDistinguishedName = $MemberDistinguishedName
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-function ConvertFrom-SecureStringAES {
-    param (
-        [byte[]]$encryptedStringWithIV,
-        [byte[]]$key,
-        [string]$IVBase64,
-        [string]$SaltBase64
-    )
-
-    $aesManaged = New-Object System.Security.Cryptography.AesManaged
-    $aesManaged.Mode = [System.Security.Cryptography.CipherMode]::CBC
-    $aesManaged.Padding = [System.Security.Cryptography.PaddingMode]::PKCS7
-    $IV = [Convert]::FromBase64String($IVBase64)
-    $Salt = [Convert]::FromBase64String($SaltBase64)
-    $aesManaged.Key = $key
-    $aesManaged.IV = $IV
-    $decryptor = $aesManaged.CreateDecryptor($aesManaged.Key, $aesManaged.IV)
-    $IVLength = 16
-    $IV = $encryptedStringWithIV[0..($IVLength-1)]
-    $encryptedString = $encryptedStringWithIV[$IVLength..($encryptedStringWithIV.Length-1)]
-    $decryptedBytes = $decryptor.TransformFinalBlock($encryptedString, 0, $encryptedString.Length)
-    [System.Text.Encoding]::UTF8.GetString($decryptedBytes)
-}
-
 function Find-LocalAdminAccess {
 	
 	<#
@@ -6917,62 +7425,251 @@ function FindDomainTrusts {
     }
 }
 
+# Load the necessary assemblies
+Add-Type -AssemblyName System.DirectoryServices.AccountManagement
+Add-Type -AssemblyName System.DirectoryServices
+
+# Define the C# code for multithreaded processing
+Add-Type -TypeDefinition @"
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Management.Automation;
+
+namespace DataCollector
+{
+    public static class ProcessorClass
+    {
+        public static PSObject[] ProcessRecords(Dictionary<string, object>[] records, int numOfThreads)
+        {
+            Object[] results = ExecuteProcessing(records, numOfThreads);
+            return Array.ConvertAll(results, item => (PSObject)item);
+        }
+
+        private static Object[] ExecuteProcessing(Dictionary<string, object>[] records, int numOfThreads)
+        {
+            int totalRecords = records.Length;
+            IRecordHandler recordProcessor = new ActiveDirectoryRecordHandler();
+            IResultsProcessor resultsHandler = new BasicResultsProcessor();
+            int numberOfRecordsPerThread = totalRecords / numOfThreads;
+            int remainders = totalRecords % numOfThreads;
+
+            Thread[] threads = new Thread[numOfThreads];
+            for (int i = 0; i < numOfThreads; i++)
+            {
+                int numberOfRecordsToProcess = numberOfRecordsPerThread;
+                if (i == (numOfThreads - 1))
+                {
+                    numberOfRecordsToProcess += remainders;
+                }
+
+                Dictionary<string, object>[] sliceToProcess = new Dictionary<string, object>[numberOfRecordsToProcess];
+                Array.Copy(records, i * numberOfRecordsPerThread, sliceToProcess, 0, numberOfRecordsToProcess);
+                ProcessingThread processorThread = new ProcessingThread(i, recordProcessor, resultsHandler, sliceToProcess);
+                threads[i] = new Thread(processorThread.ProcessThreadRecords);
+                threads[i].Start();
+            }
+            foreach (Thread t in threads)
+            {
+                t.Join();
+            }
+
+            return resultsHandler.Complete();
+        }
+
+        class ProcessingThread
+        {
+            readonly int id;
+            readonly IRecordHandler recordProcessor;
+            readonly IResultsProcessor resultsHandler;
+            readonly Dictionary<string, object>[] objectsToBeProcessed;
+
+            public ProcessingThread(int id, IRecordHandler recordProcessor, IResultsProcessor resultsHandler, Dictionary<string, object>[] objectsToBeProcessed)
+            {
+                this.id = id;
+                this.recordProcessor = recordProcessor;
+                this.resultsHandler = resultsHandler;
+                this.objectsToBeProcessed = objectsToBeProcessed;
+            }
+
+            public void ProcessThreadRecords()
+            {
+                for (int i = 0; i < objectsToBeProcessed.Length; i++)
+                {
+                    Object[] result = recordProcessor.ProcessRecord(objectsToBeProcessed[i]);
+                    resultsHandler.ProcessResults(result);
+                }
+            }
+        }
+
+        interface IRecordHandler
+        {
+            PSObject[] ProcessRecord(Dictionary<string, object> record);
+        }
+
+        class ActiveDirectoryRecordHandler : IRecordHandler
+        {
+            public PSObject[] ProcessRecord(Dictionary<string, object> record)
+            {
+                try
+                {
+                    PSObject adObj = new PSObject();
+                    foreach (var prop in record)
+                    {
+                        adObj.Members.Add(new PSNoteProperty(prop.Key, prop.Value));
+                    }
+                    return new PSObject[] { adObj };
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("{0} Exception caught.", e);
+                    return new PSObject[] { };
+                }
+            }
+        }
+
+        interface IResultsProcessor
+        {
+            void ProcessResults(Object[] t);
+            Object[] Complete();
+        }
+
+        class BasicResultsProcessor : IResultsProcessor
+        {
+            private readonly Object lockObj = new Object();
+            private readonly List<Object> processed = new List<Object>();
+
+            public void ProcessResults(Object[] results)
+            {
+                lock (lockObj)
+                {
+                    if (results.Length != 0)
+                    {
+                        for (var i = 0; i < results.Length; i++)
+                        {
+                            processed.Add(results[i]);
+                        }
+                    }
+                }
+            }
+
+            public Object[] Complete()
+            {
+                return processed.ToArray();
+            }
+        }
+    }
+}
+"@
+
+# Function to retrieve all AD objects and their properties
 function Collect-ADObjects {
     param (
-        [Parameter(Mandatory = $true)]
-        [string]$Domain,
-
-        [Parameter(Mandatory = $false)]
-        [string]$Server,
-
-        [Parameter(Mandatory = $false)]
-        [ValidateSet("Users", "Computers", "Groups", "DomainControllers", "GPOs", "OUs")]
-        [string[]]$Collect
+        [string]$Domain = [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain().Name,
+        [string]$Server = $null,
+        [int]$numOfThreads = 4,
+		[Parameter(Mandatory = $false)]
+        [ValidateSet("Users", "Computers", "Groups", "GPOs", "DomainControllers", "OUs", "Else", "Printers", "DomainPolicy", "OtherPolicies", "rIDManagers")]
+        [string[]]$Collect = @("Users", "Computers", "Groups", "GPOs", "DomainControllers", "OUs", "Else", "Printers", "DomainPolicy", "OtherPolicies", "rIDManagers"),
+		[string[]]$Property,
+		[switch]$Enabled,
+        [switch]$Disabled,
+		[string]$Identity,
+		[string]$LDAP
     )
-
-    [System.Collections.Generic.List[PSObject]]$adObjects = New-Object System.Collections.Generic.List[PSObject]
-    $searcher = New-Object System.DirectoryServices.DirectorySearcher
-    $ConstructedDomainName = "DC=" + $Domain.Split(".")
-    $ConstructedDomainName = $ConstructedDomainName -replace " ", ",DC="
-
-    if ($Server) {
-        $searcher.SearchRoot = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$Server/$ConstructedDomainName")
+	
+	$root = if ($Server) {
+        "LDAP://$Server"
     } else {
-        $searcher.SearchRoot = "LDAP://$ConstructedDomainName"
+        "LDAP://$Domain"
     }
-
-    $searcher.PageSize = 1000
-	$searcher.PropertiesToLoad.Add("*") | Out-Null
-    $searcher.SearchScope = "Subtree"
+	
+	$rootDirectoryEntry = New-Object System.DirectoryServices.DirectoryEntry($root)
+    $searcher = New-Object System.DirectoryServices.DirectorySearcher($rootDirectoryEntry)
 	
 	# Construct the LDAP filter based on the -Collect parameter
     $filters = @()
-    foreach ($item in $Collect) {
-        switch ($item) {
-            "Users" { $filters += "(objectCategory=person)" }
-            "Computers" { $filters += "(objectCategory=computer)" }
-            "Groups" { $filters += "(objectCategory=group)" }
-            "DomainControllers" { $filters += "(&(objectCategory=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192))" }
-            "OUs" { $filters += "(objectCategory=organizationalUnit)" }
-            "GPOs" { $filters += "(objectClass=groupPolicyContainer)" }
-        }
+	if ($Identity) {
+        $filters += "(samAccountName=$Identity)"
     }
+	elseif ($LDAP) {
+        $filters += "($LDAP)"
+    }
+	else{
+		foreach ($item in $Collect) {
+			switch ($item) {
+				"Users" { 
+					$userFilter = "(objectCategory=person)"
+					if ($Enabled) {
+						$userFilter = "(&" + $userFilter + "(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+					} elseif ($Disabled) {
+						$userFilter = "(&" + $userFilter + "(userAccountControl:1.2.840.113556.1.4.803:=2))"
+					}
+					$filters += $userFilter
+				}
+				"Computers" { 
+					$computerFilter = "(objectCategory=computer)"
+					if ($Enabled) {
+						$computerFilter = "(&" + $computerFilter + "(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+					} elseif ($Disabled) {
+						$computerFilter = "(&" + $computerFilter + "(userAccountControl:1.2.840.113556.1.4.803:=2))"
+					}
+					$filters += $computerFilter
+				}
+				"Groups" { $filters += "(objectCategory=group)" }
+				"DomainControllers" { $filters += "(&(objectCategory=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192))" }
+				"OUs" { $filters += "(objectCategory=organizationalUnit)" }
+				"GPOs" { $filters += "(objectClass=groupPolicyContainer)" }
+				"Else" { $filters += "(&(!(objectCategory=person))(!(objectCategory=computer))(!(objectCategory=group))(!(objectCategory=organizationalUnit))(!(objectClass=groupPolicyContainer)))" }
+				"Printers" { $filters += "(objectCategory=printQueue)" }
+                "DomainPolicy" { $filters += "(objectClass=domainDNS)" }
+                "OtherPolicies" { $filters += "(cn=Policies*)" }
+				"rIDManagers" { $filters += "(objectClass=rIDManager)" }
+			}
+		}
+	}
     # Combine the filters with an OR if multiple categories are specified
     $searcher.Filter = if ($filters.Count -gt 1) { "(|" + ($filters -join "") + ")" } else { $filters[0] }
-
-    $results = $searcher.FindAll()
-    foreach ($result in $results) {
-        $properties = $result.Properties
-        $obj = New-Object PSObject
-        foreach ($propertyName in $properties.PropertyNames) {
-            $value = if ($properties[$propertyName].Count -eq 1) { $properties[$propertyName][0] } else { $properties[$propertyName] }
-            $obj | Add-Member -NotePropertyName $propertyName -NotePropertyValue $value
+	
+    # Specify the properties to load if provided
+    if ($Property) {
+        $Property += "domain"  # Ensure 'domain' is always collected
+        foreach ($prop in $Property) {
+            $null = $searcher.PropertiesToLoad.Add($prop)
         }
-        $obj | Add-Member -NotePropertyName "domain" -NotePropertyValue $Domain
-        $adObjects.Add($obj)
     }
-    $searcher.Dispose()
-    return $adObjects
+	
+	$searcher.PageSize = 1000
+	$searcher.SearchScope = [System.DirectoryServices.SearchScope]::Subtree
+    $results = $searcher.FindAll()
+
+    [System.Collections.Generic.List[PSObject]]$records = New-Object 'System.Collections.Generic.List[PSObject]'
+    foreach ($result in $results) {
+        $properties = @{}
+        foreach ($prop in $result.Properties.PropertyNames) {
+            if ($result.Properties[$prop].Count -gt 1) {
+                $properties[$prop] = $result.Properties[$prop]
+            } else {
+                $properties[$prop] = $result.Properties[$prop][0]
+            }
+        }
+		$properties['domain'] = $Domain
+        $records.Add([PSCustomObject]$properties)
+    }
+
+    # Convert the records to Dictionary<string, object> for the C# code
+    [System.Collections.Generic.List[System.Collections.Generic.Dictionary[string, object]]]$recordsArray = New-Object 'System.Collections.Generic.List[System.Collections.Generic.Dictionary[string, object]]'
+    foreach ($record in $records) {
+        $dict = New-Object 'System.Collections.Generic.Dictionary[String, Object]'
+        foreach ($prop in $record.PSObject.Properties) {
+            $dict.Add($prop.Name, $prop.Value)
+        }
+        $recordsArray.Add($dict)
+    }
+
+    $CollectedResults = [DataCollector.ProcessorClass]::ProcessRecords($recordsArray, $numOfThreads)
+    
+    return $CollectedResults
 }
 
 function RecursiveGroupMembers {
@@ -7047,7 +7744,7 @@ function RecursiveGroupMembers {
 
 					if ($memberObject) {
 						# Extract the most specific object class
-						$mostSpecificObjectClass = $memberObject.objectClass[-1]
+						$mostSpecificObjectClass = @($memberObject.objectClass)[-1]
 						
 						# Create a custom PSObject with the desired properties
 						$memberDetails = [PSCustomObject]@{
@@ -7082,7 +7779,10 @@ function RecursiveGroupMembers {
 function Collect-ADCertificateTemplates {
     param (
         [Parameter(Mandatory = $true)]
-        [string]$Domain
+        [string]$Domain,
+		
+		[Parameter(Mandatory = $false)]
+        [string]$Server
     )
 
     $certificateTemplates = @()
@@ -7090,8 +7790,14 @@ function Collect-ADCertificateTemplates {
     # Check binding to the directory entry
     try {
 		$domainDistinguishedName = "DC=" + ($Domain -replace "\.", ",DC=")
+		$ldapPath = "LDAP://"
+		if ($PSBoundParameters.ContainsKey('Server')) {
+            $ldapPath += "$Server/"
+        }
+		$ldapPath += "CN=Certificate Templates,CN=Public Key Services,CN=Services,CN=Configuration,$domainDistinguishedName"
+		
 		$ldapConnection = New-Object System.DirectoryServices.DirectoryEntry
-		$ldapConnection.Path = "LDAP://CN=Certificate Templates,CN=Public Key Services,CN=Services,CN=Configuration,$domainDistinguishedName"
+		$ldapConnection.Path = $ldapPath
 		
         $searcher = New-Object System.DirectoryServices.DirectorySearcher
 		$searcher.SearchRoot = $ldapConnection
@@ -7122,46 +7828,1072 @@ function Collect-ADCertificateTemplates {
     return $certificateTemplates
 }
 
+function CheckWebDAVStatus
+{
+	
+    [CmdletBinding()] Param(
+
+ 	[Parameter (Mandatory=$False, Position = 1, ValueFromPipeline=$true)]
+        [PSObject[]]
+        $Targets
+
+ 	)
+	
+	# Initialize the runspace pool
+	$runspacePool = [runspacefactory]::CreateRunspacePool(1, 10)
+	$runspacePool.Open()
+
+	# Define the script block outside the loop for better efficiency
+	$scriptBlock = {
+		param ($computer)
+		
+		$source = @"
+using System;
+using System.Runtime.InteropServices;
+
+namespace DynamicTypes {
+    public class PipeChecker {
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern bool WaitNamedPipeA(string lpNamedPipeName, uint nTimeOut);
+    }
+}
+"@
+
+Add-Type -TypeDefinition $source -Language CSharp
+
+		function CheckDAVPipe {
+			param (
+				[Parameter(Mandatory = $true)]
+				[string]$TargetHost
+			)
+
+			$pipename = "\\$TargetHost\pipe\DAV RPC SERVICE"
+			$davActive = [DynamicTypes.PipeChecker]::WaitNamedPipeA($pipename, 3000)
+
+			if ($davActive) {
+				Write-Output "$TargetHost"
+			}
+		}
+		
+		$Result = CheckDAVPipe -TargetHost $computer.dnshostname
+		if($Result){return $computer}
+		return $null
+	}
+
+	# Use a generic list for better performance when adding items
+	$runspaces = New-Object 'System.Collections.Generic.List[System.Object]'
+
+	foreach ($computer in $Targets) {
+		$powerShellInstance = [powershell]::Create().AddScript($scriptBlock).AddArgument($computer)
+		$powerShellInstance.RunspacePool = $runspacePool
+		$runspaces.Add([PSCustomObject]@{
+			Instance = $powerShellInstance
+			Status   = $powerShellInstance.BeginInvoke()
+		})
+	}
+
+	# Collect the results
+	$WebDAVStatusEnabled = @()
+	foreach ($runspace in $runspaces) {
+		$result = $runspace.Instance.EndInvoke($runspace.Status)
+		if ($result) {
+			$WebDAVStatusEnabled += $result
+		}
+	}
+
+	if($WebDAVStatusEnabled){$WebDAVStatusEnabled}
+
+	# Close and dispose of the runspace pool for good resource management
+	$runspacePool.Close()
+	$runspacePool.Dispose()
+}
+
+function CheckSMBSigning
+{
+    [CmdletBinding()] Param(
+
+ 	[Parameter (Mandatory=$False, Position = 1, ValueFromPipeline=$true)]
+        [PSObject[]]
+        $Targets
+ 	)
+	
+	# Initialize the runspace pool
+	$runspacePool = [runspacefactory]::CreateRunspacePool(1, 10)
+	$runspacePool.Open()
+
+	# Define the script block outside the loop for better efficiency
+	$scriptBlock = {
+		param ($computer)
+		
+		Function F5A6B8D8B  {
+
+			Param (
+				[String]$A1,
+				[Float]$A3,
+				[Float]$A4
+			) 
+
+			function B3C4D5E6
+			{
+				param($B)
+
+				ForEach($C in $B.Values)
+				{
+					$D += $C
+				}
+
+				return $D
+			}
+
+			function E4F5G6H7()
+			{
+				param([Int]$E,[Int]$F)
+
+				[Byte[]]$G = [System.BitConverter]::GetBytes($E + $F)
+				$G = $G[2..0]
+
+				$H = New-Object System.Collections.Specialized.OrderedDictionary
+				$H.Add("A1",[Byte[]](0x00))
+				$H.Add("A2",[Byte[]]($G))
+
+				return $H
+			}
+
+			function H7I8J9K0()
+			{
+				param([Byte[]]$I,[Byte[]]$J,[Byte[]]$K,[Byte[]]$L,[Byte[]]$M,[Byte[]]$N)
+
+				$O = New-Object System.Collections.Specialized.OrderedDictionary
+				$O.Add("B1",[Byte[]](0xff,0x53,0x4d,0x42))
+				$O.Add("B2",$I)
+				$O.Add("B3",[Byte[]](0x00))
+				$O.Add("B4",[Byte[]](0x00))
+				$O.Add("B5",[Byte[]](0x00,0x00))
+				$O.Add("B6",$J)
+				$O.Add("B7",$K)
+				$O.Add("B8",[Byte[]](0x00,0x00))
+				$O.Add("B9",[Byte[]](0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00))
+				$O.Add("C1",[Byte[]](0x00,0x00))
+				$O.Add("C2",$L)
+				$O.Add("C3",$M)
+				$O.Add("C4",$N)
+				$O.Add("C5",[Byte[]](0x00,0x00))
+
+				return $O
+			}
+
+			function J8K9L0M1()
+			{
+				param([String]$P)
+
+				if($P -eq "SMB1")
+				{
+					[Byte[]]$Q = 0x0c,0x00
+				}
+				else
+				{
+					[Byte[]]$Q = 0x22,0x00  
+				}
+
+				$R = New-Object System.Collections.Specialized.OrderedDictionary
+				$R.Add("D1",[Byte[]](0x00))
+				$R.Add("D2",$Q)
+				$R.Add("D3",[Byte[]](0x02))
+				$R.Add("D4",[Byte[]](0x4e,0x54,0x20,0x4c,0x4d,0x20,0x30,0x2e,0x31,0x32,0x00))
+
+				if($P -ne "SMB1")
+				{
+					$R.Add("D5",[Byte[]](0x02))
+					$R.Add("D6",[Byte[]](0x53,0x4d,0x42,0x20,0x32,0x2e,0x30,0x30,0x32,0x00))
+					$R.Add("D7",[Byte[]](0x02))
+					$R.Add("D8",[Byte[]](0x53,0x4d,0x42,0x20,0x32,0x2e,0x3f,0x3f,0x3f,0x00))
+				}
+
+				return $R
+			}
+
+			function K9L0M1N2()
+			{
+				param([Byte[]]$S)
+
+				[Byte[]]$T = [System.BitConverter]::GetBytes($S.Length)
+				$T = $T[0,1]
+				[Byte[]]$U = [System.BitConverter]::GetBytes($S.Length + 5)
+				$U = $U[0,1]
+
+				$V = New-Object System.Collections.Specialized.OrderedDictionary
+				$V.Add("E1",[Byte[]](0x0c))
+				$V.Add("E2",[Byte[]](0xff))
+				$V.Add("E3",[Byte[]](0x00))
+				$V.Add("E4",[Byte[]](0x00,0x00))
+				$V.Add("E5",[Byte[]](0xff,0xff))
+				$V.Add("E6",[Byte[]](0x02,0x00))
+				$V.Add("E7",[Byte[]](0x01,0x00))
+				$V.Add("E8",[Byte[]](0x00,0x00,0x00,0x00))
+				$V.Add("E9",$T)
+				$V.Add("F1",[Byte[]](0x00,0x00,0x00,0x00))
+				$V.Add("F2",[Byte[]](0x44,0x00,0x00,0x80))
+				$V.Add("F3",$U)
+				$V.Add("F4",$S)
+				$V.Add("F5",[Byte[]](0x00,0x00,0x00))
+				$V.Add("F6",[Byte[]](0x00,0x00))
+
+				return $V 
+			}
+
+			function L0M1N2O3()
+			{
+				param([Byte[]]$W)
+
+				[Byte[]]$X = [System.BitConverter]::GetBytes($W.Length + 7)
+				$X = $X[0,1]
+
+				$Y = New-Object System.Collections.Specialized.OrderedDictionary
+				$Y.Add("G1",[Byte[]](0x04))
+				$Y.Add("G2",[Byte[]](0xff))
+				$Y.Add("G3",[Byte[]](0x00))
+				$Y.Add("G4",[Byte[]](0x00,0x00))
+				$Y.Add("G5",[Byte[]](0x00,0x00))
+				$Y.Add("G6",[Byte[]](0x01,0x00))
+				$Y.Add("G7",$X)
+				$Y.Add("G8",[Byte[]](0x00))
+				$Y.Add("G9",$W)
+				$Y.Add("H1",[Byte[]](0x3f,0x3f,0x3f,0x3f,0x3f,0x00))
+
+				return $Y
+			}
+
+			function M1N2O3P4()
+			{
+				param([Byte[]]$Z)
+
+				[Byte[]]$AA = [System.BitConverter]::GetBytes($Z.Length)
+				$AA = $AA[0,1]
+				[Byte[]]$BB = [System.BitConverter]::GetBytes($Z.Length - 1)
+				$BB = $BB[0,1]
+
+				$CC = New-Object System.Collections.Specialized.OrderedDictionary
+				$CC.Add("I1",[Byte[]](0x18))
+				$CC.Add("I2",[Byte[]](0xff))
+				$CC.Add("I3",[Byte[]](0x00))
+				$CC.Add("I4",[Byte[]](0x00,0x00))
+				$CC.Add("I5",[Byte[]](0x00))
+				$CC.Add("I6",$BB)
+				$CC.Add("I7",[Byte[]](0x16,0x00,0x00,0x00))
+				$CC.Add("I8",[Byte[]](0x00,0x00,0x00,0x00))
+				$CC.Add("I9",[Byte[]](0x00,0x00,0x00,0x02))
+				$CC.Add("J1",[Byte[]](0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00))
+				$CC.Add("J2",[Byte[]](0x00,0x00,0x00,0x00))
+				$CC.Add("J3",[Byte[]](0x07,0x00,0x00,0x00))
+				$CC.Add("J4",[Byte[]](0x01,0x00,0x00,0x00))
+				$CC.Add("J5",[Byte[]](0x00,0x00,0x00,0x00))
+				$CC.Add("J6",[Byte[]](0x02,0x00,0x00,0x00))
+				$CC.Add("J7",[Byte[]](0x00))
+				$CC.Add("J8",$AA)
+				$CC.Add("J9",$Z)
+
+				return $CC
+			}
+
+			function N2O3P4Q5()
+			{
+				$DD = New-Object System.Collections.Specialized.OrderedDictionary
+				$DD.Add("K1",[Byte[]](0x0a))
+				$DD.Add("K2",[Byte[]](0xff))
+				$DD.Add("K3",[Byte[]](0x00))
+				$DD.Add("K4",[Byte[]](0x00,0x00))
+				$DD.Add("K5",[Byte[]](0x00,0x40))
+				$DD.Add("K6",[Byte[]](0x00,0x00,0x00,0x00))
+				$DD.Add("K7",[Byte[]](0x58,0x02))
+				$DD.Add("K8",[Byte[]](0x58,0x02))
+				$DD.Add("K9",[Byte[]](0xff,0xff,0xff,0xff))
+				$DD.Add("L1",[Byte[]](0x00,0x00))
+				$DD.Add("L2",[Byte[]](0x00,0x00))
+
+				return $DD
+			}
+
+			function O3P4Q5R6()
+			{
+				param([Byte[]]$EE,[Int]$FF)
+
+				[Byte[]]$GG = [System.BitConverter]::GetBytes($FF)
+				$GG = $GG[0,1]
+
+				$HH = New-Object System.Collections.Specialized.OrderedDictionary
+				$HH.Add("M1",[Byte[]](0x0e))
+				$HH.Add("M2",[Byte[]](0xff))
+				$HH.Add("M3",[Byte[]](0x00))
+				$HH.Add("M4",[Byte[]](0x00,0x00))
+				$HH.Add("M5",$EE)
+				$HH.Add("M6",[Byte[]](0xea,0x03,0x00,0x00))
+				$HH.Add("M7",[Byte[]](0xff,0xff,0xff,0xff))
+				$HH.Add("M8",[Byte[]](0x08,0x00))
+				$HH.Add("M9",$GG)
+				$HH.Add("N1",[Byte[]](0x00,0x00))
+				$HH.Add("N2",$GG)
+				$HH.Add("N3",[Byte[]](0x3f,0x00))
+				$HH.Add("N4",[Byte[]](0x00,0x00,0x00,0x00))
+				$HH.Add("N5",$GG)
+
+				return $HH
+			}
+
+			function P4Q5R6S7()
+			{
+				param ([Byte[]]$II)
+
+				$JJ = New-Object System.Collections.Specialized.OrderedDictionary
+				$JJ.Add("O1",[Byte[]](0x03))
+				$JJ.Add("O2",$II)
+				$JJ.Add("O3",[Byte[]](0xff,0xff,0xff,0xff))
+				$JJ.Add("O4",[Byte[]](0x00,0x00))
+
+				return $JJ
+			}
+
+			function Q5R6S7T8()
+			{
+				$KK = New-Object System.Collections.Specialized.OrderedDictionary
+				$KK.Add("P1",[Byte[]](0x00))
+				$KK.Add("P2",[Byte[]](0x00,0x00))
+
+				return $KK
+			}
+
+			function R6S7T8U9()
+			{
+				$LL = New-Object System.Collections.Specialized.OrderedDictionary
+				$LL.Add("Q1",[Byte[]](0x02))
+				$LL.Add("Q2",[Byte[]](0xff))
+				$LL.Add("Q3",[Byte[]](0x00))
+				$LL.Add("Q4",[Byte[]](0x00,0x00))
+				$LL.Add("Q5",[Byte[]](0x00,0x00))
+
+				return $LL
+			}
+
+			function S7T8U9V0()
+			{
+				param([Byte[]]$MM,[Int]$NN,[Byte[]]$OO,[Byte[]]$PP)
+
+				[Byte[]]$QQ = [System.BitConverter]::GetBytes($NN) + 0x00,0x00,0x00,0x00
+
+				$RR = New-Object System.Collections.Specialized.OrderedDictionary
+				$RR.Add("R1",[Byte[]](0xfe,0x53,0x4d,0x42))
+				$RR.Add("R2",[Byte[]](0x40,0x00))
+				$RR.Add("R3",[Byte[]](0x01,0x00))
+				$RR.Add("R4",[Byte[]](0x00,0x00))
+				$RR.Add("R5",[Byte[]](0x00,0x00))
+				$RR.Add("R6",$MM)
+				$RR.Add("R7",[Byte[]](0x00,0x00))
+				$RR.Add("R8",[Byte[]](0x00,0x00,0x00,0x00))
+				$RR.Add("R9",[Byte[]](0x00,0x00,0x00,0x00))
+				$RR.Add("S1",$QQ)
+				$RR.Add("S2",[Byte[]](0x00,0x00,0x00,0x00))
+				$RR.Add("S3",$OO)
+				$RR.Add("S4",$PP)
+				$RR.Add("S5",[Byte[]](0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00))
+
+				return $RR
+			}
+
+			function T8U9V0W1()
+			{
+				$SS = New-Object System.Collections.Specialized.OrderedDictionary
+				$SS.Add("T1",[Byte[]](0x24,0x00))
+				$SS.Add("T2",[Byte[]](0x02,0x00))
+				$SS.Add("T3",[Byte[]](0x01,0x00))
+				$SS.Add("T4",[Byte[]](0x00,0x00))
+				$SS.Add("T5",[Byte[]](0x40,0x00,0x00,0x00))
+				$SS.Add("T6",[Byte[]](0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00))
+				$SS.Add("T7",[Byte[]](0x00,0x00,0x00,0x00))
+				$SS.Add("T8",[Byte[]](0x00,0x00))
+				$SS.Add("T9",[Byte[]](0x00,0x00))
+				$SS.Add("U1",[Byte[]](0x02,0x02))
+				$SS.Add("U2",[Byte[]](0x10,0x02))
+
+				return $SS
+			}
+
+			function U9V0W1X2()
+			{
+				param([Byte[]]$TT)
+
+				[Byte[]]$UU = [System.BitConverter]::GetBytes($TT.Length)
+				$UU = $UU[0,1]
+
+				$VV = New-Object System.Collections.Specialized.OrderedDictionary
+				$VV.Add("U3",[Byte[]](0x19,0x00))
+				$VV.Add("U4",[Byte[]](0x00))
+				$VV.Add("U5",[Byte[]](0x01))
+				$VV.Add("U6",[Byte[]](0x00,0x00,0x00,0x00))
+				$VV.Add("U7",[Byte[]](0x00,0x00,0x00,0x00))
+				$VV.Add("U8",[Byte[]](0x58,0x00))
+				$VV.Add("U9",$UU)
+				$VV.Add("V1",[Byte[]](0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00))
+				$VV.Add("V2",$TT)
+
+				return $VV 
+			}
+
+			function V0W1X2Y3()
+			{
+				param([Byte[]]$WW)
+
+				[Byte[]]$XX = [System.BitConverter]::GetBytes($WW.Length)
+				$XX = $XX[0,1]
+
+				$YY = New-Object System.Collections.Specialized.OrderedDictionary
+				$YY.Add("V3",[Byte[]](0x09,0x00))
+				$YY.Add("V4",[Byte[]](0x00,0x00))
+				$YY.Add("V5",[Byte[]](0x48,0x00))
+				$YY.Add("V6",$XX)
+				$YY.Add("V7",$WW)
+
+				return $YY
+			}
+
+			function W1X2Y3Z4()
+			{
+				param([Byte[]]$ZZ)
+
+				$AAA = [System.BitConverter]::GetBytes($ZZ.Length)
+				$AAA = $AAA[0,1]
+
+				$BBB = New-Object System.Collections.Specialized.OrderedDictionary
+				$BBB.Add("W1",[Byte[]](0x39,0x00))
+				$BBB.Add("W2",[Byte[]](0x00))
+				$BBB.Add("W3",[Byte[]](0x00))
+				$BBB.Add("W4",[Byte[]](0x02,0x00,0x00,0x00))
+				$BBB.Add("W5",[Byte[]](0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00))
+				$BBB.Add("W6",[Byte[]](0x00,0x00,0x00,0x00))
+				$BBB.Add("W7",[Byte[]](0x03,0x00,0x00,0x00))
+				$BBB.Add("W8",[Byte[]](0x80,0x00,0x00,0x00))
+				$BBB.Add("W9",[Byte[]](0x01,0x00,0x00,0x00))
+				$BBB.Add("X1",[Byte[]](0x01,0x00,0x00,0x00))
+				$BBB.Add("X2",[Byte[]](0x40,0x00,0x00,0x00))
+				$BBB.Add("X3",[Byte[]](0x78,0x00))
+				$BBB.Add("X4",$AAA)
+				$BBB.Add("X5",[Byte[]](0x00,0x00,0x00,0x00))
+				$BBB.Add("X6",[Byte[]](0x00,0x00,0x00,0x00))
+				$BBB.Add("X7",$ZZ)
+
+				return $BBB
+			}
+
+			function X2Y3Z4A5()
+			{
+				param ([Byte[]]$CCC)
+
+				$DDD = New-Object System.Collections.Specialized.OrderedDictionary
+				$DDD.Add("X8",[Byte[]](0x31,0x00))
+				$DDD.Add("X9",[Byte[]](0x50))
+				$DDD.Add("Y1",[Byte[]](0x00))
+				$DDD.Add("Y2",[Byte[]](0x00,0x00,0x10,0x00))
+				$DDD.Add("Y3",[Byte[]](0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00))
+				$DDD.Add("Y4",$CCC)
+				$DDD.Add("Y5",[Byte[]](0x00,0x00,0x00,0x00))
+				$DDD.Add("Y6",[Byte[]](0x00,0x00,0x00,0x00))
+				$DDD.Add("Y7",[Byte[]](0x00,0x00))
+				$DDD.Add("Y8",[Byte[]](0x00,0x00))
+				$DDD.Add("Y9",[Byte[]](0x30))
+
+				return $DDD
+			}
+
+			function Y3Z4A5B6()
+			{
+				param([Byte[]]$EEE,[Int]$FFF)
+
+				[Byte[]]$GGG = [System.BitConverter]::GetBytes($FFF)
+
+				$HHH = New-Object System.Collections.Specialized.OrderedDictionary
+				$HHH.Add("Z1",[Byte[]](0x31,0x00))
+				$HHH.Add("Z2",[Byte[]](0x70,0x00))
+				$HHH.Add("Z3",$GGG)
+				$HHH.Add("Z4",[Byte[]](0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00))
+				$HHH.Add("Z5",$EEE)
+				$HHH.Add("Z6",[Byte[]](0x00,0x00,0x00,0x00))
+				$HHH.Add("Z7",[Byte[]](0x00,0x00))
+				$HHH.Add("Z8",[Byte[]](0x00,0x00))
+				$HHH.Add("Z9",[Byte[]](0x00,0x00,0x00,0x00))
+
+				return $HHH
+			}
+
+			function Z4A5B6C7()
+			{
+				param ([Byte[]]$III)
+
+				$JJJ = New-Object System.Collections.Specialized.OrderedDictionary
+				$JJJ.Add("A5",[Byte[]](0x18,0x00))
+				$JJJ.Add("A6",[Byte[]](0x00,0x00))
+				$JJJ.Add("A7",[Byte[]](0x00,0x00,0x00,0x00))
+				$JJJ.Add("A8",$III)
+
+				return $JJJ
+			}
+
+			function A5B6C7D8()
+			{
+				$KKK = New-Object System.Collections.Specialized.OrderedDictionary
+				$KKK.Add("A9",[Byte[]](0x04,0x00))
+				$KKK.Add("B6",[Byte[]](0x00,0x00))
+
+				return $KKK
+			}
+
+			function B6C7D8E9()
+			{
+				$LLL = New-Object System.Collections.Specialized.OrderedDictionary
+				$LLL.Add("B7",[Byte[]](0x04,0x00))
+				$LLL.Add("B8",[Byte[]](0x00,0x00))
+
+				return $LLL
+			}
+
+			function C7D8E9F0()
+			{
+				param([Byte[]]$MMM,[Byte[]]$NNN)
+
+				[Byte[]]$OOO = [System.BitConverter]::GetBytes(32 + $NNN.Length)
+				$OOO = $OOO[0]
+				[Byte[]]$PPP = $OOO[0] + 32
+				[Byte[]]$QQQ = $OOO[0] + 22
+				[Byte[]]$RRR = $OOO[0] + 20
+				[Byte[]]$SSS = $OOO[0] + 2
+
+				$TTT = New-Object System.Collections.Specialized.OrderedDictionary
+				$TTT.Add("C9",[Byte[]](0x60))
+				$TTT.Add("D6",$PPP)
+				$TTT.Add("D7",[Byte[]](0x06))
+				$TTT.Add("D8",[Byte[]](0x06))
+				$TTT.Add("D9",[Byte[]](0x2b,0x06,0x01,0x05,0x05,0x02))
+				$TTT.Add("E2",[Byte[]](0xa0))
+				$TTT.Add("E3",$QQQ)
+				$TTT.Add("E4",[Byte[]](0x30))
+				$TTT.Add("E5",$RRR)
+				$TTT.Add("E6",[Byte[]](0xa0))
+				$TTT.Add("E7",[Byte[]](0x0e))
+				$TTT.Add("E8",[Byte[]](0x30))
+				$TTT.Add("E9",[Byte[]](0x0c))
+				$TTT.Add("F4",[Byte[]](0x06))
+				$TTT.Add("F5",[Byte[]](0x0a))
+				$TTT.Add("F6",[Byte[]](0x2b,0x06,0x01,0x04,0x01,0x82,0x37,0x02,0x02,0x0a))
+				$TTT.Add("G0",[Byte[]](0xa2))
+				$TTT.Add("G1",$SSS)
+				$TTT.Add("G2",[Byte[]](0x04))
+				$TTT.Add("G3",$OOO)
+				$TTT.Add("G4",[Byte[]](0x4e,0x54,0x4d,0x4d,0x53,0x53,0x50,0x00))
+				$TTT.Add("G5",[Byte[]](0x01,0x00,0x00,0x00))
+				$TTT.Add("G6",$MMM)
+				$TTT.Add("G7",[Byte[]](0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00))
+
+				if($NNN)
+				{
+					$TTT.Add("G8",$NNN)
+				}
+
+				return $TTT
+			}
+
+			function D8E9F0G1()
+			{
+				param([Byte[]]$UUU)
+
+				[Byte[]]$VVV = [System.BitConverter]::GetBytes($UUU.Length)
+				$VVV = $VVV[1,0]
+				[Byte[]]$WWW = [System.BitConverter]::GetBytes($UUU.Length + 12)
+				$WWW = $WWW[1,0]
+				[Byte[]]$XXX = [System.BitConverter]::GetBytes($UUU.Length + 8)
+				$XXX = $XXX[1,0]
+				[Byte[]]$YYY = [System.BitConverter]::GetBytes($UUU.Length + 4)
+				$YYY = $YYY[1,0]
+
+				$ZZZ = New-Object System.Collections.Specialized.OrderedDictionary
+				$ZZZ.Add("H7",[Byte[]](0xa1,0x82))
+				$ZZZ.Add("H8",$WWW)
+				$ZZZ.Add("H9",[Byte[]](0x30,0x82))
+				$ZZZ.Add("I6",$XXX)
+				$ZZZ.Add("I7",[Byte[]](0xa2,0x82))
+				$ZZZ.Add("I8",$YYY)
+				$ZZZ.Add("I9",[Byte[]](0x04,0x82))
+				$ZZZ.Add("J5",$VVV)
+				$ZZZ.Add("J6",$UUU)
+
+				return $ZZZ
+			}
+
+			function E9F0G1H2()
+			{
+				param([Int]$AAAA,[Byte[]]$BBBB,[Byte[]]$CCCC,[Byte[]]$DDDD,[Byte[]]$EEEE,[Byte[]]$FFFF)
+
+				[Byte[]]$GGGG = [System.BitConverter]::GetBytes($AAAA)
+
+				$HHHH = New-Object System.Collections.Specialized.OrderedDictionary
+				$HHHH.Add("J8",[Byte[]](0x05))
+				$HHHH.Add("J9",[Byte[]](0x00))
+				$HHHH.Add("K1",[Byte[]](0x0b))
+				$HHHH.Add("K2",[Byte[]](0x03))
+				$HHHH.Add("K3",[Byte[]](0x10,0x00,0x00,0x00))
+				$HHHH.Add("K4",[Byte[]](0x48,0x00))
+				$HHHH.Add("K5",[Byte[]](0x00,0x00))
+				$HHHH.Add("K6",$GGGG)
+				$HHHH.Add("K7",[Byte[]](0xb8,0x10))
+				$HHHH.Add("K8",[Byte[]](0xb8,0x10))
+				$HHHH.Add("K9",[Byte[]](0x00,0x00,0x00,0x00))
+				$HHHH.Add("L1",$CCCC)
+				$HHHH.Add("L2",[Byte[]](0x00,0x00,0x00))
+				$HHHH.Add("L3",$DDDD)
+				$HHHH.Add("L4",[Byte[]](0x01))
+				$HHHH.Add("L5",[Byte[]](0x00))
+				$HHHH.Add("L6",$EEEE)
+				$HHHH.Add("L7",$FFFF)
+				$HHHH.Add("L8",[Byte[]](0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00))
+				$HHHH.Add("L9",[Byte[]](0x02,0x00,0x00,0x00))
+
+				if($CCCC[0] -eq 2)
+				{
+					$HHHH.Add("M0",[Byte[]](0x01,0x00))
+					$HHHH.Add("M1",[Byte[]](0x01))
+					$HHHH.Add("M2",[Byte[]](0x00))
+					$HHHH.Add("M3",[Byte[]](0xc4,0xfe,0xfc,0x99,0x60,0x52,0x1b,0x10,0xbb,0xcb,0x00,0xaa,0x00,0x21,0x34,0x7a))
+					$HHHH.Add("M4",[Byte[]](0x00,0x00))
+					$HHHH.Add("M5",[Byte[]](0x00,0x00))
+					$HHHH.Add("M6",[Byte[]](0x2c,0x1c,0xb7,0x6c,0x12,0x98,0x40,0x45,0x03,0x00,0x00,0x00,0x00,0x00,0x00,0x00))
+					$HHHH.Add("M7",[Byte[]](0x01,0x00,0x00,0x00))
+				}
+				elseif($CCCC[0] -eq 3)
+				{
+					$HHHH.Add("M8",[Byte[]](0x01,0x00))
+					$HHHH.Add("M9",[Byte[]](0x01))
+					$HHHH.Add("N1",[Byte[]](0x00))
+					$HHHH.Add("N2",[Byte[]](0x43,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0xc0,0x00,0x00,0x00,0x00,0x00,0x00,0x46))
+					$HHHH.Add("N3",[Byte[]](0x00,0x00))
+					$HHHH.Add("N4",[Byte[]](0x00,0x00))
+					$HHHH.Add("N5",[Byte[]](0x33,0x05,0x71,0x71,0xba,0xbe,0x37,0x49,0x83,0x19,0xb5,0xdb,0xef,0x9c,0xcc,0x36))
+					$HHHH.Add("N6",[Byte[]](0x01,0x00,0x00,0x00))
+					$HHHH.Add("N7",[Byte[]](0x02,0x00))
+					$HHHH.Add("N8",[Byte[]](0x01))
+					$HHHH.Add("N9",[Byte[]](0x00))
+					$HHHH.Add("O1",[Byte[]](0x43,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0xc0,0x00,0x00,0x00,0x00,0x00,0x00,0x46))
+					$HHHH.Add("O2",[Byte[]](0x00,0x00))
+					$HHHH.Add("O3",[Byte[]](0x00,0x00))
+					$HHHH.Add("O4",[Byte[]](0x2c,0x1c,0xb7,0x6c,0x12,0x98,0x40,0x45,0x03,0x00,0x00,0x00,0x00,0x00,0x00,0x00))
+					$HHHH.Add("O5",[Byte[]](0x01,0x00,0x00,0x00))
+					$HHHH.Add("O6",[Byte[]](0x0a))
+					$HHHH.Add("O7",[Byte[]](0x04))
+					$HHHH.Add("O8",[Byte[]](0x00))
+					$HHHH.Add("O9",[Byte[]](0x00))
+					$HHHH.Add("P1",[Byte[]](0x00,0x00,0x00,0x00))
+					$HHHH.Add("P2",[Byte[]](0x4e,0x54,0x4c,0x4d,0x53,0x53,0x50,0x00))
+					$HHHH.Add("P3",[Byte[]](0x01,0x00,0x00,0x00))
+					$HHHH.Add("P4",[Byte[]](0x97,0x82,0x08,0xe2))
+					$HHHH.Add("P5",[Byte[]](0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00))
+					$HHHH.Add("P6",[Byte[]](0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00))
+					$HHHH.Add("P7",[Byte[]](0x06,0x01,0xb1,0x1d,0x00,0x00,0x00,0x0f))
+				}
+
+				if($AAAA -eq 3)
+				{
+					$HHHH.Add("Q6",[Byte[]](0x0a))
+					$HHHH.Add("Q7",[Byte[]](0x02))
+					$HHHH.Add("Q8",[Byte[]](0x00))
+					$HHHH.Add("Q9",[Byte[]](0x00))
+					$HHHH.Add("R2",[Byte[]](0x00,0x00,0x00,0x00))
+					$HHHH.Add("R3",[Byte[]](0x4e,0x54,0x4c,0x4d,0x53,0x53,0x50,0x00))
+					$HHHH.Add("R4",[Byte[]](0x01,0x00,0x00,0x00))
+					$HHHH.Add("R5",[Byte[]](0x97,0x82,0x08,0xe2))
+					$HHHH.Add("R6",[Byte[]](0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00))
+					$HHHH.Add("R7",[Byte[]](0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00))
+					$HHHH.Add("R8",[Byte[]](0x06,0x01,0xb1,0x1d,0x00,0x00,0x00,0x0f))
+				}
+
+				return $HHHH
+			}
+
+			function F0G1H2I3()
+			{
+				param([Byte[]]$IIII,[Int]$JJJJ,[Int]$KKKK,[Int]$LLLL,[Byte[]]$MMMM,[Byte[]]$NNNN,[Byte[]]$OOOO,[Byte[]]$PPPP)
+
+				if($KKKK -gt 0)
+				{
+					$QQQQ = $KKKK + $LLLL + 8
+				}
+
+				[Byte[]]$RRRR = [System.BitConverter]::GetBytes($JJJJ + 24 + $QQQQ + $PPPP.Length)
+				[Byte[]]$SSSS = $RRRR[0,1]
+				[Byte[]]$TTTT = [System.BitConverter]::GetBytes($JJJJ + $PPPP.Length)
+				[Byte[]]$UUUU = [System.BitConverter]::GetBytes($KKKK)
+				$UUUU = $UUUU[0,1]
+
+				$VVVV = New-Object System.Collections.Specialized.OrderedDictionary
+				$VVVV.Add("T2",[Byte[]](0x05))
+				$VVVV.Add("T3",[Byte[]](0x00))
+				$VVVV.Add("T4",[Byte[]](0x00))
+				$VVVV.Add("T5",$IIII)
+				$VVVV.Add("T6",[Byte[]](0x10,0x00,0x00,0x00))
+				$VVVV.Add("T7",$SSSS)
+				$VVVV.Add("T8",$UUUU)
+				$VVVV.Add("T9",$MMMM)
+				$VVVV.Add("U3",$TTTT)
+				$VVVV.Add("U4",$NNNN)
+				$VVVV.Add("U5",$OOOO)
+
+				if($PPPP.Length)
+				{
+					$VVVV.Add("U6",$PPPP)
+				}
+
+				return $VVVV
+			}
+
+			function G1H2I3J4()
+			{
+				param ([Byte[]]$RRRR,[Byte[]]$SSSS)
+
+				[Byte[]]$TTTT = [System.BitConverter]::GetBytes($RRRR.Length + 92)
+				[Byte[]]$UUUU = $TTTT[0,1]
+				[Byte[]]$VVVV = [System.BitConverter]::GetBytes($RRRR.Length + 68)
+				$WWWW = [String](1..2 | ForEach-Object {"{0:X2}" -f (Get-Random -Minimum 1 -Maximum 255)})
+				$WWWW = $WWWW.Split(" ") | ForEach-Object{[Char][System.Convert]::ToInt16($_,16)}
+				$WWWW += 0x00,0x00
+				$XXXX = [String](1..2 | ForEach-Object {"{0:X2}" -f (Get-Random -Minimum 1 -Maximum 255)})
+				$XXXX = $XXXX.Split(" ") | ForEach-Object{[Char][System.Convert]::ToInt16($_,16)}
+				$XXXX += 0x00,0x00
+
+				$YYYY = New-Object System.Collections.Specialized.OrderedDictionary
+				$YYYY.Add("U5",$WWWW)
+				$YYYY.Add("U6",$SSSS)
+				$YYYY.Add("U7",[Byte[]](0x00,0x00,0x00,0x00))
+				$YYYY.Add("U8",$SSSS)
+				$YYYY.Add("U9",$RRRR)
+				$YYYY.Add("V3",$XXXX)
+				$YYYY.Add("V4",[Byte[]](0x0f,0x00,0x00,0x00))
+				$YYYY.Add("V5",[Byte[]](0x00,0x00,0x00,0x00))
+				$YYYY.Add("V6",[Byte[]](0x0f,0x00,0x00,0x00))
+				$YYYY.Add("V7",[Byte[]](0x53,0x00,0x65,0x00,0x72,0x00,0x76,0x00,0x69,0x00,0x63,0x00,0x65,0x00,0x73,0x00,0x41,0x00,0x63,0x00,0x74,0x00,0x69,0x00,0x76,0x00,0x65,0x00,0x00,0x00))
+				$YYYY.Add("V8",[Byte[]](0xbf,0xbf))
+				$YYYY.Add("V9",[Byte[]](0x3f,0x00,0x00,0x00))
+			
+				return $YYYY
+			}
+
+			function H2I3J4K5()
+			{
+				param([Byte[]]$AAAAA,[Byte[]]$BBBBB,[Byte[]]$CCCCC,[Byte[]]$DDDDD)
+
+				$EEEEE = [String](1..2 | ForEach-Object {"{0:X2}" -f (Get-Random -Minimum 1 -Maximum 255)})
+				$EEEEE = $EEEEE.Split(" ") | ForEach-Object{[Char][System.Convert]::ToInt16($_,16)}
+				$EEEEE += 0x00,0x00
+
+				$FFFFF = New-Object System.Collections.Specialized.OrderedDictionary
+				$FFFFF.Add("V5",$AAAAA)
+				$FFFFF.Add("V6",$BBBBB)
+				$FFFFF.Add("V7",[Byte[]](0x00,0x00,0x00,0x00))
+				$FFFFF.Add("V8",$BBBBB)
+				$FFFFF.Add("V9",$AAAAA)
+				$FFFFF.Add("W2",$EEEEE)
+				$FFFFF.Add("W3",$BBBBB)
+				$FFFFF.Add("W4",[Byte[]](0x00,0x00,0x00,0x00))
+				$FFFFF.Add("W5",$BBBBB)
+				$FFFFF.Add("W6",$AAAAA)
+				$FFFFF.Add("W7",[Byte[]](0xff,0x01,0x0f,0x00))
+				$FFFFF.Add("W8",[Byte[]](0x10,0x00,0x00,0x00))
+				$FFFFF.Add("W9",[Byte[]](0x03,0x00,0x00,0x00))
+				$FFFFF.Add("X1",[Byte[]](0x00,0x00,0x00,0x00))
+				$FFFFF.Add("X2",$DDDDD)
+				$FFFFF.Add("X3",[Byte[]](0x00,0x00,0x00,0x00))
+				$FFFFF.Add("X4",$DDDDD)
+				$FFFFF.Add("X5",$CCCCC)
+				$FFFFF.Add("X6",[Byte[]](0x00,0x00,0x00,0x00))
+				$FFFFF.Add("X7",[Byte[]](0x00,0x00,0x00,0x00))
+				$FFFFF.Add("X8",[Byte[]](0x00,0x00,0x00,0x00))
+				$FFFFF.Add("X9",[Byte[]](0x00,0x00,0x00,0x00))
+
+				return $FFFFF
+			}
+
+			function I3J4K5L6()
+			{
+				param([Byte[]]$GGGGG)
+
+				$HHHHH = New-Object System.Collections.Specialized.OrderedDictionary
+				$HHHHH.Add("X2",$GGGGG)
+				$HHHHH.Add("X3",[Byte[]](0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00))
+
+				return $HHHHH
+			}
+
+			function J4K5L6M7()
+			{
+				param([Byte[]]$IIIII)
+
+				$JJJJJ = New-Object System.Collections.Specialized.OrderedDictionary
+				$JJJJJ.Add("Y1",$IIIII)
+				$JJJJJ.Add("Y2",[Byte[]](0x00,0x00,0x00,0x00))
+
+				return $JJJJJ
+			}
+
+			$LLLLL = [System.Diagnostics.Process]::GetCurrentProcess() | Select-Object -expand id
+			$LLLLL = [System.BitConverter]::ToString([System.BitConverter]::GetBytes($LLLLL))
+			$LLLLL = $LLLLL -replace "-00-00",""
+			[Byte[]]$MMMMM = $LLLLL.Split("-") | ForEach-Object{[Char][System.Convert]::ToInt16($_,16)}
+
+			function K5L6M7N8
+			{
+				param ($NNNNN,$OOOOO,$PPPPP)
+
+				if($NNNNN)
+				{
+					$QQQQQ = $NNNNN.GetStream()
+				}
+				
+				$RRRRR = New-Object System.Byte[] 1024
+				$SSSSS = "NegotiateSMB"
+				
+				:TTTTT while($SSSSS -ne "exit")
+				{
+				
+					switch ($SSSSS)
+					{
+
+						"NegotiateSMB"
+						{
+							$UUUUU = H7I8J9K0 0x72 0x18 0x01,0x48 0xff,0xff $MMMMM 0x00,0x00       
+							$VVVVV = J8K9L0M1 $PPPPP
+							$WWWWW = B3C4D5E6 $UUUUU
+							$XXXXX = B3C4D5E6 $VVVVV
+							$YYYYY = E4F5G6H7 $WWWWW.Length $XXXXX.Length
+							$ZZZZZ = B3C4D5E6 $YYYYY
+
+							$AAAAAA = $ZZZZZ + $WWWWW + $XXXXX
+							$QQQQQ.Write($AAAAAA,0,$AAAAAA.Length) > $null
+							$QQQQQ.Flush()    
+							$QQQQQ.Read($RRRRR,0,$RRRRR.Length) > $null
+
+							if([System.BitConverter]::ToString($RRRRR[4..7]) -eq "ff-53-4d-42")
+							{
+								$PPPPP = "SMB1"
+								$SSSSS = "NTLMSSPNegotiate"
+							}
+							else
+							{
+								$SSSSS = "NegotiateSMB2"
+							}
+
+							if(($PPPPP -eq "SMB1" -and [System.BitConverter]::ToString($RRRRR[39]) -eq "0f") -or ($PPPPP -ne "SMB1" -and [System.BitConverter]::ToString($RRRRR[70]) -eq "03"))
+							{
+								$BBBBBB = $true
+								
+							} else {
+								$BBBBBB = $false
+							}
+							$NNNNN.Close()
+							$RRRRR = $null
+							$SSSSS = "exit"
+
+						}
+					
+					}
+
+				}
+				return $BBBBBB
+			}
+
+			$NNNNN = New-Object System.Net.Sockets.TCPClient
+			$NNNNN.ReceiveTimeout = 100  # Set receive timeout to 1 second
+			$NNNNN.SendTimeout = 100     # Set send timeout to 1 second
+			try {
+				$connectionTask = $NNNNN.BeginConnect($A1, 445, $null, $null)
+				if (-not $connectionTask.AsyncWaitHandle.WaitOne(1000, $false)) {
+					throw [System.TimeoutException]::new("Connection timed out")
+				}
+				$NNNNN.EndConnect($connectionTask)
+				if (!$NNNNN.Connected) {
+					Write-Output "$A1 is not responding"
+					continue
+				}
+				$CCCCCC = $false
+				$DDDDDD = K5L6M7N8 $NNNNN "smb2"
+				if ($DDDDDD) {
+					Write-Output "SMB signing is required on $A1"
+				} else {
+					Write-Output "SMB signing is not required on $A1"
+				}
+			} catch [System.TimeoutException] {
+				Write-Output "Connection to $A1 timed out"
+				continue
+			} catch {
+				Write-Output "Failed to connect to $A1"
+				continue
+			} finally {
+				$NNNNN.Close()
+			}
+			if ($A3) {
+				$EEEEE = get-random -Minimum 0 -Maximum $A4
+				sleep ($A3 + $EEEEE)
+			}
+			
+		}
+		
+		$Result = F5A6B8D8B -A1 $computer.dnshostname
+		if($Result -like "SMB signing is not required*"){return $computer}
+		return $null
+	}
+
+	# Use a generic list for better performance when adding items
+	$runspaces = New-Object 'System.Collections.Generic.List[System.Object]'
+
+	foreach ($computer in $Targets) {
+		$powerShellInstance = [powershell]::Create().AddScript($scriptBlock).AddArgument($computer)
+		$powerShellInstance.RunspacePool = $runspacePool
+		$runspaces.Add([PSCustomObject]@{
+			Instance = $powerShellInstance
+			Status   = $powerShellInstance.BeginInvoke()
+		})
+	}
+
+	# Collect the results
+	$SMBStatus = @()
+	foreach ($runspace in $runspaces) {
+		$result = $runspace.Instance.EndInvoke($runspace.Status)
+		if ($result) {
+			$SMBStatus += $result
+		}
+	}
+
+	if($SMBStatus){$SMBStatus}
+
+	# Close and dispose of the runspace pool for good resource management
+	$runspacePool.Close()
+	$runspacePool.Dispose()
+}
+
+function CheckAliveHosts
+{
+	
+    [CmdletBinding()] Param(
+
+ 	[Parameter (Mandatory=$False, Position = 0, ValueFromPipeline=$true)]
+        [PSObject[]]
+        $Targets
+
+ 	)
+	
+	# Initialize the runspace pool
+	$runspacePool = [runspacefactory]::CreateRunspacePool(1, 10)
+	$runspacePool.Open()
+
+	# Define the script block outside the loop for better efficiency
+	$scriptBlock = {
+		param ($computer)
+		$tcpClient = New-Object System.Net.Sockets.TcpClient
+		$asyncResult = $tcpClient.BeginConnect($computer.dnshostname, 445, $null, $null)
+		$wait = $asyncResult.AsyncWaitHandle.WaitOne(50)
+		if ($wait) {
+			try {
+				$tcpClient.EndConnect($asyncResult)
+				return $computer
+			} catch {}
+		}
+		$tcpClient.Close()
+		return $null
+	}
+
+	# Use a generic list for better performance when adding items
+	$runspaces = New-Object 'System.Collections.Generic.List[System.Object]'
+
+	foreach ($computer in $Targets) {
+		$powerShellInstance = [powershell]::Create().AddScript($scriptBlock).AddArgument($computer)
+		$powerShellInstance.RunspacePool = $runspacePool
+		$runspaces.Add([PSCustomObject]@{
+			Instance = $powerShellInstance
+			Status   = $powerShellInstance.BeginInvoke()
+		})
+	}
+
+	# Collect the results
+	$reachable_hosts = @()
+	foreach ($runspace in $runspaces) {
+		$result = $runspace.Instance.EndInvoke($runspace.Status)
+		if ($result) {
+			$reachable_hosts += $result
+		}
+	}
+
+	if($reachable_hosts){$reachable_hosts}
+
+	# Close and dispose of the runspace pool for good resource management
+	$runspacePool.Close()
+	$runspacePool.Dispose()
+}
+
 function Get-ADGuidMapping {
     param(
-        [string[]]$Domains
+        [Parameter(Mandatory = $true)]
+        [string] $Domain,
+		[Parameter(Mandatory = $false)]
+        [string] $Server
     )
 
     $domainGuidMaps = @{}
+	$guidMap = @{}
+	
+	if($Domain -AND $Server){
+		# Construct the LDAP path
+		$ldapPathRootDSE = "LDAP://"
+		if ($PSBoundParameters.ContainsKey('Server')) {
+			$ldapPathRootDSE += "$Server/"
+		}
+		$ldapPathRootDSE += "RootDSE"
 
-    foreach ($Domain in $Domains) {
-        $guidMap = @{}
-
-        # Connect to the Domain RootDSE to get the schema naming context
+		# Connect to the Domain RootDSE to get the schema naming context
+		$rootDSE = New-Object System.DirectoryServices.DirectoryEntry($ldapPathRootDSE)
+		$schemaNC = $rootDSE.Properties["schemaNamingContext"].Value
+		
+		$ldapPathSchemaNC = "LDAP://"
+		if ($PSBoundParameters.ContainsKey('Server')) {
+			$ldapPathSchemaNC += "$Server/"
+		}
+		$ldapPathSchemaNC += "$schemaNC"
+		
+		$searchRoot = New-Object System.DirectoryServices.DirectoryEntry($ldapPathSchemaNC)
+	}
+	
+	else{
+		# Connect to the Domain RootDSE to get the schema naming context
         $rootDSE = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$Domain/RootDSE")
         $schemaNC = $rootDSE.Properties["schemaNamingContext"].Value
         $searchRoot = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$Domain/$schemaNC")
+	}
 
-        # Create a searcher to find all schema objects with a schemaIDGUID
-        $searcher = New-Object System.DirectoryServices.DirectorySearcher($searchRoot)
-        $searcher.Filter = "(schemaIDGUID=*)"
-        $searcher.PropertiesToLoad.Add("name") > $null
-        $searcher.PropertiesToLoad.Add("schemaIDGUID") > $null
-		$searcher.PageSize = 1000
+	# Create a searcher to find all schema objects with a schemaIDGUID
+	$searcher = New-Object System.DirectoryServices.DirectorySearcher($searchRoot)
+	$searcher.Filter = "(schemaIDGUID=*)"
+	$searcher.PropertiesToLoad.Add("name") > $null
+	$searcher.PropertiesToLoad.Add("schemaIDGUID") > $null
+	$searcher.PageSize = 1000
 
-        # Perform the search
-        $results = $searcher.FindAll()
+	# Perform the search
+	$results = $searcher.FindAll()
 
-        # Process the results
-        foreach ($result in $results) {
-            $name = $result.Properties["name"][0]
-            $guidBytes = $result.Properties["schemaIDGUID"][0]
-            $guid = New-Object Guid (,$guidBytes)  # The comma is used to treat the byte array as a single argument
-            $guidMap[$guid] = $name
-        }
+	# Process the results
+	foreach ($result in $results) {
+		$name = $result.Properties["name"][0]
+		$guidBytes = $result.Properties["schemaIDGUID"][0]
+		$guid = New-Object Guid (,$guidBytes)  # The comma is used to treat the byte array as a single argument
+		$guidMap[$guid] = $name
+	}
 
-        # Clean up resources
-        $searcher.Dispose()
-        $rootDSE.Close()
-        $searchRoot.Close()
+	# Clean up resources
+	$searcher.Dispose()
+	$rootDSE.Close()
+	$searchRoot.Close()
 
-        $domainGuidMaps[$Domain] = $guidMap
-    }
+	$domainGuidMaps[$Domain] = $guidMap
 
     return $domainGuidMaps
 }
