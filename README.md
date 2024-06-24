@@ -55,6 +55,15 @@ Exclude out-of-scope domains
 Invoke-ADEnum -Exclude "contoso.local,domain.local"
 ```
 
+Save collection data to disk, then load it from disk and skip collection next time you run (Location: c:\Users\Public\Documents\Invoke-ADEnum)
+
+```
+Invoke-ADEnum -SaveToDisk
+```
+```
+Invoke-ADEnum -LoadFromDisk
+```
+
 Full Coverage (may take a long time depending on domain size)
 
 ```
