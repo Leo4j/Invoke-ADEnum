@@ -39,6 +39,9 @@ Recommended Coverage
 ```
 Invoke-ADEnum -Recommended -SprayEmptyPasswords
 ```
+```
+Invoke-ADEnum -Recommended -SprayEmptyPasswords -RBCD -UserCreatedObjects
+```
 
 Specify a single domain to enumerate and a DC to bind to
 
