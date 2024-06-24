@@ -862,12 +862,12 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 	
 	if($SaveToDisk){
 		# Create Folders
-		if(!(Test-Path c:\Users\Public\Documents\ADEnum)){
-			New-Item -Path c:\Users\Public\Documents\ADEnum -ItemType Directory -Force > $null
+		if(!(Test-Path c:\Users\Public\Documents\Invoke-ADEnum)){
+			New-Item -Path c:\Users\Public\Documents\Invoke-ADEnum -ItemType Directory -Force > $null
 		}
 		
 		# Save Domains into file
-		$AllDomains | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\Domains.json
+		$AllDomains | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\Domains.json
 	}
 	
 	$inactiveThreshold = (Get-Date).AddMonths(-6)
@@ -985,30 +985,30 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 		if($LoadFromDisk){
 			$CatchTheError = $false
 			$ErrorActionPreference = "Stop"
-			try{$AllkrbtgtAccounts = Get-Content -Path c:\Users\Public\Documents\ADEnum\krbtgtAccounts.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load krbtgtAccounts.json";$CatchTheError = $true}
-			try{$TotalDomainControllers = Get-Content -Path c:\Users\Public\Documents\ADEnum\DomainControllers.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load DomainControllers.json";$CatchTheError = $true}
-			try{$CollectrIDManagers = Get-Content -Path c:\Users\Public\Documents\ADEnum\rIDManagers.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load rIDManagers.json";$CatchTheError = $true}
-			try{$DomainPolicy = Get-Content -Path c:\Users\Public\Documents\ADEnum\DomainPolicy.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load DomainPolicy.json";$CatchTheError = $true}
-			try{$PolicyTargets = Get-Content -Path c:\Users\Public\Documents\ADEnum\PolicyTargets.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load PolicyTargets.json";$CatchTheError = $true}
-			try{$TotalEnabledUsers = Get-Content -Path c:\Users\Public\Documents\ADEnum\EnabledUsers.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load EnabledUsers.json";$CatchTheError = $true}
-			try{$TotalDisabledUsers = Get-Content -Path c:\Users\Public\Documents\ADEnum\DisabledUsers.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load DisabledUsers.json";$CatchTheError = $true}
+			try{$AllkrbtgtAccounts = Get-Content -Path c:\Users\Public\Documents\Invoke-ADEnum\krbtgtAccounts.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load krbtgtAccounts.json";$CatchTheError = $true}
+			try{$TotalDomainControllers = Get-Content -Path c:\Users\Public\Documents\Invoke-ADEnum\DomainControllers.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load DomainControllers.json";$CatchTheError = $true}
+			try{$CollectrIDManagers = Get-Content -Path c:\Users\Public\Documents\Invoke-ADEnum\rIDManagers.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load rIDManagers.json";$CatchTheError = $true}
+			try{$DomainPolicy = Get-Content -Path c:\Users\Public\Documents\Invoke-ADEnum\DomainPolicy.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load DomainPolicy.json";$CatchTheError = $true}
+			try{$PolicyTargets = Get-Content -Path c:\Users\Public\Documents\Invoke-ADEnum\PolicyTargets.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load PolicyTargets.json";$CatchTheError = $true}
+			try{$TotalEnabledUsers = Get-Content -Path c:\Users\Public\Documents\Invoke-ADEnum\EnabledUsers.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load EnabledUsers.json";$CatchTheError = $true}
+			try{$TotalDisabledUsers = Get-Content -Path c:\Users\Public\Documents\Invoke-ADEnum\DisabledUsers.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load DisabledUsers.json";$CatchTheError = $true}
 			$TotalEnabledDisabledUsers += @($TotalEnabledUsers + $TotalDisabledUsers)
-			try{$AllForeignSecurityPrincipals = Get-Content -Path c:\Users\Public\Documents\ADEnum\ForeignSecurityPrincipals.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load ForeignSecurityPrincipals.json";$CatchTheError = $true}
-			try{$TotalEnabledMachines = Get-Content -Path c:\Users\Public\Documents\ADEnum\EnabledMachines.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load EnabledMachines.json";$CatchTheError = $true}
-			try{$TotalDisabledMachines = Get-Content -Path c:\Users\Public\Documents\ADEnum\DisabledMachines.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load DisabledMachines.json";$CatchTheError = $true}
+			try{$AllForeignSecurityPrincipals = Get-Content -Path c:\Users\Public\Documents\Invoke-ADEnum\ForeignSecurityPrincipals.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load ForeignSecurityPrincipals.json";$CatchTheError = $true}
+			try{$TotalEnabledMachines = Get-Content -Path c:\Users\Public\Documents\Invoke-ADEnum\EnabledMachines.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load EnabledMachines.json";$CatchTheError = $true}
+			try{$TotalDisabledMachines = Get-Content -Path c:\Users\Public\Documents\Invoke-ADEnum\DisabledMachines.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load DisabledMachines.json";$CatchTheError = $true}
 			$TotalEnabledDisabledMachines += @($TotalEnabledMachines + $TotalDisabledMachines)
 			$TotalEnabledServers += @($TotalEnabledMachines | Where-Object { $_.operatingSystem -like '*Server*'})
 			$TotalDisabledServers += @($TotalDisabledMachines | Where-Object { $_.operatingSystem -like '*Server*'})
 			$TotalEnabledWorkstations += @($TotalEnabledMachines | Where-Object { $_.operatingSystem -notlike '*Server*'})
 			$TotalDisabledWorkstations += @($TotalDisabledMachines | Where-Object { $_.operatingSystem -notlike '*Server*'})
-			try{$CollectGMSAs = Get-Content -Path c:\Users\Public\Documents\ADEnum\GMSAs.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load GMSAs.json";$CatchTheError = $true}
-			try{$CollectSCCMServers = Get-Content -Path c:\Users\Public\Documents\ADEnum\SCCMServers.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load SCCMServers.json";$CatchTheError = $true}
-			try{$PrintersCollection = Get-Content -Path c:\Users\Public\Documents\ADEnum\Printers.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load Printers.json";$CatchTheError = $true}
-			try{$TotalGroups = Get-Content -Path c:\Users\Public\Documents\ADEnum\Groups.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load Groups.json";$CatchTheError = $true}
-			try{$AllCollectedGPOs = Get-Content -Path c:\Users\Public\Documents\ADEnum\GPOs.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load GPOs.json";$CatchTheError = $true}
-			try{$AllCollectedOUs = Get-Content -Path c:\Users\Public\Documents\ADEnum\OUs.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load OUs.json";$CatchTheError = $true}
-			try{$AllCertTemplates = Get-Content -Path c:\Users\Public\Documents\ADEnum\CertTemplates.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load CertTemplates.json";$CatchTheError = $true}
-			try{$AllDomainTrusts = Get-Content -Path c:\Users\Public\Documents\ADEnum\DomainTrusts.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load DomainTrusts.json";$CatchTheError = $true}
+			try{$CollectGMSAs = Get-Content -Path c:\Users\Public\Documents\Invoke-ADEnum\GMSAs.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load GMSAs.json";$CatchTheError = $true}
+			try{$CollectSCCMServers = Get-Content -Path c:\Users\Public\Documents\Invoke-ADEnum\SCCMServers.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load SCCMServers.json";$CatchTheError = $true}
+			try{$PrintersCollection = Get-Content -Path c:\Users\Public\Documents\Invoke-ADEnum\Printers.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load Printers.json";$CatchTheError = $true}
+			try{$TotalGroups = Get-Content -Path c:\Users\Public\Documents\Invoke-ADEnum\Groups.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load Groups.json";$CatchTheError = $true}
+			try{$AllCollectedGPOs = Get-Content -Path c:\Users\Public\Documents\Invoke-ADEnum\GPOs.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load GPOs.json";$CatchTheError = $true}
+			try{$AllCollectedOUs = Get-Content -Path c:\Users\Public\Documents\Invoke-ADEnum\OUs.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load OUs.json";$CatchTheError = $true}
+			try{$AllCertTemplates = Get-Content -Path c:\Users\Public\Documents\Invoke-ADEnum\CertTemplates.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load CertTemplates.json";$CatchTheError = $true}
+			try{$AllDomainTrusts = Get-Content -Path c:\Users\Public\Documents\Invoke-ADEnum\DomainTrusts.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load DomainTrusts.json";$CatchTheError = $true}
 			if($CatchTheError){Stop-Transcript | Out-Null;Write-Output "";break}
 		}
 		else{
@@ -1209,7 +1209,7 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 		# All GUIDs Mappings
 		if($LoadFromDisk){
 			# Import the JSON data from the file
-			$jsonData = Get-Content -Path c:\Users\Public\Documents\ADEnum\GUIDMappings.json -Raw | ConvertFrom-Json
+			$jsonData = Get-Content -Path c:\Users\Public\Documents\Invoke-ADEnum\GUIDMappings.json -Raw | ConvertFrom-Json
 			$AllGUIDMappings = @{}
 			foreach ($domain in $jsonData.PSObject.Properties.Name) {
 				$AllGUIDMappings[$domain] = @{}
@@ -1242,7 +1242,7 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 						$TransformedGUIDMappings[$domain][$guid.ToString()] = $AllGUIDMappings[$domain][$guid]
 					}
 				}
-				$TransformedGUIDMappings | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\GUIDMappings.json
+				$TransformedGUIDMappings | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\GUIDMappings.json
 			}
 		}
 		
@@ -1330,24 +1330,24 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 		}
 		
 		if($SaveToDisk){
-			$AllkrbtgtAccounts | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\krbtgtAccounts.json
-			$TotalDomainControllers | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\DomainControllers.json
-			$CollectrIDManagers | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\rIDManagers.json
-			$DomainPolicy | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\DomainPolicy.json
-			$PolicyTargets | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\PolicyTargets.json
-			$TotalEnabledUsers | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\EnabledUsers.json
-			$TotalDisabledUsers | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\DisabledUsers.json
-			$AllForeignSecurityPrincipals | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\ForeignSecurityPrincipals.json
-			$TotalEnabledMachines | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\EnabledMachines.json
-			$TotalDisabledMachines | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\DisabledMachines.json
-			$CollectGMSAs | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\GMSAs.json
-			$CollectSCCMServers | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\SCCMServers.json
-			$PrintersCollection | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\Printers.json
-			$TotalGroups | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\Groups.json
-			$AllCollectedGPOs | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\GPOs.json
-			$AllCollectedOUs | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\OUs.json
-			$AllCertTemplates | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\CertTemplates.json
-			$AllDomainTrusts | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\ADEnum\DomainTrusts.json
+			$AllkrbtgtAccounts | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\krbtgtAccounts.json
+			$TotalDomainControllers | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\DomainControllers.json
+			$CollectrIDManagers | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\rIDManagers.json
+			$DomainPolicy | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\DomainPolicy.json
+			$PolicyTargets | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\PolicyTargets.json
+			$TotalEnabledUsers | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\EnabledUsers.json
+			$TotalDisabledUsers | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\DisabledUsers.json
+			$AllForeignSecurityPrincipals | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\ForeignSecurityPrincipals.json
+			$TotalEnabledMachines | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\EnabledMachines.json
+			$TotalDisabledMachines | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\DisabledMachines.json
+			$CollectGMSAs | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\GMSAs.json
+			$CollectSCCMServers | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\SCCMServers.json
+			$PrintersCollection | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\Printers.json
+			$TotalGroups | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\Groups.json
+			$AllCollectedGPOs | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\GPOs.json
+			$AllCollectedOUs | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\OUs.json
+			$AllCertTemplates | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\CertTemplates.json
+			$AllDomainTrusts | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\DomainTrusts.json
 		}
 	}
 	
