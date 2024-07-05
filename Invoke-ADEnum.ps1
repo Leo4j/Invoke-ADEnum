@@ -153,15 +153,15 @@ function Invoke-ADEnum {
         [Switch]
         $LoadFromDisk,
 
- 	[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $NoSMBSharesEnum,
 
- 	[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $NoSMBSigningEnum,
 
- 	[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $NoWebDAVEnum
     )
@@ -541,12 +541,14 @@ $xlsHeader = @'
 			createDownloadLinkForTable('BackupOperators');
 			createDownloadLinkForTable('CertPublishers');
 			createDownloadLinkForTable('DNSAdmins');
+			createDownloadLinkForTable('DCOMUsers');
 			createDownloadLinkForTable('EnterpriseKeyAdmins');
 			createDownloadLinkForTable('EnterpriseRODCs');
 			createDownloadLinkForTable('GPCreatorOwners');
 			createDownloadLinkForTable('KeyAdmins');
 			createDownloadLinkForTable('PrintOperators');
 			createDownloadLinkForTable('OrganizationManagement');
+			createDownloadLinkForTable('PerformanceLogUsers');
 			createDownloadLinkForTable('ProtectedUsers');
 			createDownloadLinkForTable('FileServers');
 			createDownloadLinkForTable('SQLServers');
@@ -558,6 +560,8 @@ $xlsHeader = @'
 			createDownloadLinkForTable('Printers');
    			createDownloadLinkForTable('RWShares');
 			createDownloadLinkForTable('RODCs');
+			createDownloadLinkForTable('RDPUsers');
+			createDownloadLinkForTable('RemManUsers');
 			createDownloadLinkForTable('SchemaAdmins');
 			createDownloadLinkForTable('ServerOperators');
 			createDownloadLinkForTable('ADCSEndpoints');
@@ -993,6 +997,7 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 		$CollectGMSAs = @()
 		$CollectSCCMServers = @()
 		$AllDomainTrusts = @()
+		$AllSubnets = @()
 		
 		if($LoadFromDisk){
 			$CatchTheError = $false
@@ -1021,7 +1026,8 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 			try{$AllCollectedOUs = Get-Content -Path c:\Users\Public\Documents\Invoke-ADEnum\OUs.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load OUs.json";$CatchTheError = $true}
 			try{$AllCertTemplates = Get-Content -Path c:\Users\Public\Documents\Invoke-ADEnum\CertTemplates.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load CertTemplates.json";$CatchTheError = $true}
 			try{$AllDomainTrusts = Get-Content -Path c:\Users\Public\Documents\Invoke-ADEnum\DomainTrusts.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load DomainTrusts.json";$CatchTheError = $true}
-			if($CatchTheError){Stop-Transcript | Out-Null;Write-Output "";break}
+			try{$AllSubnets = Get-Content -Path c:\Users\Public\Documents\Invoke-ADEnum\Subnets.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load Subnets.json";$CatchTheError = $true}
+			if($CatchTheError){Stop-Transcript | Out-Null;Write-Output "";break}else{$ErrorActionPreference = "SilentlyContinue"}
 		}
 		else{
 			if ($Domain -and $Server) {
@@ -1116,102 +1122,147 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 				
 				# Cert Templates
 				if(!$NoVulnCertTemplates){$AllCertTemplates += @(Collect-ADCertificateTemplates -Domain $Domain -Server $Server)}
+				
+				Write-Output "[*] Collecting Subnets..."
+		
+				# Subnets
+				$AllSubnets = Subnets -Domain $Domain
 			}
 			
-			else{
-				foreach($AllDomain in $AllDomains){
-					
-					Write-Output "[*] Collecting Krbtgt..."
-					
-					# krbtgt
-					$AllkrbtgtAccounts += @(Collect-ADObjects -Domain $AllDomain -Identity krbtgt -Property samaccountname,objectsid,whencreated,pwdlastset,serviceprincipalname)
-					
-					Write-Output "[*] Collecting Domain Trusts..."
+			else{	
+				Write-Output "[*] Collecting Krbtgt..."
 				
-					# Domain Trusts
+				# krbtgt
+				foreach($AllDomain in $AllDomains){
+					$AllkrbtgtAccounts += @(Collect-ADObjects -Domain $AllDomain -Identity krbtgt -Property samaccountname,objectsid,whencreated,pwdlastset,serviceprincipalname)
+				}
+				
+				Write-Output "[*] Collecting Domain Trusts..."
+			
+				# Domain Trusts
+				foreach($AllDomain in $AllDomains){
 					$AllDomainTrusts += FindDomainTrusts -Domain $AllDomain
-					
-					Write-Output "[*] Collecting Domain Controllers..."
-					
-					# Domain Controllers
+				}
+				
+				Write-Output "[*] Collecting Domain Controllers..."
+				
+				# Domain Controllers
+				foreach($AllDomain in $AllDomains){
 					$TotalDomainControllers += @(Collect-ADObjects -Domain $AllDomain -Collect DomainControllers -Property name,dnshostname,Roles,operatingsystem)
-					
-					# rIDManagers
+				}
+				
+				# rIDManagers
+				foreach($AllDomain in $AllDomains){
 					$CollectrIDManagers += @(Collect-ADObjects -Domain $AllDomain -Collect rIDManagers -Property name,fSMORoleOwner)
-					
-					Write-Output "[*] Collecting Policies..."
-					
-					# Domain Policies
+				}
+				
+				Write-Output "[*] Collecting Policies..."
+				
+				# Domain Policies
+				foreach($AllDomain in $AllDomains){
 					$DomainPolicy += @(Collect-ADObjects -Domain $AllDomain -Collect DomainPolicy -Property minPwdAge,maxPwdAge,pwdProperties,minPwdLength,pwdHistoryLength,lockoutThreshold,ms-ds-machineaccountquota)
-					
-					# All Policies
+				}
+				
+				# All Policies
+				foreach($AllDomain in $AllDomains){
 					$PolicyTargets += @(Collect-ADObjects -Domain $AllDomain -Collect OtherPolicies -Property distinguishedname)
-					
-					Write-Output "[*] Collecting Users..."
-					
-					# Enabled Users
+				}
+				
+				Write-Output "[*] Collecting Users..."
+				
+				# Enabled Users
+				foreach($AllDomain in $AllDomains){
 					$TotalEnabledUsers += @(Collect-ADObjects -Domain $AllDomain -Collect Users -Enabled -Property name,objectClass,objectCategory,distinguishedName,samaccountname,objectsid,lastlogontimestamp,pwdlastset,cn,memberof,admincount,serviceprincipalname,sidHistory,description,objectGuid,samAccountType,displayname,userPassword,unixUserPassword,homedirectory,msds-allowedtodelegateto,userAccountControl)
+				}
 
-					# Disabled Users
+				# Disabled Users
+				foreach($AllDomain in $AllDomains){
 					$TotalDisabledUsers += @(Collect-ADObjects -Domain $AllDomain -Collect Users -Disabled -Property samaccountname)
-					
-					# All Users
-					$TotalEnabledDisabledUsers += @($TotalEnabledUsers + $TotalDisabledUsers)
-					
-					# Foreign Members
+				}
+				
+				# All Users
+				$TotalEnabledDisabledUsers += @($TotalEnabledUsers + $TotalDisabledUsers)
+				
+				# Foreign Members
+				foreach($AllDomain in $AllDomains){
 					$AllForeignSecurityPrincipals += @(Collect-ADObjects -Domain $AllDomain -LDAP "(&(objectCategory=foreignSecurityPrincipal)(CN=S-1-5-21*))")
-					
-					Write-Output "[*] Collecting Machines..."
-					
-					# Enabled Computers
+				}
+				
+				Write-Output "[*] Collecting Machines..."
+				
+				# Enabled Computers
+				foreach($AllDomain in $AllDomains){
 					$TotalEnabledMachines += @(Collect-ADObjects -Domain $AllDomain -Collect Computers -Enabled -Property name,objectClass,objectCategory,distinguishedName,samaccountname,objectsid,lastlogontimestamp,pwdlastset,cn,operatingsystem,DnsHostName,memberof,admincount,serviceprincipalname,ms-DS-CreatorSID,description,samAccountType,displayname,ms-Mcs-AdmPwdExpirationTime,msds-allowedtodelegateto,whencreated,userAccountControl)
+				}
 
-					# Disabled Computers
+				# Disabled Computers
+				foreach($AllDomain in $AllDomains){
 					$TotalDisabledMachines += @(Collect-ADObjects -Domain $AllDomain -Collect Computers -Disabled -Property samaccountname,operatingsystem,dnshostname,name)
-					
-					# All Computers
-					$TotalEnabledDisabledMachines += @($TotalEnabledMachines + $TotalDisabledMachines)
+				}
+				
+				# All Computers
+				$TotalEnabledDisabledMachines += @($TotalEnabledMachines + $TotalDisabledMachines)
 
-					# Enabled Servers including Domain Controllers
-					$TotalEnabledServers += @($TotalEnabledMachines | Where-Object { $_.operatingSystem -like '*Server*'})
+				# Enabled Servers including Domain Controllers
+				$TotalEnabledServers += @($TotalEnabledMachines | Where-Object { $_.operatingSystem -like '*Server*'})
 
-					# Disabled Servers including Domain Controllers
-					$TotalDisabledServers += @($TotalDisabledMachines | Where-Object { $_.operatingSystem -like '*Server*'})
+				# Disabled Servers including Domain Controllers
+				$TotalDisabledServers += @($TotalDisabledMachines | Where-Object { $_.operatingSystem -like '*Server*'})
 
-					# Enabled Workstations
-					$TotalEnabledWorkstations += @($TotalEnabledMachines | Where-Object { $_.operatingSystem -notlike '*Server*'})
+				# Enabled Workstations
+				$TotalEnabledWorkstations += @($TotalEnabledMachines | Where-Object { $_.operatingSystem -notlike '*Server*'})
 
-					# Disabled Workstations
-					$TotalDisabledWorkstations += @($TotalDisabledMachines | Where-Object { $_.operatingSystem -notlike '*Server*'})
-					
-					# GMSA
+				# Disabled Workstations
+				$TotalDisabledWorkstations += @($TotalDisabledMachines | Where-Object { $_.operatingSystem -notlike '*Server*'})
+				
+				# GMSA
+				foreach($AllDomain in $AllDomains){
 					$CollectGMSAs += @(Collect-ADObjects -Domain $AllDomain -LDAP "objectClass=msDS-GroupManagedServiceAccount" -Property samaccountname,lastlogontimestamp,msds-managedpasswordinterval,pwdlastset,objectSID,objectGuid)
-					
-					# Collect SCCM Servers
+				}
+				
+				# Collect SCCM Servers
+				foreach($AllDomain in $AllDomains){
 					$CollectSCCMServers += @(Collect-ADObjects -Domain $AllDomain -LDAP "objectClass=mSSMSManagementPoint" -Property mssmsmpname)
-					
-					# Printers
+				}
+				
+				# Printers
+				foreach($AllDomain in $AllDomains){
 					$PrintersCollection += @(Collect-ADObjects -Domain $AllDomain -Collect Printers -Property servername,shortservername,printsharename,portname,drivername,url)
-					
-					Write-Output "[*] Collecting Groups..."
-					
-					# All Groups
+				}
+				
+				Write-Output "[*] Collecting Groups..."
+				
+				# All Groups
+				foreach($AllDomain in $AllDomains){
 					$TotalGroups += @(Collect-ADObjects -Domain $AllDomain -Collect Groups -Property name,objectClass,objectCategory,member,distinguishedName,samaccountname,objectsid,cn,memberof,admincount,description)
-					
-					Write-Output "[*] Collecting GPOs..."
-					
-					# All GPOs
+				}
+				
+				Write-Output "[*] Collecting GPOs..."
+				
+				# All GPOs
+				foreach($AllDomain in $AllDomains){
 					$AllCollectedGPOs += @(Collect-ADObjects -Domain $AllDomain -Collect GPOs -Property gpcfilesyspath,displayname,cn,distinguishedname,name)
-					
-					Write-Output "[*] Collecting OUs..."
-					
-					# All OUs
+				}
+				
+				Write-Output "[*] Collecting OUs..."
+				
+				# All OUs
+				foreach($AllDomain in $AllDomains){
 					$AllCollectedOUs += @(Collect-ADObjects -Domain $AllDomain -Collect OUs -Property gplink,name,distinguishedname)
-					
-					Write-Output "[*] Collecting Certificate Templates..."
-					
-					# Cert Templates
+				}
+				
+				Write-Output "[*] Collecting Certificate Templates..."
+				
+				# Cert Templates
+				foreach($AllDomain in $AllDomains){
 					if(!$NoVulnCertTemplates){$AllCertTemplates += @(Collect-ADCertificateTemplates -Domain $AllDomain)}
+				}
+				
+				Write-Output "[*] Collecting Subnets..."
+		
+				# Subnets
+				$AllSubnets = foreach($AllDomain in $AllDomains){
+					Subnets -Domain $AllDomain
 				}
 			}
 		}
@@ -1259,7 +1310,7 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 		}
 		
 		## PARSING
-		if(!$LoadFromDisk){Write-Output "[*] Parsing Data..."}
+		#if(!$LoadFromDisk){Write-Output "[*] Parsing Data..."}
 		
 		# All Groups, Users and Computers
 		$SumGroupsUsers = @($TotalGroups + $TotalEnabledUsers + $TotalEnabledMachines + $AllForeignSecurityPrincipals)
@@ -1269,6 +1320,8 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 		
 		# Sensitive users
 		$SensitiveUsers = @($SumGroupsUsers | Where-Object { $_.useraccountcontrol -band 1048576 })
+		
+		Write-Output "[*] Parsing Admin Groups members..."
 		
 		# DA, EA, Built-In Admins
 		
@@ -1290,25 +1343,30 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 		# To ensure uniqueness across the entire collection
 		$DAEABA = @($TempDAEABA | Group-Object domain, samaccountname | ForEach-Object { $_.Group | Select-Object -First 1 })
 		
+		Write-Output "[*] Parsing Security Groups Members..."
+		
 		# Security Groups Users
 		
 		$AllSecurityGroups = @(
-			'Print Operators',
+			'Account Operators',
 			'Backup Operators',
-			'Replicator',
-			'krbtgt',
-			'Domain Controllers',
-			'Schema Admins',
-			'Server Operators',
 			'Cert Publishers',
 			'DNSAdmins',
-			'Organization Management',
-			'Account Operators',
-			'Read-Only Domain Controllers',
+			'Distributed COM Users',
+			'Domain Controllers',
+			'Enterprise Key Admins',
 			'Enterprise Read-Only Domain Controllers',
 			'Group Policy Creator Owners',
 			'Key Admins',
-			'Enterprise Key Admins'
+			'Organization Management',
+			'Performance Log Users',
+			'Print Operators',
+			'Read-Only Domain Controllers',
+			'Remote Desktop Users',
+			'Remote Management Users',
+			'Replicator',
+			'Schema Admins',
+			'Server Operators'
 		)
 		
 		$AllSecurityUsers = @()
@@ -1326,6 +1384,8 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 		# Admin Count Users
 		$AllAdminCountUsers = @($TotalEnabledUsers | Where-Object { $_.admincount -eq 1 })
 		
+		Write-Output "[*] Parsing RIDRole DCs..."
+		
 		# RIDRole DCs
 		$ridManager = @($CollectrIDManagers | Sort-Object -Unique -Property domain,name)
 		$fsmoRoleOwnerDN = @($ridManager.fSMORoleOwner)
@@ -1334,12 +1394,6 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 		foreach($dcDN in $dcDNs){$ExtrDCs += ($dcDN -split ',')[0] -replace 'CN=', ''}
 		$RIDRoleDCs = @()
 		$RIDRoleDCs += $TotalDomainControllers | Where-Object { $ExtrDCs -contains $_.name }
-		
-		# Subnets
-		$AllSubnets = @()
-		$AllSubnets = foreach($AllDomain in $AllDomains){
-			Subnets -Domain $AllDomain
-		}
 		
 		if($SaveToDisk){
 			$AllkrbtgtAccounts | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\krbtgtAccounts.json
@@ -1360,6 +1414,7 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 			$AllCollectedOUs | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\OUs.json
 			$AllCertTemplates | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\CertTemplates.json
 			$AllDomainTrusts | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\DomainTrusts.json
+			$AllSubnets | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\Subnets.json
 		}
 	}
 	
@@ -1950,7 +2005,7 @@ Add-Type -TypeDefinition $code
 		$TempForeignGroupMembers = @()
 		$TempForeignGroupMembers = foreach ($ForeignGroupMember in $ForeignGroupMembers) {
 			
-			$ExtractedObject = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq $ForeignGroupMember.MemberName}
+			$ExtractedObject = $SumGroupsUsers | Where-Object {$_.domain -ne $ForeignGroupMember.GroupDomain} | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq $ForeignGroupMember.MemberName}
 			if ($ExtractedObject) {
 				$ExtractedMemberName = $ExtractedObject.samaccountname
 				$TargetExtractedDomain = $ExtractedObject.domain
@@ -5663,6 +5718,51 @@ Add-Type -TypeDefinition $code
 		}
 		
 		#################################################### 
+		########### Distributed COM Users ################
+		####################################################
+		
+		Write-Host ""
+		Write-Host "Distributed COM Users:" -ForegroundColor Cyan
+		$TempDCOMUsers = @()
+		$TempDCOMUsers = foreach ($AllDomain in $AllDomains) {
+			$DCOMUsers = @()
+			$DCOMUsers = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Distributed COM Users"
+			foreach($DCOMUser in $DCOMUsers){
+				
+				$isEnabled = if ($DCOMUser.useraccountcontrol -band 2) { "False" } else { "True" }
+				if($DCOMUser.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $DCOMUser.lastlogontimestamp}else{$lastLogon = ""}
+				$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+				$membername = $DCOMUser.samaccountname
+				if(!$membername){
+					$ExtractedMember = @()
+					$ExtractedMember = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq (GetSID-FromBytes -sidBytes $DCOMUser.objectsid)}
+					$tempmembername = $ExtractedMember.samaccountname
+					$memberdomain = $ExtractedMember.domain
+					$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
+					if(!$isEnabled){$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }}
+					if(!$isActive){
+						if($ExtractedMember.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp}else{$lastLogon = ""}
+						$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+					}
+				}
+
+				[PSCustomObject]@{
+					"Name" = $membername
+					"Enabled" = $isEnabled
+					"Active" = $isActive
+					"Last Logon" = $lastLogon
+					"Member SID" = GetSID-FromBytes -sidBytes $DCOMUser.objectsid
+					"Group Domain" = $DCOMUser.domain
+				}
+			}
+		}
+
+		if ($TempDCOMUsers) {
+			$TempDCOMUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap
+			$HTMLDCOMUsers = $TempDCOMUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DCOMUsers'>Distributed COM Users</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DCOMUsers'>" }
+		}
+		
+		#################################################### 
 		########### DNS Admins ################
 		####################################################
 		
@@ -5959,6 +6059,51 @@ Add-Type -TypeDefinition $code
 		}
 		
 		#################################################### 
+		########### Performance Log Users ################
+		####################################################
+		
+		Write-Host ""
+		Write-Host "Performance Log Users:" -ForegroundColor Cyan
+		$TempPerformanceLogUsers = @()
+		$TempPerformanceLogUsers = foreach ($AllDomain in $AllDomains) {
+			$PerformanceLogUsers = @()
+			$PerformanceLogUsers = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Performance Log Users"
+			foreach($PerformanceLogUser in $PerformanceLogUsers){
+
+				$isEnabled = if ($PerformanceLogUser.useraccountcontrol -band 2) { "False" } else { "True" }
+				if($PerformanceLogUser.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $PerformanceLogUser.lastlogontimestamp}else{$lastLogon = ""}
+				$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+				$membername = $PerformanceLogUser.samaccountname
+				if(!$membername){
+					$ExtractedMember = @()
+					$ExtractedMember = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq (GetSID-FromBytes -sidBytes $PerformanceLogUser.objectsid)}
+					$tempmembername = $ExtractedMember.samaccountname
+					$memberdomain = $ExtractedMember.domain
+					$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
+					if(!$isEnabled){$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }}
+					if(!$isActive){
+						if($ExtractedMember.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp}else{$lastLogon = ""}
+						$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+					}
+				}
+
+				[PSCustomObject]@{
+					"Name" = $membername
+					"Enabled" = $isEnabled
+					"Active" = $isActive
+					"Last Logon" = $lastLogon
+					"Member SID" = GetSID-FromBytes -sidBytes $PerformanceLogUser.objectsid
+					"Group Domain" = $PerformanceLogUser.domain
+				}
+			}
+		}
+
+		if ($TempPerformanceLogUsers) {
+			$TempPerformanceLogUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap
+			$HTMLPerformanceLogUsers = $TempPerformanceLogUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='PerformanceLogUsers'>Performance Log Users</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='PerformanceLogUsers'>" }
+		}
+		
+		#################################################### 
 		########### Print Operators ################
 		####################################################
 		
@@ -6109,6 +6254,96 @@ Add-Type -TypeDefinition $code
 		if ($TempRODCs) {
 			$TempRODCs | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap
 			$HTMLRODCs = $TempRODCs | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='RODCs'>Read-Only Domain Controllers</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='RODCs'>" }
+		}
+		
+		#################################################### 
+		########### Remote Desktop Users ################
+		####################################################
+		
+		Write-Host ""
+		Write-Host "Remote Desktop Users:" -ForegroundColor Cyan
+		$TempRDPUsers = @()
+		$TempRDPUsers = foreach ($AllDomain in $AllDomains) {
+			$RDPUsers = @()
+			$RDPUsers = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Remote Desktop Users"
+			foreach($RDPUser in $RDPUsers){
+				
+				$isEnabled = if ($RDPUser.useraccountcontrol -band 2) { "False" } else { "True" }
+				if($RDPUser.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $RDPUser.lastlogontimestamp}else{$lastLogon = ""}
+				$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+				$membername = $RDPUser.samaccountname
+				if(!$membername){
+					$ExtractedMember = @()
+					$ExtractedMember = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq (GetSID-FromBytes -sidBytes $RDPUser.objectsid)}
+					$tempmembername = $ExtractedMember.samaccountname
+					$memberdomain = $ExtractedMember.domain
+					$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
+					if(!$isEnabled){$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }}
+					if(!$isActive){
+						if($ExtractedMember.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp}else{$lastLogon = ""}
+						$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+					}
+				}
+
+				[PSCustomObject]@{
+					"Name" = $membername
+					"Enabled" = $isEnabled
+					"Active" = $isActive
+					"Last Logon" = $lastLogon
+					"Member SID" = GetSID-FromBytes -sidBytes $RDPUser.objectsid
+					"Group Domain" = $RDPUser.domain
+				}
+			}
+		}
+
+		if ($TempRDPUsers) {
+			$TempRDPUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap
+			$HTMLRDPUsers = $TempRDPUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='RDPUsers'>Remote Desktop Users</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='RDPUsers'>" }
+		}
+		
+		#################################################### 
+		########### Remote Management Users ################
+		####################################################
+		
+		Write-Host ""
+		Write-Host "Remote Management Users:" -ForegroundColor Cyan
+		$TempRemManUsers = @()
+		$TempRemManUsers = foreach ($AllDomain in $AllDomains) {
+			$RemManUsers = @()
+			$RemManUsers = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Remote Management Users"
+			foreach($RemManUser in $RemManUsers){
+				
+				$isEnabled = if ($RemManUser.useraccountcontrol -band 2) { "False" } else { "True" }
+				if($RemManUser.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $RemManUser.lastlogontimestamp}else{$lastLogon = ""}
+				$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+				$membername = $RemManUser.samaccountname
+				if(!$membername){
+					$ExtractedMember = @()
+					$ExtractedMember = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq (GetSID-FromBytes -sidBytes $RemManUser.objectsid)}
+					$tempmembername = $ExtractedMember.samaccountname
+					$memberdomain = $ExtractedMember.domain
+					$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
+					if(!$isEnabled){$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }}
+					if(!$isActive){
+						if($ExtractedMember.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp}else{$lastLogon = ""}
+						$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+					}
+				}
+
+				[PSCustomObject]@{
+					"Name" = $membername
+					"Enabled" = $isEnabled
+					"Active" = $isActive
+					"Last Logon" = $lastLogon
+					"Member SID" = GetSID-FromBytes -sidBytes $RemManUser.objectsid
+					"Group Domain" = $RemManUser.domain
+				}
+			}
+		}
+
+		if ($TempRemManUsers) {
+			$TempRemManUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap
+			$HTMLRemManUsers = $TempRemManUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='RemManUsers'>Remote Management Users</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='RemManUsers'>" }
 		}
 		
 		#################################################### 
@@ -6733,7 +6968,7 @@ Add-Type -TypeDefinition $code
 	if(!$HTMLGPOCreators -AND !$HTMLGPOsWhocanmodify -AND !$HTMLGpoLinkResults -AND !$HTMLLAPSGPOs -AND !$HTMLLAPSAdminGPOs -AND !$HTMLLAPSCanRead -AND !$HTMLLAPSExtended -AND !$HTMLLapsEnabledComputers -AND !$HTMLAppLockerGPOs -AND !$HTMLGPOLocalGroupsMembership){$GroupPolicyChecksBanner = $null}
 	if(!$HTMLUnconstrained -AND !$HTMLConstrainedDelegationComputers -AND !$HTMLConstrainedDelegationUsers -AND !$HTMLRBACDObjects -AND !$HTMLADComputersCreated){$DelegationChecksBanner = $null}
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLAllForests $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLOtherPolicies $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLLLMNR $HTMLMachineQuota $HTMLMachineAccountQuotaTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLVulnLMCompLevelComp $HTMLSubnets $AdministratorsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLAdminsProtectedUsersAndSensitive $HTMLAdminsProtectedUsersAndSensitiveTable $HTMLSecurityProtectedUsersAndSensitive $HTMLSecurityProtectedUsersAndSensitiveTable $HTMLAdmCountProtectedUsersAndSensitive $HTMLAdmCountProtectedUsersAndSensitiveTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLLinkedDAAccounts $HTMLFindLocalAdminAccess $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLCertTemplatesTable $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLEmptyPasswordComputers $HTMLEmptyPasswordComputersTable $HTMLTotalEmptyPass $HTMLTotalEmptyPassTable $HTMLCompTotalEmptyPass $HTMLCompTotalEmptyPassTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLWin7AndServer2008 $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $ExtendedChecksBanner $HTMLFileServers $HTMLSQLServers $HTMLSCCMServers $HTMLWSUSServers $HTMLSMBSigningDisabled $HTMLWebDAVStatusResults $HTMLPrinters $HTMLSPNAccounts $HTMLSharesResultsTable $HTMLEmptyGroups $GroupPolicyChecksBanner $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $DelegationChecksBanner $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $SecurityGroupsBanner $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLOrganizationManagement $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLSchemaAdmins $HTMLServerOperators $InterestingDataBanner $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLAllForests $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLOtherPolicies $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLLLMNR $HTMLMachineQuota $HTMLMachineAccountQuotaTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLVulnLMCompLevelComp $HTMLSubnets $AdministratorsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLAdminsProtectedUsersAndSensitive $HTMLAdminsProtectedUsersAndSensitiveTable $HTMLSecurityProtectedUsersAndSensitive $HTMLSecurityProtectedUsersAndSensitiveTable $HTMLAdmCountProtectedUsersAndSensitive $HTMLAdmCountProtectedUsersAndSensitiveTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLLinkedDAAccounts $HTMLFindLocalAdminAccess $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLCertTemplatesTable $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLEmptyPasswordComputers $HTMLEmptyPasswordComputersTable $HTMLTotalEmptyPass $HTMLTotalEmptyPassTable $HTMLCompTotalEmptyPass $HTMLCompTotalEmptyPassTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLWin7AndServer2008 $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $ExtendedChecksBanner $HTMLFileServers $HTMLSQLServers $HTMLSCCMServers $HTMLWSUSServers $HTMLSMBSigningDisabled $HTMLWebDAVStatusResults $HTMLPrinters $HTMLSPNAccounts $HTMLSharesResultsTable $HTMLEmptyGroups $GroupPolicyChecksBanner $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $DelegationChecksBanner $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $SecurityGroupsBanner $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDCOMUsers $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLOrganizationManagement $HTMLPerformanceLogUsers $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLRDPUsers $HTMLRemManUsers $HTMLSchemaAdmins $HTMLServerOperators $InterestingDataBanner $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
 	
 	if($Output){
 		$Output = $Output.TrimEnd('\')
