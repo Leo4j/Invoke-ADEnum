@@ -151,7 +151,19 @@ function Invoke-ADEnum {
 		
 		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
-        $LoadFromDisk
+        $LoadFromDisk,
+
+ 	[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Switch]
+        $NoSMBSharesEnum,
+
+ 	[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Switch]
+        $NoSMBSigningEnum,
+
+ 	[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Switch]
+        $NoWebDAVEnum
     )
 	
 	$stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -4413,74 +4425,77 @@ Add-Type -TypeDefinition $code
 	####################################################
     ######### Check Alive Hosts ###############
 	####################################################
-	
-	$AllAliveTargets = @()
-	$AllAliveTargets = CheckAliveHosts -Targets $TotalEnabledMachines
+	if(-NOT ($NoSMBSigningEnum -AND $NoWebDAVEnum)){
+		$AllAliveTargets = @()
+		$AllAliveTargets = CheckAliveHosts -Targets $TotalEnabledMachines
+  	}
 	
 	####################################################
     ######### SMB Signing Disabled ###############
 	####################################################
-	
-	Write-Host ""
-    Write-Host "SMB Signing Not Required:" -ForegroundColor Cyan
-	
-	$SMBSigningDisabled = foreach($AllDomain in $AllDomains){
-		$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
-		$SMBSigningTargets = @(CheckSMBSigning -Targets ($AllAliveTargets | Where-Object {$_.domain -eq $AllDomain}))
+	if(!$NoSMBSigningEnum){
+	    Write-Host ""
+	    Write-Host "SMB Signing Not Required:" -ForegroundColor Cyan
 		
-		if($SMBSigningTargets){
-			foreach($Target in $SMBSigningTargets){
-				if($Target.dnshostname){$IPAddress = (Resolve-DnsName -Name $Target.dnshostname -Type A -Server $ResolveServer).IPAddress}
-				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
-				[PSCustomObject]@{
-					Machine = $Target.samaccountname
-					"Enabled" = if ($Target.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if(!$Target.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $ObjectRetrieve.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-					'IP Address' = $IPAddress
-					"Account SID" = GetSID-FromBytes -sidBytes $Target.objectsid
-					"Operating System" = $Target.operatingsystem
-					Domain = $AllDomain
+		$SMBSigningDisabled = foreach($AllDomain in $AllDomains){
+			$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
+			$SMBSigningTargets = @(CheckSMBSigning -Targets ($AllAliveTargets | Where-Object {$_.domain -eq $AllDomain}))
+			
+			if($SMBSigningTargets){
+				foreach($Target in $SMBSigningTargets){
+					if($Target.dnshostname){$IPAddress = (Resolve-DnsName -Name $Target.dnshostname -Type A -Server $ResolveServer).IPAddress}
+					if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
+					[PSCustomObject]@{
+						Machine = $Target.samaccountname
+						"Enabled" = if ($Target.useraccountcontrol -band 2) { "False" } else { "True" }
+						"Active" = if(!$Target.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $ObjectRetrieve.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
+						'IP Address' = $IPAddress
+						"Account SID" = GetSID-FromBytes -sidBytes $Target.objectsid
+						"Operating System" = $Target.operatingsystem
+						Domain = $AllDomain
+					}
 				}
 			}
 		}
-	}
-	
-	if($SMBSigningDisabled){
-        $SMBSigningDisabled | Sort-Object -Unique Domain,Machine | Format-Table -AutoSize -Wrap
-        $HTMLSMBSigningDisabled = $SMBSigningDisabled | Sort-Object -Unique Domain,Machine | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='SMBSigningNotRequired'>SMB Signing Not Required</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='SMBSigningNotRequired'>" }
+		
+		if($SMBSigningDisabled){
+	        $SMBSigningDisabled | Sort-Object -Unique Domain,Machine | Format-Table -AutoSize -Wrap
+	        $HTMLSMBSigningDisabled = $SMBSigningDisabled | Sort-Object -Unique Domain,Machine | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='SMBSigningNotRequired'>SMB Signing Not Required</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='SMBSigningNotRequired'>" }
+	    }
     }
 	
 	####################################################
     ######### WebDAV Enabled ###############
 	####################################################
-	
-	Write-Host ""
-    Write-Host "WebDAV Enabled Machines:" -ForegroundColor Cyan
-	
-	$WebDAVStatusResults = foreach($AllDomain in $AllDomains){
-		$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
-		$WebDAVStatusTargets = @(CheckWebDAVStatus -Targets ($AllAliveTargets | Where-Object {$_.domain -eq $AllDomain}))
+	if(!$NoWebDAVEnum){
+		Write-Host ""
+	    Write-Host "WebDAV Enabled Machines:" -ForegroundColor Cyan
 		
-		if($WebDAVStatusTargets){
-			foreach($Target in $WebDAVStatusTargets){
-				if($Target.dnshostname){$IPAddress = (Resolve-DnsName -Name $Target.dnshostname -Type A -Server $ResolveServer).IPAddress}
-				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
-				[PSCustomObject]@{
-					Machine = $Target.samaccountname
-					"Enabled" = if ($Target.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if(!$Target.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $ObjectRetrieve.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-					'IP Address' = $IPAddress
-					"Account SID" = GetSID-FromBytes -sidBytes $Target.objectsid
-					"Operating System" = $Target.operatingsystem
-					Domain = $AllDomain
+		$WebDAVStatusResults = foreach($AllDomain in $AllDomains){
+			$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
+			$WebDAVStatusTargets = @(CheckWebDAVStatus -Targets ($AllAliveTargets | Where-Object {$_.domain -eq $AllDomain}))
+			
+			if($WebDAVStatusTargets){
+				foreach($Target in $WebDAVStatusTargets){
+					if($Target.dnshostname){$IPAddress = (Resolve-DnsName -Name $Target.dnshostname -Type A -Server $ResolveServer).IPAddress}
+					if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
+					[PSCustomObject]@{
+						Machine = $Target.samaccountname
+						"Enabled" = if ($Target.useraccountcontrol -band 2) { "False" } else { "True" }
+						"Active" = if(!$Target.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $ObjectRetrieve.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
+						'IP Address' = $IPAddress
+						"Account SID" = GetSID-FromBytes -sidBytes $Target.objectsid
+						"Operating System" = $Target.operatingsystem
+						Domain = $AllDomain
+					}
 				}
 			}
 		}
-	}
-	
-	if($WebDAVStatusResults){
-        $WebDAVStatusResults | Sort-Object -Unique Domain,Machine | Format-Table -AutoSize -Wrap
-        $HTMLWebDAVStatusResults = $WebDAVStatusResults | Sort-Object -Unique Domain,Machine | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='WebDavEnabled'>WebDAV Enabled Machines</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='WebDavEnabled'>" }
+		
+		if($WebDAVStatusResults){
+	        $WebDAVStatusResults | Sort-Object -Unique Domain,Machine | Format-Table -AutoSize -Wrap
+	        $HTMLWebDAVStatusResults = $WebDAVStatusResults | Sort-Object -Unique Domain,Machine | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='WebDavEnabled'>WebDAV Enabled Machines</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='WebDavEnabled'>" }
+	    }
     }
 	
 	####################################################
@@ -4574,43 +4589,44 @@ Add-Type -TypeDefinition $code
 	####################################################
     ######### Readable Writable Shares ###############
 	####################################################
+	if(!$NoSMBSharesEnum){
+		Write-Host ""
+		Write-Host "Readable and Writable Shares:" -ForegroundColor Cyan
 	
-	Write-Host ""
-	Write-Host "Readable and Writable Shares:" -ForegroundColor Cyan
-
- 	$excludedShares = @('SYSVOL', 'Netlogon', 'print$', 'IPC$')
-	
-	$SharesResultsTable = foreach ($AllDomain in $AllDomains) {
+	 	$excludedShares = @('SYSVOL', 'Netlogon', 'print$', 'IPC$')
 		
-		$AllCompMachines = $TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $_.dnshostname} | Select-Object -ExpandProperty dnshostname
-
-		$HostFQDN = [System.Net.Dns]::GetHostByName(($env:computerName)).HostName
-		$AllCompMachines = $AllCompMachines | Where-Object {$_ -ne "$HostFQDN"}
+		$SharesResultsTable = foreach ($AllDomain in $AllDomains) {
+			
+			$AllCompMachines = $TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $_.dnshostname} | Select-Object -ExpandProperty dnshostname
 	
-		$SharesResults = Invoke-ShareHunter -Computers $AllCompMachines -Domain $AllDomain
+			$HostFQDN = [System.Net.Dns]::GetHostByName(($env:computerName)).HostName
+			$AllCompMachines = $AllCompMachines | Where-Object {$_ -ne "$HostFQDN"}
 		
-		foreach ($obj in $SharesResults) {
-			$shareName = ($obj."Share Name" -split '\\')[-1]
-			if (-not ($shareName -in $excludedShares -and $obj.Writable -ne "YES")) {
-				if($obj.Readable -eq "YES"){
-					[PSCustomObject]@{
-						'Targets'  = $obj.Targets
-						'Share Name'    = $obj."Share Name"
-						'Readable' = $obj.Readable
-						'Writable' = $obj.Writable
-						'Domain'   = $obj.Domain
+			$SharesResults = Invoke-ShareHunter -Computers $AllCompMachines -Domain $AllDomain
+			
+			foreach ($obj in $SharesResults) {
+				$shareName = ($obj."Share Name" -split '\\')[-1]
+				if (-not ($shareName -in $excludedShares -and $obj.Writable -ne "YES")) {
+					if($obj.Readable -eq "YES"){
+						[PSCustomObject]@{
+							'Targets'  = $obj.Targets
+							'Share Name'    = $obj."Share Name"
+							'Readable' = $obj.Readable
+							'Writable' = $obj.Writable
+							'Domain'   = $obj.Domain
+						}
 					}
-				}
-				}
+					}
+			}
 		}
-	}
-	
-	if ($SharesResultsTable) {
-		$SharesResultsTable | Sort-Object -Unique "Domain","Writable","Targets","Share Name" | Format-Table -AutoSize -Wrap
-		$HTMLSharesResultsTable = $SharesResultsTable | Sort-Object -Unique "Domain","Writable","Targets","Share Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='RWShares'>Readable and Writable Shares</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='RWShares'>" }
-		$HTMLSharesResultsTable = $HTMLSharesResultsTable -replace "(\\)(C\$)", '$1<span class="YesStatus">$2</span>'
-		$HTMLSharesResultsTable = $HTMLSharesResultsTable -replace "(\\)(ADMIN\$)", '$1<span class="YesStatus">$2</span>'
-	}
+		
+		if ($SharesResultsTable) {
+			$SharesResultsTable | Sort-Object -Unique "Domain","Writable","Targets","Share Name" | Format-Table -AutoSize -Wrap
+			$HTMLSharesResultsTable = $SharesResultsTable | Sort-Object -Unique "Domain","Writable","Targets","Share Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='RWShares'>Readable and Writable Shares</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='RWShares'>" }
+			$HTMLSharesResultsTable = $HTMLSharesResultsTable -replace "(\\)(C\$)", '$1<span class="YesStatus">$2</span>'
+			$HTMLSharesResultsTable = $HTMLSharesResultsTable -replace "(\\)(ADMIN\$)", '$1<span class="YesStatus">$2</span>'
+		}
+  	}
 	
 	##################################################
     ########### Empty Groups ################
