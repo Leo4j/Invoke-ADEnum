@@ -1059,7 +1059,7 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 				Write-Output "[*] Collecting Domain Controllers..."
 				
 				# Domain Controllers
-				$TotalDomainControllers += @(Collect-ADObjects -Domain $Domain -Server $Server -Collect DomainControllers -Property name,dnshostname,Roles,operatingsystem)
+				$TotalDomainControllers += @(Collect-ADObjects -Domain $Domain -Server $Server -Collect DomainControllers -Property name,dnshostname,operatingsystem)
 				
 				# rIDManagers
 				$CollectrIDManagers += @(Collect-ADObjects -Domain $Domain -Server $Server -Collect rIDManagers -Property name,fSMORoleOwner)
@@ -1163,7 +1163,7 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 				
 				# Domain Controllers
 				foreach($AllDomain in $AllDomains){
-					$TotalDomainControllers += @(Collect-ADObjects -Domain $AllDomain -Collect DomainControllers -Property name,dnshostname,Roles,operatingsystem)
+					$TotalDomainControllers += @(Collect-ADObjects -Domain $AllDomain -Collect DomainControllers -Property name,dnshostname,operatingsystem)
 				}
 				
 				# rIDManagers
@@ -1402,7 +1402,7 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 		Write-Output "[*] Parsing RIDRole DCs..."
 		
 		# RIDRole DCs
-		$ridManager = @($CollectrIDManagers | Sort-Object -Unique -Property domain,name)
+		$ridManager = @($CollectrIDManagers | Sort-Object -Unique -Property domain,fsmoroleowner)
 		$fsmoRoleOwnerDN = @($ridManager.fSMORoleOwner)
 		$dcDNs = @($fsmoRoleOwnerDN -replace '^CN=NTDS Settings,')
 		$ExtrDCs = @()
@@ -1619,8 +1619,8 @@ Add-Type -TypeDefinition $code
 			$domainControllers = $TotalDomainControllers | Where-Object {$_.domain -eq $AllDomain}
 			foreach ($dc in $domainControllers) {
 				$TestingLDAP = Test-LDAPConnectivity -ComputerName $dc.dnshostname
-				$isPrimaryDC = $dc.Roles -like "RidRole"
-				$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
+				#$isPrimaryDC = $RIDRoleDCs.dnshostname -contains $dc.dnshostname
+				#$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
 				$startupTime = [NativeMethods]::GetStartupTime($dc.dnshostname)
 				if($dc.DnsHostName){$ipaddress = (Resolve-DnsName -Name $dc.DnsHostName -Type A).IPAddress}
 				if($ipaddress.count -gt 1){$ipaddress = $ipaddress -join ", "}
@@ -1754,8 +1754,8 @@ Add-Type -TypeDefinition $code
 		$domainControllers = $TotalDomainControllers | Where-Object {$_.domain -eq $AllDomain}
 		foreach ($dc in $domainControllers) {
 			$TestingLDAP = Test-LDAPConnectivity -ComputerName $dc.dnshostname
-			$isPrimaryDC = $dc.Roles -like "RidRole"
-			$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
+			#$isPrimaryDC = $RIDRoleDCs.dnshostname -contains $dc.dnshostname
+			#$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
 			$startupTime = [NativeMethods]::GetStartupTime($dc.dnshostname)
 			if($dc.DnsHostName){$ipaddress = (Resolve-DnsName -Name $dc.DnsHostName -Type A).IPAddress}
 			if($ipaddress.count -gt 1){$ipaddress = $ipaddress -join ", "}
@@ -3901,7 +3901,7 @@ Add-Type -TypeDefinition $code
 			$null = $TotalPotentialEmptyPass.AddRange($PotentialComputersWithEmptyPassword)
 			$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 			Add-Type -AssemblyName "System.DirectoryServices.AccountManagement"
-			$EmptyServer = $TotalDomainControllers | Where-Object {$_.Domain.Name -eq $AllDomain -AND $_.Roles -like "RidRole"} | Select-Object -ExpandProperty Name
+			$EmptyServer = $RIDRoleDCs | Where-Object {$_.Domain -eq $AllDomain} | Select-Object -ExpandProperty Name
 			$principalContext = New-Object System.DirectoryServices.AccountManagement.PrincipalContext([System.DirectoryServices.AccountManagement.ContextType]::Domain, $EmptyServer, $AllDomain)
 		
 			foreach($EmptyPasswordComp in $TotalPotentialEmptyPass){
