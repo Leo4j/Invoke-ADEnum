@@ -209,18 +209,18 @@ function Invoke-ADEnum {
 		Write-Host "
  -Domain <domain FQDN>		The Domain to enumerate for. Leave blank for All
  
- -Exclude <domain FQDN>		Exclude one or more domains from enumeration		-Exclude `"contoso.local,ad.example.org`"
+ -Exclude <domain FQDN>		Exclude one or more domains from enumeration
  
- -Output <path-on-disk>		Specify the tool output location (default: pwd)		-Output C:\Windows\Temp
+ -Output <path-on-disk>		Specify the tool output location (default: pwd)
 
- -Server <DC FQDN or IP>	The DC to bind to (requires you specify a Domain)
+ -Server <DC FQDN or IP>	The DC to bind to (requires you to specify a Domain)
 
 "
 		Write-Host " [SWITCHES]" -ForegroundColor Yellow
 		Write-Host "
  -AllDescriptions		Enumerate description for every domain object
   
- -AllEnum			Enumerate for (almost) Everything
+ -AllEnum			Enumerate for (almost) Everything (may take a long time depending on domain size)
  
  -AllGroups			Enumerate for All Domain Groups
  
@@ -234,7 +234,7 @@ function Invoke-ADEnum {
  
  -FindLocalAdminAccess		Enumerate for Machines where the Current User is Local Admin
  
- -Force				Will include all lengthy tasks when enumerating using -AllEnum flag
+ -Force				Full Coverage when used in combination with -AllEnum flag (may take a long time depending on domain size)
 
  -GPOsRights			Enumerate GPOs Rights | Who can Create/Modify/Link GPOs
  
@@ -245,6 +245,8 @@ function Invoke-ADEnum {
  -LAPSExtended			Enumerate for LAPS Extended Rights
 
  -LAPSReadRights		Enumerate for Users who can Read LAPS
+
+ -LoadFromDisk			Load collection data from disk and skip collection (Location: c:\Users\Public\Documents\Invoke-ADEnum)
  
  -MoreGPOs			More enumeration leveraging GPOs
  
@@ -259,14 +261,22 @@ function Invoke-ADEnum {
  -NoLAPS			Do not enumerate for LAPS GPO
  
  -NoServers			Do not enumerate for Servers
+
+ -NoSMBSharesEnum		Do not enumerate for R+W SMB Shares
+
+ -NoSMBSigningEnum		Do not enumerate for SMB Signing
  
  -NoUnsupportedOS		Do not enumerate for machines running unsupported OS
  
  -NoVulnCertTemplates		Do not enumerate for Misconfigured Certificate Templates
 
- -RBCD				Check for Resource Based Constrained Delegation
+ -NoWebDAVEnum			Do not enumerate for WebDAV
+
+ -RBCD				Check for Resource Based Constrained Delegation (may take a long time depending on domain size)
  
- -Recommended		Recommended Coverage (Does not include SprayEmptyPasswords)
+ -Recommended			Recommended Coverage: FindLocalAdminAccess,GPOsRights,LAPSReadRights,MoreGPOs,SecurityGroups,AllDescriptions
+
+ -SaveToDisk			Save collection data to disk (Location: c:\Users\Public\Documents\Invoke-ADEnum)
 
  -SecurityGroups		Enumerate for Security Groups (e.g.: Account Operators, Server Operators, and more...)
 
@@ -274,7 +284,7 @@ function Invoke-ADEnum {
  
  -TargetsOnly			Show Target Domains only (Stay in scope) - Will not create a Report
 
- -UserCreatedObjects		Show Computers Objects created by regular users
+ -UserCreatedObjects		Show Computers Objects created by regular users (may take a long time depending on domain size)
 
  -Workstations			Enumerate for Workstations
 
@@ -292,6 +302,11 @@ function Invoke-ADEnum {
  Invoke-ADEnum -Exclude `"contoso.local,domain.local`" -NoVulnCertTemplates
 
  Invoke-ADEnum -AllEnum -Force
+
+"
+		Write-Host " [Recommended Coverage]" -ForegroundColor Yellow
+		Write-Host " 
+ Invoke-ADEnum -Recommended -RBCD -UserCreatedObjects -SprayEmptyPasswords
 
 "
 		
