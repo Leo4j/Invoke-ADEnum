@@ -270,7 +270,7 @@ function Invoke-ADEnum {
  
  -NoVulnCertTemplates		Do not enumerate for Misconfigured Certificate Templates
 
- -NoWebDAVEnum			Do not enumerate for WebDAV
+ -NoWebDAVEnum			Do not enumerate for machines where WebDAV Service is running
 
  -RBCD				Check for Resource Based Constrained Delegation (may take a long time depending on domain size)
  
