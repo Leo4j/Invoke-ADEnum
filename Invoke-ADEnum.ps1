@@ -3846,7 +3846,7 @@ Add-Type -TypeDefinition $code
 				$EmptyCheck = $principalContext.ValidateCredentials("$EmptyPasswordUserName", "", 1)
 				
 				if ($EmptyCheck){
-				
+					$EmptySIDUserName = GetSID-FromBytes -sidBytes $EmptyPasswordUser.objectSID
 					[PSCustomObject]@{
 						"User Name" = $EmptyPasswordUser.samaccountname
 						"Enabled" = if ($EmptyPasswordUser.useraccountcontrol -band 2) { "False" } else { "True" }
@@ -3856,7 +3856,7 @@ Add-Type -TypeDefinition $code
 						"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
 						"Last Logon" = if($EmptyPasswordUser.lastlogontimestamp){Convert-LdapTimestamp -timestamp $EmptyPasswordUser.lastlogontimestamp}else{""}
 						"Pwd Last Set" = if($EmptyPasswordUser.pwdlastset){Convert-LdapTimestamp -timestamp $EmptyPasswordUser.pwdlastset}else{""}
-						"SID" = GetSID-FromBytes -sidBytes $EmptyPasswordUser.objectSID
+						"SID" = $EmptySIDUserName
 						"Domain" = $AllDomain
 					}
 				}	
@@ -3913,6 +3913,7 @@ Add-Type -TypeDefinition $code
 				if ($EmptyCheck){
 					if($EmptyPasswordComp.dnshostname){$IPAddress = (Resolve-DnsName -Name $EmptyPasswordComp.dnshostname -Type A -Server $ResolveServer).IPAddress}
 					if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
+     					$EmptySIDCompName = GetSID-FromBytes -sidBytes $EmptyPasswordComp.objectSID
 					
 					[PSCustomObject]@{
 						"Name" = $EmptyPasswordComp.samaccountname
@@ -3920,7 +3921,7 @@ Add-Type -TypeDefinition $code
 						"Active" = if(!$EmptyPasswordComp.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $EmptyPasswordComp.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
 						"IP Address" = $IPAddress
 						"Operating System" = $EmptyPasswordComp.operatingsystem
-						"SID" = GetSID-FromBytes -sidBytes $EmptyPasswordComp.objectSID
+						"SID" = $EmptySIDCompName
 						"Domain" = $AllDomain
 					}
 					
