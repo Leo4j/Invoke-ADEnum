@@ -1013,6 +1013,7 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 		$CollectSCCMServers = @()
 		$AllDomainTrusts = @()
 		$AllSubnets = @()
+		$AllGUIDMappings = @{}
 		
 		if($LoadFromDisk){
 			$CatchTheError = $false
@@ -1288,7 +1289,6 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 		if($LoadFromDisk){
 			# Import the JSON data from the file
 			$jsonData = Get-Content -Path c:\Users\Public\Documents\Invoke-ADEnum\GUIDMappings.json -Raw | ConvertFrom-Json
-			$AllGUIDMappings = @{}
 			foreach ($domain in $jsonData.PSObject.Properties.Name) {
 				$AllGUIDMappings[$domain] = @{}
 				$domainData = $jsonData.$domain
@@ -1303,11 +1303,11 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 		else{
 			Write-Output "[*] Collecting GUID Mappings..."
 			if ($Domain -and $Server) {
-				$AllGUIDMappings = Get-ADGuidMapping -Domain $Domain -Server $Server
+				$AllGUIDMappings[$Domain] = Get-ADGuidMapping -Domain $Domain -Server $Server
 			}
 			else{
-				$AllGUIDMappings = foreach($AllDomain in $AllDomains){
-					Get-ADGuidMapping -Domain $AllDomain
+				foreach ($AllDomain in $AllDomains) {
+					$AllGUIDMappings[$AllDomain] = Get-ADGuidMapping -Domain $AllDomain
 				}
 			}
 			
@@ -2404,6 +2404,7 @@ Add-Type -TypeDefinition $code
 								foreach($SumGroupsUser in $SumGroupsUsers){
 									if($tempholder -eq (GetSID-FromBytes -sidBytes $SumGroupsUser.objectsid)){
 										$TryToExtractMember = $SumGroupsUser
+										break
 									}
 								}
 								if($TryToExtractMember){"$($TryToExtractMember.domain)\$($TryToExtractMember.samaccountname)"}
@@ -4794,8 +4795,29 @@ Add-Type -TypeDefinition $code
 			$GPOCreators = @($GPOCreators | Where-Object {$_.ObjectType -eq 'Group-Policy-Container' -AND $_.ActiveDirectoryRights -contains "CreateChild"})
 			
 			foreach ($GPOCreator in $GPOCreators) {
+				if(Test-SidFormat $GPOCreator."Delegated Groups"){
+					foreach($SumGroupsUser in $SumGroupsUsers){
+						if($GPOCreator."Delegated Groups" -eq (GetSID-FromBytes -sidBytes $SumGroupsUser.objectsid)){
+							$TryToExtractMember = $SumGroupsUser
+							break
+						}
+					}
+					if($TryToExtractMember){$FinalExtAccount = "$($TryToExtractMember.domain)\$($TryToExtractMember.samaccountname)"}
+					else{$FinalExtAccount = $GPOCreator."Delegated Groups"}
+				}
+				else{
+					try {
+						$tempholder = $GPOCreator."Delegated Groups"
+						$memberSID = New-Object System.Security.Principal.SecurityIdentifier($tempholder)
+						$memberUser = $memberSID.Translate([System.Security.Principal.NTAccount])
+						$FinalExtAccount = $memberUser.Value
+					} catch {
+						$FinalExtAccount = $GPOCreator."Delegated Groups"
+					}
+				}
+				
 				[PSCustomObject]@{
-					"Account" = $GPOCreator."Delegated Groups"
+					"Account" = $FinalExtAccount
 					"OU"	  = $GPOCreator."Target OU"
 					"Domain" = $AllDomain
 				}
@@ -4839,18 +4861,37 @@ Add-Type -TypeDefinition $code
 					}
 					else{$FinalSID = $ace.IdentityReference.Value} #>
 					
-					if(!(Test-SidFormat -SidString $ace.IdentityReference.Value)){
-						# Create a custom object with the resolved names
-						[PSCustomObject]@{
-							"Delegated Groups" = $ace.IdentityReference.Value
-							"Target OU" = $GPO
-							#AccessControlType = $ace.AccessControlType
-							ObjectType = $objectTypeName
-							InheritedObjectType = $inheritedObjectTypeName
-							#SecurityIdentifier = $ace.SecurityIdentifier.Value
-							ActiveDirectoryRights = $ace.ActiveDirectoryRights
-							Domain = $AllDomain
+					if(Test-SidFormat -SidString $ace.IdentityReference.Value){
+						foreach($SumGroupsUser in $SumGroupsUsers){
+							if($ace.IdentityReference.Value -eq (GetSID-FromBytes -sidBytes $SumGroupsUser.objectsid)){
+								$TryToExtractMember = $SumGroupsUser
+								break
+							}
 						}
+						if($TryToExtractMember){$FinalModGPOAccount = "$($TryToExtractMember.domain)\$($TryToExtractMember.samaccountname)"}
+						else{$FinalModGPOAccount = $ace.IdentityReference.Value}
+					}
+					else{
+						try {
+							$tempholder = $ace.IdentityReference.Value
+							$memberSID = New-Object System.Security.Principal.SecurityIdentifier($tempholder)
+							$memberUser = $memberSID.Translate([System.Security.Principal.NTAccount])
+							$FinalModGPOAccount = $memberUser.Value
+						} catch {
+							$FinalModGPOAccount = $ace.IdentityReference.Value
+						}
+					}
+					
+					# Create a custom object with the resolved names
+					[PSCustomObject]@{
+						"Delegated Groups" = $FinalModGPOAccount
+						"Target OU" = $GPO
+						#AccessControlType = $ace.AccessControlType
+						ObjectType = $objectTypeName
+						InheritedObjectType = $inheritedObjectTypeName
+						#SecurityIdentifier = $ace.SecurityIdentifier.Value
+						ActiveDirectoryRights = $ace.ActiveDirectoryRights
+						Domain = $AllDomain
 					}
 				}
 			}
@@ -4887,7 +4928,7 @@ Add-Type -TypeDefinition $code
 			$gpolinkresult = @()
 			$gpolinkresult = foreach ($OU in $OurTargetOUs.distinguishedname){
 				
-				$ldapPath = "LDAP://$OU"
+				$ldapPath = "LDAP://$AllDomain/$OU"
 				$ouEntry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
 				$securityDescriptor = $ouEntry.ObjectSecurity
 
@@ -4904,19 +4945,37 @@ Add-Type -TypeDefinition $code
 					}
 					else{$FinalSID = $ace.IdentityReference.Value} #>
 					
-					if(!(Test-SidFormat -SidString $ace.IdentityReference.Value)){
-						
-					# Create a custom object with the resolved names
-						[PSCustomObject]@{
-							"Delegated Groups" = $ace.IdentityReference.Value
-							"Target OU" = $OU
-							#AccessControlType = $ace.AccessControlType
-							ObjectType = $objectTypeName
-							InheritedObjectType = $inheritedObjectTypeName
-							#SecurityIdentifier = $ace.SecurityIdentifier.Value
-							ActiveDirectoryRights = $ace.ActiveDirectoryRights
-							Domain = $AllDomain
+					if(Test-SidFormat -SidString $ace.IdentityReference.Value){
+						foreach($SumGroupsUser in $SumGroupsUsers){
+							if($ace.IdentityReference.Value -eq (GetSID-FromBytes -sidBytes $SumGroupsUser.objectsid)){
+								$TryToExtractMember = $SumGroupsUser
+								break
+							}
 						}
+						if($TryToExtractMember){$FinalLinkGPOAccount = "$($TryToExtractMember.domain)\$($TryToExtractMember.samaccountname)"}
+						else{$FinalLinkGPOAccount = $ace.IdentityReference.Value}
+					}
+					else{
+						try {
+							$tempholder = $ace.IdentityReference.Value
+							$memberSID = New-Object System.Security.Principal.SecurityIdentifier($tempholder)
+							$memberUser = $memberSID.Translate([System.Security.Principal.NTAccount])
+							$FinalLinkGPOAccount = $memberUser.Value
+						} catch {
+							$FinalLinkGPOAccount = $ace.IdentityReference.Value
+						}
+					}
+					
+					# Create a custom object with the resolved names
+					[PSCustomObject]@{
+						"Delegated Groups" = $FinalLinkGPOAccount
+						"Target OU" = $OU
+						#AccessControlType = $ace.AccessControlType
+						ObjectType = $objectTypeName
+						InheritedObjectType = $inheritedObjectTypeName
+						#SecurityIdentifier = $ace.SecurityIdentifier.Value
+						ActiveDirectoryRights = $ace.ActiveDirectoryRights
+						Domain = $AllDomain
 					}
 				}
 			}
@@ -5063,10 +5122,31 @@ Add-Type -TypeDefinition $code
 						# Resolve ObjectType and InheritedObjectType using the GUID map
 						$objectTypeName = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
 						$inheritedObjectTypeName = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
+						
+						if(Test-SidFormat $ace.IdentityReference.Value){
+							foreach($SumGroupsUser in $SumGroupsUsers){
+								if($ace.IdentityReference.Value -eq (GetSID-FromBytes -sidBytes $SumGroupsUser.objectsid)){
+									$TryToExtractMember = $SumGroupsUser
+									break
+								}
+							}
+							if($TryToExtractMember){$FinalAceAccount = "$($TryToExtractMember.domain)\$($TryToExtractMember.samaccountname)"}
+							else{$FinalAceAccount = $ace.IdentityReference.Value}
+						}
+						else{
+							try {
+								$tempholder = $ace.IdentityReference.Value
+								$memberSID = New-Object System.Security.Principal.SecurityIdentifier($tempholder)
+								$memberUser = $memberSID.Translate([System.Security.Principal.NTAccount])
+								$FinalAceAccount = $memberUser.Value
+							} catch {
+								$FinalAceAccount = $ace.IdentityReference.Value
+							}
+						}
 
 						# Create a custom object with the resolved names
 						[PSCustomObject]@{
-							"Delegated Groups" = $ace.IdentityReference.Value
+							"Delegated Groups" = $FinalAceAccount
 							"Target OU" = $ou
 							#AccessControlType = $ace.AccessControlType
 							ObjectType = $objectTypeName
@@ -5258,6 +5338,7 @@ Add-Type -TypeDefinition $code
 											foreach($SumGroupsUser in $SumGroupsUsers){
 												if($tempholder -eq (GetSID-FromBytes -sidBytes $SumGroupsUser.objectsid)){
 													$TryToExtractMember = $SumGroupsUser
+													break
 												}
 											}
 											if($TryToExtractMember){"$($TryToExtractMember.domain)\$($TryToExtractMember.samaccountname)"}
@@ -5479,17 +5560,36 @@ Add-Type -TypeDefinition $code
 						}
 						else{$FinalSID = $ace.IdentityReference.Value} #>
 						
-						if(!(Test-SidFormat -SidString $ace.IdentityReference.Value)){
-							# Create a custom object with the resolved names
-							[PSCustomObject]@{
-								Domain = $AllDomain
-								"Account" = $ace.IdentityReference.Value
-								"Computer Object" = $comp.samaccountname
-								#AccessControlType = $ace.AccessControlType
-								#InheritedObjectType = $inheritedObjectTypeName
-								"AD Rights" = $ace.ActiveDirectoryRights
-								"Object Ace Type" = $objectTypeName
+						if(Test-SidFormat -SidString $ace.IdentityReference.Value){
+							foreach($SumGroupsUser in $SumGroupsUsers){
+								if($ace.IdentityReference.Value -eq (GetSID-FromBytes -sidBytes $SumGroupsUser.objectsid)){
+									$TryToExtractMember = $SumGroupsUser
+									break
+								}
 							}
+							if($TryToExtractMember){$FinalRBCDAccount = "$($TryToExtractMember.domain)\$($TryToExtractMember.samaccountname)"}
+							else{$FinalRBCDAccount = $ace.IdentityReference.Value}
+						}
+						else{
+							try {
+								$tempholder = $ace.IdentityReference.Value
+								$memberSID = New-Object System.Security.Principal.SecurityIdentifier($tempholder)
+								$memberUser = $memberSID.Translate([System.Security.Principal.NTAccount])
+								$FinalRBCDAccount = $memberUser.Value
+							} catch {
+								$FinalRBCDAccount = $ace.IdentityReference.Value
+							}
+						}
+						
+						# Create a custom object with the resolved names
+						[PSCustomObject]@{
+							Domain = $AllDomain
+							"Account" = $FinalRBCDAccount
+							"Computer Object" = $comp.samaccountname
+							#AccessControlType = $ace.AccessControlType
+							#InheritedObjectType = $inheritedObjectTypeName
+							"AD Rights" = $ace.ActiveDirectoryRights
+							"Object Ace Type" = $objectTypeName
 						}
 					}
 				}
@@ -9126,67 +9226,55 @@ function Get-ADGuidMapping {
     param(
         [Parameter(Mandatory = $true)]
         [string] $Domain,
-		[Parameter(Mandatory = $false)]
+        [Parameter(Mandatory = $false)]
         [string] $Server
     )
 
-    $domainGuidMaps = @{}
-	$guidMap = @{}
-	
-	if($Domain -AND $Server){
-		# Construct the LDAP path
-		$ldapPathRootDSE = "LDAP://"
-		if ($PSBoundParameters.ContainsKey('Server')) {
-			$ldapPathRootDSE += "$Server/"
-		}
-		$ldapPathRootDSE += "RootDSE"
+    $guidMap = @{}
 
-		# Connect to the Domain RootDSE to get the schema naming context
-		$rootDSE = New-Object System.DirectoryServices.DirectoryEntry($ldapPathRootDSE)
-		$schemaNC = $rootDSE.Properties["schemaNamingContext"].Value
-		
-		$ldapPathSchemaNC = "LDAP://"
-		if ($PSBoundParameters.ContainsKey('Server')) {
-			$ldapPathSchemaNC += "$Server/"
-		}
-		$ldapPathSchemaNC += "$schemaNC"
-		
-		$searchRoot = New-Object System.DirectoryServices.DirectoryEntry($ldapPathSchemaNC)
-	}
-	
-	else{
-		# Connect to the Domain RootDSE to get the schema naming context
-        $rootDSE = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$Domain/RootDSE")
-        $schemaNC = $rootDSE.Properties["schemaNamingContext"].Value
-        $searchRoot = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$Domain/$schemaNC")
-	}
+    # Construct LDAP paths
+    $ldapPathRootDSE = "LDAP://"
+    if ($PSBoundParameters.ContainsKey('Server')) {
+        $ldapPathRootDSE += "$Server/"
+    }
+    $ldapPathRootDSE += "$Domain/RootDSE"
 
-	# Create a searcher to find all schema objects with a schemaIDGUID
-	$searcher = New-Object System.DirectoryServices.DirectorySearcher($searchRoot)
-	$searcher.Filter = "(schemaIDGUID=*)"
-	$searcher.PropertiesToLoad.Add("name") > $null
-	$searcher.PropertiesToLoad.Add("schemaIDGUID") > $null
-	$searcher.PageSize = 1000
+    # Connect to the Domain RootDSE to get the schema naming context
+    $rootDSE = New-Object System.DirectoryServices.DirectoryEntry($ldapPathRootDSE)
+    $schemaNC = $rootDSE.Properties["schemaNamingContext"].Value
 
-	# Perform the search
-	$results = $searcher.FindAll()
+    $ldapPathSchemaNC = "LDAP://"
+    if ($PSBoundParameters.ContainsKey('Server')) {
+        $ldapPathSchemaNC += "$Server/"
+    }
+    $ldapPathSchemaNC += "$Domain/$schemaNC"
 
-	# Process the results
-	foreach ($result in $results) {
-		$name = $result.Properties["name"][0]
-		$guidBytes = $result.Properties["schemaIDGUID"][0]
-		$guid = New-Object Guid (,$guidBytes)  # The comma is used to treat the byte array as a single argument
-		$guidMap[$guid] = $name
-	}
+    $searchRoot = New-Object System.DirectoryServices.DirectoryEntry($ldapPathSchemaNC)
 
-	# Clean up resources
-	$searcher.Dispose()
-	$rootDSE.Close()
-	$searchRoot.Close()
+    # Create a searcher to find all schema objects with a schemaIDGUID
+    $searcher = New-Object System.DirectoryServices.DirectorySearcher($searchRoot)
+    $searcher.Filter = "(schemaIDGUID=*)"
+    $searcher.PropertiesToLoad.Add("name") > $null
+    $searcher.PropertiesToLoad.Add("schemaIDGUID") > $null
+    $searcher.PageSize = 1000
 
-	$domainGuidMaps[$Domain] = $guidMap
+    # Perform the search
+    $results = $searcher.FindAll()
 
-    return $domainGuidMaps
+    # Process the results
+    foreach ($result in $results) {
+        $name = $result.Properties["name"][0]
+        $guidBytes = $result.Properties["schemaIDGUID"][0]
+        $guid = New-Object Guid (,$guidBytes)  # The comma is used to treat the byte array as a single argument
+        $guidMap[$guid] = $name
+    }
+
+    # Clean up resources
+    $searcher.Dispose()
+    $rootDSE.Close()
+    $searchRoot.Close()
+
+    return $guidMap
 }
 
 Function Subnets{
