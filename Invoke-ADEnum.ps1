@@ -2939,9 +2939,9 @@ Add-Type -TypeDefinition $code
 				"Account" = $account.samaccountname
 				"Enabled" = if ($account.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if(!$account.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $account.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
 				"Protected" = if($TargetProtected.samaccountname | Where-Object { $account.samaccountname.Contains($_) }) { "True" } else { "False" }
 				"Sensitive" = if($TargetSensitive.samaccountname | Where-Object { $account.samaccountname.Contains($_) }) { "True" } else { "False" }
 				"Last Logon" = if($account.lastlogontimestamp){Convert-LdapTimestamp -timestamp $account.lastlogontimestamp}else{""}
@@ -2982,9 +2982,9 @@ Add-Type -TypeDefinition $code
 				"Account" = $account.samaccountname
 				"Enabled" = if ($account.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if(!$account.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $account.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
 				"Protected" = if($TargetProtected.samaccountname | Where-Object { $account.samaccountname.Contains($_) }) { "True" } else { "False" }
 				"Sensitive" = if($TargetSensitive.samaccountname | Where-Object { $account.samaccountname.Contains($_) }) { "True" } else { "False" }
 				"Last Logon" = if($account.lastlogontimestamp){Convert-LdapTimestamp -timestamp $account.lastlogontimestamp}else{""}
@@ -3029,9 +3029,9 @@ Add-Type -TypeDefinition $code
 				"Account" = $account.samaccountname
 				"Enabled" = if ($account.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if(!$account.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $account.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
 				"Protected" = if($TargetProtected.samaccountname | Where-Object { $account.samaccountname.Contains($_) }) { "True" } else { "False" }
 				"Sensitive" = if($TargetSensitive.samaccountname | Where-Object { $account.samaccountname.Contains($_) }) { "True" } else { "False" }
 				"Last Logon" = if($account.lastlogontimestamp){Convert-LdapTimestamp -timestamp $account.lastlogontimestamp}else{""}
@@ -3124,9 +3124,9 @@ Add-Type -TypeDefinition $code
 					"Display Name" = $account.displayname
 					"Enabled" = if ($account.useraccountcontrol -band 2) { "False" } else { "True" }
 					"Active" = if(!$account.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $account.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
 					"Last Logon" = if($account.lastlogontimestamp){Convert-LdapTimestamp -timestamp $account.lastlogontimestamp}else{""}
 					"Pwd Last Set" = if($account.pwdlastset){Convert-LdapTimestamp -timestamp $account.pwdlastset}else{""}
 					"SID" = GetSID-FromBytes -sidBytes $account.objectSID
@@ -3147,7 +3147,7 @@ Add-Type -TypeDefinition $code
 	
 	if($FindLocalAdminAccess -OR $AllEnum -OR $Recommended){
         Write-Host ""
-		Write-Host "Find Local Admin Access:" -ForegroundColor Cyan
+		Write-Host "Local Admin Access:" -ForegroundColor Cyan
 		$TempFindLocalAdminAccess = foreach ($AllDomain in $AllDomains) {
 			$OurFinalTargetsForAccess = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain})
 			$OurFinalTargetsForAccess = $OurFinalTargetsForAccess.dnshostname -join ','
@@ -3523,9 +3523,9 @@ Add-Type -TypeDefinition $code
 				"Account" = $Account.samaccountname
 				"Enabled" = if ($Account.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if(!$Account.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $Account.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $Account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $Account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $Account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $Account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $Account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $Account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
 				"Last Logon" = if($Account.lastlogontimestamp){Convert-LdapTimestamp -timestamp $Account.lastlogontimestamp}else{""}
 				"Pwd Last Set" = if($Account.pwdlastset){Convert-LdapTimestamp -timestamp $Account.pwdlastset}else{""}
 				"SID" = GetSID-FromBytes -sidBytes $Account.objectSID
@@ -3564,9 +3564,9 @@ Add-Type -TypeDefinition $code
 				"Account" = $GMSA.samaccountname
 				"Enabled" = if ($GMSA.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if(!$GMSA.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $GMSA.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $GMSA.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $GMSA.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $GMSA.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $GMSA.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $GMSA.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $GMSA.samaccountname.Contains($_) }) { "YES" } else { "NO" }
 				#"Account Type" = $GMSA.samaccounttype
 				"Pwd Interval" = $GMSA."msds-managedpasswordinterval"
 				"Pwd Last Set" = if($GMSA.pwdlastset){Convert-LdapTimestamp -timestamp $GMSA.pwdlastset}else{""}
@@ -3611,9 +3611,9 @@ Add-Type -TypeDefinition $code
 				"User Name" = $User.samaccountname
 				"Enabled" = if ($User.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if(!$User.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $User.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $User.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $User.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $User.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $User.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $User.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $User.samaccountname.Contains($_) }) { "YES" } else { "NO" }
 				"Last Logon" = if($User.lastlogontimestamp){Convert-LdapTimestamp -timestamp $User.lastlogontimestamp}else{""}
 				"Pwd Last Set" = if($User.pwdlastset){Convert-LdapTimestamp -timestamp $User.pwdlastset}else{""}
 				"SID" = GetSID-FromBytes -sidBytes $User.objectSID
@@ -3656,9 +3656,9 @@ Add-Type -TypeDefinition $code
 				"User Name" = $PasswordSetUser.samaccountname
 				"Enabled" = if ($PasswordSetUser.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if(!$PasswordSetUser.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $PasswordSetUser.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $PasswordSetUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $PasswordSetUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $PasswordSetUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $PasswordSetUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $PasswordSetUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $PasswordSetUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
 				"User Password" = $PasswordSetUser.Password
 				"Raw Password" = ($PasswordSetUser.userPassword) -join ' '
 				"Last Logon" = if($PasswordSetUser.lastlogontimestamp){Convert-LdapTimestamp -timestamp $PasswordSetUser.lastlogontimestamp}else{""}
@@ -3706,9 +3706,9 @@ Add-Type -TypeDefinition $code
 				"User Name" = $UnixPasswordSet.samaccountname
 				"Enabled" = if ($UnixPasswordSet.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if(!$UnixPasswordSet.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $UnixPasswordSet.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $UnixPasswordSet.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $UnixPasswordSet.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $UnixPasswordSet.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $UnixPasswordSet.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $UnixPasswordSet.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $UnixPasswordSet.samaccountname.Contains($_) }) { "YES" } else { "NO" }
 				"User Password" = $UnixPasswordSet.Password
 				"Raw Password" = ($UnixPasswordSet.unixuserPassword) -join ' '
 				"Last Logon" = if($UnixPasswordSet.lastlogontimestamp){Convert-LdapTimestamp -timestamp $UnixPasswordSet.lastlogontimestamp}else{""}
@@ -3755,9 +3755,9 @@ Add-Type -TypeDefinition $code
 				"User Name" = $EmptyPasswordUser.samaccountname
 				"Enabled" = if ($EmptyPasswordUser.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if(!$EmptyPasswordUser.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $EmptyPasswordUser.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
 				"Last Logon" = if($EmptyPasswordUser.lastlogontimestamp){Convert-LdapTimestamp -timestamp $EmptyPasswordUser.lastlogontimestamp}else{""}
 				"Pwd Last Set" = if($EmptyPasswordUser.pwdlastset){Convert-LdapTimestamp -timestamp $EmptyPasswordUser.pwdlastset}else{""}
 				"SID" = GetSID-FromBytes -sidBytes $EmptyPasswordUser.objectSID
@@ -3863,9 +3863,9 @@ Add-Type -TypeDefinition $code
 						"User Name" = $EmptyPasswordUser.samaccountname
 						"Enabled" = if ($EmptyPasswordUser.useraccountcontrol -band 2) { "False" } else { "True" }
 						"Active" = if(!$EmptyPasswordUser.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $EmptyPasswordUser.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-						"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-						"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-						"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+						"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+						"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+						"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
 						"Last Logon" = if($EmptyPasswordUser.lastlogontimestamp){Convert-LdapTimestamp -timestamp $EmptyPasswordUser.lastlogontimestamp}else{""}
 						"Pwd Last Set" = if($EmptyPasswordUser.pwdlastset){Convert-LdapTimestamp -timestamp $EmptyPasswordUser.pwdlastset}else{""}
 						"SID" = $EmptySIDUserName
@@ -4118,9 +4118,9 @@ Add-Type -TypeDefinition $code
 				"User Name" = $sidHistoryUser.samaccountname
 				"Enabled" = if ($sidHistoryUser.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if(!$sidHistoryUser.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $sidHistoryUser.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $sidHistoryUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $sidHistoryUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $sidHistoryUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $sidHistoryUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $sidHistoryUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $sidHistoryUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
 				"Last Logon" = if($sidHistoryUser.lastlogontimestamp){Convert-LdapTimestamp -timestamp $sidHistoryUser.lastlogontimestamp}else{""}
 				"Pwd Last Set" = if($sidHistoryUser.pwdlastset){Convert-LdapTimestamp -timestamp $sidHistoryUser.pwdlastset}else{""}
 				"SID" = GetSID-FromBytes -sidBytes $sidHistoryUser.objectSID
@@ -4157,9 +4157,9 @@ Add-Type -TypeDefinition $code
 				"Name" = $RevEncUser.samaccountname
 				"Enabled" = if ($RevEncUser.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if(!$RevEncUser.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $RevEncUser.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $RevEncUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $RevEncUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $RevEncUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $RevEncUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $RevEncUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $RevEncUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
 				"Last Logon" = if($RevEncUser.lastlogontimestamp){Convert-LdapTimestamp -timestamp $RevEncUser.lastlogontimestamp}else{""}
 				"Pwd Last Set" = if($RevEncUser.pwdlastset){Convert-LdapTimestamp -timestamp $RevEncUser.pwdlastset}else{""}
 				"Object SID" = GetSID-FromBytes -sidBytes $RevEncUser.objectsid
@@ -5399,9 +5399,9 @@ Add-Type -TypeDefinition $code
 					"Name" = $ConstrainedDelegationUser.Name
 					"Enabled" = if ($ConstrainedDelegationUser.useraccountcontrol -band 2) { "False" } else { "True" }
 					"Active" = if(!$ConstrainedDelegationUser.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $ConstrainedDelegationUser.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $ConstrainedDelegationUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $ConstrainedDelegationUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $ConstrainedDelegationUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $ConstrainedDelegationUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $ConstrainedDelegationUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $ConstrainedDelegationUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
 					"Last Logon" = if($ConstrainedDelegationUser.lastlogontimestamp){Convert-LdapTimestamp -timestamp $ConstrainedDelegationUser.lastlogontimestamp}else{""}
 					"SID" = GetSID-FromBytes -sidBytes $ConstrainedDelegationUser.objectSID
 					"msds-AllowedToDelegateTo" = $ConstrainedDelegationUser."msds-AllowedToDelegateTo" -join " - "
@@ -6761,9 +6761,9 @@ Add-Type -TypeDefinition $code
 					"User Name" = $EnabledUser.samaccountname
 					"Enabled" = if ($EnabledUser.useraccountcontrol -band 2) { "False" } else { "True" }
 					"Active" = if(!$EnabledUser.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $EnabledUser.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $EnabledUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $EnabledUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $EnabledUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $EnabledUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $EnabledUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $EnabledUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
 					"Object SID" = GetSID-FromBytes -sidBytes $EnabledUser.objectsid
 					"Domain" = $AllDomain
 				}
@@ -6792,9 +6792,9 @@ Add-Type -TypeDefinition $code
 					"User Name" = $DisabledUser.samaccountname
 					"Enabled" = if ($DisabledUser.useraccountcontrol -band 2) { "False" } else { "True" }
 					"Active" = if(!$DisabledUser.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $DisabledUser.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-					"Adm" = if($TempBuiltInAdministrators."Member Name" | Where-Object { $DisabledUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-					"DA" = if($TempDomainAdmins."Member Name" | Where-Object { $DisabledUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-					"EA" = if($TempEnterpriseAdmins."Member Name" | Where-Object { $DisabledUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $DisabledUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $DisabledUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain})."Member Name" | Where-Object { $DisabledUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
 					"Object SID" = GetSID-FromBytes -sidBytes $DisabledUser.objectsid
 					"Domain" = $AllDomain
 				}
