@@ -2416,7 +2416,7 @@ Add-Type -TypeDefinition $code
 									$memberUser = $memberSID.Translate([System.Security.Principal.NTAccount])
 									$memberUser.Value
 								} catch {
-									
+									$tempholder
 								}
 							}
 						}
@@ -5253,13 +5253,25 @@ Add-Type -TypeDefinition $code
 
 									# Translate member SIDs to names
 									$memberNames = $memberValues | ForEach-Object {
-										try {
-											$tempholder = $_
-											$memberSID = New-Object System.Security.Principal.SecurityIdentifier($tempholder)
-											$memberUser = $memberSID.Translate([System.Security.Principal.NTAccount])
-											$memberUser.Value
-										} catch {
-											$tempholder  # Return the SID or group name if translation fails
+										$tempholder = $_
+										if(Test-SidFormat $tempholder){
+											foreach($SumGroupsUser in $SumGroupsUsers){
+												if($tempholder -eq (GetSID-FromBytes -sidBytes $SumGroupsUser.objectsid)){
+													$TryToExtractMember = $SumGroupsUser
+												}
+											}
+											if($TryToExtractMember){"$($TryToExtractMember.domain)\$($TryToExtractMember.samaccountname)"}
+											else{$tempholder}
+										}
+										else{
+											try {
+												$tempholder = $_
+												$memberSID = New-Object System.Security.Principal.SecurityIdentifier($tempholder)
+												$memberUser = $memberSID.Translate([System.Security.Principal.NTAccount])
+												$memberUser.Value
+											} catch {
+												$tempholder
+											}
 										}
 									}
 									
