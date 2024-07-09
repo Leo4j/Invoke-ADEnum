@@ -5196,11 +5196,32 @@ Add-Type -TypeDefinition $code
 						$inheritedObjectTypeName = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
 
 						if($ace.ObjectType -match "All" -and $ace.IdentityReference -notmatch "BUILTIN") { $Status = "Non Delegated by Admin" }
-						
+
+						if(Test-SidFormat -SidString $ace.IdentityReference.Value){
+							foreach($SumGroupsUser in $SumGroupsUsers){
+								if($ace.IdentityReference.Value -eq (GetSID-FromBytes -sidBytes $SumGroupsUser.objectsid)){
+									$TryToExtractMember = $SumGroupsUser
+									break
+								}
+							}
+							if($TryToExtractMember){$FinalExtendedAccount = "$($TryToExtractMember.domain)\$($TryToExtractMember.samaccountname)"}
+							else{$FinalExtendedAccount = $ace.IdentityReference.Value}
+						}
+						else{
+							try {
+								$tempholder = $ace.IdentityReference.Value
+								$memberSID = New-Object System.Security.Principal.SecurityIdentifier($tempholder)
+								$memberUser = $memberSID.Translate([System.Security.Principal.NTAccount])
+								$FinalExtendedAccount = $memberUser.Value
+							} catch {
+								$FinalExtendedAccount = $ace.IdentityReference.Value
+							}
+						}
+      						
 						# Create a custom object with the resolved names
 						[PSCustomObject]@{
 							"Computer Name" = $comp.samaccountname
-							"Identity" = $ace.IdentityReference.Value
+							"Identity" = $FinalExtendedAccount
 							#AccessControlType = $ace.AccessControlType
 							ObjectType = $objectTypeName
 							InheritedObjectType = $inheritedObjectTypeName
