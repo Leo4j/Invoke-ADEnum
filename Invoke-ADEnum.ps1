@@ -3486,11 +3486,11 @@ Add-Type -TypeDefinition $code
 	Write-Host ""
 	Write-Host "Members of Exchange Trusted Subsystem group:" -ForegroundColor Cyan
 	$TempExchangeTrustedSubsystem = foreach ($AllDomain in $AllDomains) {
-		$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
+		#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 		$ExchangeTrustedSubsystemMembers = @(RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Domain $AllDomain -Raw -Identity "Exchange Trusted Subsystem")
 		foreach ($Member in $ExchangeTrustedSubsystemMembers) {
 			$memberName = $Member.samaccountname
-			if($Member.DnsHostName){$ipAddress = Resolve-DnsName -Name $Member.DnsHostName -Type A -Server $ResolveServer | Select-Object -ExpandProperty IPAddress}
+			if($Member.DnsHostName){$ipAddress = Resolve-DnsName -Name $Member.DnsHostName -Type A | Select-Object -ExpandProperty IPAddress}
 			if($ipAddress.count -gt 1){$ipAddress = $ipAddress -join ", "}
 			[PSCustomObject]@{
 				"Member" = $Member.samaccountname
@@ -3791,7 +3791,7 @@ Add-Type -TypeDefinition $code
 	Write-Host "Computers with Password-not-required attribute set:" -ForegroundColor Cyan
 	
 	$TempEmptyPasswordComputers = foreach ($AllDomain in $AllDomains) {
-		$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
+		#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 		
 		$EmptyPasswordComputers = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain} | Where-Object {$_.userAccountControl -band 32})
 	
@@ -3912,7 +3912,7 @@ Add-Type -TypeDefinition $code
 			$PotentialComputersWithEmptyPassword = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain} | Sort-Object samaccountname)
 			$TotalPotentialEmptyPass = New-Object System.Collections.ArrayList
 			$null = $TotalPotentialEmptyPass.AddRange($PotentialComputersWithEmptyPassword)
-			$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
+			#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 			Add-Type -AssemblyName "System.DirectoryServices.AccountManagement"
 			$EmptyServer = $RIDRoleDCs | Where-Object {$_.Domain -eq $AllDomain} | Select-Object -ExpandProperty Name
 			$principalContext = New-Object System.DirectoryServices.AccountManagement.PrincipalContext([System.DirectoryServices.AccountManagement.ContextType]::Domain, $EmptyServer, $AllDomain)
@@ -3924,7 +3924,7 @@ Add-Type -TypeDefinition $code
 				$EmptyCheck = $principalContext.ValidateCredentials("$EmptyPasswordCompName", "", 1)
 				
 				if ($EmptyCheck){
-					if($EmptyPasswordComp.dnshostname){$IPAddress = (Resolve-DnsName -Name $EmptyPasswordComp.dnshostname -Type A -Server $ResolveServer).IPAddress}
+					if($EmptyPasswordComp.dnshostname){$IPAddress = (Resolve-DnsName -Name $EmptyPasswordComp.dnshostname -Type A).IPAddress}
 					if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
      					$EmptySIDCompName = GetSID-FromBytes -sidBytes $EmptyPasswordComp.objectSID
 					
@@ -3971,13 +3971,13 @@ Add-Type -TypeDefinition $code
 	Write-Host ""
 	Write-Host "Members of Pre-Windows 2000 Compatible Access group:" -ForegroundColor Cyan
 	$TempPreWin2kCompatibleAccess = foreach ($AllDomain in $AllDomains) {
-		$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
+		#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 		
 		$PreWin2kCompatibleAccessMembers = @(RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Domain $AllDomain -Raw -Identity "Pre-Windows 2000 Compatible Access")
 		foreach ($Member in $PreWin2kCompatibleAccessMembers) {
 			$memberName = $Member.samaccountname
 			
-			if($Member.DnsHostName){$ipAddress = Resolve-DnsName -Name $Member.DnsHostName -Type A -Server $ResolveServer | Select-Object -ExpandProperty IPAddress}
+			if($Member.DnsHostName){$ipAddress = Resolve-DnsName -Name $Member.DnsHostName -Type A | Select-Object -ExpandProperty IPAddress}
 			if($ipAddress.count -gt 1){$ipAddress = $ipAddress -join ", "}
 			
 			[PSCustomObject]@{
@@ -4013,10 +4013,10 @@ Add-Type -TypeDefinition $code
 	Write-Host ""
 	Write-Host "Windows 7 and Server 2008 Machines (Windows Remoting Enabled):" -ForegroundColor Cyan
 	$TempWin7AndServer2008 = foreach ($AllDomain in $AllDomains) {
-		$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
+		#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 		$WinRMComputers = @($TotalEnabledMachines | Where-Object { $_.domain -eq $AllDomain -AND ($_.operatingsystem -like "*7*" -OR  $_.operatingsystem -like "*2008*") -AND $_.serviceprincipalname -like "wsman*" })
 		foreach ($Computer in $WinRMComputers) {
-			if($Computer.DnsHostName){$ipAddress = (Resolve-DnsName -Name $Computer.DnsHostName -Type A -Server $ResolveServer).IPAddress}
+			if($Computer.DnsHostName){$ipAddress = (Resolve-DnsName -Name $Computer.DnsHostName -Type A).IPAddress}
 			if($ipAddress.count -gt 1){$ipAddress = $ipAddress -join ", "}
 			[PSCustomObject]@{
 				"Name" = $Computer.samaccountname
@@ -4043,7 +4043,7 @@ Add-Type -TypeDefinition $code
 	Write-Host ""
     Write-Host "Machine accounts in privileged groups:" -ForegroundColor Cyan
     $TempMachineAccountsPriv = foreach ($AllDomain in $AllDomains) {
-		$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
+		#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 		
 		$PrivilegedGroups = @($TotalGroups | Where-Object {$_.domain -eq $AllDomain -AND $_.admincount -eq 1})
 		$MachinePrivGroupMembers = @()
@@ -4071,7 +4071,7 @@ Add-Type -TypeDefinition $code
 				}
 			}
 			#$DomainComputerGroupMember = $TotalAllMachines | Where-Object {$_.domain -eq $AllDomain} | Where-Object {$_.name -eq $GroupMember.MemberName.TrimEnd('$')}
-			if($GroupMember.DnsHostName){$ipAddress = Resolve-DnsName -Name $GroupMember.DnsHostName -Type A -Server $ResolveServer | Select-Object -ExpandProperty IPAddress}
+			if($GroupMember.DnsHostName){$ipAddress = Resolve-DnsName -Name $GroupMember.DnsHostName -Type A | Select-Object -ExpandProperty IPAddress}
 			if($ipAddress.count -gt 1){$ipAddress = $ipAddress -join ", "}
 			$Targetsid = GetSID-FromBytes -sidBytes $GroupMember.objectsid
 			$TargetTimestamp = Convert-LdapTimestamp -timestamp $GroupMember.lastlogontimestamp
@@ -4259,7 +4259,7 @@ Add-Type -TypeDefinition $code
 	Write-Host "File Servers:" -ForegroundColor Cyan
 	
     $TempFileServers = foreach($AllDomain in $AllDomains){
-		$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
+		#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 		
 		$Results = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.homedirectory})
 		$ProcessedFileServers = @{}
@@ -4275,7 +4275,7 @@ Add-Type -TypeDefinition $code
 			foreach($RetrieveObjectServer in $RetrieveObjectServers){
 				$FileServerShort = $RetrieveObjectServer.name
 				$FileServerDomain = $RetrieveObjectServer.domain
-				if($RetrieveObjectServer.dnshostname){$IPAddress = (Resolve-DnsName -Name $RetrieveObjectServer.dnshostname -Type A -Server $ResolveServer).IPAddress}
+				if($RetrieveObjectServer.dnshostname){$IPAddress = (Resolve-DnsName -Name $RetrieveObjectServer.dnshostname -Type A).IPAddress}
 				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 				[PSCustomObject]@{
 					Server = $RetrieveObjectServer.samaccountname
@@ -4307,7 +4307,7 @@ Add-Type -TypeDefinition $code
 	$TempSQLServers = @()
 
 	$TempSQLServers = foreach($AllDomain in $AllDomains) {
-		$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
+		#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 		$Results = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.servicePrincipalName -like "*SQL*"})
 		$ExtractedSQLMachines = @()
 		foreach ($Result in $Results) {
@@ -4333,7 +4333,7 @@ Add-Type -TypeDefinition $code
 		$FinalExtractedSQLMachines = $FinalExtractedSQLMachines | Sort-Object -Unique Domain,dnshostname
 		
 		foreach($Machine in $FinalExtractedSQLMachines){
-			if($Machine.dnshostname){$IPAddress = (Resolve-DnsName -Name $Machine.dnshostname -Type A -Server $ResolveServer).IPAddress}
+			if($Machine.dnshostname){$IPAddress = (Resolve-DnsName -Name $Machine.dnshostname -Type A).IPAddress}
 			if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 			[PSCustomObject]@{
 				Server = $Machine.samaccountname
@@ -4361,7 +4361,7 @@ Add-Type -TypeDefinition $code
     Write-Host "SCCM Servers:" -ForegroundColor Cyan
     
     $TempSCCMServers = foreach($AllDomain in $AllDomains){
-		$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
+		#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 		<# $DomainEntry = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$AllDomain")
 		$SearcherArguments = @{
 			LDAPFilter = '(objectClass=mSSMSManagementPoint)'
@@ -4379,7 +4379,7 @@ Add-Type -TypeDefinition $code
 			$SCCMServerShort = $dNSHostName.Split('.')[0]
 			$DomainParts = $dNSHostName.Split('.') | Select-Object -Skip 1
 			$SCCMServerDomain = $DomainParts -join '.'
-			if($dNSHostName){$IPAddress = (Resolve-DnsName -Name $dNSHostName -Type A -Server $ResolveServer).IPAddress}
+			if($dNSHostName){$IPAddress = (Resolve-DnsName -Name $dNSHostName -Type A).IPAddress}
 			if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 			#$ObjectRetrieve = $TotalAllMachines | Where-Object {$_.domain -eq $AllDomain} | Where-Object {$_.name -eq $SCCMServerShort}
 			$Enrolled = (Get-WmiObject -Class SMS_Authority -Namespace root\CCM).CurrentManagementPoint -contains $dNSHostName
@@ -4522,12 +4522,12 @@ Add-Type -TypeDefinition $code
 	    Write-Host "SMB Signing Not Required:" -ForegroundColor Cyan
 		
 		$SMBSigningDisabled = foreach($AllDomain in $AllDomains){
-			$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
+			#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 			$SMBSigningTargets = @(CheckSMBSigning -Targets ($AllAliveTargets | Where-Object {$_.domain -eq $AllDomain}))
 			
 			if($SMBSigningTargets){
 				foreach($Target in $SMBSigningTargets){
-					if($Target.dnshostname){$IPAddress = (Resolve-DnsName -Name $Target.dnshostname -Type A -Server $ResolveServer).IPAddress}
+					if($Target.dnshostname){$IPAddress = (Resolve-DnsName -Name $Target.dnshostname -Type A).IPAddress}
 					if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 					[PSCustomObject]@{
 						Machine = $Target.samaccountname
@@ -4556,12 +4556,12 @@ Add-Type -TypeDefinition $code
 	    Write-Host "WebDAV Enabled Machines:" -ForegroundColor Cyan
 		
 		$WebDAVStatusResults = foreach($AllDomain in $AllDomains){
-			$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
+			#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 			$WebDAVStatusTargets = @(CheckWebDAVStatus -Targets ($AllAliveTargets | Where-Object {$_.domain -eq $AllDomain}))
 			
 			if($WebDAVStatusTargets){
 				foreach($Target in $WebDAVStatusTargets){
-					if($Target.dnshostname){$IPAddress = (Resolve-DnsName -Name $Target.dnshostname -Type A -Server $ResolveServer).IPAddress}
+					if($Target.dnshostname){$IPAddress = (Resolve-DnsName -Name $Target.dnshostname -Type A).IPAddress}
 					if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 					[PSCustomObject]@{
 						Machine = $Target.samaccountname
@@ -5249,7 +5249,7 @@ Add-Type -TypeDefinition $code
 			$TempLapsEnabledComputers = foreach ($AllDomain in $AllDomains) {
 				$LapsEnabledComputers = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $_."ms-Mcs-AdmPwdExpirationTime" -ne $null})
 				foreach ($LapsEnabledComputer in $LapsEnabledComputers) {
-					if($LapsEnabledComputer.DnsHostName){$IPAddress = Resolve-DnsName -Name $LapsEnabledComputer.DnsHostName -Type A -Server $ResolveServer | Select-Object -ExpandProperty IPAddress}
+					if($LapsEnabledComputer.DnsHostName){$IPAddress = Resolve-DnsName -Name $LapsEnabledComputer.DnsHostName -Type A | Select-Object -ExpandProperty IPAddress}
 					if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 					[PSCustomObject]@{
 						"Name" = $LapsEnabledComputer.samaccountname
@@ -5424,10 +5424,10 @@ Add-Type -TypeDefinition $code
 	Write-Host ""
 	Write-Host "Unconstrained Delegation:" -ForegroundColor Cyan
 	$TempUnconstrained = foreach ($AllDomain in $AllDomains) {
-		$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
+		#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 		$Unconstrained = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $TotalDomainControllers.dnshostname -notcontains $_.dnshostname -AND $_.userAccountControl -band 524288 })
 		foreach ($Computer in $Unconstrained) {
-			if($Computer.DnsHostName){$ipAddress = Resolve-DnsName -Name $Computer.DnsHostName -Type A -Server $ResolveServer | Select-Object -ExpandProperty IPAddress}
+			if($Computer.DnsHostName){$ipAddress = Resolve-DnsName -Name $Computer.DnsHostName -Type A | Select-Object -ExpandProperty IPAddress}
 			if($ipAddress.count -gt 1){$ipAddress = $ipAddress -join ", "}
 			[PSCustomObject]@{
 				"Name" = $Computer.samaccountname
@@ -5466,10 +5466,10 @@ Add-Type -TypeDefinition $code
 	    Write-Host ""
 		Write-Host "Constrained Delegation (Computers):" -ForegroundColor Cyan
 		$TempConstrainedDelegationComputers = foreach ($AllDomain in $AllDomains) {
-			$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
+			#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 			$ConstrainedDelegationComputers = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $_."msds-allowedtodelegateto"})
 			foreach ($ConstrainedDelegationComputer in $ConstrainedDelegationComputers) {
-				if($ConstrainedDelegationComputer.DnsHostName){$IPAddress = Resolve-DnsName -Name $ConstrainedDelegationComputer.DnsHostName -Type A -Server $ResolveServer | Select-Object -ExpandProperty IPAddress}
+				if($ConstrainedDelegationComputer.DnsHostName){$IPAddress = Resolve-DnsName -Name $ConstrainedDelegationComputer.DnsHostName -Type A | Select-Object -ExpandProperty IPAddress}
 				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 				[PSCustomObject]@{
 					Domain = $AllDomain
@@ -5651,7 +5651,7 @@ Add-Type -TypeDefinition $code
 			Write-Host "Computers Objects created by regular users:" -ForegroundColor Cyan
 			$ADComputersCreated = foreach ($AllDomain in $AllDomains) {
 				
-				$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
+				#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 				
 				$DomainComputersCreated = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $_."ms-DS-CreatorSID"})
 				
@@ -5660,7 +5660,7 @@ Add-Type -TypeDefinition $code
 					$ComputerCreator = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq (GetSID-FromBytes -sidBytes $ComputerCreated.'ms-DS-CreatorSID')}
 					if(!$ComputerCreator){$ComputerCreator = GetSID-FromBytes -sidBytes $ComputerCreated.'ms-DS-CreatorSID'}
 										
-					if($ComputerCreated.DnsHostName){$IPAddress = Resolve-DnsName -Name $ComputerCreated.DnsHostName -Type A -Server $ResolveServer | Select-Object -ExpandProperty IPAddress}
+					if($ComputerCreated.DnsHostName){$IPAddress = Resolve-DnsName -Name $ComputerCreated.DnsHostName -Type A | Select-Object -ExpandProperty IPAddress}
 					if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 					
 					[PSCustomObject]@{
