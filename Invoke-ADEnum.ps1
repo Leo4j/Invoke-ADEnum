@@ -4552,8 +4552,39 @@ Add-Type -TypeDefinition $code
     ######### WebDAV Enabled ###############
 	####################################################
 	if(!$NoWebDAVEnum){
+
+$efssource = @"
+using System;
+using System.Runtime.InteropServices;
+
+namespace DynamicTypes {
+    public class PipeChecker {
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern bool WaitNamedPipeA(string lpNamedPipeName, uint nTimeOut);
+    }
+}
+"@
+
+Add-Type -TypeDefinition $efssource -Language CSharp
+
+		function CheckEFSPipe {
+		    param (
+			[Parameter(Mandatory = $true)]
+			[string]$TargetHost
+		    )
+		
+		    $pipename = "\\$TargetHost\pipe\efsrpc"
+		    $efsActive = [DynamicTypes.PipeChecker]::WaitNamedPipeA($pipename, 100)
+		
+		    if ($efsActive) {
+			return "Running"
+		    }
+			else {
+			Return "Stopped"
+		    }
+		}
 		Write-Host ""
-	    Write-Host "WebDAV Enabled Machines:" -ForegroundColor Cyan
+		Write-Host "WebDAV Enabled Machines:" -ForegroundColor Cyan
 		
 		$WebDAVStatusResults = foreach($AllDomain in $AllDomains){
 			#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
@@ -4563,12 +4594,14 @@ Add-Type -TypeDefinition $code
 				foreach($Target in $WebDAVStatusTargets){
 					if($Target.dnshostname){$IPAddress = (Resolve-DnsName -Name $Target.dnshostname -Type A).IPAddress}
 					if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
+     					$EFSStatus = CheckEFSPipe -TargetHost $Target.dnshostname
 					[PSCustomObject]@{
 						Machine = $Target.samaccountname
 						"Enabled" = if ($Target.useraccountcontrol -band 2) { "False" } else { "True" }
 						"Active" = if(!$Target.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $ObjectRetrieve.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
 						'IP Address' = $IPAddress
 						"Account SID" = GetSID-FromBytes -sidBytes $Target.objectsid
+      						"EFS Service" = $EFSStatus
 						"Operating System" = $Target.operatingsystem
 						Domain = $AllDomain
 					}
