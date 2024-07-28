@@ -8280,7 +8280,7 @@ Add-Type -TypeDefinition $source -Language CSharp
 			)
 
 			$pipename = "\\$TargetHost\pipe\DAV RPC SERVICE"
-			$davActive = [DynamicTypes.PipeChecker]::WaitNamedPipeA($pipename, 3000)
+			$davActive = [DynamicTypes.PipeChecker]::WaitNamedPipeA($pipename, 100)
 
 			if ($davActive) {
 				Write-Output "$TargetHost"
