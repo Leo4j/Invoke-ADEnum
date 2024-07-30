@@ -274,7 +274,7 @@ function Invoke-ADEnum {
 
  -RBCD				Check for Resource Based Constrained Delegation (may take a long time depending on domain size)
  
- -Recommended			Recommended Coverage: FindLocalAdminAccess,GPOsRights,LAPSReadRights,MoreGPOs,SecurityGroups,AllDescriptions
+ -Recommended			Recommended Coverage: FindLocalAdminAccess,LAPSReadRights,MoreGPOs,SecurityGroups,AllDescriptions
 
  -SaveToDisk			Save collection data to disk (Location: c:\Users\Public\Documents\Invoke-ADEnum)
 
@@ -4785,7 +4785,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
     ########### GPO Rights ################
 	#######################################
 
-    if($GPOsRights -OR $AllEnum -OR $Recommended){
+    if($GPOsRights -OR $AllEnum){
 		
 		# Load the required assembly
 		Add-Type -AssemblyName System.DirectoryServices
