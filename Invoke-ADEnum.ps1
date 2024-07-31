@@ -171,7 +171,11 @@ function Invoke-ADEnum {
 
 	[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
-  	$LinkedAccounts
+  	$LinkedAccounts,
+
+   	[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Switch]
+    	$PassNotRequired
     )
 	
 	$stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -256,7 +260,7 @@ function Invoke-ADEnum {
 
  -LAPSReadRights		Enumerate for Users who can Read LAPS
 
- -LinkedAccounts		Enumerate for Users who can Read LAPS
+ -LinkedAccounts		Linked Admin accounts using name correlation
 
  -LoadFromDisk			Load collection data from disk and skip collection (Location: c:\Users\Public\Documents\Invoke-ADEnum)
  
@@ -283,6 +287,8 @@ function Invoke-ADEnum {
  -NoVulnCertTemplates		Do not enumerate for Misconfigured Certificate Templates
 
  -NoWebDAVEnum			Do not enumerate for machines where WebDAV Service is running
+
+ -PassNotRequired		Enumerate for Users and Computers having Password-not-required attribute set
 
  -RBCD				Check for Resource Based Constrained Delegation (may take a long time depending on domain size)
  
@@ -3754,92 +3760,95 @@ Add-Type -TypeDefinition $code
 	#################################################################################################
     ########### Users with Password-not-required attribute set ###############
 	#################################################################################################
-	
-	Write-Host ""
-	Write-Host "Users with Password-not-required attribute set:" -ForegroundColor Cyan
-	
-	$TempEmptyPasswordUsers = foreach ($AllDomain in $AllDomains) {
+	if($PassNotRequired -OR $AllEnum){
+		Write-Host ""
+		Write-Host "Users with Password-not-required attribute set:" -ForegroundColor Cyan
 		
-		$EmptyPasswordUsers = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.userAccountControl -band 32})
-	
-		foreach($EmptyPasswordUser in $EmptyPasswordUsers){
+		$TempEmptyPasswordUsers = foreach ($AllDomain in $AllDomains) {
 			
-			[PSCustomObject]@{
-				"User Name" = $EmptyPasswordUser.samaccountname
-				"Enabled" = if ($EmptyPasswordUser.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if(!$EmptyPasswordUser.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $EmptyPasswordUser.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"Last Logon" = if($EmptyPasswordUser.lastlogontimestamp){Convert-LdapTimestamp -timestamp $EmptyPasswordUser.lastlogontimestamp}else{""}
-				"Pwd Last Set" = if($EmptyPasswordUser.pwdlastset){Convert-LdapTimestamp -timestamp $EmptyPasswordUser.pwdlastset}else{""}
-				"SID" = GetSID-FromBytes -sidBytes $EmptyPasswordUser.objectSID
-				"Domain" = $AllDomain
+			$EmptyPasswordUsers = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.userAccountControl -band 32})
+		
+			foreach($EmptyPasswordUser in $EmptyPasswordUsers){
+				
+				[PSCustomObject]@{
+					"User Name" = $EmptyPasswordUser.samaccountname
+					"Enabled" = if ($EmptyPasswordUser.useraccountcontrol -band 2) { "False" } else { "True" }
+					"Active" = if(!$EmptyPasswordUser.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $EmptyPasswordUser.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
+					"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"Last Logon" = if($EmptyPasswordUser.lastlogontimestamp){Convert-LdapTimestamp -timestamp $EmptyPasswordUser.lastlogontimestamp}else{""}
+					"Pwd Last Set" = if($EmptyPasswordUser.pwdlastset){Convert-LdapTimestamp -timestamp $EmptyPasswordUser.pwdlastset}else{""}
+					"SID" = GetSID-FromBytes -sidBytes $EmptyPasswordUser.objectSID
+					"Domain" = $AllDomain
+				}
 			}
 		}
-	}
-
- 	if ($TempEmptyPasswordUsers | Where-Object {$_.Enabled -eq "True"}) {
-		$TempEmptyPasswordUsers | Where-Object {$_.Enabled -eq "True"} | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
-		$HTMLEmptyPasswordUsers = $TempEmptyPasswordUsers | Where-Object {$_.Enabled -eq "True"} | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='PassNotRequired'>Users with Password-not-required attribute set</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='PassNotRequired'>" }
-		
-		$HTMLEmptyPasswordUsers = $HTMLEmptyPasswordUsers -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
-
-  		$EmptyPasswordsTable = [PSCustomObject]@{
-			"Risk Rating" = "High - Needs Immediate Attention"
-			"Description" = "When the PASSWD_NOTREQD attribute is set on an Active Directory user object, it indicates that the user account can be created without a password."
-			"Remediation" = "Disable the Password-not-required attribute for all users in the domain."
+	
+	 	if ($TempEmptyPasswordUsers | Where-Object {$_.Enabled -eq "True"}) {
+			$TempEmptyPasswordUsers | Where-Object {$_.Enabled -eq "True"} | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+			$HTMLEmptyPasswordUsers = $TempEmptyPasswordUsers | Where-Object {$_.Enabled -eq "True"} | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='PassNotRequired'>Users with Password-not-required attribute set</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='PassNotRequired'>" }
+			
+			$HTMLEmptyPasswordUsers = $HTMLEmptyPasswordUsers -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
+	
+	  		$EmptyPasswordsTable = [PSCustomObject]@{
+				"Risk Rating" = "High - Needs Immediate Attention"
+				"Description" = "When the PASSWD_NOTREQD attribute is set on an Active Directory user object, it indicates that the user account can be created without a password."
+				"Remediation" = "Disable the Password-not-required attribute for all users in the domain."
+			}
+			
+			$HTMLEmptyPasswordsTable = $EmptyPasswordsTable | ConvertTo-Html -As List -Fragment
+			$HTMLEmptyPasswordsTable = "<div class='report-section' style='display:none;'>$HTMLEmptyPasswordsTable</div>"
 		}
-		
-		$HTMLEmptyPasswordsTable = $EmptyPasswordsTable | ConvertTo-Html -As List -Fragment
-		$HTMLEmptyPasswordsTable = "<div class='report-section' style='display:none;'>$HTMLEmptyPasswordsTable</div>"
-	}
+ 	}
 	
 	#################################################################################################
     ########### Computers with Password-not-required attribute set ###############
 	#################################################################################################
-	
-	Write-Host ""
-	Write-Host "Computers with Password-not-required attribute set:" -ForegroundColor Cyan
-	
-	$TempEmptyPasswordComputers = foreach ($AllDomain in $AllDomains) {
-		#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
+
+ 	if($PassNotRequired -OR $AllEnum){
+		Write-Host ""
+		Write-Host "Computers with Password-not-required attribute set:" -ForegroundColor Cyan
 		
-		$EmptyPasswordComputers = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain} | Where-Object {$_.userAccountControl -band 32})
-	
-		foreach($EmptyPasswordComp in $EmptyPasswordComputers){
+		$TempEmptyPasswordComputers = foreach ($AllDomain in $AllDomains) {
+			#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 			
-			if($EmptyPasswordComp.DnsHostName){$IPAddress = (Resolve-DnsName -Name $EmptyPasswordComp.DnsHostName -Type A).IPAddress}
-			if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
-			
-			[PSCustomObject]@{
-				"Computer Name" = $EmptyPasswordComp.samaccountname
-				"Enabled" = if ($EmptyPasswordComp.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if(!$EmptyPasswordComp.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $EmptyPasswordComp.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-				"IP Address" = $IPAddress
-				"Operating System" = $EmptyPasswordComp.operatingsystem
-				"SID" = GetSID-FromBytes -sidBytes $EmptyPasswordComp.objectSID
-				"Domain" = $AllDomain
+			$EmptyPasswordComputers = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain} | Where-Object {$_.userAccountControl -band 32})
+		
+			foreach($EmptyPasswordComp in $EmptyPasswordComputers){
+				
+				if($EmptyPasswordComp.DnsHostName){$IPAddress = (Resolve-DnsName -Name $EmptyPasswordComp.DnsHostName -Type A).IPAddress}
+				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
+				
+				[PSCustomObject]@{
+					"Computer Name" = $EmptyPasswordComp.samaccountname
+					"Enabled" = if ($EmptyPasswordComp.useraccountcontrol -band 2) { "False" } else { "True" }
+					"Active" = if(!$EmptyPasswordComp.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $EmptyPasswordComp.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
+					"IP Address" = $IPAddress
+					"Operating System" = $EmptyPasswordComp.operatingsystem
+					"SID" = GetSID-FromBytes -sidBytes $EmptyPasswordComp.objectSID
+					"Domain" = $AllDomain
+				}
+				$IPAddress = $null	
 			}
-			$IPAddress = $null	
 		}
-	}
-
- 	if ($TempEmptyPasswordComputers | Where-Object {$_.Enabled -eq "True"}) {
-		$TempEmptyPasswordComputers | Where-Object {$_.Enabled -eq "True"} | Sort-Object Domain,"Computer Name" | Format-Table -AutoSize -Wrap
-		$HTMLEmptyPasswordComputers = $TempEmptyPasswordComputers | Where-Object {$_.Enabled -eq "True"} | Sort-Object Domain,"Computer Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='CompPassNotRequired'>Computers with Password-not-required attribute set</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='CompPassNotRequired'>" }
-		
-		$HTMLEmptyPasswordComputers = $HTMLEmptyPasswordComputers -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
-
-  		$EmptyPasswordsCompTable = [PSCustomObject]@{
-			"Risk Rating" = "High - Needs Immediate Attention"
-			"Description" = "When the PASSWD_NOTREQD attribute is set on an Active Directory computer object, it indicates that the computer account can be created without a password."
-			"Remediation" = "Disable the Password-not-required attribute for all computers in the domain."
+	
+	 	if ($TempEmptyPasswordComputers | Where-Object {$_.Enabled -eq "True"}) {
+			$TempEmptyPasswordComputers | Where-Object {$_.Enabled -eq "True"} | Sort-Object Domain,"Computer Name" | Format-Table -AutoSize -Wrap
+			$HTMLEmptyPasswordComputers = $TempEmptyPasswordComputers | Where-Object {$_.Enabled -eq "True"} | Sort-Object Domain,"Computer Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='CompPassNotRequired'>Computers with Password-not-required attribute set</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='CompPassNotRequired'>" }
+			
+			$HTMLEmptyPasswordComputers = $HTMLEmptyPasswordComputers -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
+	
+	  		$EmptyPasswordsCompTable = [PSCustomObject]@{
+				"Risk Rating" = "High - Needs Immediate Attention"
+				"Description" = "When the PASSWD_NOTREQD attribute is set on an Active Directory computer object, it indicates that the computer account can be created without a password."
+				"Remediation" = "Disable the Password-not-required attribute for all computers in the domain."
+			}
+			
+			$HTMLEmptyPasswordComputersTable = $EmptyPasswordsCompTable | ConvertTo-Html -As List -Fragment
+			$HTMLEmptyPasswordComputersTable = "<div class='report-section' style='display:none;'>$HTMLEmptyPasswordComputersTable</div>"
 		}
-		
-		$HTMLEmptyPasswordComputersTable = $EmptyPasswordsCompTable | ConvertTo-Html -As List -Fragment
-		$HTMLEmptyPasswordComputersTable = "<div class='report-section' style='display:none;'>$HTMLEmptyPasswordComputersTable</div>"
-	}
+ 	}
 
 	#################################################################################################
     ########### Accounts with Empty Passwords ###############
