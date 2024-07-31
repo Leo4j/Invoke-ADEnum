@@ -167,7 +167,11 @@ function Invoke-ADEnum {
 
  	[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
- 	$EmptyGroups
+ 	$EmptyGroups,
+
+	[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Switch]
+  	$LinkedAccounts
     )
 	
 	$stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -236,7 +240,7 @@ function Invoke-ADEnum {
  
  -DomainUsers			Enumerate for Users
 
- -EmptyGroups			Enumerate for Users
+ -EmptyGroups			Enumerate for Empty Groups
  
  -FindLocalAdminAccess		Enumerate for Machines where the Current User is Local Admin
  
@@ -251,6 +255,8 @@ function Invoke-ADEnum {
  -LAPSExtended			Enumerate for LAPS Extended Rights
 
  -LAPSReadRights		Enumerate for Users who can Read LAPS
+
+ -LinkedAccounts		Enumerate for Users who can Read LAPS
 
  -LoadFromDisk			Load collection data from disk and skip collection (Location: c:\Users\Public\Documents\Invoke-ADEnum)
  
@@ -3117,37 +3123,37 @@ Add-Type -TypeDefinition $code
 	#############################################
     ######### Admins Name Correlation ###############
 	#############################################
-	
-	Write-Host ""
-	Write-Host "Linked Admin accounts using name correlation:" -ForegroundColor Cyan
-	$LinkedDAAccounts = foreach ($AllDomain in $AllDomains) {
-		$members = @($DAEABA | Where-Object {$_.domain -eq $AllDomain -AND $_.displayname})
-		foreach ($member in $members) {
-			$nameParts = $member.displayname.split(' ')[0..1] -join ' '
-			$linkedAccounts = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.displayname -like "*$nameParts*"})
-			foreach ($account in $linkedAccounts) {
-				[PSCustomObject]@{
-					"Account" = $account.samaccountname
-					"Display Name" = $account.displayname
-					"Enabled" = if ($account.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if(!$account.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $account.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-					"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-					"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-					"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-					"Last Logon" = if($account.lastlogontimestamp){Convert-LdapTimestamp -timestamp $account.lastlogontimestamp}else{""}
-					"Pwd Last Set" = if($account.pwdlastset){Convert-LdapTimestamp -timestamp $account.pwdlastset}else{""}
-					"SID" = GetSID-FromBytes -sidBytes $account.objectSID
-					"Domain" = $AllDomain
+	if($LinkedAccounts -OR $AllEnum){
+		Write-Host ""
+		Write-Host "Linked Admin accounts using name correlation:" -ForegroundColor Cyan
+		$LinkedDAAccounts = foreach ($AllDomain in $AllDomains) {
+			$members = @($DAEABA | Where-Object {$_.domain -eq $AllDomain -AND $_.displayname})
+			foreach ($member in $members) {
+				$nameParts = $member.displayname.split(' ')[0..1] -join ' '
+				$linkedAccounts = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.displayname -like "*$nameParts*"})
+				foreach ($account in $linkedAccounts) {
+					[PSCustomObject]@{
+						"Account" = $account.samaccountname
+						"Display Name" = $account.displayname
+						"Enabled" = if ($account.useraccountcontrol -band 2) { "False" } else { "True" }
+						"Active" = if(!$account.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $account.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
+						"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+						"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+						"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+						"Last Logon" = if($account.lastlogontimestamp){Convert-LdapTimestamp -timestamp $account.lastlogontimestamp}else{""}
+						"Pwd Last Set" = if($account.pwdlastset){Convert-LdapTimestamp -timestamp $account.pwdlastset}else{""}
+						"SID" = GetSID-FromBytes -sidBytes $account.objectSID
+						"Domain" = $AllDomain
+					}
 				}
 			}
 		}
-	}
-
- 	if ($LinkedDAAccounts) {
-		$LinkedDAAccounts | Sort-Object -Unique Domain,Account,"Display Name" | Format-Table -AutoSize -Wrap
-		$HTMLLinkedDAAccounts = $LinkedDAAccounts | Sort-Object -Unique Domain,Account,"Display Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='LinkedDAAccounts'>Linked Admin accounts using name correlation</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='LinkedDAAccounts'>" }
-	}
 	
+	 	if ($LinkedDAAccounts) {
+			$LinkedDAAccounts | Sort-Object -Unique Domain,Account,"Display Name" | Format-Table -AutoSize -Wrap
+			$HTMLLinkedDAAccounts = $LinkedDAAccounts | Sort-Object -Unique Domain,Account,"Display Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='LinkedDAAccounts'>Linked Admin accounts using name correlation</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='LinkedDAAccounts'>" }
+		}
+	}
 	#################################################
     ######### Find Local Admin Access ###############
 	#################################################
