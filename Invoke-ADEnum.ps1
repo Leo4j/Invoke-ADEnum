@@ -163,7 +163,11 @@ function Invoke-ADEnum {
 
 		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
-        $NoWebDAVEnum
+        $NoWebDAVEnum,
+
+ 	[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Switch]
+ 	$EmptyGroups
     )
 	
 	$stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -231,6 +235,8 @@ function Invoke-ADEnum {
  -DomainOUs			Enumerate for Organizational Units
  
  -DomainUsers			Enumerate for Users
+
+ -EmptyGroups			Enumerate for Users
  
  -FindLocalAdminAccess		Enumerate for Machines where the Current User is Local Admin
  
@@ -4748,28 +4754,29 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	##################################################
     ########### Empty Groups ################
 	##################################################
-	
-	Write-Host ""
-	Write-Host "Empty Groups:" -ForegroundColor Cyan
-	
-	$EmptyGroupsResults = foreach ($AllDomain in $AllDomains) {
-		$EmptyGroups = @($TotalGroups | Where-Object {$_.domain -eq $AllDomain -AND -not $_.member -and ((GetSID-FromBytes -sidBytes $_.objectsid) -match "S-1-(\d+-){4,}[\d]{4,10}$")})
+	if($EmptyGroups -OR $AllEnum){
+		Write-Host ""
+		Write-Host "Empty Groups:" -ForegroundColor Cyan
 		
-		if($EmptyGroups){
-			foreach($EmptyGroup in $EmptyGroups){
-				[PSCustomObject]@{
-					"Group Name" = $EmptyGroup.SamAccountName
-					"Group SID" = GetSID-FromBytes -sidBytes $EmptyGroup.objectsid
-					"Domain" = $AllDomain
+		$EmptyGroupsResults = foreach ($AllDomain in $AllDomains) {
+			$EmptyGroups = @($TotalGroups | Where-Object {$_.domain -eq $AllDomain -AND -not $_.member -and ((GetSID-FromBytes -sidBytes $_.objectsid) -match "S-1-(\d+-){4,}[\d]{4,10}$")})
+			
+			if($EmptyGroups){
+				foreach($EmptyGroup in $EmptyGroups){
+					[PSCustomObject]@{
+						"Group Name" = $EmptyGroup.SamAccountName
+						"Group SID" = GetSID-FromBytes -sidBytes $EmptyGroup.objectsid
+						"Domain" = $AllDomain
+					}
 				}
 			}
 		}
-	}
-	
-	if ($EmptyGroupsResults | Where-Object {$_."Group Name"}) {
-		$EmptyGroupsResults | Where-Object {$_."Group Name"} | Sort-Object Domain,"Group Name" | Format-Table -AutoSize -Wrap
-		$HTMLEmptyGroups = $EmptyGroupsResults | Where-Object {$_."Group Name"} | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='EmptyGroups'>Empty Groups</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='EmptyGroups'>" }
-	}
+		
+		if ($EmptyGroupsResults | Where-Object {$_."Group Name"}) {
+			$EmptyGroupsResults | Where-Object {$_."Group Name"} | Sort-Object Domain,"Group Name" | Format-Table -AutoSize -Wrap
+			$HTMLEmptyGroups = $EmptyGroupsResults | Where-Object {$_."Group Name"} | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='EmptyGroups'>Empty Groups</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='EmptyGroups'>" }
+		}
+  	}
 	
 	##################################
     ##################################
