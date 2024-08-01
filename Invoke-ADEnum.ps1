@@ -165,18 +165,22 @@ function Invoke-ADEnum {
         [Switch]
         $NoWebDAVEnum,
 
- 	[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
- 	$EmptyGroups,
+		$EmptyGroups,
 
-	[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
-  	$LinkedAccounts,
+		$LinkedAccounts,
 
-   	[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
-    	$PassNotRequired
-    )
+    	$PassNotRequired,
+		
+		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Switch]
+    	$NoOutput
+	)
 	
 	$stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 	
@@ -292,7 +296,7 @@ function Invoke-ADEnum {
 
  -RBCD				Check for Resource Based Constrained Delegation (may take a long time depending on domain size)
  
- -Recommended			Recommended Coverage: FindLocalAdminAccess,LAPSReadRights,MoreGPOs,SecurityGroups,AllDescriptions
+ -Recommended			Recommended Coverage: LAPSReadRights,MoreGPOs,SecurityGroups
 
  -SaveToDisk			Save collection data to disk (Location: c:\Users\Public\Documents\Invoke-ADEnum)
 
@@ -1457,7 +1461,7 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 	
     Write-Host ""
     Write-Host ""
-    Write-Host "Target Domains:" -ForegroundColor Cyan
+    Write-Host "Target Domains" -ForegroundColor Cyan
 
     $functionalLevelMapping = @{
 	    0 = 'Windows 2000 Native'
@@ -1509,7 +1513,7 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 	#############################################
 	
 	Write-Host ""
-	Write-Host "Forests:" -ForegroundColor Cyan
+	Write-Host "Forests" -ForegroundColor Cyan
 	$TempAllForests = @()
 	$DefineAllForests = @($TempTargetDomains.Forest.Name | Sort-Object -Unique)
 	$TempAllForests = foreach($Forest in $DefineAllForests){
@@ -1621,7 +1625,7 @@ Add-Type -TypeDefinition $code
 	
 	    if($TempGetDomainTrust){
      		Write-Host ""
-			Write-Host "Domain Trusts:" -ForegroundColor Cyan
+			Write-Host "Domain Trusts" -ForegroundColor Cyan
 			$TempGetDomainTrust | Format-Table -AutoSize -Wrap
 		}
     		
@@ -1631,7 +1635,7 @@ Add-Type -TypeDefinition $code
 	#############################################
 		
 		Write-Host ""
-		Write-Host "Domain Controllers:" -ForegroundColor Cyan
+		Write-Host "Domain Controllers" -ForegroundColor Cyan
 		$TempHTMLdc = @()
 		foreach($AllDomain in $AllDomains){
 			$domainControllers = $TotalDomainControllers | Where-Object {$_.domain -eq $AllDomain}
@@ -1711,7 +1715,7 @@ Add-Type -TypeDefinition $code
 		}
 		
 		Write-Host ""
-		Write-Host "Accounts Analysis:" -ForegroundColor Cyan
+		Write-Host "Accounts Analysis" -ForegroundColor Cyan
 		
 		$QuickDomainAnalysis = foreach($AllDomain in $AllDomains){
 				
@@ -1766,7 +1770,7 @@ Add-Type -TypeDefinition $code
 	#############################################
 	
 	Write-Host ""
-    Write-Host "Domain Controllers:" -ForegroundColor Cyan
+    Write-Host "Domain Controllers" -ForegroundColor Cyan
 	$TempHTMLdc = @()
     foreach($AllDomain in $AllDomains){
 		$domainControllers = $TotalDomainControllers | Where-Object {$_.domain -eq $AllDomain}
@@ -1851,7 +1855,7 @@ Add-Type -TypeDefinition $code
 	#############################################
     
     Write-Host ""
-	Write-Host "Domains for the current forest:" -ForegroundColor Cyan
+	Write-Host "Domains for the current forest" -ForegroundColor Cyan
 	
 	$ForestObject = @([System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest())
 	$GetForestDomains = $ForestObject.domains
@@ -1879,7 +1883,7 @@ Add-Type -TypeDefinition $code
 	#############################################
 	
 	Write-Host ""
-	Write-Host "Forest Global Catalog:" -ForegroundColor Cyan
+	Write-Host "Forest Global Catalog" -ForegroundColor Cyan
 	$TempForestGlobalCatalog = @()
 	$DefineAllForests = @($TempTargetDomains.Forest.Name | Sort-Object -Unique)
 	$ForestCatalogObjects = @(foreach($Forest in $DefineAllForests){ $ForestContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Forest', $Forest);[System.DirectoryServices.ActiveDirectory.Forest]::GetForest($ForestContext)})
@@ -1905,7 +1909,7 @@ Add-Type -TypeDefinition $code
 	#############################################
 	
 	Write-Host ""
-	Write-Host "Domain Trusts:" -ForegroundColor Cyan
+	Write-Host "Domain Trusts" -ForegroundColor Cyan
 	
     $TempGetDomainTrust = foreach($AllDomain in $AllDomains){
 		$GetDomainTrusts = @($AllDomainTrusts | Where-Object {$_.SourceName -eq $AllDomain})
@@ -1933,7 +1937,7 @@ Add-Type -TypeDefinition $code
 	#############################################
     
     Write-Host ""
-    Write-Host "Trust Accounts:" -ForegroundColor Cyan
+    Write-Host "Trust Accounts" -ForegroundColor Cyan
     $TempTrustAccounts = foreach($AllDomain in $AllDomains){
 		$TrustAccounts = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND ([int]$_.userAccountControl -band 2048) -ne 0})
 		
@@ -1968,7 +1972,7 @@ Add-Type -TypeDefinition $code
 	#############################################
 
     Write-Host ""
-    Write-Host "Trusted Domain Object GUIDs:" -ForegroundColor Cyan
+    Write-Host "Trusted Domain Object GUIDs" -ForegroundColor Cyan
     $TDOTargetNames = @(foreach($AllDomain in $AllDomains){$AllDomainTrusts | Where-Object { $_.SourceName -eq $AllDomain -AND $_.TrustDirection -eq 'Outbound' } | Select-Object -ExpandProperty TargetName})
 	$TDOTrustDirection = "Outbound"
 	
@@ -2005,7 +2009,7 @@ Add-Type -TypeDefinition $code
 		#############################################
 			
 		Write-Host ""
-		Write-Host "Foreign Domain Members:" -ForegroundColor Cyan
+		Write-Host "Foreign Domain Members" -ForegroundColor Cyan
 		
 		$ExcludeGroups = @('Users', 'Domain Users', 'Guests')
 		
@@ -2080,7 +2084,7 @@ Add-Type -TypeDefinition $code
 	################################################
 		
 	Write-Host ""
-	Write-Host "Default Domain Policy:" -ForegroundColor Cyan
+	Write-Host "Default Domain Policy" -ForegroundColor Cyan
 	$TempDomainPolicy = foreach ($AllDomain in $AllDomains) {
 		$SelectDomainPolicy = $DomainPolicy | Where-Object { $_.domain -eq $AllDomain }
 		$MinPwdAge = Convert-ADTimeToDays -Interval $SelectDomainPolicy.'minPwdAge'
@@ -2100,7 +2104,7 @@ Add-Type -TypeDefinition $code
 	}
 
  	if ($TempDomainPolicy) {
-		$TempDomainPolicy | Sort-Object Domain | Format-Table -AutoSize -Wrap
+		if(!$NoOutput){$TempDomainPolicy | Sort-Object Domain | Format-Table -AutoSize -Wrap}
 		$HTMLDomainPolicy = $TempDomainPolicy | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DomainPolicy'>Default Domain Policy</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DomainPolicy'>" }
 	}
 	
@@ -2109,7 +2113,7 @@ Add-Type -TypeDefinition $code
 	################################################
 		
 	Write-Host ""
-	Write-Host "Other Password Policies:" -ForegroundColor Cyan
+	Write-Host "Other Password Policies" -ForegroundColor Cyan
 	
 	$TempOtherPolicies = @()
 	$TempOtherPolicies += foreach ($AllDomain in $AllDomains) {
@@ -2163,7 +2167,7 @@ Add-Type -TypeDefinition $code
 	}
 
  	if ($TempOtherPolicies) {
-		$TempOtherPolicies | Sort-Object Domain,"Policy Name" | Format-Table -AutoSize -Wrap
+		if(!$NoOutput){$TempOtherPolicies | Sort-Object Domain,"Policy Name" | Format-Table -AutoSize -Wrap}
 		$HTMLOtherPolicies = $TempOtherPolicies | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='OtherPolicies'>Other Password Policies</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='OtherPolicies'>" }
 	}
 	
@@ -2172,7 +2176,7 @@ Add-Type -TypeDefinition $code
 	#########################################
 	
 	Write-Host ""
-	Write-Host "Kerberos Password Policy:" -ForegroundColor Cyan
+	Write-Host "Kerberos Password Policy" -ForegroundColor Cyan
 	$TempKerberosPolicy = foreach ($AllDomain in $AllDomains) {
 		$RelevantGpoPolicies = $AllCollectedGPOs | Where-Object {
 			$_.domain -eq $AllDomain -AND
@@ -2204,7 +2208,7 @@ Add-Type -TypeDefinition $code
 	}
 
  	if ($TempKerberosPolicy) {
-		$TempKerberosPolicy | Sort-Object Domain | Format-Table -AutoSize -Wrap
+		if(!$NoOutput){$TempKerberosPolicy | Sort-Object Domain | Format-Table -AutoSize -Wrap}
 		$HTMLKerberosPolicy = $TempKerberosPolicy | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='KerberosPolicy'>Kerberos Password Policy</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='KerberosPolicy'>" }
 	}
 
@@ -2214,7 +2218,7 @@ Add-Type -TypeDefinition $code
 	##################################################
 	
 	Write-Host ""
-	Write-Host "User Accounts Analysis:" -ForegroundColor Cyan
+	Write-Host "User Accounts Analysis" -ForegroundColor Cyan
 
 	$TempUserAccountAnalysis = foreach ($AllDomain in $AllDomains) {
 		$UserAccountAnalysis = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain})
@@ -2229,12 +2233,12 @@ Add-Type -TypeDefinition $code
 			'Nb Locked' = @(($UserAccountAnalysis | Where-Object { $_.lockouttime -ne $null })).Count
 			'Nb Pwd Never Expire' = @(($UserAccountAnalysis | Where-Object { ([int]$_.userAccountControl -band 65536) -ne 0 })).Count
 			'Nb Password not Req.' = @(($UserAccountAnalysis | Where-Object { ([int]$_.userAccountControl -band 32) -ne 0 })).Count
-			'Nb Reversible Password' = @(($UserAccountAnalysis | Where-Object {if ($null -ne $_.userAccountControl) {$uacValue = [int]$_.userAccountControl;$binaryUAC = [convert]::ToString($uacValue, 2).PadLeft(32, '0');return $binaryUAC[-8] -eq '1'}})).Count
+			'Nb Reversible Password' = @(($UserAccountAnalysis | Where-Object {if ($null -ne $_.userAccountControl) {$uacValue = [int]$_.userAccountControl;$binaryUAC = [convert]::ToString($uacValue, 2).PadLeft(32, '0');$binaryUAC[-8] -eq '1'}})).Count
 		}
 	}
 
  	if ($TempUserAccountAnalysis) {
-		$TempUserAccountAnalysis | Sort-Object Domain | Format-Table -AutoSize
+		if(!$NoOutput){$TempUserAccountAnalysis | Sort-Object Domain | Format-Table -AutoSize}
 		$HTMLUserAccountAnalysis = $TempUserAccountAnalysis | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='UserAccountAnalysis'>User Accounts Analysis</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='UserAccountAnalysis'>" }
 
   		$UserAccountAnalysisTable = [PSCustomObject]@{
@@ -2253,7 +2257,7 @@ Add-Type -TypeDefinition $code
 	######################################################
 	
 	Write-Host ""
-	Write-Host "Computer Account Analysis:" -ForegroundColor Cyan
+	Write-Host "Computer Account Analysis" -ForegroundColor Cyan
 
 	$TempComputerAccountAnalysis = foreach ($AllDomain in $AllDomains) {
 		$ComputerAccountAnalysis = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain})
@@ -2271,7 +2275,7 @@ Add-Type -TypeDefinition $code
 	}
 
  	if ($TempComputerAccountAnalysis) {
-		$TempComputerAccountAnalysis | Sort-Object Domain | Format-Table -AutoSize
+		if(!$NoOutput){$TempComputerAccountAnalysis | Sort-Object Domain | Format-Table -AutoSize}
 		$HTMLComputerAccountAnalysis = $TempComputerAccountAnalysis | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ComputerAccountAnalysis'>Computer Account Analysis</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ComputerAccountAnalysis'>" }
 
   		$ComputerAccountAnalysisTable = [PSCustomObject]@{
@@ -2290,7 +2294,7 @@ Add-Type -TypeDefinition $code
 	######################################################
 	
 	Write-Host ""
-	Write-Host "Operating Systems Insights:" -ForegroundColor Cyan
+	Write-Host "Operating Systems Insights" -ForegroundColor Cyan
 
 	$TempOperatingSystemsAnalysis = foreach ($AllDomain in $AllDomains) {
 		$AllSystems = @($TotalEnabledDisabledMachines | Where-Object {$_.domain -eq $AllDomain})
@@ -2311,7 +2315,7 @@ Add-Type -TypeDefinition $code
 	}
 
  	if ($TempOperatingSystemsAnalysis) {
-		$TempOperatingSystemsAnalysis | Sort-Object Domain,'Operating System' | Format-Table -AutoSize
+		if(!$NoOutput){$TempOperatingSystemsAnalysis | Sort-Object Domain,'Operating System' | Format-Table -AutoSize}
 		$HTMLOperatingSystemsAnalysis = $TempOperatingSystemsAnalysis | Sort-Object Domain,'Operating System' | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='OperatingSystemsAnalysis'>Operating Systems Insights</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='OperatingSystemsAnalysis'>" }
 	}
 	
@@ -2320,7 +2324,7 @@ Add-Type -TypeDefinition $code
 	####################################################
 	
 	Write-Host ""
-	Write-Host "LLMNR Status:" -ForegroundColor Cyan
+	Write-Host "LLMNR Status" -ForegroundColor Cyan
 	
 	$TempLLMNR = @()
 	$TempLLMNR += foreach ($AllDomain in $AllDomains) {
@@ -2382,7 +2386,7 @@ Add-Type -TypeDefinition $code
 				}
 	
 	if($TempLLMNR){
-		$TempLLMNR | Format-Table -AutoSize
+		if(!$NoOutput){$TempLLMNR | Format-Table -AutoSize}
 		$HTMLLLMNR = $TempLLMNR | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='LLMNRStatus'>LLMNR Status</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='LLMNRStatus'>" }
 	}
 	
@@ -2391,7 +2395,7 @@ Add-Type -TypeDefinition $code
 	####################################################################
 	
 	<# Write-Host ""
-	Write-Host "Add workstations to domain:" -ForegroundColor Cyan #>
+	Write-Host "Add workstations to domain" -ForegroundColor Cyan #>
 	
 	# Loop through each relevant GPO
 	$TempAddworkstationstodomain = foreach($AllDomain in $AllDomains){
@@ -2464,7 +2468,7 @@ Add-Type -TypeDefinition $code
 	#################################################
 	
 	Write-Host ""
-	Write-Host "Machine Account Quota:" -ForegroundColor Cyan
+	Write-Host "Machine Account Quota" -ForegroundColor Cyan
 
 	$TempMachineQuota = foreach ($AllDomain in $AllDomains) {
 		$InfoQuota = @()
@@ -2485,7 +2489,7 @@ Add-Type -TypeDefinition $code
 	}
 
  	if ($TempMachineQuota) {
-	    $TempMachineQuota | Sort-Object Domain | Format-Table -AutoSize
+	    if(!$NoOutput){$TempMachineQuota | Sort-Object Domain | Format-Table -AutoSize}
 	    $HTMLMachineQuota = $TempMachineQuota | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='MachineQuota'>Machine Account Quota</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='MachineQuota'>" }
 	    $TempMachineQuota | Sort-Object Quota | Select-Object Quota | ForEach-Object {
 	        if (${_}.Quota -eq 0) {
@@ -2512,7 +2516,7 @@ Add-Type -TypeDefinition $code
 	##################################################
 	
 	Write-Host ""
-	Write-Host "LM Compatibility Level:" -ForegroundColor Cyan
+	Write-Host "LM Compatibility Level" -ForegroundColor Cyan
 
 	$policySettings = @{
 		"0" = "Send LM & NTLM responses"
@@ -2570,7 +2574,7 @@ Add-Type -TypeDefinition $code
 	}
 
  	if ($TempLMCompatibilityLevel) {
-		$TempLMCompatibilityLevel | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
+		if(!$NoOutput){$TempLMCompatibilityLevel | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap}
 		$HTMLLMCompatibilityLevel = $TempLMCompatibilityLevel | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='LMCompatibilityLevel'>LM Compatibility Level</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='LMCompatibilityLevel'>" }
 		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>Send NTLM response only</td>','<td class="YesStatus">Send NTLM response only</td>'
 		$HTMLLMCompatibilityLevel = $HTMLLMCompatibilityLevel -replace '<td>2</td>','<td class="YesStatus">2</td>'
@@ -2606,7 +2610,7 @@ Add-Type -TypeDefinition $code
 	#################################################
 	
 	#Write-Host ""
-	#Write-Host "Vulnerable LM Comp Level GPOs:" -ForegroundColor Cyan
+	#Write-Host "Vulnerable LM Comp Level GPOs" -ForegroundColor Cyan
 	
 	$VulnerableLMCompLevelPolocies = @()
 	$VulnerableLMCompLevelPolocies = $TempLMCompatibilityLevel | Where-Object {$_.Setting -le 2}
@@ -2643,7 +2647,7 @@ Add-Type -TypeDefinition $code
 	#################################################
 	
 	Write-Host ""
-	Write-Host "LM Comp Level Affected Machines:" -ForegroundColor Cyan
+	Write-Host "LM Comp Level Affected Machines" -ForegroundColor Cyan
 	if($AllOUsToCollect){
 		$VulnerableLMCompLevelComp = @()
 		foreach($OUCollected in $AllOUsToCollect){
@@ -2677,7 +2681,7 @@ Add-Type -TypeDefinition $code
 		}
 		
 		if($VulnerableLMCompLevelComp){
-			$VulnerableLMCompLevelComp | Sort-Object -Unique Domain,"Vulnerble GPO","OU Name",Members | ft -Autosize -Wrap
+			if(!$NoOutput){$VulnerableLMCompLevelComp | Sort-Object -Unique Domain,"Vulnerble GPO","OU Name",Members | ft -Autosize -Wrap}
 			$HTMLVulnLMCompLevelComp = $VulnerableLMCompLevelComp | Sort-Object -Unique Domain,"Vulnerble GPO","OU Name",Members | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='VulnLMCompLevelComp'>LM Comp Level Affected Machines</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='VulnLMCompLevelComp'>" }
 		}
 	}
@@ -2687,10 +2691,10 @@ Add-Type -TypeDefinition $code
 	#################################################
 	
 	Write-Host ""
-	Write-Host "Subnets:" -ForegroundColor Cyan
+	Write-Host "Subnets" -ForegroundColor Cyan
 	
 	if($AllSubnets | Where-Object {$_}){
-		$AllSubnets | Sort-Object -Unique Domain,Site,Subnet | ft -Autosize -Wrap
+		if(!$NoOutput){$AllSubnets | Sort-Object -Unique Domain,Site,Subnet | ft -Autosize -Wrap}
 		$HTMLSubnets = $AllSubnets | Sort-Object -Unique Domain,Site,Subnet | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='Subnets'>Subnets</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='Subnets'>" }
 	}
 	
@@ -2710,7 +2714,7 @@ Add-Type -TypeDefinition $code
 	####################################################
 	
 	Write-Host ""
-    Write-Host "Built-In Administrators:" -ForegroundColor Cyan
+    Write-Host "Built-In Administrators" -ForegroundColor Cyan
 	$TempBuiltInAdministrators = foreach ($AllDomain in $AllDomains) {
 		$BuiltInAdministrators = @()
 		$BuiltInAdministrators = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Administrators"
@@ -2748,7 +2752,7 @@ Add-Type -TypeDefinition $code
 	}
 
  	if ($TempBuiltInAdministrators) {
-		$TempBuiltInAdministrators | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ft -Autosize -Wrap
+		if(!$NoOutput){$TempBuiltInAdministrators | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ft -Autosize -Wrap}
 		$HTMLBuiltInAdministrators = $TempBuiltInAdministrators | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='BuiltinAdministrators'>Built-In Administrators</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='BuiltinAdministrators'>" }
 	}
 	
@@ -2757,7 +2761,7 @@ Add-Type -TypeDefinition $code
 	######################################################
 	
 	Write-Host ""
-    Write-Host "Enterprise Administrators:" -ForegroundColor Cyan
+    Write-Host "Enterprise Administrators" -ForegroundColor Cyan
 	$TempEnterpriseAdmins = foreach ($AllDomain in $AllDomains) {
 		$EnterpriseAdmins = @()
 		$EnterpriseAdmins = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Enterprise Admins"
@@ -2794,7 +2798,7 @@ Add-Type -TypeDefinition $code
 	}
 
  	if ($TempEnterpriseAdmins) {
-			$TempEnterpriseAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ft -Autosize -Wrap
+			if(!$NoOutput){$TempEnterpriseAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ft -Autosize -Wrap}
 			$HTMLEnterpriseAdmins = $TempEnterpriseAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='EnterpriseAdmins'>Enterprise Administrators</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='EnterpriseAdmins'>" }
 		}
 	
@@ -2803,7 +2807,7 @@ Add-Type -TypeDefinition $code
 	##################################################
 	
 	Write-Host ""
-    Write-Host "Domain Administrators:" -ForegroundColor Cyan
+    Write-Host "Domain Administrators" -ForegroundColor Cyan
     $TempDomainAdmins = foreach ($AllDomain in $AllDomains) {
 		$DomainAdmins = @()
 		$DomainAdmins = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Domain Admins"
@@ -2840,7 +2844,7 @@ Add-Type -TypeDefinition $code
 	}
 
  	if ($TempDomainAdmins) {
-		$TempDomainAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ft -Autosize -Wrap
+		if(!$NoOutput){$TempDomainAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ft -Autosize -Wrap}
 		$HTMLDomainAdmins = $TempDomainAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DomainAdmins'>Domain Administrators</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DomainAdmins'>" }
 	}
 	
@@ -2849,7 +2853,7 @@ Add-Type -TypeDefinition $code
 	##################################
 
 	Write-Host ""
-	Write-Host "Principals with DCSync permissions:" -ForegroundColor Cyan
+	Write-Host "Principals with DCSync permissions" -ForegroundColor Cyan
 	$TempReplicationUsers = @()
 	$TempReplicationUsers = foreach ($AllDomain in $AllDomains) {
 		
@@ -2923,7 +2927,7 @@ Add-Type -TypeDefinition $code
 	}
 
  	if ($TempReplicationUsers) {
-		$TempReplicationUsers | Sort-Object -Unique Domain,"User or Group" | Format-Table -AutoSize -Wrap
+		if(!$NoOutput){$TempReplicationUsers | Sort-Object -Unique Domain,"User or Group" | Format-Table -AutoSize -Wrap}
 		$HTMLReplicationUsers = $TempReplicationUsers | Sort-Object -Unique Domain,"User or Group" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ReplicationUsers'>Principals with DCSync permissions</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ReplicationUsers'>" }
 
   		$DCsyncPrincipalsTable = [PSCustomObject]@{
@@ -2948,7 +2952,7 @@ Add-Type -TypeDefinition $code
 	###################################################################################################################################
 	
 	Write-Host ""
-	Write-Host "Protected and 'Sensitive and Not Allowed for Delegation' status (Administrators):" -ForegroundColor Cyan
+	Write-Host "Protected and 'Sensitive and Not Allowed for Delegation' status (Administrators)" -ForegroundColor Cyan
 	$TempHTMLAdminsProtectedUsersAndSensitive = foreach ($AllDomain in $AllDomains) {
 		$TargetDAEABA = @($DAEABA | Where-Object {$_.domain -eq $AllDomain -AND $_.samaccountname})
 		$TargetProtected = @($ProtectedUsers | Where-Object {$_.domain -eq $AllDomain})
@@ -2972,7 +2976,7 @@ Add-Type -TypeDefinition $code
 	}
 
  	if ($TempHTMLAdminsProtectedUsersAndSensitive | Where-Object {$_.Account -ne "krbtgt"}) {
-		$TempHTMLAdminsProtectedUsersAndSensitive | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+		if(!$NoOutput){$TempHTMLAdminsProtectedUsersAndSensitive | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap}
 		$HTMLAdminsProtectedUsersAndSensitive = $TempHTMLAdminsProtectedUsersAndSensitive | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='AdminsProtectedUsersAndSensitive'>Protected and 'Sensitive and Not Allowed for Delegation' status (Administrators)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='AdminsProtectedUsersAndSensitive'>" }
 
   		$AdminsProtectedUsersAndSensitiveTable = [PSCustomObject]@{
@@ -2989,7 +2993,7 @@ Add-Type -TypeDefinition $code
 	###################################################################################################################################
 	
 	Write-Host ""
-	Write-Host "Protected and 'Sensitive and Not Allowed for Delegation' status (Security Groups):" -ForegroundColor Cyan
+	Write-Host "Protected and 'Sensitive and Not Allowed for Delegation' status (Security Groups)" -ForegroundColor Cyan
 	$TempHTMLSecurityProtectedUsersAndSensitive = foreach ($AllDomain in $AllDomains) {
 		$TargetDAEABA = @($DAEABA | Where-Object {$_.domain -eq $AllDomain -AND $_.samaccountname})
 		$TargetSecurity = @($AllSecurityUsers | Where-Object {$_.domain -eq $AllDomain})
@@ -3015,7 +3019,7 @@ Add-Type -TypeDefinition $code
 	}
 
  	if ($TempHTMLSecurityProtectedUsersAndSensitive | Where-Object {$_.Account -ne "krbtgt"}) {
-		$TempHTMLSecurityProtectedUsersAndSensitive | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+		if(!$NoOutput){$TempHTMLSecurityProtectedUsersAndSensitive | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap}
 		$HTMLSecurityProtectedUsersAndSensitive = $TempHTMLSecurityProtectedUsersAndSensitive | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='SecProtectedUsersAndSensitive'>Protected and 'Sensitive and Not Allowed for Delegation' status (Security Groups)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='SecProtectedUsersAndSensitive'>" }
 
   		$SecurityProtectedUsersAndSensitiveTable = [PSCustomObject]@{
@@ -3032,7 +3036,7 @@ Add-Type -TypeDefinition $code
 	###################################################################################################################################
 	
 	Write-Host ""
-	Write-Host "Protected and 'Sensitive and Not Allowed for Delegation' status (Admin Count):" -ForegroundColor Cyan
+	Write-Host "Protected and 'Sensitive and Not Allowed for Delegation' status (Admin Count)" -ForegroundColor Cyan
 	$TempHTMLAdmCountProtectedUsersAndSensitive = foreach ($AllDomain in $AllDomains) {
 		#$UniqueToAdminCountNotInDAEABAOrSecurity = $null
 		$TargetDAEABA = @($DAEABA | Where-Object {$_.domain -eq $AllDomain -AND $_.samaccountname})
@@ -3062,7 +3066,7 @@ Add-Type -TypeDefinition $code
 	}
 
  	if ($TempHTMLAdmCountProtectedUsersAndSensitive | Where-Object {$_.Account -ne "krbtgt"}) {
-		$TempHTMLAdmCountProtectedUsersAndSensitive | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+		if(!$NoOutput){$TempHTMLAdmCountProtectedUsersAndSensitive | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap}
 		$HTMLAdmCountProtectedUsersAndSensitive = $TempHTMLAdmCountProtectedUsersAndSensitive | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='AdmCountProtectedUsersAndSensitive'>Protected and 'Sensitive and Not Allowed for Delegation' status (Admin Count)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='AdmCountProtectedUsersAndSensitive'>" }
 
   		$AdmCountProtectedUsersAndSensitiveTable = [PSCustomObject]@{
@@ -3079,7 +3083,7 @@ Add-Type -TypeDefinition $code
 	##################################################
 	
 	Write-Host ""
-    Write-Host "Groups with AdminCount set to 1 (non-defaults):" -ForegroundColor Cyan
+    Write-Host "Groups with AdminCount set to 1 (non-defaults)" -ForegroundColor Cyan
 	
 	$excludedGroups = @(
 		'Administrators',
@@ -3114,7 +3118,7 @@ Add-Type -TypeDefinition $code
 	}
 
  	if ($TempGroupsAdminCount) {
-		$TempGroupsAdminCount | Sort-Object Domain,"Group Name" | Format-Table -AutoSize -Wrap
+		if(!$NoOutput){$TempGroupsAdminCount | Sort-Object Domain,"Group Name" | Format-Table -AutoSize -Wrap}
 		$HTMLGroupsAdminCount = $TempGroupsAdminCount | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='GroupsAdminCount'>Groups with AdminCount set to 1 (non-defaults)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='GroupsAdminCount'>" }
 
   		$AdminCountGroupsTable = [PSCustomObject]@{
@@ -3131,7 +3135,7 @@ Add-Type -TypeDefinition $code
 	#############################################
 	if($LinkedAccounts -OR $AllEnum){
 		Write-Host ""
-		Write-Host "Linked Admin accounts using name correlation:" -ForegroundColor Cyan
+		Write-Host "Linked Admin accounts using name correlation" -ForegroundColor Cyan
 		$LinkedDAAccounts = foreach ($AllDomain in $AllDomains) {
 			$members = @($DAEABA | Where-Object {$_.domain -eq $AllDomain -AND $_.displayname})
 			foreach ($member in $members) {
@@ -3156,7 +3160,7 @@ Add-Type -TypeDefinition $code
 		}
 	
 	 	if ($LinkedDAAccounts) {
-			$LinkedDAAccounts | Sort-Object -Unique Domain,Account,"Display Name" | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$LinkedDAAccounts | Sort-Object -Unique Domain,Account,"Display Name" | Format-Table -AutoSize -Wrap}
 			$HTMLLinkedDAAccounts = $LinkedDAAccounts | Sort-Object -Unique Domain,Account,"Display Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='LinkedDAAccounts'>Linked Admin accounts using name correlation</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='LinkedDAAccounts'>" }
 		}
 	}
@@ -3164,9 +3168,9 @@ Add-Type -TypeDefinition $code
     ######### Find Local Admin Access ###############
 	#################################################
 	
-	if($FindLocalAdminAccess -OR $AllEnum -OR $Recommended){
+	if($FindLocalAdminAccess -OR $AllEnum){
         Write-Host ""
-		Write-Host "Local Admin Access:" -ForegroundColor Cyan
+		Write-Host "Local Admin Access" -ForegroundColor Cyan
 		$TempFindLocalAdminAccess = foreach ($AllDomain in $AllDomains) {
 			$OurFinalTargetsForAccess = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain})
 			$OurFinalTargetsForAccess = $OurFinalTargetsForAccess.dnshostname -join ','
@@ -3186,7 +3190,7 @@ Add-Type -TypeDefinition $code
 			}
 		}
 		if ($TempFindLocalAdminAccess) {
-			$TempFindLocalAdminAccess | Sort-Object Domain,Target | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$TempFindLocalAdminAccess | Sort-Object Domain,Target | Format-Table -AutoSize -Wrap}
 			$HTMLFindLocalAdminAccess = $TempFindLocalAdminAccess | Sort-Object Domain,Target | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='FindLocalAdminAccess'>Local Admin Access</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='FindLocalAdminAccess'>" }
 		}
     }
@@ -3206,7 +3210,7 @@ Add-Type -TypeDefinition $code
 	if($NoVulnCertTemplates){}
 	else{
 		Write-Host ""
-		Write-Host "ADCS HTTP Endpoints:" -ForegroundColor Cyan
+		Write-Host "ADCS HTTP Endpoints" -ForegroundColor Cyan
 
 		$CertPublishers = @()
 		
@@ -3261,7 +3265,7 @@ Add-Type -TypeDefinition $code
 		}
 				
 		if ($TempCertPublishers) {
-			$TempCertPublishers | Sort-Object Domain,"Name" | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$TempCertPublishers | Sort-Object Domain,"Name" | Format-Table -AutoSize -Wrap}
 			$HTMLCertPublishers = $TempCertPublishers | Sort-Object Domain,"Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ADCSEndpoints'>ADCS HTTP Endpoints</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ADCSEndpoints'>" }
 
       			$ADCSEndpointsTable = [PSCustomObject]@{
@@ -3283,7 +3287,7 @@ Add-Type -TypeDefinition $code
 	if($NoVulnCertTemplates){}
 	else{
 		Write-Host ""
-		Write-Host "Certificate Templates:" -ForegroundColor Cyan
+		Write-Host "Certificate Templates" -ForegroundColor Cyan
 		
 		# Load the required assembly
 		Add-Type -AssemblyName System.DirectoryServices
@@ -3483,7 +3487,7 @@ Add-Type -TypeDefinition $code
 		}
 						
 		if ($VulnCertTemplatesFlags) {
-			$VulnCertTemplatesFlags | Sort-Object Domain,"Cert Name" | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$VulnCertTemplatesFlags | Sort-Object Domain,"Cert Name" | Format-Table -AutoSize -Wrap}
 			$HTMLVulnCertTemplates = $VulnCertTemplatesFlags | Sort-Object Domain,"Cert Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='CertTemplates'>Certificate Templates</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='CertTemplates'>" }
 			
 			$CertTemplatesTable = [PSCustomObject]@{
@@ -3502,7 +3506,7 @@ Add-Type -TypeDefinition $code
 	###########################################################
 	
 	Write-Host ""
-	Write-Host "Members of Exchange Trusted Subsystem group:" -ForegroundColor Cyan
+	Write-Host "Members of Exchange Trusted Subsystem group" -ForegroundColor Cyan
 	$TempExchangeTrustedSubsystem = foreach ($AllDomain in $AllDomains) {
 		#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 		$ExchangeTrustedSubsystemMembers = @(RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Domain $AllDomain -Raw -Identity "Exchange Trusted Subsystem")
@@ -3525,7 +3529,7 @@ Add-Type -TypeDefinition $code
 	}
 
 	if ($TempExchangeTrustedSubsystem) {
-		$TempExchangeTrustedSubsystem | Sort-Object Domain,Member | Format-Table -AutoSize -Wrap
+		if(!$NoOutput){$TempExchangeTrustedSubsystem | Sort-Object Domain,Member | Format-Table -AutoSize -Wrap}
 		$HTMLExchangeTrustedSubsystem = $TempExchangeTrustedSubsystem | Sort-Object Domain,Member | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ExchangeTrustedSubsystem'>Members of Exchange Trusted Subsystem group</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ExchangeTrustedSubsystem'>" }
 	}
 	
@@ -3534,7 +3538,7 @@ Add-Type -TypeDefinition $code
 	############################################
 	
 	Write-Host ""
-	Write-Host "Service Accounts (Kerberoastable):" -ForegroundColor Cyan
+	Write-Host "Service Accounts (Kerberoastable)" -ForegroundColor Cyan
 	$TempServiceAccounts = foreach ($AllDomain in $AllDomains) {
 		$ServiceAccounts = @($TotalEnabledUsers | Where-Object {$_.serviceprincipalname -AND $_.domain -eq $AllDomain})
 		foreach ($Account in $ServiceAccounts) {
@@ -3554,7 +3558,7 @@ Add-Type -TypeDefinition $code
 	}
 
  	if ($TempServiceAccounts | Where-Object {$_.Account -ne "krbtgt"}) {
-		$TempServiceAccounts | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+		if(!$NoOutput){$TempServiceAccounts | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap}
 		$HTMLServiceAccounts = $TempServiceAccounts | Where-Object {$_.Account -ne "krbtgt"} | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ServiceAccounts'>Service Accounts (Kerberoastable)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ServiceAccounts'>" }
 		$HTMLServiceAccounts = $HTMLServiceAccounts -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
 		$HTMLServiceAccounts = $HTMLServiceAccounts -replace '<td>NO</td>','<td class="NoStatus">NO</td>'
@@ -3575,7 +3579,7 @@ Add-Type -TypeDefinition $code
 	##########################################################
     
     Write-Host ""
-	Write-Host "Group Managed Service Accounts (GMSA):" -ForegroundColor Cyan
+	Write-Host "Group Managed Service Accounts (GMSA)" -ForegroundColor Cyan
 	$TempGMSAs = foreach ($AllDomain in $AllDomains) {
 		$GMSAs = @($CollectGMSAs | Where-Object {$_.domain -eq $AllDomain})
 		foreach ($GMSA in $GMSAs) {
@@ -3601,7 +3605,7 @@ Add-Type -TypeDefinition $code
 	}
 
  	if ($TempGMSAs) {
-		$TempGMSAs | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+		if(!$NoOutput){$TempGMSAs | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap}
 		$HTMLGMSAs = $TempGMSAs | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='GMSAs'>Group Managed Service Accounts (GMSA)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='GMSAs'>" }
 		$HTMLGMSAs = $HTMLGMSAs -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
 		$HTMLGMSAs = $HTMLGMSAs -replace '<td>NO</td>','<td class="NoStatus">NO</td>'
@@ -3622,7 +3626,7 @@ Add-Type -TypeDefinition $code
 	################################################
     
     Write-Host ""
-	Write-Host "Users without kerberos preauthentication set (AS-REProastable):" -ForegroundColor Cyan
+	Write-Host "Users without kerberos preauthentication set (AS-REProastable)" -ForegroundColor Cyan
 	$Tempnopreauthset = foreach ($AllDomain in $AllDomains) {
 		$nopreauthsetUsers = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.userAccountControl -band 0x00400000})
 		foreach ($User in $nopreauthsetUsers) {
@@ -3642,7 +3646,7 @@ Add-Type -TypeDefinition $code
 	}
 
  	if ($Tempnopreauthset) {
-		$Tempnopreauthset | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+		if(!$NoOutput){$Tempnopreauthset | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap}
 		$HTMLnopreauthset = $Tempnopreauthset | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='nopreauthset'>Users without kerberos preauthentication set (AS-REProastable)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='nopreauthset'>" }
   		$HTMLnopreauthset = $HTMLnopreauthset -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
 		$HTMLnopreauthset = $HTMLnopreauthset -replace '<td>NO</td>','<td class="NoStatus">NO</td>'
@@ -3663,7 +3667,7 @@ Add-Type -TypeDefinition $code
 	###############################################################
 	
 	Write-Host ""
-	Write-Host "Check if any User Passwords are set:" -ForegroundColor Cyan
+	Write-Host "Check if any User Passwords are set" -ForegroundColor Cyan
 	
 	$TempPasswordSetUsers = foreach ($AllDomain in $AllDomains) {
 		
@@ -3691,7 +3695,7 @@ Add-Type -TypeDefinition $code
 	}
 
  	if ($TempPasswordSetUsers) {
-		$TempPasswordSetUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+		if(!$NoOutput){$TempPasswordSetUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap}
 		$HTMLPasswordSetUsers = $TempPasswordSetUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='PasswordSetUsers'>Check if any User Passwords are set</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='PasswordSetUsers'>" }
 		$TempPasswordSetUsers."User Password" | ForEach-Object {
 			$HTMLPasswordSetUsers = $HTMLPasswordSetUsers -replace "<td>$_</td>","<td class=`"YesStatus`">$_</td>"
@@ -3713,7 +3717,7 @@ Add-Type -TypeDefinition $code
 	###############################################################
 	
 	Write-Host ""
-	Write-Host "Check if any Unix User Passwords are set:" -ForegroundColor Cyan
+	Write-Host "Check if any Unix User Passwords are set" -ForegroundColor Cyan
 	
 	$TempUnixPasswordSet = foreach ($AllDomain in $AllDomains) {
 		
@@ -3740,7 +3744,7 @@ Add-Type -TypeDefinition $code
 	}
 
  	if ($TempUnixPasswordSet) {
-		$TempUnixPasswordSet | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+		if(!$NoOutput){$TempUnixPasswordSet | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap}
 		$HTMLUnixPasswordSet = $TempUnixPasswordSet | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='UnixPasswordSet'>Check if any Unix User Passwords are set</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='UnixPasswordSet'>" }
 		$TempUnixPasswordSet."User Password" | ForEach-Object {
 			$HTMLUnixPasswordSet = $HTMLUnixPasswordSet -replace "<td>$_</td>","<td class=`"YesStatus`">$_</td>"
@@ -3762,7 +3766,7 @@ Add-Type -TypeDefinition $code
 	#################################################################################################
 	if($PassNotRequired -OR $AllEnum){
 		Write-Host ""
-		Write-Host "Users with Password-not-required attribute set:" -ForegroundColor Cyan
+		Write-Host "Users with Password-not-required attribute set" -ForegroundColor Cyan
 		
 		$TempEmptyPasswordUsers = foreach ($AllDomain in $AllDomains) {
 			
@@ -3786,7 +3790,7 @@ Add-Type -TypeDefinition $code
 		}
 	
 	 	if ($TempEmptyPasswordUsers | Where-Object {$_.Enabled -eq "True"}) {
-			$TempEmptyPasswordUsers | Where-Object {$_.Enabled -eq "True"} | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$TempEmptyPasswordUsers | Where-Object {$_.Enabled -eq "True"} | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap}
 			$HTMLEmptyPasswordUsers = $TempEmptyPasswordUsers | Where-Object {$_.Enabled -eq "True"} | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='PassNotRequired'>Users with Password-not-required attribute set</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='PassNotRequired'>" }
 			
 			$HTMLEmptyPasswordUsers = $HTMLEmptyPasswordUsers -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
@@ -3808,7 +3812,7 @@ Add-Type -TypeDefinition $code
 
  	if($PassNotRequired -OR $AllEnum){
 		Write-Host ""
-		Write-Host "Computers with Password-not-required attribute set:" -ForegroundColor Cyan
+		Write-Host "Computers with Password-not-required attribute set" -ForegroundColor Cyan
 		
 		$TempEmptyPasswordComputers = foreach ($AllDomain in $AllDomains) {
 			#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
@@ -3834,7 +3838,7 @@ Add-Type -TypeDefinition $code
 		}
 	
 	 	if ($TempEmptyPasswordComputers | Where-Object {$_.Enabled -eq "True"}) {
-			$TempEmptyPasswordComputers | Where-Object {$_.Enabled -eq "True"} | Sort-Object Domain,"Computer Name" | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$TempEmptyPasswordComputers | Where-Object {$_.Enabled -eq "True"} | Sort-Object Domain,"Computer Name" | Format-Table -AutoSize -Wrap}
 			$HTMLEmptyPasswordComputers = $TempEmptyPasswordComputers | Where-Object {$_.Enabled -eq "True"} | Sort-Object Domain,"Computer Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='CompPassNotRequired'>Computers with Password-not-required attribute set</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='CompPassNotRequired'>" }
 			
 			$HTMLEmptyPasswordComputers = $HTMLEmptyPasswordComputers -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
@@ -3857,7 +3861,7 @@ Add-Type -TypeDefinition $code
 	if($SprayEmptyPasswords -OR $AllEnum){
  
 	 	Write-Host ""
-		Write-Host "User Accounts with empty passwords:" -ForegroundColor Cyan
+		Write-Host "User Accounts with empty passwords" -ForegroundColor Cyan
 		
 		$minDelay = 0
 		$maxDelay = 200
@@ -3898,7 +3902,7 @@ Add-Type -TypeDefinition $code
 		}
 	
 	 	if ($TempTotalEmptyPass) {
-			$TempTotalEmptyPass | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$TempTotalEmptyPass | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap}
 			$HTMLTotalEmptyPass = $TempTotalEmptyPass | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='EmptyPasswordUsers'>User Accounts with empty passwords</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='EmptyPasswordUsers'>" }
 			
 			$HTMLTotalEmptyPass = $HTMLTotalEmptyPass -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
@@ -3922,7 +3926,7 @@ Add-Type -TypeDefinition $code
 	if($SprayEmptyPasswords -OR $AllEnum){
  
 	 	Write-Host ""
-		Write-Host "Computer Accounts with empty passwords:" -ForegroundColor Cyan
+		Write-Host "Computer Accounts with empty passwords" -ForegroundColor Cyan
 		
 		$minDelay = 0
 		$maxDelay = 200
@@ -3967,7 +3971,7 @@ Add-Type -TypeDefinition $code
 		}
 	
 	 	if ($TempTotalCompEmptyPass) {
-			$TempTotalCompEmptyPass | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$TempTotalCompEmptyPass | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap}
 			$HTMLCompTotalEmptyPass = $TempTotalCompEmptyPass | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='EmptyPasswordComp'>Computer Accounts with empty passwords</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='EmptyPasswordComp'>" }
 			
 			$HTMLCompTotalEmptyPass = $HTMLCompTotalEmptyPass -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
@@ -3990,7 +3994,7 @@ Add-Type -TypeDefinition $code
 	
 	
 	Write-Host ""
-	Write-Host "Members of Pre-Windows 2000 Compatible Access group:" -ForegroundColor Cyan
+	Write-Host "Members of Pre-Windows 2000 Compatible Access group" -ForegroundColor Cyan
 	$TempPreWin2kCompatibleAccess = foreach ($AllDomain in $AllDomains) {
 		#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 		
@@ -4015,7 +4019,7 @@ Add-Type -TypeDefinition $code
 	}
 
  	if ($TempPreWin2kCompatibleAccess) {
-		$TempPreWin2kCompatibleAccess | Sort-Object Domain,Member | Format-Table -AutoSize -Wrap
+		if(!$NoOutput){$TempPreWin2kCompatibleAccess | Sort-Object Domain,Member | Format-Table -AutoSize -Wrap}
 		$HTMLPreWin2kCompatibleAccess = $TempPreWin2kCompatibleAccess | Sort-Object Domain,Member | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='PreWin2kCompatibleAccess'>Members of Pre-Windows 2000 Compatible Access group</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='PreWin2kCompatibleAccess'>" }
 
   		$PreWindows2000Table = [PSCustomObject]@{
@@ -4032,7 +4036,7 @@ Add-Type -TypeDefinition $code
 	########################################################################################
 	
 	Write-Host ""
-	Write-Host "Windows 7 and Server 2008 Machines (Windows Remoting Enabled):" -ForegroundColor Cyan
+	Write-Host "Windows 7 and Server 2008 Machines (Windows Remoting Enabled)" -ForegroundColor Cyan
 	$TempWin7AndServer2008 = foreach ($AllDomain in $AllDomains) {
 		#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 		$WinRMComputers = @($TotalEnabledMachines | Where-Object { $_.domain -eq $AllDomain -AND ($_.operatingsystem -like "*7*" -OR  $_.operatingsystem -like "*2008*") -AND $_.serviceprincipalname -like "wsman*" })
@@ -4053,7 +4057,7 @@ Add-Type -TypeDefinition $code
 	}
 
 	if ($TempWin7AndServer2008) {
-		$TempWin7AndServer2008 | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+		if(!$NoOutput){$TempWin7AndServer2008 | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap}
 		$HTMLWin7AndServer2008 = $TempWin7AndServer2008 | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='Win7AndServer2008'>Windows 7 and Server 2008 Machines (Windows Remoting Enabled)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='Win7AndServer2008'>" }
 	}
 	
@@ -4062,7 +4066,7 @@ Add-Type -TypeDefinition $code
 	####################################################################
 	
 	Write-Host ""
-    Write-Host "Machine accounts in privileged groups:" -ForegroundColor Cyan
+    Write-Host "Machine accounts in privileged groups" -ForegroundColor Cyan
     $TempMachineAccountsPriv = foreach ($AllDomain in $AllDomains) {
 		#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 		
@@ -4114,7 +4118,7 @@ Add-Type -TypeDefinition $code
 	}
 
  	if ($TempMachineAccountsPriv) {
-		$TempMachineAccountsPriv | Sort-Object "Group Domain",Member | Format-Table -AutoSize -Wrap
+		if(!$NoOutput){$TempMachineAccountsPriv | Sort-Object "Group Domain",Member | Format-Table -AutoSize -Wrap}
 		$HTMLMachineAccountsPriv = $TempMachineAccountsPriv | Sort-Object "Group Domain",Member | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='MachineAccountsPriv'>Machine accounts in privileged groups</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='MachineAccountsPriv'>" }
 
   		$MachineAccountsPrivilegedGroupsTable = [PSCustomObject]@{
@@ -4131,7 +4135,7 @@ Add-Type -TypeDefinition $code
 	##########################################
 
     Write-Host ""
-	Write-Host "Users with sidHistory set:" -ForegroundColor Cyan
+	Write-Host "Users with sidHistory set" -ForegroundColor Cyan
 	$TempsidHistoryUsers = foreach ($AllDomain in $AllDomains) {
 		
 		$sidHistoryUsers = $TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.sidHistory}
@@ -4152,7 +4156,7 @@ Add-Type -TypeDefinition $code
 	}
 
  	if ($TempsidHistoryUsers) {
-		$TempsidHistoryUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+		if(!$NoOutput){$TempsidHistoryUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap}
 		$HTMLsidHistoryUsers = $TempsidHistoryUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='sidHistoryUsers'>Users with sidHistory set</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='sidHistoryUsers'>" }
 
   		$SDIHistorysetTable = [PSCustomObject]@{
@@ -4170,10 +4174,10 @@ Add-Type -TypeDefinition $code
 	##################################################
 	
 	Write-Host ""
-	Write-Host "Users with Reversible Encryption:" -ForegroundColor Cyan
+	Write-Host "Users with Reversible Encryption" -ForegroundColor Cyan
 
 	$TempRevEncUsers = foreach ($AllDomain in $AllDomains) {
-		$RevEncUsers = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain} | Where-Object {if ($null -ne $_.userAccountControl) {$uacValue = [int]$_.userAccountControl;$binaryUAC = [convert]::ToString($uacValue, 2).PadLeft(32, '0');return $binaryUAC[-8] -eq '1'}})
+		$RevEncUsers = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain} | Where-Object {if ($null -ne $_.userAccountControl) {$uacValue = [int]$_.userAccountControl;$binaryUAC = [convert]::ToString($uacValue, 2).PadLeft(32, '0');$binaryUAC[-8] -eq '1'}})
 		foreach ($RevEncUser in $RevEncUsers) {
 			[PSCustomObject]@{
 				"Name" = $RevEncUser.samaccountname
@@ -4191,7 +4195,7 @@ Add-Type -TypeDefinition $code
 	}
 
  	if ($TempRevEncUsers | Where-Object {$_.Name -ne $null}) {
-		$TempRevEncUsers | Where-Object {$_.Name -ne $null} | Sort-Object Domain,Name | Format-Table -AutoSize
+		if(!$NoOutput){$TempRevEncUsers | Where-Object {$_.Name -ne $null} | Sort-Object Domain,Name | Format-Table -AutoSize}
 		$HTMLRevEncUsers = $TempRevEncUsers | Where-Object {$_.Name -ne $null} | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='RevEncUsers'>Users with Reversible Encryption</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='RevEncUsers'>" }
 
   		$ReversibleEncryptionTable = [PSCustomObject]@{
@@ -4210,7 +4214,7 @@ Add-Type -TypeDefinition $code
     if($NoUnsupportedOS){}
     else{
         Write-Host ""
-		Write-Host "Hosts running Unsupported OS:" -ForegroundColor Cyan
+		Write-Host "Hosts running Unsupported OS" -ForegroundColor Cyan
 		$TempUnsupportedHosts = foreach ($AllDomain in $AllDomains) {
 			$UnsupportedHosts = $TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain} | Where-Object {
 				($_.OperatingSystem -like "Windows Me*") -or
@@ -4245,7 +4249,7 @@ Add-Type -TypeDefinition $code
 		}
 
   		if ($TempUnsupportedHosts) {
-			$TempUnsupportedHosts | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$TempUnsupportedHosts | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap}
 			$HTMLUnsupportedHosts = $TempUnsupportedHosts | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='UnsupportedHosts'>Hosts running Unsupported OS</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='UnsupportedHosts'>" }
 
    			$UnsupportedOSTable = [PSCustomObject]@{
@@ -4277,7 +4281,7 @@ Add-Type -TypeDefinition $code
 	#############################################
 	
 	Write-Host ""
-	Write-Host "File Servers:" -ForegroundColor Cyan
+	Write-Host "File Servers" -ForegroundColor Cyan
 	
     $TempFileServers = foreach($AllDomain in $AllDomains){
 		#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
@@ -4313,7 +4317,7 @@ Add-Type -TypeDefinition $code
 	}
 
     if($TempFileServers){
-		$TempFileServers | Sort-Object -Unique Domain,Server | Format-Table -AutoSize -Wrap
+		if(!$NoOutput){$TempFileServers | Sort-Object -Unique Domain,Server | Format-Table -AutoSize -Wrap}
 		$HTMLFileServers = $TempFileServers | Sort-Object -Unique Domain,Server | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='FileServers'>File Servers</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='FileServers'>" }
 	}
 	
@@ -4322,7 +4326,7 @@ Add-Type -TypeDefinition $code
 	#############################################
 
 	Write-Host ""
-	Write-Host "SQL Servers:" -ForegroundColor Cyan
+	Write-Host "SQL Servers" -ForegroundColor Cyan
 	
 	$ProcessedSPNs = @{}
 	$TempSQLServers = @()
@@ -4370,7 +4374,7 @@ Add-Type -TypeDefinition $code
 	}
 
 	if($TempSQLServers) {
-		$TempSQLServers | Sort-Object -Unique Domain,Server | Format-Table -AutoSize -Wrap
+		if(!$NoOutput){$TempSQLServers | Sort-Object -Unique Domain,Server | Format-Table -AutoSize -Wrap}
 		$HTMLSQLServers = $TempSQLServers | Sort-Object -Unique Domain,Server | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='SQLServers'>SQL Servers</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='SQLServers'>" }
 	}
 	
@@ -4379,7 +4383,7 @@ Add-Type -TypeDefinition $code
     #############################################
     
     Write-Host ""
-    Write-Host "SCCM Servers:" -ForegroundColor Cyan
+    Write-Host "SCCM Servers" -ForegroundColor Cyan
     
     $TempSCCMServers = foreach($AllDomain in $AllDomains){
 		#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
@@ -4421,7 +4425,7 @@ Add-Type -TypeDefinition $code
 	}
     
     if($TempSCCMServers){
-        $TempSCCMServers | Sort-Object -Unique Domain,Server | Format-Table -AutoSize -Wrap
+        if(!$NoOutput){$TempSCCMServers | Sort-Object -Unique Domain,Server | Format-Table -AutoSize -Wrap}
         $HTMLSCCMServers = $TempSCCMServers | Sort-Object -Unique Domain,Server | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='SCCMServers'>SCCM Servers</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='SCCMServers'>" }
     }
 	
@@ -4430,7 +4434,7 @@ Add-Type -TypeDefinition $code
 	####################################################
 	
 	Write-Host ""
-    Write-Host "WSUS Servers:" -ForegroundColor Cyan
+    Write-Host "WSUS Servers" -ForegroundColor Cyan
 	
 	$TempWSUSServers = @()
 	$WSUSServers = @()
@@ -4523,7 +4527,7 @@ Add-Type -TypeDefinition $code
 	}
 	
 	if($TempWSUSServers){
-        $TempWSUSServers | Sort-Object -Unique Domain,Server | Format-Table -AutoSize -Wrap
+        if(!$NoOutput){$TempWSUSServers | Sort-Object -Unique Domain,Server | Format-Table -AutoSize -Wrap}
         $HTMLWSUSServers = $TempWSUSServers | Sort-Object -Unique Domain,Server | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='WSUSServers'>WSUS Servers</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='WSUSServers'>" }
     }
 	
@@ -4540,7 +4544,7 @@ Add-Type -TypeDefinition $code
 	####################################################
 	if(!$NoSMBSigningEnum){
 	    Write-Host ""
-	    Write-Host "SMB Signing Not Required:" -ForegroundColor Cyan
+	    Write-Host "SMB Signing Not Required" -ForegroundColor Cyan
 		
 		$SMBSigningDisabled = foreach($AllDomain in $AllDomains){
 			#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
@@ -4564,7 +4568,7 @@ Add-Type -TypeDefinition $code
 		}
 		
 		if($SMBSigningDisabled){
-	        $SMBSigningDisabled | Sort-Object -Unique Domain,Machine | Format-Table -AutoSize -Wrap
+	        if(!$NoOutput){$SMBSigningDisabled | Sort-Object -Unique Domain,Machine | Format-Table -AutoSize -Wrap}
 	        $HTMLSMBSigningDisabled = $SMBSigningDisabled | Sort-Object -Unique Domain,Machine | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='SMBSigningNotRequired'>SMB Signing Not Required</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='SMBSigningNotRequired'>" }
 	    }
     }
@@ -4605,7 +4609,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		    }
 		}
 		Write-Host ""
-		Write-Host "WebDAV Enabled Machines:" -ForegroundColor Cyan
+		Write-Host "WebDAV Enabled Machines" -ForegroundColor Cyan
 		
 		$WebDAVStatusResults = foreach($AllDomain in $AllDomains){
 			#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
@@ -4631,7 +4635,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 		
 		if($WebDAVStatusResults){
-	        $WebDAVStatusResults | Sort-Object -Unique Domain,Machine | Format-Table -AutoSize -Wrap
+	        if(!$NoOutput){$WebDAVStatusResults | Sort-Object -Unique Domain,Machine | Format-Table -AutoSize -Wrap}
 	        $HTMLWebDAVStatusResults = $WebDAVStatusResults | Sort-Object -Unique Domain,Machine | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='WebDavEnabled'>WebDAV Enabled Machines</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='WebDavEnabled'>" }
 	    }
     }
@@ -4641,7 +4645,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	####################################################
 	
 	Write-Host ""
-	Write-Host "Printers:" -ForegroundColor Cyan
+	Write-Host "Printers" -ForegroundColor Cyan
 	
 	$TempPrinters = foreach ($AllDomain in $AllDomains) {
 		
@@ -4663,7 +4667,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	}
 	
 	if($TempPrinters){
-        $TempPrinters | Sort-Object -Unique Domain,Name,"Share Name",URL | Format-Table -AutoSize -Wrap
+        if(!$NoOutput){$TempPrinters | Sort-Object -Unique Domain,Name,"Share Name",URL | Format-Table -AutoSize -Wrap}
         $HTMLPrinters = $TempPrinters | Sort-Object -Unique Domain,Name,"Share Name",URL | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='Printers'>Printers</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='Printers'>" }
     }
 	
@@ -4672,7 +4676,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	############################################
 	
 	Write-Host ""
-	Write-Host "Duplicate SPNs:" -ForegroundColor Cyan
+	Write-Host "Duplicate SPNs" -ForegroundColor Cyan
 	$Excluded = 'kadmin/changepw'
 	$TempSPNAccounts = @()
 	
@@ -4720,7 +4724,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	}
 
  	if ($TempSPNAccounts) {
-		$TempSPNAccounts | Sort-Object Domain,"Duplicate SPN" | Format-Table -AutoSize -Wrap
+		if(!$NoOutput){$TempSPNAccounts | Sort-Object Domain,"Duplicate SPN" | Format-Table -AutoSize -Wrap}
 		$HTMLSPNAccounts = $TempSPNAccounts | Sort-Object Domain,"Duplicate SPN" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DuplicateSPNs'>Duplicate SPNs</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DuplicateSPNs'>" }
 	}
 
@@ -4729,7 +4733,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	####################################################
 	if(!$NoSMBSharesEnum){
 		Write-Host ""
-		Write-Host "Readable and Writable Shares:" -ForegroundColor Cyan
+		Write-Host "Readable and Writable Shares" -ForegroundColor Cyan
 	
 	 	$excludedShares = @('SYSVOL', 'Netlogon', 'print$', 'IPC$')
 		
@@ -4759,7 +4763,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 		
 		if ($SharesResultsTable) {
-			$SharesResultsTable | Sort-Object -Unique "Domain","Writable","Targets","Share Name" | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$SharesResultsTable | Sort-Object -Unique "Domain","Writable","Targets","Share Name" | Format-Table -AutoSize -Wrap}
 			$HTMLSharesResultsTable = $SharesResultsTable | Sort-Object -Unique "Domain","Writable","Targets","Share Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='RWShares'>Readable and Writable Shares</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='RWShares'>" }
 			$HTMLSharesResultsTable = $HTMLSharesResultsTable -replace "(\\)(C\$)", '$1<span class="YesStatus">$2</span>'
 			$HTMLSharesResultsTable = $HTMLSharesResultsTable -replace "(\\)(ADMIN\$)", '$1<span class="YesStatus">$2</span>'
@@ -4771,7 +4775,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	##################################################
 	if($EmptyGroups -OR $AllEnum){
 		Write-Host ""
-		Write-Host "Empty Groups:" -ForegroundColor Cyan
+		Write-Host "Empty Groups" -ForegroundColor Cyan
 		
 		$EmptyGroupsResults = foreach ($AllDomain in $AllDomains) {
 			$EmptyGroups = @($TotalGroups | Where-Object {$_.domain -eq $AllDomain -AND -not $_.member -and ((GetSID-FromBytes -sidBytes $_.objectsid) -match "S-1-(\d+-){4,}[\d]{4,10}$")})
@@ -4788,7 +4792,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 		
 		if ($EmptyGroupsResults | Where-Object {$_."Group Name"}) {
-			$EmptyGroupsResults | Where-Object {$_."Group Name"} | Sort-Object Domain,"Group Name" | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$EmptyGroupsResults | Where-Object {$_."Group Name"} | Sort-Object Domain,"Group Name" | Format-Table -AutoSize -Wrap}
 			$HTMLEmptyGroups = $EmptyGroupsResults | Where-Object {$_."Group Name"} | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='EmptyGroups'>Empty Groups</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='EmptyGroups'>" }
 		}
   	}
@@ -4813,7 +4817,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		Add-Type -AssemblyName System.DirectoryServices
 	
 		Write-Host ""
-		Write-Host "Who can create GPOs:" -ForegroundColor Cyan
+		Write-Host "Who can create GPOs" -ForegroundColor Cyan
 		$TempGPOCreators = foreach ($AllDomain in $AllDomains) {
 			
 			# Retrieve the GUID to Name mapping
@@ -4880,12 +4884,12 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
 		if ($TempGPOCreators) {
-			$TempGPOCreators | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$TempGPOCreators | Sort-Object Domain,Account | Format-Table -AutoSize -Wrap}
 			$HTMLGPOCreators = $TempGPOCreators | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='GPOCreators'>Who can create GPOs</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='GPOCreators'>" }
 		}
 
         Write-Host ""
-        Write-Host "Who can modify existing GPOs:" -ForegroundColor Cyan
+        Write-Host "Who can modify existing GPOs" -ForegroundColor Cyan
 		$TempGPOsWhocanmodify = foreach ($AllDomain in $AllDomains) {
 			
 			# Retrieve the GUID to Name mapping
@@ -4967,12 +4971,12 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 			
 		if ($TempGPOsWhocanmodify) {
-			$TempGPOsWhocanmodify | Sort-Object Domain,"Policy Name","Who can edit" | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$TempGPOsWhocanmodify | Sort-Object Domain,"Policy Name","Who can edit" | Format-Table -AutoSize -Wrap}
 			$HTMLGPOsWhocanmodify = $TempGPOsWhocanmodify | Sort-Object Domain,"Policy Name","Who can edit" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='GPOsWhocanmodify'>Who can modify existing GPOs</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='GPOsWhocanmodify'>" }
 		}
 
         Write-Host ""
-		Write-Host "Who can link GPOs:" -ForegroundColor Cyan
+		Write-Host "Who can link GPOs" -ForegroundColor Cyan
 		$TempGpoLinkResults = foreach ($AllDomain in $AllDomains) {
 			
 			# Retrieve the GUID to Name mapping
@@ -5052,7 +5056,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 		
 		if ($TempGpoLinkResults) {
-			$TempGpoLinkResults | Sort-Object Domain,"Who can link","Object DN" | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$TempGpoLinkResults | Sort-Object Domain,"Who can link","Object DN" | Format-Table -AutoSize -Wrap}
 			$HTMLGpoLinkResults = $TempGpoLinkResults | Sort-Object Domain,"Who can link","Object DN" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='GpoLinkResults'>Who can link GPOs</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='GpoLinkResults'>" }
 		}
 
@@ -5065,7 +5069,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	if($NoLAPS){}
 	else{
 		Write-Host ""
-		Write-Host "LAPS GPOs:" -ForegroundColor Cyan
+		Write-Host "LAPS GPOs" -ForegroundColor Cyan
 		$TempLAPSGPOs = foreach ($AllDomain in $AllDomains) {
 			$LAPSGPOs = @($AllCollectedGPOs | Where-Object { $_.domain -eq $AllDomain -AND $_.DisplayName -like "*laps*" })
 			foreach ($LAPSGPO in $LAPSGPOs) {
@@ -5103,12 +5107,12 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 		
 		if ($TempLAPSGPOs) {
-			$TempLAPSGPOs | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$TempLAPSGPOs | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap}
 			$HTMLLAPSGPOs = $TempLAPSGPOs | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='LAPSGPOs'>LAPS GPOs</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='LAPSGPOs'>" }
 		}
 		
 		Write-Host ""
-		Write-Host "Other GPOs where a LAPS Admin seems to be set:" -ForegroundColor Cyan
+		Write-Host "Other GPOs where a LAPS Admin seems to be set" -ForegroundColor Cyan
 		$TempLAPSAdminGPOs = foreach ($AllDomain in $AllDomains) {
 			$LAPSAdminGPOs = @($AllCollectedGPOs | Where-Object { $_.domain -eq $AllDomain -AND $_.DisplayName -notlike "*laps*" })
 			foreach ($LAPSGPO in $LAPSAdminGPOs) {
@@ -5147,7 +5151,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 		
 		if ($TempLAPSAdminGPOs | Where-Object {$_."LAPS Admin"}) {
-			$TempLAPSAdminGPOs | Where-Object {$_."LAPS Admin"} | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$TempLAPSAdminGPOs | Where-Object {$_."LAPS Admin"} | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap}
 			$HTMLLAPSAdminGPOs = $TempLAPSAdminGPOs | Where-Object {$_."LAPS Admin"} | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='LAPSAdminGPOs'>Other GPOs where a LAPS Admin seems to be set</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='LAPSAdminGPOs'>" }
 		}
 
@@ -5157,7 +5161,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			Add-Type -AssemblyName System.DirectoryServices
 
 			Write-Host ""
-			Write-Host "Who can read LAPS:" -ForegroundColor Cyan
+			Write-Host "Who can read LAPS" -ForegroundColor Cyan
 			$TempLAPSCanRead = foreach ($AllDomain in $AllDomains) {
 				
 				# Retrieve the GUID to Name mapping
@@ -5216,7 +5220,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			}
 			
 			if ($TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null}) {
-				$TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | Sort-Object Domain,"Delegated Groups","Target OU" | Format-Table -AutoSize -Wrap
+				if(!$NoOutput){$TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | Sort-Object Domain,"Delegated Groups","Target OU" | Format-Table -AutoSize -Wrap}
 				$HTMLLAPSCanRead = $TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null} | Sort-Object Domain,"Delegated Groups","Target OU" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='LAPSCanRead'>Who can read LAPS</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='LAPSCanRead'>" }
 			}
   		}
@@ -5227,7 +5231,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			Add-Type -AssemblyName System.DirectoryServices
 			
 			Write-Host ""
-			Write-Host "LAPS Extended Rights:" -ForegroundColor Cyan
+			Write-Host "LAPS Extended Rights" -ForegroundColor Cyan
 			
 			$TempLAPSExtended = foreach ($AllDomain in $AllDomains) {
 				
@@ -5292,7 +5296,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			}
 			
 			if ($TempLAPSExtended) {
-				$TempLAPSExtended | Sort-Object Domain,"Computer Name","Identity" | Format-Table -AutoSize -Wrap
+				if(!$NoOutput){$TempLAPSExtended | Sort-Object Domain,"Computer Name","Identity" | Format-Table -AutoSize -Wrap}
 				$HTMLLAPSExtended = $TempLAPSExtended | Sort-Object Domain,"Computer Name","Identity" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='LAPSExtended'>LAPS Extended Rights</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='LAPSExtended'>" }
 			}
   		}
@@ -5300,7 +5304,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		if($LAPSComputers -OR ($AllEnum -AND $Force)){
 
 			Write-Host ""
-			Write-Host "Computer objects where LAPS is enabled:" -ForegroundColor Cyan
+			Write-Host "Computer objects where LAPS is enabled" -ForegroundColor Cyan
 			$TempLapsEnabledComputers = foreach ($AllDomain in $AllDomains) {
 				$LapsEnabledComputers = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $_."ms-Mcs-AdmPwdExpirationTime" -ne $null})
 				foreach ($LapsEnabledComputer in $LapsEnabledComputers) {
@@ -5317,7 +5321,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			}
 			
 			if ($TempLapsEnabledComputers) {
-				$TempLapsEnabledComputers | Sort-Object Domain,"Name" | Format-Table -AutoSize -Wrap
+				if(!$NoOutput){$TempLapsEnabledComputers | Sort-Object Domain,"Name" | Format-Table -AutoSize -Wrap}
 				$HTMLLapsEnabledComputers = $TempLapsEnabledComputers | Sort-Object Domain,"Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='LapsEnabledComputers'>Computer objects where LAPS is enabled</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='LapsEnabledComputers'>" }
 			}
 		}
@@ -5331,7 +5335,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	if($NoAppLocker){}
 	else{
 		Write-Host ""
-		Write-Host "AppLocker GPOs:" -ForegroundColor Cyan
+		Write-Host "AppLocker GPOs" -ForegroundColor Cyan
 		$TempAppLockerGPOs = foreach ($AllDomain in $AllDomains) {
 			$AppLockerGPOs = @($AllCollectedGPOs | Where-Object { $_.domain -eq $AllDomain -AND $_.DisplayName -like "*AppLocker*" })
 			foreach ($AppLockerGPO in $AppLockerGPOs) {
@@ -5344,7 +5348,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 		
 		if ($TempAppLockerGPOs) {
-			$TempAppLockerGPOs | Sort-Object Domain,"Display Name" | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$TempAppLockerGPOs | Sort-Object Domain,"Display Name" | Format-Table -AutoSize -Wrap}
 			$HTMLAppLockerGPOs = $TempAppLockerGPOs | Sort-Object Domain,"Display Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='AppLockerGPOs'>AppLocker GPOs</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='AppLockerGPOs'>" }
 		}
 	}
@@ -5355,7 +5359,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	
 	if($MoreGPOs -OR $AllEnum -OR $Recommended){
         Write-Host ""
-		Write-Host "GPOs that modify local group memberships:" -ForegroundColor Cyan
+		Write-Host "GPOs that modify local group memberships" -ForegroundColor Cyan
 		
 		# Loop through each relevant GPO
 		$TempGPOLocalGroupsMembership = foreach($AllDomain in $AllDomains){
@@ -5458,7 +5462,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 		
 		if ($TempGPOLocalGroupsMembership) {
-			$TempGPOLocalGroupsMembership | Sort-Object -Unique "Domain", "GPO Display Name", "User/Group Name" | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$TempGPOLocalGroupsMembership | Sort-Object -Unique "Domain", "GPO Display Name", "User/Group Name" | Format-Table -AutoSize -Wrap}
 			$HTMLGPOLocalGroupsMembership = $TempGPOLocalGroupsMembership | Sort-Object -Unique "Domain", "GPO Display Name", "User/Group Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='GPOLocalGroupsMembership'>GPOs that modify local group memberships</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='GPOLocalGroupsMembership'>" }
 		}
     }
@@ -5477,7 +5481,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	####################################################
 	
 	Write-Host ""
-	Write-Host "Unconstrained Delegation:" -ForegroundColor Cyan
+	Write-Host "Unconstrained Delegation" -ForegroundColor Cyan
 	$TempUnconstrained = foreach ($AllDomain in $AllDomains) {
 		#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 		$Unconstrained = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $TotalDomainControllers.dnshostname -notcontains $_.dnshostname -AND $_.userAccountControl -band 524288 })
@@ -5498,7 +5502,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	}
 
 	if ($TempUnconstrained) {
-		$TempUnconstrained | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+		if(!$NoOutput){$TempUnconstrained | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap}
 		$HTMLUnconstrained = $TempUnconstrained | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='Unconstrained'>Unconstrained Delegation</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='Unconstrained'>" }
 
 		$UnconstrainedTable = [PSCustomObject]@{
@@ -5519,7 +5523,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		#############################################################
 	
 	    Write-Host ""
-		Write-Host "Constrained Delegation (Computers):" -ForegroundColor Cyan
+		Write-Host "Constrained Delegation (Computers)" -ForegroundColor Cyan
 		$TempConstrainedDelegationComputers = foreach ($AllDomain in $AllDomains) {
 			#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 			$ConstrainedDelegationComputers = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $_."msds-allowedtodelegateto"})
@@ -5541,7 +5545,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
   		if ($TempConstrainedDelegationComputers) {
-			$TempConstrainedDelegationComputers | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$TempConstrainedDelegationComputers | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap}
 			$HTMLConstrainedDelegationComputers = $TempConstrainedDelegationComputers | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ConstrainedDelegationComputers'>Constrained Delegation (Computers)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ConstrainedDelegationComputers'>" }
 
    			$ConstrainedDelegationComputersTable = [PSCustomObject]@{
@@ -5559,7 +5563,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		#########################################################
 	
 	    Write-Host ""
-		Write-Host "Constrained Delegation (Users):" -ForegroundColor Cyan
+		Write-Host "Constrained Delegation (Users)" -ForegroundColor Cyan
 		$TempConstrainedDelegationUsers = foreach ($AllDomain in $AllDomains) {
 			$ConstrainedDelegationUsers = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_."msds-allowedtodelegateto"})
 			foreach ($ConstrainedDelegationUser in $ConstrainedDelegationUsers) {
@@ -5579,7 +5583,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
   		if ($TempConstrainedDelegationUsers) {
-			$TempConstrainedDelegationUsers | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$TempConstrainedDelegationUsers | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap}
 			$HTMLConstrainedDelegationUsers = $TempConstrainedDelegationUsers | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ConstrainedDelegationUsers'>Constrained Delegation (Users)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ConstrainedDelegationUsers'>" }
 
    			$ConstrainedDelegationUsersTable = [PSCustomObject]@{
@@ -5598,7 +5602,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	    
 		if($RBCD -OR $AllEnum){
 	  		Write-Host ""
-			Write-Host "Resource Based Constrained Delegation:" -ForegroundColor Cyan
+			Write-Host "Resource Based Constrained Delegation" -ForegroundColor Cyan
 			$ExcludedAccounts = "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions|SELF|SYSTEM|Domain Admins|Enterprise|CREATOR OWNER|BUILTIN|Key Admins|MSOL"
 			$PlusExcludedAccounts = @($DAEABA | Where-Object{$_.domain -eq $AllDomain})
 			$PlusExcludedAccounts = ($PlusExcludedAccounts | Where-Object {$_.samaccountname}).samaccountname -join "|"
@@ -5684,7 +5688,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			}
 
    			if ($RBACDObjects) {
-				$RBACDObjects | Sort-Object Domain,Account,"Computer Object" | Format-Table -AutoSize -Wrap
+				if(!$NoOutput){$RBACDObjects | Sort-Object Domain,Account,"Computer Object" | Format-Table -AutoSize -Wrap}
 				$HTMLRBACDObjects = $RBACDObjects | Sort-Object Domain,Account,"Computer Object" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='RBCDObjects'>Resource Based Constrained Delegation</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='RBCDObjects'>" }
 
     				$RBCDTable = [PSCustomObject]@{
@@ -5703,7 +5707,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		
 		if($UserCreatedObjects -OR $AllEnum){
 			Write-Host ""
-			Write-Host "Computers Objects created by regular users:" -ForegroundColor Cyan
+			Write-Host "Computers Objects created by regular users" -ForegroundColor Cyan
 			$ADComputersCreated = foreach ($AllDomain in $AllDomains) {
 				
 				#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
@@ -5734,7 +5738,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			}
 		
 			if ($ADComputersCreated) {
-				$ADComputersCreated | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+				if(!$NoOutput){$ADComputersCreated | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap}
 				$HTMLADComputersCreated = $ADComputersCreated | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='UserCreatedObjects'>Computers Objects created by regular users</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='UserCreatedObjects'>" }
 		
 				$ADComputersCreatedTable = [PSCustomObject]@{
@@ -5768,7 +5772,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		####################################################
 
 		Write-Host ""
-		Write-Host "Account Operators:" -ForegroundColor Cyan
+		Write-Host "Account Operators" -ForegroundColor Cyan
 		$TempAccountOperators = @()
 		$TempAccountOperators = foreach ($AllDomain in $AllDomains) {
 			$AccountOperators = @()
@@ -5821,7 +5825,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
 		if ($TempAccountOperators) {
-			$TempAccountOperators | Sort-Object -Unique "Group Domain","Name","Member SID" | ft -Autosize -Wrap
+			if(!$NoOutput){$TempAccountOperators | Sort-Object -Unique "Group Domain","Name","Member SID" | ft -Autosize -Wrap}
 			$HTMLAccountOperators = $TempAccountOperators | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='AccountOperators'>Account Operators</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='AccountOperators'>" }
 		}
 		
@@ -5830,7 +5834,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		####################################################
 		
 		Write-Host ""
-		Write-Host "Backup Operators:" -ForegroundColor Cyan
+		Write-Host "Backup Operators" -ForegroundColor Cyan
 		$TempBackupOperators = @()
 		$TempBackupOperators = foreach ($AllDomain in $AllDomains) {
 			$BackupOperators = @()
@@ -5867,7 +5871,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
 		if ($TempBackupOperators) {
-			$TempBackupOperators | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap
+			if(!$NoOutput){$TempBackupOperators | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
 			$HTMLBackupOperators = $TempBackupOperators | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='BackupOperators'>Backup Operators</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='BackupOperators'>" }
 		}
 		
@@ -5876,7 +5880,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		####################################################
 		
 		Write-Host ""
-		Write-Host "Cert Publishers:" -ForegroundColor Cyan
+		Write-Host "Cert Publishers" -ForegroundColor Cyan
 		$TempCertPublishersGroup = @()
 		$TempCertPublishersGroup = foreach ($AllDomain in $AllDomains) {
 			$CertPublishers = @()
@@ -5929,7 +5933,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
 		if ($TempCertPublishersGroup) {
-			$TempCertPublishersGroup | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap
+			if(!$NoOutput){$TempCertPublishersGroup | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
 			$HTMLCertPublishersGroup = $TempCertPublishersGroup | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='CertPublishers'>Cert Publishers</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='CertPublishers'>" }
 		}
 		
@@ -5938,7 +5942,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		####################################################
 		
 		Write-Host ""
-		Write-Host "Distributed COM Users:" -ForegroundColor Cyan
+		Write-Host "Distributed COM Users" -ForegroundColor Cyan
 		$TempDCOMUsers = @()
 		$TempDCOMUsers = foreach ($AllDomain in $AllDomains) {
 			$DCOMUsers = @()
@@ -5974,7 +5978,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
 		if ($TempDCOMUsers) {
-			$TempDCOMUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap
+			if(!$NoOutput){$TempDCOMUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
 			$HTMLDCOMUsers = $TempDCOMUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DCOMUsers'>Distributed COM Users</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DCOMUsers'>" }
 		}
 		
@@ -5983,7 +5987,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		####################################################
 		
 		Write-Host ""
-		Write-Host "DNS Admins:" -ForegroundColor Cyan
+		Write-Host "DNS Admins" -ForegroundColor Cyan
 		$TempDNSAdmins = @()
 		$TempDNSAdmins = foreach ($AllDomain in $AllDomains) {
 			$DNSAdmins = @()
@@ -6019,7 +6023,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
 		if ($TempDNSAdmins) {
-			$TempDNSAdmins | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap
+			if(!$NoOutput){$TempDNSAdmins | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
 			$HTMLDNSAdmins = $TempDNSAdmins | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DNSAdmins'>DNS Admins</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DNSAdmins'>" }
 		}
 		
@@ -6028,7 +6032,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		####################################################
 		
 		Write-Host ""
-		Write-Host "Enterprise Key Admins:" -ForegroundColor Cyan
+		Write-Host "Enterprise Key Admins" -ForegroundColor Cyan
 		$TempEnterpriseKeyAdmins = @()
 		$TempEnterpriseKeyAdmins = foreach ($AllDomain in $AllDomains) {
 			$EnterpriseKeyAdmins = @()
@@ -6072,7 +6076,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
 		if ($TempEnterpriseKeyAdmins) {
-			$TempEnterpriseKeyAdmins | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap
+			if(!$NoOutput){$TempEnterpriseKeyAdmins | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
 			$HTMLEnterpriseKeyAdmins = $TempEnterpriseKeyAdmins | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='EnterpriseKeyAdmins'>Enterprise Key Admins</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='EnterpriseKeyAdmins'>" }
 		}
 		
@@ -6081,7 +6085,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		####################################################
 		
 		Write-Host ""
-		Write-Host "Enterprise Read-Only Domain Controllers:" -ForegroundColor Cyan
+		Write-Host "Enterprise Read-Only Domain Controllers" -ForegroundColor Cyan
 		$TempEnterpriseRODCs = @()
 		$TempEnterpriseRODCs = foreach ($AllDomain in $AllDomains) {
 			$EnterpriseRODCs = @()
@@ -6117,7 +6121,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
 		if ($TempEnterpriseRODCs) {
-			$TempEnterpriseRODCs | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap
+			if(!$NoOutput){$TempEnterpriseRODCs | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
 			$HTMLEnterpriseRODCs = $TempEnterpriseRODCs | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='EnterpriseRODCs'>Enterprise Read-Only Domain Controllers</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='EnterpriseRODCs'>" }
 		}
 
@@ -6127,7 +6131,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		####################################################
 		
 		Write-Host ""
-		Write-Host "Group Policy Creator Owners:" -ForegroundColor Cyan
+		Write-Host "Group Policy Creator Owners" -ForegroundColor Cyan
 		$TempGPCreatorOwners = @()
 		$TempGPCreatorOwners = foreach ($AllDomain in $AllDomains) {
 			$GPCreatorOwners = @()
@@ -6163,7 +6167,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
 		if ($TempGPCreatorOwners) {
-			$TempGPCreatorOwners | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap
+			if(!$NoOutput){$TempGPCreatorOwners | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
 			$HTMLGPCreatorOwners = $TempGPCreatorOwners | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='GPCreatorOwners'>Group Policy Creator Owners</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='GPCreatorOwners'>" }
 		}
 
@@ -6172,7 +6176,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		####################################################
 		
 		Write-Host ""
-		Write-Host "Key Admins:" -ForegroundColor Cyan
+		Write-Host "Key Admins" -ForegroundColor Cyan
 		$TempKeyAdmins = @()
 		$TempKeyAdmins = foreach ($AllDomain in $AllDomains) {
 			$KeyAdmins = @()
@@ -6225,7 +6229,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
 		if ($TempKeyAdmins) {
-			$TempKeyAdmins | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap
+			if(!$NoOutput){$TempKeyAdmins | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
 			$HTMLKeyAdmins = $TempKeyAdmins | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='KeyAdmins'>Key Admins</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='KeyAdmins'>" }
 		}
 		
@@ -6234,7 +6238,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		####################################################
 		
 		Write-Host ""
-		Write-Host "Organization Management:" -ForegroundColor Cyan
+		Write-Host "Organization Management" -ForegroundColor Cyan
 		$TempOrganizationManagement = @()
 		$TempOrganizationManagement = foreach ($AllDomain in $AllDomains) {
 			$OrganizationManagement = @()
@@ -6270,7 +6274,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
 		if ($TempOrganizationManagement) {
-			$TempOrganizationManagement | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap
+			if(!$NoOutput){$TempOrganizationManagement | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
 			$HTMLOrganizationManagement = $TempOrganizationManagement | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='OrganizationManagement'>Organization Management</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='OrganizationManagement'>" }
 		}
 		
@@ -6279,7 +6283,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		####################################################
 		
 		Write-Host ""
-		Write-Host "Performance Log Users:" -ForegroundColor Cyan
+		Write-Host "Performance Log Users" -ForegroundColor Cyan
 		$TempPerformanceLogUsers = @()
 		$TempPerformanceLogUsers = foreach ($AllDomain in $AllDomains) {
 			$PerformanceLogUsers = @()
@@ -6315,7 +6319,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
 		if ($TempPerformanceLogUsers) {
-			$TempPerformanceLogUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap
+			if(!$NoOutput){$TempPerformanceLogUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
 			$HTMLPerformanceLogUsers = $TempPerformanceLogUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='PerformanceLogUsers'>Performance Log Users</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='PerformanceLogUsers'>" }
 		}
 		
@@ -6324,7 +6328,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		####################################################
 		
 		Write-Host ""
-		Write-Host "Print Operators:" -ForegroundColor Cyan
+		Write-Host "Print Operators" -ForegroundColor Cyan
 		$TempPrintOperators = @()
 		$TempPrintOperators = foreach ($AllDomain in $AllDomains) {
 			$PrintOperators = @()
@@ -6360,7 +6364,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
 		if ($TempPrintOperators) {
-			$TempPrintOperators | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap
+			if(!$NoOutput){$TempPrintOperators | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
 			$HTMLPrintOperators = $TempPrintOperators | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='PrintOperators'>Print Operators</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='PrintOperators'>" }
 		}
 		
@@ -6369,7 +6373,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		####################################################
 		
 		Write-Host ""
-		Write-Host "Protected Users:" -ForegroundColor Cyan
+		Write-Host "Protected Users" -ForegroundColor Cyan
 		$TempProtectedUsers = @()
 		$TempProtectedUsers = foreach ($AllDomain in $AllDomains) {
 			$ProtectedUsers = @()
@@ -6422,7 +6426,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
 		if ($TempProtectedUsers) {
-			$TempProtectedUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap
+			if(!$NoOutput){$TempProtectedUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
 			$HTMLProtectedUsers = $TempProtectedUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ProtectedUsers'>Protected Users</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ProtectedUsers'>" }
 		}
 
@@ -6432,7 +6436,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		####################################################
 		
 		Write-Host ""
-		Write-Host "Read-Only Domain Controllers:" -ForegroundColor Cyan
+		Write-Host "Read-Only Domain Controllers" -ForegroundColor Cyan
 		$TempRODCs = @()
 		$TempRODCs = foreach ($AllDomain in $AllDomains) {
 			$RODCs = @()
@@ -6468,7 +6472,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
 		if ($TempRODCs) {
-			$TempRODCs | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap
+			if(!$NoOutput){$TempRODCs | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
 			$HTMLRODCs = $TempRODCs | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='RODCs'>Read-Only Domain Controllers</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='RODCs'>" }
 		}
 		
@@ -6477,7 +6481,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		####################################################
 		
 		Write-Host ""
-		Write-Host "Remote Desktop Users:" -ForegroundColor Cyan
+		Write-Host "Remote Desktop Users" -ForegroundColor Cyan
 		$TempRDPUsers = @()
 		$TempRDPUsers = foreach ($AllDomain in $AllDomains) {
 			$RDPUsers = @()
@@ -6513,7 +6517,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
 		if ($TempRDPUsers) {
-			$TempRDPUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap
+			if(!$NoOutput){$TempRDPUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
 			$HTMLRDPUsers = $TempRDPUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='RDPUsers'>Remote Desktop Users</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='RDPUsers'>" }
 		}
 		
@@ -6522,7 +6526,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		####################################################
 		
 		Write-Host ""
-		Write-Host "Remote Management Users:" -ForegroundColor Cyan
+		Write-Host "Remote Management Users" -ForegroundColor Cyan
 		$TempRemManUsers = @()
 		$TempRemManUsers = foreach ($AllDomain in $AllDomains) {
 			$RemManUsers = @()
@@ -6558,7 +6562,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
 		if ($TempRemManUsers) {
-			$TempRemManUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap
+			if(!$NoOutput){$TempRemManUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
 			$HTMLRemManUsers = $TempRemManUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='RemManUsers'>Remote Management Users</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='RemManUsers'>" }
 		}
 		
@@ -6567,7 +6571,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		####################################################
 		
 		Write-Host ""
-		Write-Host "Schema Admins:" -ForegroundColor Cyan
+		Write-Host "Schema Admins" -ForegroundColor Cyan
 		$TempSchemaAdmins = @()
 		$TempSchemaAdmins = foreach ($AllDomain in $AllDomains) {
 			$SchemaAdmins = @()
@@ -6615,7 +6619,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
 		if ($TempSchemaAdmins) {
-			$TempSchemaAdmins | Sort-Object -Unique "Group Domain","Name","Member SID" | ft -Autosize -Wrap
+			if(!$NoOutput){$TempSchemaAdmins | Sort-Object -Unique "Group Domain","Name","Member SID" | ft -Autosize -Wrap}
 			$HTMLSchemaAdmins = $TempSchemaAdmins | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='SchemaAdmins'>Schema Admins</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='SchemaAdmins'>" }
 		}
 		
@@ -6624,7 +6628,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		####################################################
 		
 		Write-Host ""
-		Write-Host "Server Operators:" -ForegroundColor Cyan
+		Write-Host "Server Operators" -ForegroundColor Cyan
 		$TempServerOperators = @()
 		$TempServerOperators = foreach ($AllDomain in $AllDomains) {
 			$ServerOperators = @()
@@ -6668,7 +6672,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
 		if ($TempServerOperators) {
-			$TempServerOperators | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap
+			if(!$NoOutput){$TempServerOperators | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
 			$HTMLServerOperators = $TempServerOperators | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ServerOperators'>Server Operators</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ServerOperators'>" }
 		}
 
@@ -6690,7 +6694,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		############################################################
 
 		Write-Host ""
-		Write-Host "Interesting Servers (by Keyword):" -ForegroundColor Cyan
+		Write-Host "Interesting Servers (by Keyword)" -ForegroundColor Cyan
 		$TempInterestingServersEnabled = foreach ($AllDomain in $AllDomains) {
 			$InterestingServers = @()
 			foreach($Keyword in $Keywords){$InterestingServers += $TotalEnabledMachines | Where-Object { $_.domain -eq $AllDomain -AND $_.operatingsystem -like "*Server*" -AND $_.samaccountname -like "*$Keyword*" }}
@@ -6712,7 +6716,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
 		if ($TempInterestingServersEnabled) {
-			$TempInterestingServersEnabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$TempInterestingServersEnabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap}
 			$HTMLInterestingServersEnabled = $TempInterestingServersEnabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='InterestingServersEnabled'>Interesting Servers (by Keyword)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='InterestingServersEnabled'>" }
 		}
 
@@ -6721,7 +6725,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		#######################################
 			
 		Write-Host ""
-		Write-Host "Interesting GPOs (by Keyword):" -ForegroundColor Cyan
+		Write-Host "Interesting GPOs (by Keyword)" -ForegroundColor Cyan
 		$TempKeywordDomainGPOs = foreach ($AllDomain in $AllDomains) {
 			$GetAllGPOsFirst = @($AllCollectedGPOs | Where-Object { $_.domain -eq $AllDomain })
 			foreach($Keyword in $Keywords){
@@ -6738,7 +6742,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
 		if ($TempKeywordDomainGPOs) {
-			$TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | Format-Table -AutoSize -Wrap}
 			$HTMLKeywordDomainGPOs = $TempKeywordDomainGPOs | Sort-Object Domain,Keyword,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='KeywordDomainGPOs'>Interesting GPOs (by Keyword)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='KeywordDomainGPOs'>" }
 		}
 		
@@ -6747,7 +6751,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		#########################################
 		
 		Write-Host ""
-		Write-Host "Interesting Groups (by Keyword):" -ForegroundColor Cyan
+		Write-Host "Interesting Groups (by Keyword)" -ForegroundColor Cyan
 		$TempGroupsByKeyword = foreach ($AllDomain in $AllDomains) {
 			$findallgroupsfirst = @($TotalGroups | Where-Object { $_.domain -eq $AllDomain })
 			foreach ($Keyword in $Keywords) {
@@ -6764,7 +6768,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
 		if ($TempGroupsByKeyword) {
-			$TempGroupsByKeyword | Sort-Object Domain,Keyword,"Group Name" | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$TempGroupsByKeyword | Sort-Object Domain,Keyword,"Group Name" | Format-Table -AutoSize -Wrap}
 			$HTMLGroupsByKeyword = $TempGroupsByKeyword | Sort-Object Domain,Keyword,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='GroupsByKeyword'>Interesting Groups (by Keyword)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='GroupsByKeyword'>" }
 		}
 		
@@ -6773,7 +6777,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		#############################################
 		
 		Write-Host ""
-		Write-Host "Interesting OUs (by Keyword):" -ForegroundColor Cyan
+		Write-Host "Interesting OUs (by Keyword)" -ForegroundColor Cyan
 
 		$TempDomainOUsByKeyword = foreach($AllDomain in $AllDomains){
 			$GetAllOUsFirst = @($AllCollectedOUs | Where-Object {$_.domain -eq $AllDomain})
@@ -6791,12 +6795,12 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
 		if($TempDomainOUsByKeyword) {
-			$TempDomainOUsByKeyword | Sort-Object Domain,Keyword,Name | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$TempDomainOUsByKeyword | Sort-Object Domain,Keyword,Name | Format-Table -AutoSize -Wrap}
 			$HTMLDomainOUsByKeyword = $TempDomainOUsByKeyword | Sort-Object Domain,Keyword,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DomainOUsByKeyword'>Interesting OUs (by Keyword)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DomainOUsByKeyword'>" }
 		}
 	}
 	
-	if(!$NoServers -OR $Workstations -OR $AllEnum -OR $DomainUsers -OR $AllGroups -OR $AllGPOs -OR $DomainOUs -OR $AllDescriptions -OR $Recommended){
+	if(!$NoServers -OR $Workstations -OR $AllEnum -OR $DomainUsers -OR $AllGroups -OR $AllGPOs -OR $DomainOUs -OR $AllDescriptions){
 		################################################
 		######### Domain Object Insights ###############
 		################################################
@@ -6814,7 +6818,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
     if($NoServers){}
     else{
         Write-Host ""
-		Write-Host "Servers (Enabled):" -ForegroundColor Cyan
+		Write-Host "Servers (Enabled)" -ForegroundColor Cyan
 		$TempServersEnabled = foreach ($AllDomain in $AllDomains) {
 			$ComputerServers = @($TotalEnabledServers | Where-Object {$_.domain -eq $AllDomain})
 			foreach ($ComputerServer in $ComputerServers) {
@@ -6834,7 +6838,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
   		if ($TempServersEnabled) {
-			$TempServersEnabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$TempServersEnabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap}
 			$HTMLServersEnabled = $TempServersEnabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ServersEnabled'>Servers (Enabled)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ServersEnabled'>" }
 		}
     }
@@ -6846,7 +6850,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
     if($NoServers){}
     else{
         Write-Host ""
-		Write-Host "Servers (Disabled):" -ForegroundColor Cyan
+		Write-Host "Servers (Disabled)" -ForegroundColor Cyan
 		$TempServersDisabled = foreach ($AllDomain in $AllDomains) {
 			$ComputerServers = @($TotalDisabledServers | Where-Object {$_.domain -eq $AllDomain})
 			foreach ($ComputerServer in $ComputerServers) {
@@ -6866,7 +6870,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
     	if ($TempServersDisabled) {
-			$TempServersDisabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$TempServersDisabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap}
 			$HTMLServersDisabled = $TempServersDisabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ServersDisabled'>Servers (Disabled)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ServersDisabled'>" }
 		}
     } #>
@@ -6877,7 +6881,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	
 	if($Workstations -OR $AllEnum){
         Write-Host ""
-		Write-Host "Workstations (Enabled):" -ForegroundColor Cyan
+		Write-Host "Workstations (Enabled)" -ForegroundColor Cyan
 		$TempWorkstationsEnabled = foreach ($AllDomain in $AllDomains) {
 			$AllWorkstations = @($TotalEnabledWorkstations | Where-Object {$_.domain -eq $AllDomain})
 			foreach ($Workstation in $AllWorkstations) {
@@ -6897,7 +6901,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
   		if ($TempWorkstationsEnabled) {
-			$TempWorkstationsEnabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$TempWorkstationsEnabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap}
 			$HTMLWorkstationsEnabled = $TempWorkstationsEnabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='WorkstationsEnabled'>Workstations (Enabled)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='WorkstationsEnabled'>" }
 		}
 
@@ -6909,7 +6913,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	
 	if($Workstations -OR $AllEnum){
         Write-Host ""
-		Write-Host "Workstations (Disabled):" -ForegroundColor Cyan
+		Write-Host "Workstations (Disabled)" -ForegroundColor Cyan
 		$TempWorkstationsDisabled = foreach ($AllDomain in $AllDomains) {
 			$AllWorkstations = @($TotalDisabledWorkstations | Where-Object {$_.domain -eq $AllDomain})
 			foreach ($Workstation in $AllWorkstations) {
@@ -6929,7 +6933,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
     	if ($TempWorkstationsDisabled) {
-			$TempWorkstationsDisabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$TempWorkstationsDisabled | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap}
 			$HTMLWorkstationsDisabled = $TempWorkstationsDisabled | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='WorkstationsDisabled'>Workstations (Disabled)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='WorkstationsDisabled'>" }
 		}
     } #>
@@ -6940,7 +6944,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	
 	if ($DomainUsers -OR $AllEnum){
 		Write-Host ""
-		Write-Host "Users (Enabled):" -ForegroundColor Cyan
+		Write-Host "Users (Enabled)" -ForegroundColor Cyan
 		
 		$TempEnabledUsers = foreach ($AllDomain in $AllDomains) {
 			$EnabledUsers = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain})
@@ -6959,7 +6963,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
   		if ($TempEnabledUsers) {
-			$TempEnabledUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$TempEnabledUsers | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap}
 			$HTMLEnabledUsers = $TempEnabledUsers | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='EnabledUsers'>Users (Enabled)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='EnabledUsers'>" }
 		}
 	}
@@ -6971,7 +6975,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	
 	if ($DomainUsers -OR $AllEnum){
 		Write-Host ""
-		Write-Host "Users (Disabled):" -ForegroundColor Cyan
+		Write-Host "Users (Disabled)" -ForegroundColor Cyan
 		
 		$TempDisabledUsers = foreach ($AllDomain in $AllDomains) {
 			$DisabledUsers = @($TotalDisabledUsers | Where-Object {$_.domain -eq $AllDomain})
@@ -6990,7 +6994,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
   		if ($TempDisabledUsers | Where-Object {$_."User Name" -ne "krbtgt"}) {
-			$TempDisabledUsers | Where-Object {$_."User Name" -ne "krbtgt"} | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$TempDisabledUsers | Where-Object {$_."User Name" -ne "krbtgt"} | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap}
 			$HTMLDisabledUsers = $TempDisabledUsers | Where-Object {$_."User Name" -ne "krbtgt"} | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DisabledUsers'>Users (Disabled)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DisabledUsers'>" }
 		}
 	} #>
@@ -7001,7 +7005,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	
 	if($AllGroups -OR $AllEnum){
 		Write-Host ""
-		Write-Host "All Groups:" -ForegroundColor Cyan
+		Write-Host "All Groups" -ForegroundColor Cyan
 		$TempOtherGroups = foreach ($AllDomain in $AllDomains) {
 			$OtherGroups = @($TotalGroups | Where-Object {$_.domain -eq $AllDomain})
 			foreach ($OtherGroup in $OtherGroups) {
@@ -7050,7 +7054,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
   		if ($TempOtherGroups | Where-Object {$_."Group Name"}) {
-			$TempOtherGroups | Where-Object {$_."Group Name"} | Sort-Object Domain,"Group Name" | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$TempOtherGroups | Where-Object {$_."Group Name"} | Sort-Object Domain,"Group Name" | Format-Table -AutoSize -Wrap}
 			$HTMLOtherGroups = $TempOtherGroups | Where-Object {$_."Group Name"} | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='OtherGroups'>All Groups</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='OtherGroups'>" }
 		}
 	}
@@ -7061,7 +7065,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	
 	if($AllGPOs -OR $AllEnum){
         Write-Host ""
-		Write-Host "All Domain GPOs:" -ForegroundColor Cyan
+		Write-Host "All Domain GPOs" -ForegroundColor Cyan
 		$TempDomainGPOs = foreach ($AllDomain in $AllDomains) {
 			$DomainGPOs = @($AllCollectedGPOs | Where-Object { $_.domain -eq $AllDomain })
 			foreach ($DomainGPO in $DomainGPOs) {
@@ -7078,7 +7082,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
   		if ($TempDomainGPOs) {
-			$TempDomainGPOs | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$TempDomainGPOs | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap}
 			$HTMLDomainGPOs = $TempDomainGPOs | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DomainGPOs'>All Domain GPOs</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DomainGPOs'>" }
 		}
 	}
@@ -7089,7 +7093,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	
 	if($DomainOUs -OR $AllEnum){
 		Write-Host ""
-		Write-Host "All Domain OUs:" -ForegroundColor Cyan
+		Write-Host "All Domain OUs" -ForegroundColor Cyan
 		$TempAllDomainOUs = @()
 		$TempAllDomainOUs = foreach($AllDomain in $AllDomains){
 			$CollectOUs = @($AllCollectedOUs | Where-Object { $_.domain -eq $AllDomain })
@@ -7117,7 +7121,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 
   		if($TempAllDomainOUs) {
-			$TempAllDomainOUs | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap
+			if(!$NoOutput){$TempAllDomainOUs | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap}
 			$HTMLAllDomainOUs = $TempAllDomainOUs | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='AllDomainOUs'>All Domain OUs</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='AllDomainOUs'>" }
 		}
 	}
@@ -7126,9 +7130,9 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	########### All Descriptions ################
 	####################################################
 
- 	if($AllDescriptions -OR $AllEnum -OR $Recommended){
+ 	if($AllDescriptions -OR $AllEnum){
 		Write-Host ""
-		Write-Host "All Descriptions:" -ForegroundColor Cyan
+		Write-Host "All Descriptions" -ForegroundColor Cyan
 		$TempAllDescriptions = @()
 		$TempAllDescriptions = foreach ($AllDomain in $AllDomains) {
 			$Descriptions = @($SumGroupsUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.description})
@@ -7143,7 +7147,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 	
 		if ($TempAllDescriptions) {
-			$TempAllDescriptions | Sort-Object Domain,"Domain Object" | Format-Table -Autosize -Wrap
+			if(!$NoOutput){$TempAllDescriptions | Sort-Object Domain,"Domain Object" | Format-Table -Autosize -Wrap}
 			$HTMLAllDescriptions = $TempAllDescriptions | Sort-Object Domain,"Domain Object" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='AllDescriptions'>All Descriptions</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='AllDescriptions'>" }
 		}
   	}
@@ -7685,13 +7689,11 @@ function Find-LocalAdminAccess {
 
 		# WMI Check
 		if ($WMIPort) {
-			try {
-				Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName -ErrorAction Stop
-				$WMIAccess = $True
-			}
-			catch {
-				$WMIAccess = $False
-			}
+			$WMIJob = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName -ErrorAction Stop -AsJob
+			Wait-Job -ID $WMIJob.ID -Timeout 1
+			$os = Receive-Job $WMIJob.ID
+			if($os){$WMIAccess = $True}
+			else{$WMIAccess = $False}
 		}
 
 		# WinRM Check
