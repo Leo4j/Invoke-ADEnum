@@ -639,7 +639,6 @@ $xlsHeader = @'
 			createDownloadLinkForTable('GPOsWhocanmodify');
 			createDownloadLinkForTable('GpoLinkResults');
 			createDownloadLinkForTable('LAPSGPOs');
-			createDownloadLinkForTable('LAPSAdminGPOs');
 			createDownloadLinkForTable('LAPSCanRead');
 			createDownloadLinkForTable('LAPSExtended');
 			createDownloadLinkForTable('LapsEnabledComputers');
@@ -5071,38 +5070,42 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		Write-Host ""
 		Write-Host "LAPS GPOs" -ForegroundColor Cyan
 		$TempLAPSGPOs = foreach ($AllDomain in $AllDomains) {
-			$LAPSGPOs = @($AllCollectedGPOs | Where-Object { $_.domain -eq $AllDomain -AND $_.DisplayName -like "*laps*" })
+			$LAPSGPOs = @($AllCollectedGPOs | Where-Object { $_.domain -eq $AllDomain })
 			foreach ($LAPSGPO in $LAPSGPOs) {
 				
 				$LAPSGPOLocation = $LAPSGPO | select-object -ExpandProperty GPCFileSysPath
 			
 				foreach($LAPSGPOLoc in $LAPSGPOLocation){
-					$inputString = (type $LAPSGPOLoc\Machine\Registry.pol | Out-String)
+					$inputString = Get-Content $LAPSGPOLoc\Machine\Registry.pol
 					$splitString = $inputString.Substring($inputString.IndexOf('['), $inputString.LastIndexOf(']') - $inputString.IndexOf('[') + 1)
 					$splitString = ($splitString -split '\[|\]').Where{$_ -ne ''}
 					$splitString = ($splitString | Out-String) -split "`n"
 					$splitString = $splitString.Trim()
 					$splitString = $splitString | Where-Object { $_ -ne "" }
 					$splitString = $splitString | ForEach-Object {$_.Trim() -replace '[^A-Za-z0-9\s;]', ''}
-					$adminAccountRow = $splitString | Where-Object {$_ -match 'AdminAccountName'}
-					if ($adminAccountRow) {
-						$LAPSAdminresult = ($adminAccountRow -split ';')[4]
+					if($splitString | Where-Object {$_ -match 'AdmPwdEnabled'}){
+						$adminAccountRow = $splitString | Where-Object {$_ -match 'AdminAccountName'}
+						if ($adminAccountRow) {
+							$LAPSAdminresult = ($adminAccountRow -split ';')[4]
+						}
+						else{$LAPSAdminresult = "Administrator"}
+						
+						[PSCustomObject]@{
+							"GPO Name" = $LAPSGPO.DisplayName
+							"Path Name" = $LAPSGPO.Name
+							"LAPS Admin" = $LAPSAdminresult
+							"GPC File Sys Path" = $LAPSGPO.GPCFileSysPath
+							Domain = $AllDomain
+						}
+						
+						$LAPSAdminresult = $null
 					}
-					else{$LAPSAdminresult = "Administrator"}
+					
+					$inputString = $null
+					$splitString = $null
 				}
 				
-				[PSCustomObject]@{
-					"GPO Name" = $LAPSGPO.DisplayName
-					"Path Name" = $LAPSGPO.Name
-					"LAPS Admin" = $LAPSAdminresult
-					"GPC File Sys Path" = $LAPSGPO.GPCFileSysPath
-					Domain = $AllDomain
-				}
-				
-				$LAPSAdminresult = $null
 				$LAPSGPOLocation = $null
-				$inputString = $null
-				$splitString = $null
 			}
 		}
 		
@@ -5111,51 +5114,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			$HTMLLAPSGPOs = $TempLAPSGPOs | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='LAPSGPOs'>LAPS GPOs</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='LAPSGPOs'>" }
 		}
 		
-		Write-Host ""
-		Write-Host "Other GPOs where a LAPS Admin seems to be set" -ForegroundColor Cyan
-		$TempLAPSAdminGPOs = foreach ($AllDomain in $AllDomains) {
-			$LAPSAdminGPOs = @($AllCollectedGPOs | Where-Object { $_.domain -eq $AllDomain -AND $_.DisplayName -notlike "*laps*" })
-			foreach ($LAPSGPO in $LAPSAdminGPOs) {
-				
-				$LAPSGPOLocation = $LAPSGPO | select-object -ExpandProperty GPCFileSysPath
-			
-				foreach($LAPSGPOLoc in $LAPSGPOLocation){
-					if(Test-Path $LAPSGPOLoc\Machine\Registry.pol){
-						$inputString = (type $LAPSGPOLoc\Machine\Registry.pol | Out-String)
-						$splitString = $inputString.Substring($inputString.IndexOf('['), $inputString.LastIndexOf(']') - $inputString.IndexOf('[') + 1)
-						$splitString = ($splitString -split '\[|\]').Where{$_ -ne ''}
-						$splitString = ($splitString | Out-String) -split "`n"
-						$splitString = $splitString.Trim()
-						$splitString = $splitString | Where-Object { $_ -ne "" }
-						$splitString = $splitString | ForEach-Object {$_.Trim() -replace '[^A-Za-z0-9\s;]', ''}
-						$adminAccountRow = $splitString | Where-Object {$_ -match 'AdminAccountName'}
-						if ($adminAccountRow) {
-							$LAPSAdminresult = ($adminAccountRow -split ';')[4]
-						}
-					}
-				}
-				
-				[PSCustomObject]@{
-					"GPO Name" = $LAPSGPO.DisplayName
-					"Path Name" = $LAPSGPO.Name
-					"LAPS Admin" = $LAPSAdminresult
-					"GPC File Sys Path" = $LAPSGPO.GPCFileSysPath
-					Domain = $AllDomain
-				}
-				
-				$LAPSAdminresult = $null
-				$LAPSGPOLocation = $null
-				$inputString = $null
-				$splitString = $null
-			}
-		}
-		
-		if ($TempLAPSAdminGPOs | Where-Object {$_."LAPS Admin"}) {
-			if(!$NoOutput){$TempLAPSAdminGPOs | Where-Object {$_."LAPS Admin"} | Sort-Object Domain,"GPO Name" | Format-Table -AutoSize -Wrap}
-			$HTMLLAPSAdminGPOs = $TempLAPSAdminGPOs | Where-Object {$_."LAPS Admin"} | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='LAPSAdminGPOs'>Other GPOs where a LAPS Admin seems to be set</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='LAPSAdminGPOs'>" }
-		}
-
-  		if($LAPSReadRights -OR $AllEnum -OR $Recommended){
+		if($LAPSReadRights -OR $AllEnum -OR $Recommended){
 			
 			# Load the required assembly
 			Add-Type -AssemblyName System.DirectoryServices
@@ -7188,7 +7147,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	if(!$HTMLGPOCreators -AND !$HTMLGPOsWhocanmodify -AND !$HTMLGpoLinkResults -AND !$HTMLLAPSGPOs -AND !$HTMLLAPSAdminGPOs -AND !$HTMLLAPSCanRead -AND !$HTMLLAPSExtended -AND !$HTMLLapsEnabledComputers -AND !$HTMLAppLockerGPOs -AND !$HTMLGPOLocalGroupsMembership){$GroupPolicyChecksBanner = $null}
 	if(!$HTMLUnconstrained -AND !$HTMLConstrainedDelegationComputers -AND !$HTMLConstrainedDelegationUsers -AND !$HTMLRBACDObjects -AND !$HTMLADComputersCreated){$DelegationChecksBanner = $null}
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLAllForests $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLOtherPolicies $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLLLMNR $HTMLMachineQuota $HTMLMachineAccountQuotaTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLVulnLMCompLevelComp $HTMLSubnets $AdministratorsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLAdminsProtectedUsersAndSensitive $HTMLAdminsProtectedUsersAndSensitiveTable $HTMLSecurityProtectedUsersAndSensitive $HTMLSecurityProtectedUsersAndSensitiveTable $HTMLAdmCountProtectedUsersAndSensitive $HTMLAdmCountProtectedUsersAndSensitiveTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLLinkedDAAccounts $HTMLFindLocalAdminAccess $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLCertTemplatesTable $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLEmptyPasswordComputers $HTMLEmptyPasswordComputersTable $HTMLTotalEmptyPass $HTMLTotalEmptyPassTable $HTMLCompTotalEmptyPass $HTMLCompTotalEmptyPassTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLWin7AndServer2008 $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $ExtendedChecksBanner $HTMLFileServers $HTMLSQLServers $HTMLSCCMServers $HTMLWSUSServers $HTMLSMBSigningDisabled $HTMLWebDAVStatusResults $HTMLPrinters $HTMLSPNAccounts $HTMLSharesResultsTable $HTMLEmptyGroups $GroupPolicyChecksBanner $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSAdminGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $DelegationChecksBanner $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $SecurityGroupsBanner $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDCOMUsers $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLOrganizationManagement $HTMLPerformanceLogUsers $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLRDPUsers $HTMLRemManUsers $HTMLSchemaAdmins $HTMLServerOperators $InterestingDataBanner $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLAllForests $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLOtherPolicies $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLLLMNR $HTMLMachineQuota $HTMLMachineAccountQuotaTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLVulnLMCompLevelComp $HTMLSubnets $AdministratorsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLAdminsProtectedUsersAndSensitive $HTMLAdminsProtectedUsersAndSensitiveTable $HTMLSecurityProtectedUsersAndSensitive $HTMLSecurityProtectedUsersAndSensitiveTable $HTMLAdmCountProtectedUsersAndSensitive $HTMLAdmCountProtectedUsersAndSensitiveTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLLinkedDAAccounts $HTMLFindLocalAdminAccess $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLCertTemplatesTable $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLEmptyPasswordComputers $HTMLEmptyPasswordComputersTable $HTMLTotalEmptyPass $HTMLTotalEmptyPassTable $HTMLCompTotalEmptyPass $HTMLCompTotalEmptyPassTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLWin7AndServer2008 $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $ExtendedChecksBanner $HTMLFileServers $HTMLSQLServers $HTMLSCCMServers $HTMLWSUSServers $HTMLSMBSigningDisabled $HTMLWebDAVStatusResults $HTMLPrinters $HTMLSPNAccounts $HTMLSharesResultsTable $HTMLEmptyGroups $GroupPolicyChecksBanner $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $DelegationChecksBanner $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $SecurityGroupsBanner $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDCOMUsers $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLOrganizationManagement $HTMLPerformanceLogUsers $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLRDPUsers $HTMLRemManUsers $HTMLSchemaAdmins $HTMLServerOperators $InterestingDataBanner $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
 	
 	if($Output){
 		$Output = $Output.TrimEnd('\')
