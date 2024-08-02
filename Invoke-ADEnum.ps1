@@ -276,7 +276,7 @@ function Invoke-ADEnum {
  
  -NoClear			Do not clear terminal before running
 
- -NoDelegation			Do enumerate for Constrained, RBCD and user created objects
+ -NoDelegation			Do not enumerate for Constrained, RBCD and user created objects
  
  -NoLAPS			Do not enumerate for LAPS GPO
  
