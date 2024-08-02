@@ -328,7 +328,7 @@ function Invoke-ADEnum {
 "
 		Write-Host " [Recommended Coverage]" -ForegroundColor Yellow
 		Write-Host " 
- Invoke-ADEnum -Recommended -RBCD -UserCreatedObjects -SprayEmptyPasswords
+ Invoke-ADEnum -Recommended -RBCD -UserCreatedObjects -SprayEmptyPasswords -FindLocalAdminAccess -AllDescriptions
 
 "
 		
