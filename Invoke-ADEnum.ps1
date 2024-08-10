@@ -7648,11 +7648,12 @@ function Find-LocalAdminAccess {
 
 		# WMI Check
 		if ($WMIPort) {
-			$WMIJob = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName -ErrorAction Stop -AsJob
-			Wait-Job -ID $WMIJob.ID -Timeout 1
-			$os = Receive-Job $WMIJob.ID
-			if($os){$WMIAccess = $True}
-			else{$WMIAccess = $False}
+			try {
+				Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName -ErrorAction Stop
+				$WMIAccess = $True
+			} catch {
+				$WMIAccess = $False
+			}
 		}
 
 		# WinRM Check
