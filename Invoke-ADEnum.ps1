@@ -7648,12 +7648,22 @@ function Find-LocalAdminAccess {
 
 		# WMI Check
 		if ($WMIPort) {
-			try {
-				Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName -ErrorAction Stop
-				$WMIAccess = $True
-			} catch {
-				$WMIAccess = $False
-			}
+			$Timeout = 2000
+			$Result = $null
+			$Command = "Get-WmiObject -Class Win32_OperatingSystem -ComputerName '$ComputerName'"
+			$Process = New-Object System.Diagnostics.Process
+			$Process.StartInfo.FileName = "powershell.exe"
+			$Process.StartInfo.Arguments = "-NoProfile -Command `"& {$Command}`""
+			$Process.StartInfo.RedirectStandardOutput = $true
+			$Process.StartInfo.RedirectStandardError = $true
+			$Process.StartInfo.UseShellExecute = $false
+			$Process.StartInfo.CreateNoWindow = $true
+			$Process.Start() | Out-Null
+			if ($Process.WaitForExit($Timeout)) {$Result = $Process.StandardOutput.ReadToEnd()}
+			else {$Process.Kill()}
+			$Process.Dispose()
+			if ($Result) {$WMIAccess = $True}
+			else {$WMIAccess = $False}
 		}
 
 		# WinRM Check
