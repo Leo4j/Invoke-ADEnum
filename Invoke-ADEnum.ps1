@@ -7653,7 +7653,7 @@ function Find-LocalAdminAccess {
 			$Command = "Get-WmiObject -Class Win32_OperatingSystem -ComputerName '$ComputerName'"
 			$Process = New-Object System.Diagnostics.Process
 			$Process.StartInfo.FileName = "powershell.exe"
-			$Process.StartInfo.Arguments = "-NoProfile -Command `"& {$Command}`""
+			$Process.StartInfo.Arguments = "-NoProfile -Command $Command"
 			$Process.StartInfo.RedirectStandardOutput = $true
 			$Process.StartInfo.RedirectStandardError = $true
 			$Process.StartInfo.UseShellExecute = $false
