@@ -160,6 +160,10 @@ function Invoke-ADEnum {
 		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $NoSMBSigningEnum,
+		
+		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Switch]
+        $NoVNCUnauthAccess,
 
 		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
@@ -287,6 +291,8 @@ function Invoke-ADEnum {
  -NoSMBSigningEnum		Do not enumerate for SMB Signing
  
  -NoUnsupportedOS		Do not enumerate for machines running unsupported OS
+ 
+ -NoVNCUnauthAccess		Do not enumerate for machines where VNC Unauthenticated Access is supported
  
  -NoVulnCertTemplates		Do not enumerate for Misconfigured Certificate Templates
 
@@ -592,6 +598,7 @@ $xlsHeader = @'
 			createDownloadLinkForTable('SCCMServers');
 			createDownloadLinkForTable('WSUSServers');
 			createDownloadLinkForTable('WebDavEnabled');
+			createDownloadLinkForTable('VNCUnauthAccess');
 			createDownloadLinkForTable('SMBSigningNotRequired');
 			createDownloadLinkForTable('DuplicateSPNs');
 			createDownloadLinkForTable('Printers');
@@ -4640,6 +4647,40 @@ Add-Type -TypeDefinition $efssource -Language CSharp
     }
 	
 	####################################################
+    ######### VNC Unauthenticated Access ###############
+	####################################################
+	if(!$NoVNCUnauthAccess){
+	    Write-Host ""
+	    Write-Host "VNC Unauthenticated Access" -ForegroundColor Cyan
+		
+		$VNCUnauthAccess = foreach($AllDomain in $AllDomains){
+			#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
+			$VNCUnauthAccessTargets = @(VNCUnauthAccess -Targets ($AllAliveTargets | Where-Object {$_.domain -eq $AllDomain}))
+			
+			if($VNCUnauthAccessTargets){
+				foreach($Target in $VNCUnauthAccessTargets){
+					if($Target.dnshostname){$IPAddress = (Resolve-DnsName -Name $Target.dnshostname -Type A).IPAddress}
+					if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
+					[PSCustomObject]@{
+						Machine = $Target.samaccountname
+						"Enabled" = if ($Target.useraccountcontrol -band 2) { "False" } else { "True" }
+						"Active" = if(!$Target.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $ObjectRetrieve.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
+						'IP Address' = $IPAddress
+						"Account SID" = GetSID-FromBytes -sidBytes $Target.objectsid
+						"Operating System" = $Target.operatingsystem
+						Domain = $AllDomain
+					}
+				}
+			}
+		}
+		
+		if($VNCUnauthAccess){
+	        if(!$NoOutput){$VNCUnauthAccess | Sort-Object -Unique Domain,Machine | Format-Table -AutoSize -Wrap}
+	        $HTMLVNCUnauthAccess = $VNCUnauthAccess | Sort-Object -Unique Domain,Machine | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='VNCUnauthAccess'>VNC Unauthenticated Access</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='VNCUnauthAccess'>" }
+	    }
+    }
+	
+	####################################################
     ######### Printers ###############
 	####################################################
 	
@@ -7147,7 +7188,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	if(!$HTMLGPOCreators -AND !$HTMLGPOsWhocanmodify -AND !$HTMLGpoLinkResults -AND !$HTMLLAPSGPOs -AND !$HTMLLAPSAdminGPOs -AND !$HTMLLAPSCanRead -AND !$HTMLLAPSExtended -AND !$HTMLLapsEnabledComputers -AND !$HTMLAppLockerGPOs -AND !$HTMLGPOLocalGroupsMembership){$GroupPolicyChecksBanner = $null}
 	if(!$HTMLUnconstrained -AND !$HTMLConstrainedDelegationComputers -AND !$HTMLConstrainedDelegationUsers -AND !$HTMLRBACDObjects -AND !$HTMLADComputersCreated){$DelegationChecksBanner = $null}
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLAllForests $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLOtherPolicies $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLLLMNR $HTMLMachineQuota $HTMLMachineAccountQuotaTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLVulnLMCompLevelComp $HTMLSubnets $AdministratorsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLAdminsProtectedUsersAndSensitive $HTMLAdminsProtectedUsersAndSensitiveTable $HTMLSecurityProtectedUsersAndSensitive $HTMLSecurityProtectedUsersAndSensitiveTable $HTMLAdmCountProtectedUsersAndSensitive $HTMLAdmCountProtectedUsersAndSensitiveTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLLinkedDAAccounts $HTMLFindLocalAdminAccess $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLCertTemplatesTable $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLEmptyPasswordComputers $HTMLEmptyPasswordComputersTable $HTMLTotalEmptyPass $HTMLTotalEmptyPassTable $HTMLCompTotalEmptyPass $HTMLCompTotalEmptyPassTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLWin7AndServer2008 $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $ExtendedChecksBanner $HTMLFileServers $HTMLSQLServers $HTMLSCCMServers $HTMLWSUSServers $HTMLSMBSigningDisabled $HTMLWebDAVStatusResults $HTMLPrinters $HTMLSPNAccounts $HTMLSharesResultsTable $HTMLEmptyGroups $GroupPolicyChecksBanner $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $DelegationChecksBanner $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $SecurityGroupsBanner $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDCOMUsers $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLOrganizationManagement $HTMLPerformanceLogUsers $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLRDPUsers $HTMLRemManUsers $HTMLSchemaAdmins $HTMLServerOperators $InterestingDataBanner $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLAllForests $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLOtherPolicies $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLLLMNR $HTMLMachineQuota $HTMLMachineAccountQuotaTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLVulnLMCompLevelComp $HTMLSubnets $AdministratorsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLAdminsProtectedUsersAndSensitive $HTMLAdminsProtectedUsersAndSensitiveTable $HTMLSecurityProtectedUsersAndSensitive $HTMLSecurityProtectedUsersAndSensitiveTable $HTMLAdmCountProtectedUsersAndSensitive $HTMLAdmCountProtectedUsersAndSensitiveTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLLinkedDAAccounts $HTMLFindLocalAdminAccess $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLCertTemplatesTable $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLEmptyPasswordComputers $HTMLEmptyPasswordComputersTable $HTMLTotalEmptyPass $HTMLTotalEmptyPassTable $HTMLCompTotalEmptyPass $HTMLCompTotalEmptyPassTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLWin7AndServer2008 $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $ExtendedChecksBanner $HTMLFileServers $HTMLSQLServers $HTMLSCCMServers $HTMLWSUSServers $HTMLSMBSigningDisabled $HTMLWebDAVStatusResults $HTMLVNCUnauthAccess $HTMLPrinters $HTMLSPNAccounts $HTMLSharesResultsTable $HTMLEmptyGroups $GroupPolicyChecksBanner $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $DelegationChecksBanner $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $SecurityGroupsBanner $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDCOMUsers $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLOrganizationManagement $HTMLPerformanceLogUsers $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLRDPUsers $HTMLRemManUsers $HTMLSchemaAdmins $HTMLServerOperators $InterestingDataBanner $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
 	
 	if($Output){
 		$Output = $Output.TrimEnd('\')
@@ -8316,6 +8357,104 @@ Add-Type -TypeDefinition $source -Language CSharp
 		
 		$Result = CheckDAVPipe -TargetHost $computer.dnshostname
 		if($Result){return $computer}
+		return $null
+	}
+
+	# Use a generic list for better performance when adding items
+	$runspaces = New-Object 'System.Collections.Generic.List[System.Object]'
+
+	foreach ($computer in $Targets) {
+		$powerShellInstance = [powershell]::Create().AddScript($scriptBlock).AddArgument($computer)
+		$powerShellInstance.RunspacePool = $runspacePool
+		$runspaces.Add([PSCustomObject]@{
+			Instance = $powerShellInstance
+			Status   = $powerShellInstance.BeginInvoke()
+		})
+	}
+
+	# Collect the results
+	$WebDAVStatusEnabled = @()
+	foreach ($runspace in $runspaces) {
+		$result = $runspace.Instance.EndInvoke($runspace.Status)
+		if ($result) {
+			$WebDAVStatusEnabled += $result
+		}
+	}
+
+	if($WebDAVStatusEnabled){$WebDAVStatusEnabled}
+
+	# Close and dispose of the runspace pool for good resource management
+	$runspacePool.Close()
+	$runspacePool.Dispose()
+}
+
+function VNCUnauthAccess
+{
+	
+    [CmdletBinding()] Param(
+
+ 	[Parameter (Mandatory=$False, Position = 1, ValueFromPipeline=$true)]
+        [PSObject[]]
+        $Targets
+
+ 	)
+	
+	# Initialize the runspace pool
+	$runspacePool = [runspacefactory]::CreateRunspacePool(1, 10)
+	$runspacePool.Open()
+
+	# Define the script block outside the loop for better efficiency
+	$scriptBlock = {
+		param ($computer)
+		
+		function VNC-NoAuth {
+			param([string]$ComputerName)
+			$tcpClient = $null
+			$networkStream = $null
+			try {
+				$tcpClient = New-Object System.Net.Sockets.TcpClient
+				$asyncResult = $tcpClient.BeginConnect($ComputerName, 5900, $null, $null)
+				$wait = $asyncResult.AsyncWaitHandle.WaitOne(50)
+				if(!$wait){return}
+				try {$tcpClient.EndConnect($asyncResult)}
+				catch {return}
+
+				$networkStream = $tcpClient.GetStream()
+				$networkStream.ReadTimeout = 50
+				
+				# Reading Version from Server
+				$buffer = New-Object byte[] 12
+				$read = $networkStream.Read($buffer, 0, 12)
+				if ($read -eq 0) { return }
+				$serverVersionMessage = [System.Text.Encoding]::ASCII.GetString($buffer, 0, $read)
+				
+				# Sending Client Version
+				$buffer = [System.Text.Encoding]::ASCII.GetBytes($serverVersionMessage)
+				$networkStream.Write($buffer, 0, $buffer.Length)
+
+				# Reading Supported Security Types
+				$buffer = New-Object byte[] 2
+				$read = $networkStream.Read($buffer, 0, 1)
+				if ($read -eq 0) { return }
+				$numberOfSecTypes = $buffer[0]
+				$buffer = New-Object byte[] $numberOfSecTypes
+				$read = $networkStream.Read($buffer, 0, $numberOfSecTypes)
+				if ($read -eq 0) { return }
+			}
+			catch {return}
+			finally {
+				# Cleanup
+				if ($null -ne $networkStream) { $networkStream.Close() }
+				if ($null -ne $tcpClient) { $tcpClient.Close() }
+			}
+
+			# Check for Non-authentication (Type 1)
+			if ($buffer -contains 1) {return "Supported"}
+			else {return "Not Supported"}
+		}
+		
+		$Result = VNC-NoAuth -ComputerName $computer.dnshostname
+		if($Result -eq "Supported"){return $computer}
 		return $null
 	}
 
