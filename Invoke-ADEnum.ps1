@@ -5155,7 +5155,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			$HTMLLAPSGPOs = $TempLAPSGPOs | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='LAPSGPOs'>LAPS GPOs</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='LAPSGPOs'>" }
 		}
 		
-		if($LAPSReadRights -OR $AllEnum -OR $Recommended){
+		if($TempLAPSGPOs -AND ($LAPSReadRights -OR $AllEnum -OR $Recommended)){
 			
 			# Load the required assembly
 			Add-Type -AssemblyName System.DirectoryServices
@@ -5225,7 +5225,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			}
   		}
 
-  		if($LAPSExtended -OR $AllEnum){
+  		if($TempLAPSGPOs -AND ($LAPSExtended -OR $AllEnum)){
 			
 			# Load the required assembly
 			Add-Type -AssemblyName System.DirectoryServices
@@ -5301,7 +5301,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			}
   		}
 		
-		if($LAPSComputers -OR ($AllEnum -AND $Force)){
+		if($TempLAPSGPOs -AND ($LAPSComputers -OR ($AllEnum -AND $Force))){
 
 			Write-Host ""
 			Write-Host "Computer objects where LAPS is enabled" -ForegroundColor Cyan
