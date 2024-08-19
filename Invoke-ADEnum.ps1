@@ -76,6 +76,10 @@ function Invoke-ADEnum {
 		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $NoVulnCertTemplates,
+
+ 	[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Switch]
+        $NoADCSHTTPEndpoints,
 		
 		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
@@ -275,6 +279,8 @@ function Invoke-ADEnum {
  -MoreGPOs			More enumeration leveraging GPOs
  
  -MoreOUs			More enumeration leveraging Organizational Units
+
+ -NoADCSHTTPEndpoints		Do not enumerate for ADCS HTTP Endpoints
  
  -NoAppLocker			Do not enumerate for AppLocker GPO
  
@@ -3213,7 +3219,7 @@ Add-Type -TypeDefinition $code
 	###############################################
     ########### ADCS HTTP Endpoints ###############
 	###############################################
-	if($NoVulnCertTemplates){}
+	if($NoADCSHTTPEndpoints){}
 	else{
 		Write-Host ""
 		Write-Host "ADCS HTTP Endpoints" -ForegroundColor Cyan
