@@ -600,7 +600,7 @@ $xlsHeader = @'
 			createDownloadLinkForTable('PerformanceLogUsers');
 			createDownloadLinkForTable('ProtectedUsers');
 			createDownloadLinkForTable('FileServers');
-			createDownloadLinkForTable('SQLServers');
+			createDownloadLinkForTable('SQLInstances');
 			createDownloadLinkForTable('SCCMServers');
 			createDownloadLinkForTable('WSUSServers');
 			createDownloadLinkForTable('WebDavEnabled');
@@ -4334,11 +4334,11 @@ Add-Type -TypeDefinition $code
 	}
 	
 	#############################################
-	############### SQL Servers #################
+	############### SQL Instances #################
 	#############################################
 
 	Write-Host ""
-	Write-Host "SQL Servers" -ForegroundColor Cyan
+	Write-Host "SQL Instances" -ForegroundColor Cyan
 	
 	$ProcessedSPNs = @{}
 	$TempSQLServers = @()
@@ -4362,7 +4362,7 @@ Add-Type -TypeDefinition $code
 			}
 		}
 		
-		$NameExtractedSQLMachines = @($TotalEnabledDisabledMachines | Where-Object {$_.domain -eq $AllDomain -and $_.samaccountname -like "*SQL*" -and $_.operatingsystem})
+		$NameExtractedSQLMachines = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -and (($_.samaccountname -like "*SQL*" -and $_.operatingsystem) -OR ($_.servicePrincipalName -like "*SQL*"))})
 		#$NameExtractedSQLMachines = @($TotalEnabledDisabledMachines | Where-Object {$_.domain -eq $AllDomain -and $_.samaccountname -like "*SQL*" -and $_.objectcategory -like "*CN=Computer*"})
 		
 		$FinalExtractedSQLMachines = @($ExtractedSQLMachines + $NameExtractedSQLMachines)
@@ -4387,7 +4387,7 @@ Add-Type -TypeDefinition $code
 
 	if($TempSQLServers) {
 		if(!$NoOutput){$TempSQLServers | Sort-Object -Unique Domain,Server | Format-Table -AutoSize -Wrap}
-		$HTMLSQLServers = $TempSQLServers | Sort-Object -Unique Domain,Server | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='SQLServers'>SQL Servers</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='SQLServers'>" }
+		$HTMLSQLServers = $TempSQLServers | Sort-Object -Unique Domain,Server | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='SQLInstances'>SQL Instances</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='SQLInstances'>" }
 	}
 	
 	#############################################
