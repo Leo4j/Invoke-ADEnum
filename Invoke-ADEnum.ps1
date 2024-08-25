@@ -7114,8 +7114,14 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 				# Filter computers within this OU
 				$computers = @($TotalEnabledMachines | Where-Object { $_.domain -eq $AllDomain -AND $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.samaccountname })
 
-				# Combine users and computers
-				$members = @($users + $computers) -join ' - '
+				# Filter groups within this OU
+				$groups = @($TotalGroups | Where-Object { $_.domain -eq $AllDomain -AND $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.samaccountname })
+
+    				# Filter orgunits within this OU
+    				$orgunits = @($AllCollectedOUs | Where-Object { $_.domain -eq $AllDomain -AND $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.name })
+    
+    				# Combine users and computers
+				$members = @($users + $computers + $groups + $orgunits) -join ' - '
 
 				# Create a custom object for each OU with its members
 				[PSCustomObject]@{
