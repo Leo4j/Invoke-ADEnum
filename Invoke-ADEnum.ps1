@@ -7115,10 +7115,10 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 				$computers = @($TotalEnabledMachines | Where-Object { $_.domain -eq $AllDomain -AND $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.samaccountname })
 
 				# Filter groups within this OU
-				$groups = @($TotalGroups | Where-Object { $_.domain -eq $AllDomain -AND $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.samaccountname })
+				$groups = @($TotalGroups | Where-Object { $_.domain -eq $AllDomain -AND $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.samaccountname + "(Grp)" })
 
     				# Filter orgunits within this OU
-    				$orgunits = @($AllCollectedOUs | Where-Object { $_.domain -eq $AllDomain -AND $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.name })
+    				$orgunits = @($AllCollectedOUs | Where-Object { $_.domain -eq $AllDomain -AND $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.name + "(OU)" })
     
     				# Combine users and computers
 				$members = @($users + $computers + $groups + $orgunits) -join ' - '
