@@ -7115,13 +7115,16 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 				$computers = @($TotalEnabledMachines | Where-Object { $_.domain -eq $AllDomain -AND $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.samaccountname })
 
 				# Filter groups within this OU
-				$groups = @($TotalGroups | Where-Object { $_.domain -eq $AllDomain -AND $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.samaccountname + "(Grp)" })
+				$collgroups = @($TotalGroups | Where-Object { $_.domain -eq $AllDomain -AND $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.samaccountname + "(Grp)" })
 
     				# Filter orgunits within this OU
     				$orgunits = @($AllCollectedOUs | Where-Object { $_.domain -eq $AllDomain -AND $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.name + "(OU)" })
+
+ 				# Filter orgunits within this OU
+    				$collforeign = @($AllForeignSecurityPrincipals | Where-Object { $_.domain -eq $AllDomain -AND $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.name + "(Foreign)" })
     
     				# Combine users and computers
-				$members = @($users + $computers + $groups + $orgunits) -join ' - '
+				$members = @($users + $computers + $collgroups + $orgunits + $collforeign) -join ' - '
 
 				# Create a custom object for each OU with its members
 				[PSCustomObject]@{
