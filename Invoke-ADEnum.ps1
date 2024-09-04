@@ -7154,7 +7154,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			foreach($Description in $Descriptions){
 
 				[PSCustomObject]@{
-					"Domain Object" = $Description.samaccountname
+					"Domain Object" = if($Description.samaccountname){$Description.samaccountname}else{$Description.name}
 					"Domain" = $AllDomain
 					"Description" = $Description.description
 				}
