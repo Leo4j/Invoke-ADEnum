@@ -123,10 +123,6 @@ function Invoke-ADEnum {
 
 		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
-        $SecurityGroups,
-
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
-        [Switch]
         $AllDescriptions,
 
 		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
@@ -144,10 +140,6 @@ function Invoke-ADEnum {
 		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $SprayEmptyPasswords,
-		
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
-        [Switch]
-        $Recommended,
 		
 		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
@@ -307,12 +299,8 @@ function Invoke-ADEnum {
  -PassNotRequired		Enumerate for Users and Computers having Password-not-required attribute set
 
  -RBCD				Check for Resource Based Constrained Delegation (may take a long time depending on domain size)
- 
- -Recommended			Recommended Coverage: LAPSReadRights,MoreGPOs,SecurityGroups
 
  -SaveToDisk			Save collection data to disk (Location: c:\Users\Public\Documents\Invoke-ADEnum)
-
- -SecurityGroups		Enumerate for Security Groups (e.g.: Account Operators, Server Operators, and more...)
 
  -SprayEmptyPasswords		Sprays Empty Passwords - counts towards Bad-Pwd-Count
  
@@ -5161,7 +5149,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			$HTMLLAPSGPOs = $TempLAPSGPOs | Sort-Object Domain,"GPO Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='LAPSGPOs'>LAPS GPOs</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='LAPSGPOs'>" }
 		}
 		
-		if($TempLAPSGPOs -AND ($LAPSReadRights -OR $AllEnum -OR $Recommended)){
+		if($TempLAPSGPOs -AND ($LAPSReadRights -OR $AllEnum)){
 			
 			# Load the required assembly
 			Add-Type -AssemblyName System.DirectoryServices
@@ -5363,7 +5351,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
     ########### GPOs that modify local group memberships ###############
 	####################################################################
 	
-	if($MoreGPOs -OR $AllEnum -OR $Recommended){
+	if($MoreGPOs -OR $AllEnum){
         Write-Host ""
 		Write-Host "GPOs that modify local group memberships" -ForegroundColor Cyan
 		
@@ -5761,928 +5749,926 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	################################################
 		######### Security Groups ###############
 		################################################
-
-    if($SecurityGroups -OR $AllEnum -OR $Recommended){
 		
-		$SecurityGroupsBanner = "<h3>Security Groups</h3>"
-		Write-Host ""
-		Write-Host "Security Groups" -ForegroundColor Red
-		Write-Host ""
+	$SecurityGroupsBanner = "<h3>Security Groups</h3>"
+	Write-Host ""
+	Write-Host "Security Groups" -ForegroundColor Red
+	Write-Host ""
 
-  		#################################################### 
-		########### Security Groups ################
-		####################################################
-		
-		#################################################### 
-		########### Account Operators ################
-		####################################################
+	#################################################### 
+	########### Security Groups ################
+	####################################################
+	
+	#################################################### 
+	########### Account Operators ################
+	####################################################
 
-		Write-Host ""
-		Write-Host "Account Operators" -ForegroundColor Cyan
-		$TempAccountOperators = @()
-		$TempAccountOperators = foreach ($AllDomain in $AllDomains) {
-			$AccountOperators = @()
-			$AccountOperators = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Account Operators"
-			foreach ($AccountOperator in $AccountOperators) {
+	Write-Host ""
+	Write-Host "Account Operators" -ForegroundColor Cyan
+	$TempAccountOperators = @()
+	$TempAccountOperators = foreach ($AllDomain in $AllDomains) {
+		$AccountOperators = @()
+		$AccountOperators = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Account Operators"
+		foreach ($AccountOperator in $AccountOperators) {
 
-				$isEnabled = if ($AccountOperator.useraccountcontrol -band 2) { "False" } else { "True" }
-				if ($AccountOperator.lastlogontimestamp) {
-					$lastLogon = Convert-LdapTimestamp -timestamp $AccountOperator.lastlogontimestamp
-				} else {
-					$lastLogon = ""
+			$isEnabled = if ($AccountOperator.useraccountcontrol -band 2) { "False" } else { "True" }
+			if ($AccountOperator.lastlogontimestamp) {
+				$lastLogon = Convert-LdapTimestamp -timestamp $AccountOperator.lastlogontimestamp
+			} else {
+				$lastLogon = ""
+			}
+			$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+			$membername = $AccountOperator.samaccountname
+
+			if (!$membername) {
+				$ExtractedMember = @()
+				$ExtractedMember = $SumGroupsUsers | Where-Object {
+					$sid = $null
+					try {
+						$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop
+					} catch {}
+					$sid -eq (GetSID-FromBytes -sidBytes $AccountOperator.objectsid)
 				}
-				$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-				$membername = $AccountOperator.samaccountname
-
-				if (!$membername) {
-					$ExtractedMember = @()
-					$ExtractedMember = $SumGroupsUsers | Where-Object {
-						$sid = $null
-						try {
-							$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop
-						} catch {}
-						$sid -eq (GetSID-FromBytes -sidBytes $AccountOperator.objectsid)
-					}
-					$tempmembername = $ExtractedMember.samaccountname
-					$memberdomain = $ExtractedMember.domain
-					$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
-					if (!$isEnabled) {
-						$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }
-					}
-					if (!$isActive) {
-						if ($ExtractedMember.lastlogontimestamp) {
-							$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp
-						} else {
-							$lastLogon = ""
-						}
-						$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-					}
+				$tempmembername = $ExtractedMember.samaccountname
+				$memberdomain = $ExtractedMember.domain
+				$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
+				if (!$isEnabled) {
+					$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }
 				}
-
-				[PSCustomObject]@{
-					"Name"  = $membername
-					"Enabled"      = $isEnabled
-					"Active"       = $isActive
-					"Last Logon"   = $lastLogon
-					"Member SID"   = GetSID-FromBytes -sidBytes $AccountOperator.objectsid
-					"Group Domain" = $AccountOperator.domain
+				if (!$isActive) {
+					if ($ExtractedMember.lastlogontimestamp) {
+						$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp
+					} else {
+						$lastLogon = ""
+					}
+					$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
 				}
 			}
-		}
 
-		if ($TempAccountOperators) {
-			if(!$NoOutput){$TempAccountOperators | Sort-Object -Unique "Group Domain","Name","Member SID" | ft -Autosize -Wrap}
-			$HTMLAccountOperators = $TempAccountOperators | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='AccountOperators'>Account Operators</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='AccountOperators'>" }
-		}
-		
-		#################################################### 
-		########### Backup Operators ################
-		####################################################
-		
-		Write-Host ""
-		Write-Host "Backup Operators" -ForegroundColor Cyan
-		$TempBackupOperators = @()
-		$TempBackupOperators = foreach ($AllDomain in $AllDomains) {
-			$BackupOperators = @()
-			$BackupOperators = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Backup Operators"
-			foreach($BackupOperator in $BackupOperators){
-				
-				$isEnabled = if ($BackupOperator.useraccountcontrol -band 2) { "False" } else { "True" }
-				if($BackupOperator.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $BackupOperator.lastlogontimestamp}else{$lastLogon = ""}
-				$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-				$membername = $BackupOperator.samaccountname
-				if(!$membername){
-					$ExtractedMember = @()
-					$ExtractedMember = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq (GetSID-FromBytes -sidBytes $BackupOperator.objectsid)}
-					$tempmembername = $ExtractedMember.samaccountname
-					$memberdomain = $ExtractedMember.domain
-					$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
-					if(!$isEnabled){$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }}
-					if(!$isActive){
-						if($ExtractedMember.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp}else{$lastLogon = ""}
-						$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-					}
-				}
-
-				[PSCustomObject]@{
-					"Name" = $membername
-					"Enabled" = $isEnabled
-					"Active" = $isActive
-					"Last Logon" = $lastLogon
-					"Member SID" = GetSID-FromBytes -sidBytes $BackupOperator.objectsid
-					"Group Domain" = $BackupOperator.domain
-				}
-
+			[PSCustomObject]@{
+				"Name"  = $membername
+				"Enabled"      = $isEnabled
+				"Active"       = $isActive
+				"Last Logon"   = $lastLogon
+				"Member SID"   = GetSID-FromBytes -sidBytes $AccountOperator.objectsid
+				"Group Domain" = $AccountOperator.domain
 			}
 		}
-
-		if ($TempBackupOperators) {
-			if(!$NoOutput){$TempBackupOperators | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
-			$HTMLBackupOperators = $TempBackupOperators | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='BackupOperators'>Backup Operators</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='BackupOperators'>" }
-		}
-		
-		#################################################### 
-		########### Cert Publishers ################
-		####################################################
-		
-		Write-Host ""
-		Write-Host "Cert Publishers" -ForegroundColor Cyan
-		$TempCertPublishersGroup = @()
-		$TempCertPublishersGroup = foreach ($AllDomain in $AllDomains) {
-			$CertPublishers = @()
-			$CertPublishers = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Cert Publishers"
-			foreach ($CertPublisher in $CertPublishers) {
-				
-				$isEnabled = if ($CertPublisher.useraccountcontrol -band 2) { "False" } else { "True" }
-				if ($CertPublisher.lastlogontimestamp) {
-					$lastLogon = Convert-LdapTimestamp -timestamp $CertPublisher.lastlogontimestamp
-				} else {
-					$lastLogon = ""
-				}
-				$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-				
-				$memberName = $CertPublisher.samaccountname
-				if (!$memberName) {
-					$ExtractedMember = @()
-					$ExtractedMember = $SumGroupsUsers | Where-Object {
-						$sid = $null;
-						try {
-							$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop
-						} catch {}
-						$sid -eq (GetSID-FromBytes -sidBytes $CertPublisher.objectsid)
-					}
-					$tempMemberName = $ExtractedMember.samaccountname
-					$memberDomain = $ExtractedMember.domain
-					$memberName = ($memberDomain -split "\.")[0] + "\" + $tempMemberName
-					if (!$isEnabled) {
-						$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }
-					}
-					if (!$isActive) {
-						if ($ExtractedMember.lastlogontimestamp) {
-							$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp
-						} else {
-							$lastLogon = ""
-						}
-						$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-					}
-				}
-
-				[PSCustomObject]@{
-					"Name"  = $memberName
-					"Enabled"      = $isEnabled
-					"Active"       = $isActive
-					"Last Logon"   = $lastLogon
-					"Member SID"   = GetSID-FromBytes -sidBytes $CertPublisher.objectsid
-					"Group Domain" = $CertPublisher.domain
-				}
-			}
-		}
-
-		if ($TempCertPublishersGroup) {
-			if(!$NoOutput){$TempCertPublishersGroup | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
-			$HTMLCertPublishersGroup = $TempCertPublishersGroup | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='CertPublishers'>Cert Publishers</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='CertPublishers'>" }
-		}
-		
-		#################################################### 
-		########### Distributed COM Users ################
-		####################################################
-		
-		Write-Host ""
-		Write-Host "Distributed COM Users" -ForegroundColor Cyan
-		$TempDCOMUsers = @()
-		$TempDCOMUsers = foreach ($AllDomain in $AllDomains) {
-			$DCOMUsers = @()
-			$DCOMUsers = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Distributed COM Users"
-			foreach($DCOMUser in $DCOMUsers){
-				
-				$isEnabled = if ($DCOMUser.useraccountcontrol -band 2) { "False" } else { "True" }
-				if($DCOMUser.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $DCOMUser.lastlogontimestamp}else{$lastLogon = ""}
-				$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-				$membername = $DCOMUser.samaccountname
-				if(!$membername){
-					$ExtractedMember = @()
-					$ExtractedMember = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq (GetSID-FromBytes -sidBytes $DCOMUser.objectsid)}
-					$tempmembername = $ExtractedMember.samaccountname
-					$memberdomain = $ExtractedMember.domain
-					$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
-					if(!$isEnabled){$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }}
-					if(!$isActive){
-						if($ExtractedMember.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp}else{$lastLogon = ""}
-						$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-					}
-				}
-
-				[PSCustomObject]@{
-					"Name" = $membername
-					"Enabled" = $isEnabled
-					"Active" = $isActive
-					"Last Logon" = $lastLogon
-					"Member SID" = GetSID-FromBytes -sidBytes $DCOMUser.objectsid
-					"Group Domain" = $DCOMUser.domain
-				}
-			}
-		}
-
-		if ($TempDCOMUsers) {
-			if(!$NoOutput){$TempDCOMUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
-			$HTMLDCOMUsers = $TempDCOMUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DCOMUsers'>Distributed COM Users</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DCOMUsers'>" }
-		}
-		
-		#################################################### 
-		########### DNS Admins ################
-		####################################################
-		
-		Write-Host ""
-		Write-Host "DNS Admins" -ForegroundColor Cyan
-		$TempDNSAdmins = @()
-		$TempDNSAdmins = foreach ($AllDomain in $AllDomains) {
-			$DNSAdmins = @()
-			$DNSAdmins = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "DNSAdmins"
-			foreach($DNSAdmin in $DNSAdmins){
-				
-				$isEnabled = if ($DNSAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
-				if($DNSAdmin.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $DNSAdmin.lastlogontimestamp}else{$lastLogon = ""}
-				$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-				$membername = $DNSAdmin.samaccountname
-				if(!$membername){
-					$ExtractedMember = @()
-					$ExtractedMember = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq (GetSID-FromBytes -sidBytes $DNSAdmin.objectsid)}
-					$tempmembername = $ExtractedMember.samaccountname
-					$memberdomain = $ExtractedMember.domain
-					$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
-					if(!$isEnabled){$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }}
-					if(!$isActive){
-						if($ExtractedMember.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp}else{$lastLogon = ""}
-						$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-					}
-				}
-
-				[PSCustomObject]@{
-					"Name" = $membername
-					"Enabled" = $isEnabled
-					"Active" = $isActive
-					"Last Logon" = $lastLogon
-					"Member SID" = GetSID-FromBytes -sidBytes $DNSAdmin.objectsid
-					"Group Domain" = $DNSAdmin.domain
-				}
-			}
-		}
-
-		if ($TempDNSAdmins) {
-			if(!$NoOutput){$TempDNSAdmins | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
-			$HTMLDNSAdmins = $TempDNSAdmins | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DNSAdmins'>DNS Admins</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DNSAdmins'>" }
-		}
-		
-		#################################################### 
-		########### Enterprise Key Admins ################
-		####################################################
-		
-		Write-Host ""
-		Write-Host "Enterprise Key Admins" -ForegroundColor Cyan
-		$TempEnterpriseKeyAdmins = @()
-		$TempEnterpriseKeyAdmins = foreach ($AllDomain in $AllDomains) {
-			$EnterpriseKeyAdmins = @()
-			$EnterpriseKeyAdmins = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Enterprise Key Admins"
-			foreach ($EnterpriseKeyAdmin in $EnterpriseKeyAdmins) {
-				
-				$isEnabled = if ($EnterpriseKeyAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
-				if ($EnterpriseKeyAdmin.lastlogontimestamp) { $lastLogon = Convert-LdapTimestamp -timestamp $EnterpriseKeyAdmin.lastlogontimestamp } else { $lastLogon = "" }
-				$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-				$membername = $EnterpriseKeyAdmin.samaccountname
-				if (!$membername) {
-					$ExtractedMember = @()
-					$ExtractedMember = $SumGroupsUsers | Where-Object {
-						$sid = $null
-						try {
-							$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop
-						} catch { }
-						$sid -eq (GetSID-FromBytes -sidBytes $EnterpriseKeyAdmin.objectsid)
-					}
-					$tempmembername = $ExtractedMember.samaccountname
-					$memberdomain = $ExtractedMember.domain
-					$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
-					if (!$isEnabled) {
-						$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }
-					}
-					if (!$isActive) {
-						if ($ExtractedMember.lastlogontimestamp) { $lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp } else { $lastLogon = "" }
-						$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-					}
-				}
-
-				[PSCustomObject]@{
-					"Name"        = $membername
-					"Enabled"     = $isEnabled
-					"Active"      = $isActive
-					"Last Logon"  = $lastLogon
-					"Member SID"  = GetSID-FromBytes -sidBytes $EnterpriseKeyAdmin.objectsid
-					"Group Domain"= $EnterpriseKeyAdmin.domain
-				}
-			}
-		}
-
-		if ($TempEnterpriseKeyAdmins) {
-			if(!$NoOutput){$TempEnterpriseKeyAdmins | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
-			$HTMLEnterpriseKeyAdmins = $TempEnterpriseKeyAdmins | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='EnterpriseKeyAdmins'>Enterprise Key Admins</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='EnterpriseKeyAdmins'>" }
-		}
-		
-		#################################################### 
-		########### Enterprise Read-Only Domain Controllers ################
-		####################################################
-		
-		Write-Host ""
-		Write-Host "Enterprise Read-Only Domain Controllers" -ForegroundColor Cyan
-		$TempEnterpriseRODCs = @()
-		$TempEnterpriseRODCs = foreach ($AllDomain in $AllDomains) {
-			$EnterpriseRODCs = @()
-			$EnterpriseRODCs = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Enterprise Read-Only Domain Controllers"
-			foreach($EnterpriseRODC in $EnterpriseRODCs){
-
-				$isEnabled = if ($EnterpriseRODC.useraccountcontrol -band 2) { "False" } else { "True" }
-				if($EnterpriseRODC.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $EnterpriseRODC.lastlogontimestamp}else{$lastLogon = ""}
-				$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-				$membername = $EnterpriseRODC.samaccountname
-				if(!$membername){
-					$ExtractedMember = @()
-					$ExtractedMember = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq (GetSID-FromBytes -sidBytes $EnterpriseRODC.objectsid)}
-					$tempmembername = $ExtractedMember.samaccountname
-					$memberdomain = $ExtractedMember.domain
-					$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
-					if(!$isEnabled){$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }}
-					if(!$isActive){
-						if($ExtractedMember.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp}else{$lastLogon = ""}
-						$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-					}
-				}
-
-				[PSCustomObject]@{
-					"Name" = $membername
-					"Enabled" = $isEnabled
-					"Active" = $isActive
-					"Last Logon" = $lastLogon
-					"Member SID" = GetSID-FromBytes -sidBytes $EnterpriseRODC.objectsid
-					"Group Domain" = $EnterpriseRODC.domain
-				}
-			}
-		}
-
-		if ($TempEnterpriseRODCs) {
-			if(!$NoOutput){$TempEnterpriseRODCs | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
-			$HTMLEnterpriseRODCs = $TempEnterpriseRODCs | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='EnterpriseRODCs'>Enterprise Read-Only Domain Controllers</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='EnterpriseRODCs'>" }
-		}
-
-		
-		#################################################### 
-		########### Group Policy Creator Owners ################
-		####################################################
-		
-		Write-Host ""
-		Write-Host "Group Policy Creator Owners" -ForegroundColor Cyan
-		$TempGPCreatorOwners = @()
-		$TempGPCreatorOwners = foreach ($AllDomain in $AllDomains) {
-			$GPCreatorOwners = @()
-			$GPCreatorOwners = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Group Policy Creator Owners"
-			foreach ($GPCreatorOwner in $GPCreatorOwners) {
-				
-				$isEnabled = if ($GPCreatorOwner.useraccountcontrol -band 2) { "False" } else { "True" }
-				if ($GPCreatorOwner.lastlogontimestamp) { $lastLogon = Convert-LdapTimestamp -timestamp $GPCreatorOwner.lastlogontimestamp } else { $lastLogon = "" }
-				$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-				$membername = $GPCreatorOwner.samaccountname
-				if (!$membername) {
-					$ExtractedMember = @()
-					$ExtractedMember = $SumGroupsUsers | Where-Object { $sid = $null; try { $sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop } catch {} ; $sid -eq (GetSID-FromBytes -sidBytes $GPCreatorOwner.objectsid) }
-					$tempmembername = $ExtractedMember.samaccountname
-					$memberdomain = $ExtractedMember.domain
-					$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
-					if (!$isEnabled) { $isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" } }
-					if (!$isActive) {
-						if ($ExtractedMember.lastlogontimestamp) { $lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp } else { $lastLogon = "" }
-						$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-					}
-				}
-
-				[PSCustomObject]@{
-					"Name" = $membername
-					"Enabled"     = $isEnabled
-					"Active"      = $isActive
-					"Last Logon"  = $lastLogon
-					"Member SID"  = GetSID-FromBytes -sidBytes $GPCreatorOwner.objectsid
-					"Group Domain"= $GPCreatorOwner.domain
-				}
-			}
-		}
-
-		if ($TempGPCreatorOwners) {
-			if(!$NoOutput){$TempGPCreatorOwners | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
-			$HTMLGPCreatorOwners = $TempGPCreatorOwners | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='GPCreatorOwners'>Group Policy Creator Owners</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='GPCreatorOwners'>" }
-		}
-
-		#################################################### 
-		########### Key Admins ################
-		####################################################
-		
-		Write-Host ""
-		Write-Host "Key Admins" -ForegroundColor Cyan
-		$TempKeyAdmins = @()
-		$TempKeyAdmins = foreach ($AllDomain in $AllDomains) {
-			$KeyAdmins = @()
-			$KeyAdmins = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Key Admins"
-			foreach ($KeyAdmin in $KeyAdmins) {
-
-				$isEnabled = if ($KeyAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
-				if ($KeyAdmin.lastlogontimestamp) {
-					$lastLogon = Convert-LdapTimestamp -timestamp $KeyAdmin.lastlogontimestamp
-				} else {
-					$lastLogon = ""
-				}
-				$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-				$membername = $KeyAdmin.samaccountname
-
-				if (!$membername) {
-					$ExtractedMember = @()
-					$ExtractedMember = $SumGroupsUsers | Where-Object {
-						$sid = $null
-						try {
-							$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop
-						} catch {}
-						$sid -eq (GetSID-FromBytes -sidBytes $KeyAdmin.objectsid)
-					}
-					$tempmembername = $ExtractedMember.samaccountname
-					$memberdomain = $ExtractedMember.domain
-					$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
-					if (!$isEnabled) {
-						$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }
-					}
-					if (!$isActive) {
-						if ($ExtractedMember.lastlogontimestamp) {
-							$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp
-						} else {
-							$lastLogon = ""
-						}
-						$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-					}
-				}
-
-				[PSCustomObject]@{
-					"Name" = $membername
-					"Enabled" = $isEnabled
-					"Active" = $isActive
-					"Last Logon" = $lastLogon
-					"Member SID" = GetSID-FromBytes -sidBytes $KeyAdmin.objectsid
-					"Group Domain" = $KeyAdmin.domain
-				}
-			}
-		}
-
-		if ($TempKeyAdmins) {
-			if(!$NoOutput){$TempKeyAdmins | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
-			$HTMLKeyAdmins = $TempKeyAdmins | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='KeyAdmins'>Key Admins</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='KeyAdmins'>" }
-		}
-		
-		#################################################### 
-		########### Organization Management ################
-		####################################################
-		
-		Write-Host ""
-		Write-Host "Organization Management" -ForegroundColor Cyan
-		$TempOrganizationManagement = @()
-		$TempOrganizationManagement = foreach ($AllDomain in $AllDomains) {
-			$OrganizationManagement = @()
-			$OrganizationManagement = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Organization Management"
-			foreach($Organization in $OrganizationManagement){
-
-				$isEnabled = if ($Organization.useraccountcontrol -band 2) { "False" } else { "True" }
-				if($Organization.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $Organization.lastlogontimestamp}else{$lastLogon = ""}
-				$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-				$membername = $Organization.samaccountname
-				if(!$membername){
-					$ExtractedMember = @()
-					$ExtractedMember = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq (GetSID-FromBytes -sidBytes $Organization.objectsid)}
-					$tempmembername = $ExtractedMember.samaccountname
-					$memberdomain = $ExtractedMember.domain
-					$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
-					if(!$isEnabled){$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }}
-					if(!$isActive){
-						if($ExtractedMember.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp}else{$lastLogon = ""}
-						$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-					}
-				}
-
-				[PSCustomObject]@{
-					"Name" = $membername
-					"Enabled" = $isEnabled
-					"Active" = $isActive
-					"Last Logon" = $lastLogon
-					"Member SID" = GetSID-FromBytes -sidBytes $Organization.objectsid
-					"Group Domain" = $Organization.domain
-				}
-			}
-		}
-
-		if ($TempOrganizationManagement) {
-			if(!$NoOutput){$TempOrganizationManagement | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
-			$HTMLOrganizationManagement = $TempOrganizationManagement | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='OrganizationManagement'>Organization Management</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='OrganizationManagement'>" }
-		}
-		
-		#################################################### 
-		########### Performance Log Users ################
-		####################################################
-		
-		Write-Host ""
-		Write-Host "Performance Log Users" -ForegroundColor Cyan
-		$TempPerformanceLogUsers = @()
-		$TempPerformanceLogUsers = foreach ($AllDomain in $AllDomains) {
-			$PerformanceLogUsers = @()
-			$PerformanceLogUsers = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Performance Log Users"
-			foreach($PerformanceLogUser in $PerformanceLogUsers){
-
-				$isEnabled = if ($PerformanceLogUser.useraccountcontrol -band 2) { "False" } else { "True" }
-				if($PerformanceLogUser.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $PerformanceLogUser.lastlogontimestamp}else{$lastLogon = ""}
-				$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-				$membername = $PerformanceLogUser.samaccountname
-				if(!$membername){
-					$ExtractedMember = @()
-					$ExtractedMember = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq (GetSID-FromBytes -sidBytes $PerformanceLogUser.objectsid)}
-					$tempmembername = $ExtractedMember.samaccountname
-					$memberdomain = $ExtractedMember.domain
-					$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
-					if(!$isEnabled){$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }}
-					if(!$isActive){
-						if($ExtractedMember.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp}else{$lastLogon = ""}
-						$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-					}
-				}
-
-				[PSCustomObject]@{
-					"Name" = $membername
-					"Enabled" = $isEnabled
-					"Active" = $isActive
-					"Last Logon" = $lastLogon
-					"Member SID" = GetSID-FromBytes -sidBytes $PerformanceLogUser.objectsid
-					"Group Domain" = $PerformanceLogUser.domain
-				}
-			}
-		}
-
-		if ($TempPerformanceLogUsers) {
-			if(!$NoOutput){$TempPerformanceLogUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
-			$HTMLPerformanceLogUsers = $TempPerformanceLogUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='PerformanceLogUsers'>Performance Log Users</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='PerformanceLogUsers'>" }
-		}
-		
-		#################################################### 
-		########### Print Operators ################
-		####################################################
-		
-		Write-Host ""
-		Write-Host "Print Operators" -ForegroundColor Cyan
-		$TempPrintOperators = @()
-		$TempPrintOperators = foreach ($AllDomain in $AllDomains) {
-			$PrintOperators = @()
-			$PrintOperators = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Print Operators"
-			foreach($PrintOperator in $PrintOperators){
-
-				$isEnabled = if ($PrintOperator.useraccountcontrol -band 2) { "False" } else { "True" }
-				if($PrintOperator.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $PrintOperator.lastlogontimestamp}else{$lastLogon = ""}
-				$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-				$membername = $PrintOperator.samaccountname
-				if(!$membername){
-					$ExtractedMember = @()
-					$ExtractedMember = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq (GetSID-FromBytes -sidBytes $PrintOperator.objectsid)}
-					$tempmembername = $ExtractedMember.samaccountname
-					$memberdomain = $ExtractedMember.domain
-					$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
-					if(!$isEnabled){$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }}
-					if(!$isActive){
-						if($ExtractedMember.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp}else{$lastLogon = ""}
-						$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-					}
-				}
-
-				[PSCustomObject]@{
-					"Name" = $membername
-					"Enabled" = $isEnabled
-					"Active" = $isActive
-					"Last Logon" = $lastLogon
-					"Member SID" = GetSID-FromBytes -sidBytes $PrintOperator.objectsid
-					"Group Domain" = $PrintOperator.domain
-				}
-			}
-		}
-
-		if ($TempPrintOperators) {
-			if(!$NoOutput){$TempPrintOperators | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
-			$HTMLPrintOperators = $TempPrintOperators | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='PrintOperators'>Print Operators</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='PrintOperators'>" }
-		}
-		
-		#################################################### 
-		########### Protected Users ################
-		####################################################
-		
-		Write-Host ""
-		Write-Host "Protected Users" -ForegroundColor Cyan
-		$TempProtectedUsers = @()
-		$TempProtectedUsers = foreach ($AllDomain in $AllDomains) {
-			$ProtectedUsers = @()
-			$ProtectedUsers = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Protected Users"
-			foreach ($ProtectedUser in $ProtectedUsers) {
-
-				$isEnabled = if ($ProtectedUser.useraccountcontrol -band 2) { "False" } else { "True" }
-				if ($ProtectedUser.lastlogontimestamp) {
-					$lastLogon = Convert-LdapTimestamp -timestamp $ProtectedUser.lastlogontimestamp
-				} else {
-					$lastLogon = ""
-				}
-				$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-				$membername = $ProtectedUser.samaccountname
-
-				if (!$membername) {
-					$ExtractedMember = @()
-					$ExtractedMember = $SumGroupsUsers | Where-Object {
-						$sid = $null
-						try {
-							$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop
-						} catch {}
-						$sid -eq (GetSID-FromBytes -sidBytes $ProtectedUser.objectsid)
-					}
-					$tempmembername = $ExtractedMember.samaccountname
-					$memberdomain = $ExtractedMember.domain
-					$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
-					if (!$isEnabled) {
-						$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }
-					}
-					if (!$isActive) {
-						if ($ExtractedMember.lastlogontimestamp) {
-							$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp
-						} else {
-							$lastLogon = ""
-						}
-						$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-					}
-				}
-
-				[PSCustomObject]@{
-					"Name" = $membername
-					"Enabled"     = $isEnabled
-					"Active"      = $isActive
-					"Last Logon"  = $lastLogon
-					"Member SID"  = GetSID-FromBytes -sidBytes $ProtectedUser.objectsid
-					"Group Domain"= $ProtectedUser.domain
-				}
-			}
-		}
-
-		if ($TempProtectedUsers) {
-			if(!$NoOutput){$TempProtectedUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
-			$HTMLProtectedUsers = $TempProtectedUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ProtectedUsers'>Protected Users</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ProtectedUsers'>" }
-		}
-
-		
-		#################################################### 
-		########### Read-Only Domain Controllers ################
-		####################################################
-		
-		Write-Host ""
-		Write-Host "Read-Only Domain Controllers" -ForegroundColor Cyan
-		$TempRODCs = @()
-		$TempRODCs = foreach ($AllDomain in $AllDomains) {
-			$RODCs = @()
-			$RODCs = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Read-Only Domain Controllers"
-			foreach($RODC in $RODCs){
-				
-				$isEnabled = if ($RODC.useraccountcontrol -band 2) { "False" } else { "True" }
-				if($RODC.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $RODC.lastlogontimestamp}else{$lastLogon = ""}
-				$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-				$membername = $RODC.samaccountname
-				if(!$membername){
-					$ExtractedMember = @()
-					$ExtractedMember = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq (GetSID-FromBytes -sidBytes $RODC.objectsid)}
-					$tempmembername = $ExtractedMember.samaccountname
-					$memberdomain = $ExtractedMember.domain
-					$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
-					if(!$isEnabled){$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }}
-					if(!$isActive){
-						if($ExtractedMember.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp}else{$lastLogon = ""}
-						$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-					}
-				}
-
-				[PSCustomObject]@{
-					"Name" = $membername
-					"Enabled" = $isEnabled
-					"Active" = $isActive
-					"Last Logon" = $lastLogon
-					"Member SID" = GetSID-FromBytes -sidBytes $RODC.objectsid
-					"Group Domain" = $RODC.domain
-				}
-			}
-		}
-
-		if ($TempRODCs) {
-			if(!$NoOutput){$TempRODCs | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
-			$HTMLRODCs = $TempRODCs | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='RODCs'>Read-Only Domain Controllers</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='RODCs'>" }
-		}
-		
-		#################################################### 
-		########### Remote Desktop Users ################
-		####################################################
-		
-		Write-Host ""
-		Write-Host "Remote Desktop Users" -ForegroundColor Cyan
-		$TempRDPUsers = @()
-		$TempRDPUsers = foreach ($AllDomain in $AllDomains) {
-			$RDPUsers = @()
-			$RDPUsers = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Remote Desktop Users"
-			foreach($RDPUser in $RDPUsers){
-				
-				$isEnabled = if ($RDPUser.useraccountcontrol -band 2) { "False" } else { "True" }
-				if($RDPUser.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $RDPUser.lastlogontimestamp}else{$lastLogon = ""}
-				$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-				$membername = $RDPUser.samaccountname
-				if(!$membername){
-					$ExtractedMember = @()
-					$ExtractedMember = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq (GetSID-FromBytes -sidBytes $RDPUser.objectsid)}
-					$tempmembername = $ExtractedMember.samaccountname
-					$memberdomain = $ExtractedMember.domain
-					$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
-					if(!$isEnabled){$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }}
-					if(!$isActive){
-						if($ExtractedMember.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp}else{$lastLogon = ""}
-						$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-					}
-				}
-
-				[PSCustomObject]@{
-					"Name" = $membername
-					"Enabled" = $isEnabled
-					"Active" = $isActive
-					"Last Logon" = $lastLogon
-					"Member SID" = GetSID-FromBytes -sidBytes $RDPUser.objectsid
-					"Group Domain" = $RDPUser.domain
-				}
-			}
-		}
-
-		if ($TempRDPUsers) {
-			if(!$NoOutput){$TempRDPUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
-			$HTMLRDPUsers = $TempRDPUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='RDPUsers'>Remote Desktop Users</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='RDPUsers'>" }
-		}
-		
-		#################################################### 
-		########### Remote Management Users ################
-		####################################################
-		
-		Write-Host ""
-		Write-Host "Remote Management Users" -ForegroundColor Cyan
-		$TempRemManUsers = @()
-		$TempRemManUsers = foreach ($AllDomain in $AllDomains) {
-			$RemManUsers = @()
-			$RemManUsers = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Remote Management Users"
-			foreach($RemManUser in $RemManUsers){
-				
-				$isEnabled = if ($RemManUser.useraccountcontrol -band 2) { "False" } else { "True" }
-				if($RemManUser.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $RemManUser.lastlogontimestamp}else{$lastLogon = ""}
-				$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-				$membername = $RemManUser.samaccountname
-				if(!$membername){
-					$ExtractedMember = @()
-					$ExtractedMember = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq (GetSID-FromBytes -sidBytes $RemManUser.objectsid)}
-					$tempmembername = $ExtractedMember.samaccountname
-					$memberdomain = $ExtractedMember.domain
-					$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
-					if(!$isEnabled){$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }}
-					if(!$isActive){
-						if($ExtractedMember.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp}else{$lastLogon = ""}
-						$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-					}
-				}
-
-				[PSCustomObject]@{
-					"Name" = $membername
-					"Enabled" = $isEnabled
-					"Active" = $isActive
-					"Last Logon" = $lastLogon
-					"Member SID" = GetSID-FromBytes -sidBytes $RemManUser.objectsid
-					"Group Domain" = $RemManUser.domain
-				}
-			}
-		}
-
-		if ($TempRemManUsers) {
-			if(!$NoOutput){$TempRemManUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
-			$HTMLRemManUsers = $TempRemManUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='RemManUsers'>Remote Management Users</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='RemManUsers'>" }
-		}
-		
-		#################################################### 
-		########### Schema Admins ################
-		####################################################
-		
-		Write-Host ""
-		Write-Host "Schema Admins" -ForegroundColor Cyan
-		$TempSchemaAdmins = @()
-		$TempSchemaAdmins = foreach ($AllDomain in $AllDomains) {
-			$SchemaAdmins = @()
-			$SchemaAdmins = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Schema Admins"
-			foreach ($SchemaAdmin in $SchemaAdmins) {
-				
-				$isEnabled = if ($SchemaAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
-				if ($SchemaAdmin.lastlogontimestamp) { $lastLogon = Convert-LdapTimestamp -timestamp $SchemaAdmin.lastlogontimestamp } else { $lastLogon = "" }
-				$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-				$membername = $SchemaAdmin.samaccountname
-				if (!$membername) {
-					$ExtractedMember = @()
-					$ExtractedMember = $SumGroupsUsers | Where-Object {
-						$sid = $null;
-						try {
-							$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop
-						} catch {}
-						$sid -eq (GetSID-FromBytes -sidBytes $SchemaAdmin.objectsid)
-					}
-					$tempmembername = $ExtractedMember.samaccountname
-					$memberdomain = $ExtractedMember.domain
-					$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
-					if (!$isEnabled) {
-						$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }
-					}
-					if (!$isActive) {
-						if ($ExtractedMember.lastlogontimestamp) {
-							$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp
-						} else {
-							$lastLogon = ""
-						}
-						$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-					}
-				}
-
-				[PSCustomObject]@{
-					"Name"  = $membername
-					"Enabled"      = $isEnabled
-					"Active"       = $isActive
-					"Last Logon"   = $lastLogon
-					"Member SID"   = GetSID-FromBytes -sidBytes $SchemaAdmin.objectsid
-					"Group Domain" = $SchemaAdmin.domain
-				}
-			}
-		}
-
-		if ($TempSchemaAdmins) {
-			if(!$NoOutput){$TempSchemaAdmins | Sort-Object -Unique "Group Domain","Name","Member SID" | ft -Autosize -Wrap}
-			$HTMLSchemaAdmins = $TempSchemaAdmins | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='SchemaAdmins'>Schema Admins</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='SchemaAdmins'>" }
-		}
-		
-		#################################################### 
-		########### Server Operators ################
-		####################################################
-		
-		Write-Host ""
-		Write-Host "Server Operators" -ForegroundColor Cyan
-		$TempServerOperators = @()
-		$TempServerOperators = foreach ($AllDomain in $AllDomains) {
-			$ServerOperators = @()
-			$ServerOperators = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Server Operators"
-			foreach ($ServerOperator in $ServerOperators) {
-				
-				$isEnabled = if ($ServerOperator.useraccountcontrol -band 2) { "False" } else { "True" }
-				if ($ServerOperator.lastlogontimestamp) { $lastLogon = Convert-LdapTimestamp -timestamp $ServerOperator.lastlogontimestamp } else { $lastLogon = "" }
-				$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-				$membername = $ServerOperator.samaccountname
-				if (!$membername) {
-					$ExtractedMember = @()
-					$ExtractedMember = $SumGroupsUsers | Where-Object {
-						$sid = $null
-						try {
-							$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop
-						} catch {}
-						$sid -eq (GetSID-FromBytes -sidBytes $ServerOperator.objectsid)
-					}
-					$tempmembername = $ExtractedMember.samaccountname
-					$memberdomain = $ExtractedMember.domain
-					$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
-					if (!$isEnabled) {
-						$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }
-					}
-					if (!$isActive) {
-						if ($ExtractedMember.lastlogontimestamp) { $lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp } else { $lastLogon = "" }
-						$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
-					}
-				}
-
-				[PSCustomObject]@{
-					"Name" = $membername
-					"Enabled"     = $isEnabled
-					"Active"      = $isActive
-					"Last Logon"  = $lastLogon
-					"Member SID"  = GetSID-FromBytes -sidBytes $ServerOperator.objectsid
-					"Group Domain"= $ServerOperator.domain
-				}
-			}
-		}
-
-		if ($TempServerOperators) {
-			if(!$NoOutput){$TempServerOperators | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
-			$HTMLServerOperators = $TempServerOperators | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ServerOperators'>Server Operators</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ServerOperators'>" }
-		}
-
 	}
+
+	if ($TempAccountOperators) {
+		if(!$NoOutput){$TempAccountOperators | Sort-Object -Unique "Group Domain","Name","Member SID" | ft -Autosize -Wrap}
+		$HTMLAccountOperators = $TempAccountOperators | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='AccountOperators'>Account Operators</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='AccountOperators'>" }
+	}
+	
+	#################################################### 
+	########### Backup Operators ################
+	####################################################
+	
+	Write-Host ""
+	Write-Host "Backup Operators" -ForegroundColor Cyan
+	$TempBackupOperators = @()
+	$TempBackupOperators = foreach ($AllDomain in $AllDomains) {
+		$BackupOperators = @()
+		$BackupOperators = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Backup Operators"
+		foreach($BackupOperator in $BackupOperators){
+			
+			$isEnabled = if ($BackupOperator.useraccountcontrol -band 2) { "False" } else { "True" }
+			if($BackupOperator.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $BackupOperator.lastlogontimestamp}else{$lastLogon = ""}
+			$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+			$membername = $BackupOperator.samaccountname
+			if(!$membername){
+				$ExtractedMember = @()
+				$ExtractedMember = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq (GetSID-FromBytes -sidBytes $BackupOperator.objectsid)}
+				$tempmembername = $ExtractedMember.samaccountname
+				$memberdomain = $ExtractedMember.domain
+				$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
+				if(!$isEnabled){$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }}
+				if(!$isActive){
+					if($ExtractedMember.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp}else{$lastLogon = ""}
+					$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+				}
+			}
+
+			[PSCustomObject]@{
+				"Name" = $membername
+				"Enabled" = $isEnabled
+				"Active" = $isActive
+				"Last Logon" = $lastLogon
+				"Member SID" = GetSID-FromBytes -sidBytes $BackupOperator.objectsid
+				"Group Domain" = $BackupOperator.domain
+			}
+
+		}
+	}
+
+	if ($TempBackupOperators) {
+		if(!$NoOutput){$TempBackupOperators | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
+		$HTMLBackupOperators = $TempBackupOperators | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='BackupOperators'>Backup Operators</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='BackupOperators'>" }
+	}
+	
+	#################################################### 
+	########### Cert Publishers ################
+	####################################################
+	
+	Write-Host ""
+	Write-Host "Cert Publishers" -ForegroundColor Cyan
+	$TempCertPublishersGroup = @()
+	$TempCertPublishersGroup = foreach ($AllDomain in $AllDomains) {
+		$CertPublishers = @()
+		$CertPublishers = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Cert Publishers"
+		foreach ($CertPublisher in $CertPublishers) {
+			
+			$isEnabled = if ($CertPublisher.useraccountcontrol -band 2) { "False" } else { "True" }
+			if ($CertPublisher.lastlogontimestamp) {
+				$lastLogon = Convert-LdapTimestamp -timestamp $CertPublisher.lastlogontimestamp
+			} else {
+				$lastLogon = ""
+			}
+			$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+			
+			$memberName = $CertPublisher.samaccountname
+			if (!$memberName) {
+				$ExtractedMember = @()
+				$ExtractedMember = $SumGroupsUsers | Where-Object {
+					$sid = $null;
+					try {
+						$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop
+					} catch {}
+					$sid -eq (GetSID-FromBytes -sidBytes $CertPublisher.objectsid)
+				}
+				$tempMemberName = $ExtractedMember.samaccountname
+				$memberDomain = $ExtractedMember.domain
+				$memberName = ($memberDomain -split "\.")[0] + "\" + $tempMemberName
+				if (!$isEnabled) {
+					$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }
+				}
+				if (!$isActive) {
+					if ($ExtractedMember.lastlogontimestamp) {
+						$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp
+					} else {
+						$lastLogon = ""
+					}
+					$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+				}
+			}
+
+			[PSCustomObject]@{
+				"Name"  = $memberName
+				"Enabled"      = $isEnabled
+				"Active"       = $isActive
+				"Last Logon"   = $lastLogon
+				"Member SID"   = GetSID-FromBytes -sidBytes $CertPublisher.objectsid
+				"Group Domain" = $CertPublisher.domain
+			}
+		}
+	}
+
+	if ($TempCertPublishersGroup) {
+		if(!$NoOutput){$TempCertPublishersGroup | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
+		$HTMLCertPublishersGroup = $TempCertPublishersGroup | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='CertPublishers'>Cert Publishers</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='CertPublishers'>" }
+	}
+	
+	#################################################### 
+	########### Distributed COM Users ################
+	####################################################
+	
+	Write-Host ""
+	Write-Host "Distributed COM Users" -ForegroundColor Cyan
+	$TempDCOMUsers = @()
+	$TempDCOMUsers = foreach ($AllDomain in $AllDomains) {
+		$DCOMUsers = @()
+		$DCOMUsers = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Distributed COM Users"
+		foreach($DCOMUser in $DCOMUsers){
+			
+			$isEnabled = if ($DCOMUser.useraccountcontrol -band 2) { "False" } else { "True" }
+			if($DCOMUser.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $DCOMUser.lastlogontimestamp}else{$lastLogon = ""}
+			$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+			$membername = $DCOMUser.samaccountname
+			if(!$membername){
+				$ExtractedMember = @()
+				$ExtractedMember = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq (GetSID-FromBytes -sidBytes $DCOMUser.objectsid)}
+				$tempmembername = $ExtractedMember.samaccountname
+				$memberdomain = $ExtractedMember.domain
+				$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
+				if(!$isEnabled){$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }}
+				if(!$isActive){
+					if($ExtractedMember.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp}else{$lastLogon = ""}
+					$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+				}
+			}
+
+			[PSCustomObject]@{
+				"Name" = $membername
+				"Enabled" = $isEnabled
+				"Active" = $isActive
+				"Last Logon" = $lastLogon
+				"Member SID" = GetSID-FromBytes -sidBytes $DCOMUser.objectsid
+				"Group Domain" = $DCOMUser.domain
+			}
+		}
+	}
+
+	if ($TempDCOMUsers) {
+		if(!$NoOutput){$TempDCOMUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
+		$HTMLDCOMUsers = $TempDCOMUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DCOMUsers'>Distributed COM Users</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DCOMUsers'>" }
+	}
+	
+	#################################################### 
+	########### DNS Admins ################
+	####################################################
+	
+	Write-Host ""
+	Write-Host "DNS Admins" -ForegroundColor Cyan
+	$TempDNSAdmins = @()
+	$TempDNSAdmins = foreach ($AllDomain in $AllDomains) {
+		$DNSAdmins = @()
+		$DNSAdmins = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "DNSAdmins"
+		foreach($DNSAdmin in $DNSAdmins){
+			
+			$isEnabled = if ($DNSAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
+			if($DNSAdmin.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $DNSAdmin.lastlogontimestamp}else{$lastLogon = ""}
+			$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+			$membername = $DNSAdmin.samaccountname
+			if(!$membername){
+				$ExtractedMember = @()
+				$ExtractedMember = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq (GetSID-FromBytes -sidBytes $DNSAdmin.objectsid)}
+				$tempmembername = $ExtractedMember.samaccountname
+				$memberdomain = $ExtractedMember.domain
+				$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
+				if(!$isEnabled){$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }}
+				if(!$isActive){
+					if($ExtractedMember.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp}else{$lastLogon = ""}
+					$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+				}
+			}
+
+			[PSCustomObject]@{
+				"Name" = $membername
+				"Enabled" = $isEnabled
+				"Active" = $isActive
+				"Last Logon" = $lastLogon
+				"Member SID" = GetSID-FromBytes -sidBytes $DNSAdmin.objectsid
+				"Group Domain" = $DNSAdmin.domain
+			}
+		}
+	}
+
+	if ($TempDNSAdmins) {
+		if(!$NoOutput){$TempDNSAdmins | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
+		$HTMLDNSAdmins = $TempDNSAdmins | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DNSAdmins'>DNS Admins</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DNSAdmins'>" }
+	}
+	
+	#################################################### 
+	########### Enterprise Key Admins ################
+	####################################################
+	
+	Write-Host ""
+	Write-Host "Enterprise Key Admins" -ForegroundColor Cyan
+	$TempEnterpriseKeyAdmins = @()
+	$TempEnterpriseKeyAdmins = foreach ($AllDomain in $AllDomains) {
+		$EnterpriseKeyAdmins = @()
+		$EnterpriseKeyAdmins = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Enterprise Key Admins"
+		foreach ($EnterpriseKeyAdmin in $EnterpriseKeyAdmins) {
+			
+			$isEnabled = if ($EnterpriseKeyAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
+			if ($EnterpriseKeyAdmin.lastlogontimestamp) { $lastLogon = Convert-LdapTimestamp -timestamp $EnterpriseKeyAdmin.lastlogontimestamp } else { $lastLogon = "" }
+			$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+			$membername = $EnterpriseKeyAdmin.samaccountname
+			if (!$membername) {
+				$ExtractedMember = @()
+				$ExtractedMember = $SumGroupsUsers | Where-Object {
+					$sid = $null
+					try {
+						$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop
+					} catch { }
+					$sid -eq (GetSID-FromBytes -sidBytes $EnterpriseKeyAdmin.objectsid)
+				}
+				$tempmembername = $ExtractedMember.samaccountname
+				$memberdomain = $ExtractedMember.domain
+				$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
+				if (!$isEnabled) {
+					$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }
+				}
+				if (!$isActive) {
+					if ($ExtractedMember.lastlogontimestamp) { $lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp } else { $lastLogon = "" }
+					$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+				}
+			}
+
+			[PSCustomObject]@{
+				"Name"        = $membername
+				"Enabled"     = $isEnabled
+				"Active"      = $isActive
+				"Last Logon"  = $lastLogon
+				"Member SID"  = GetSID-FromBytes -sidBytes $EnterpriseKeyAdmin.objectsid
+				"Group Domain"= $EnterpriseKeyAdmin.domain
+			}
+		}
+	}
+
+	if ($TempEnterpriseKeyAdmins) {
+		if(!$NoOutput){$TempEnterpriseKeyAdmins | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
+		$HTMLEnterpriseKeyAdmins = $TempEnterpriseKeyAdmins | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='EnterpriseKeyAdmins'>Enterprise Key Admins</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='EnterpriseKeyAdmins'>" }
+	}
+	
+	#################################################### 
+	########### Enterprise Read-Only Domain Controllers ################
+	####################################################
+	
+	Write-Host ""
+	Write-Host "Enterprise Read-Only Domain Controllers" -ForegroundColor Cyan
+	$TempEnterpriseRODCs = @()
+	$TempEnterpriseRODCs = foreach ($AllDomain in $AllDomains) {
+		$EnterpriseRODCs = @()
+		$EnterpriseRODCs = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Enterprise Read-Only Domain Controllers"
+		foreach($EnterpriseRODC in $EnterpriseRODCs){
+
+			$isEnabled = if ($EnterpriseRODC.useraccountcontrol -band 2) { "False" } else { "True" }
+			if($EnterpriseRODC.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $EnterpriseRODC.lastlogontimestamp}else{$lastLogon = ""}
+			$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+			$membername = $EnterpriseRODC.samaccountname
+			if(!$membername){
+				$ExtractedMember = @()
+				$ExtractedMember = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq (GetSID-FromBytes -sidBytes $EnterpriseRODC.objectsid)}
+				$tempmembername = $ExtractedMember.samaccountname
+				$memberdomain = $ExtractedMember.domain
+				$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
+				if(!$isEnabled){$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }}
+				if(!$isActive){
+					if($ExtractedMember.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp}else{$lastLogon = ""}
+					$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+				}
+			}
+
+			[PSCustomObject]@{
+				"Name" = $membername
+				"Enabled" = $isEnabled
+				"Active" = $isActive
+				"Last Logon" = $lastLogon
+				"Member SID" = GetSID-FromBytes -sidBytes $EnterpriseRODC.objectsid
+				"Group Domain" = $EnterpriseRODC.domain
+			}
+		}
+	}
+
+	if ($TempEnterpriseRODCs) {
+		if(!$NoOutput){$TempEnterpriseRODCs | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
+		$HTMLEnterpriseRODCs = $TempEnterpriseRODCs | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='EnterpriseRODCs'>Enterprise Read-Only Domain Controllers</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='EnterpriseRODCs'>" }
+	}
+
+	
+	#################################################### 
+	########### Group Policy Creator Owners ################
+	####################################################
+	
+	Write-Host ""
+	Write-Host "Group Policy Creator Owners" -ForegroundColor Cyan
+	$TempGPCreatorOwners = @()
+	$TempGPCreatorOwners = foreach ($AllDomain in $AllDomains) {
+		$GPCreatorOwners = @()
+		$GPCreatorOwners = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Group Policy Creator Owners"
+		foreach ($GPCreatorOwner in $GPCreatorOwners) {
+			
+			$isEnabled = if ($GPCreatorOwner.useraccountcontrol -band 2) { "False" } else { "True" }
+			if ($GPCreatorOwner.lastlogontimestamp) { $lastLogon = Convert-LdapTimestamp -timestamp $GPCreatorOwner.lastlogontimestamp } else { $lastLogon = "" }
+			$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+			$membername = $GPCreatorOwner.samaccountname
+			if (!$membername) {
+				$ExtractedMember = @()
+				$ExtractedMember = $SumGroupsUsers | Where-Object { $sid = $null; try { $sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop } catch {} ; $sid -eq (GetSID-FromBytes -sidBytes $GPCreatorOwner.objectsid) }
+				$tempmembername = $ExtractedMember.samaccountname
+				$memberdomain = $ExtractedMember.domain
+				$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
+				if (!$isEnabled) { $isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" } }
+				if (!$isActive) {
+					if ($ExtractedMember.lastlogontimestamp) { $lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp } else { $lastLogon = "" }
+					$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+				}
+			}
+
+			[PSCustomObject]@{
+				"Name" = $membername
+				"Enabled"     = $isEnabled
+				"Active"      = $isActive
+				"Last Logon"  = $lastLogon
+				"Member SID"  = GetSID-FromBytes -sidBytes $GPCreatorOwner.objectsid
+				"Group Domain"= $GPCreatorOwner.domain
+			}
+		}
+	}
+
+	if ($TempGPCreatorOwners) {
+		if(!$NoOutput){$TempGPCreatorOwners | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
+		$HTMLGPCreatorOwners = $TempGPCreatorOwners | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='GPCreatorOwners'>Group Policy Creator Owners</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='GPCreatorOwners'>" }
+	}
+
+	#################################################### 
+	########### Key Admins ################
+	####################################################
+	
+	Write-Host ""
+	Write-Host "Key Admins" -ForegroundColor Cyan
+	$TempKeyAdmins = @()
+	$TempKeyAdmins = foreach ($AllDomain in $AllDomains) {
+		$KeyAdmins = @()
+		$KeyAdmins = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Key Admins"
+		foreach ($KeyAdmin in $KeyAdmins) {
+
+			$isEnabled = if ($KeyAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
+			if ($KeyAdmin.lastlogontimestamp) {
+				$lastLogon = Convert-LdapTimestamp -timestamp $KeyAdmin.lastlogontimestamp
+			} else {
+				$lastLogon = ""
+			}
+			$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+			$membername = $KeyAdmin.samaccountname
+
+			if (!$membername) {
+				$ExtractedMember = @()
+				$ExtractedMember = $SumGroupsUsers | Where-Object {
+					$sid = $null
+					try {
+						$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop
+					} catch {}
+					$sid -eq (GetSID-FromBytes -sidBytes $KeyAdmin.objectsid)
+				}
+				$tempmembername = $ExtractedMember.samaccountname
+				$memberdomain = $ExtractedMember.domain
+				$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
+				if (!$isEnabled) {
+					$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }
+				}
+				if (!$isActive) {
+					if ($ExtractedMember.lastlogontimestamp) {
+						$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp
+					} else {
+						$lastLogon = ""
+					}
+					$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+				}
+			}
+
+			[PSCustomObject]@{
+				"Name" = $membername
+				"Enabled" = $isEnabled
+				"Active" = $isActive
+				"Last Logon" = $lastLogon
+				"Member SID" = GetSID-FromBytes -sidBytes $KeyAdmin.objectsid
+				"Group Domain" = $KeyAdmin.domain
+			}
+		}
+	}
+
+	if ($TempKeyAdmins) {
+		if(!$NoOutput){$TempKeyAdmins | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
+		$HTMLKeyAdmins = $TempKeyAdmins | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='KeyAdmins'>Key Admins</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='KeyAdmins'>" }
+	}
+	
+	#################################################### 
+	########### Organization Management ################
+	####################################################
+	
+	Write-Host ""
+	Write-Host "Organization Management" -ForegroundColor Cyan
+	$TempOrganizationManagement = @()
+	$TempOrganizationManagement = foreach ($AllDomain in $AllDomains) {
+		$OrganizationManagement = @()
+		$OrganizationManagement = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Organization Management"
+		foreach($Organization in $OrganizationManagement){
+
+			$isEnabled = if ($Organization.useraccountcontrol -band 2) { "False" } else { "True" }
+			if($Organization.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $Organization.lastlogontimestamp}else{$lastLogon = ""}
+			$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+			$membername = $Organization.samaccountname
+			if(!$membername){
+				$ExtractedMember = @()
+				$ExtractedMember = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq (GetSID-FromBytes -sidBytes $Organization.objectsid)}
+				$tempmembername = $ExtractedMember.samaccountname
+				$memberdomain = $ExtractedMember.domain
+				$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
+				if(!$isEnabled){$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }}
+				if(!$isActive){
+					if($ExtractedMember.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp}else{$lastLogon = ""}
+					$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+				}
+			}
+
+			[PSCustomObject]@{
+				"Name" = $membername
+				"Enabled" = $isEnabled
+				"Active" = $isActive
+				"Last Logon" = $lastLogon
+				"Member SID" = GetSID-FromBytes -sidBytes $Organization.objectsid
+				"Group Domain" = $Organization.domain
+			}
+		}
+	}
+
+	if ($TempOrganizationManagement) {
+		if(!$NoOutput){$TempOrganizationManagement | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
+		$HTMLOrganizationManagement = $TempOrganizationManagement | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='OrganizationManagement'>Organization Management</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='OrganizationManagement'>" }
+	}
+	
+	#################################################### 
+	########### Performance Log Users ################
+	####################################################
+	
+	Write-Host ""
+	Write-Host "Performance Log Users" -ForegroundColor Cyan
+	$TempPerformanceLogUsers = @()
+	$TempPerformanceLogUsers = foreach ($AllDomain in $AllDomains) {
+		$PerformanceLogUsers = @()
+		$PerformanceLogUsers = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Performance Log Users"
+		foreach($PerformanceLogUser in $PerformanceLogUsers){
+
+			$isEnabled = if ($PerformanceLogUser.useraccountcontrol -band 2) { "False" } else { "True" }
+			if($PerformanceLogUser.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $PerformanceLogUser.lastlogontimestamp}else{$lastLogon = ""}
+			$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+			$membername = $PerformanceLogUser.samaccountname
+			if(!$membername){
+				$ExtractedMember = @()
+				$ExtractedMember = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq (GetSID-FromBytes -sidBytes $PerformanceLogUser.objectsid)}
+				$tempmembername = $ExtractedMember.samaccountname
+				$memberdomain = $ExtractedMember.domain
+				$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
+				if(!$isEnabled){$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }}
+				if(!$isActive){
+					if($ExtractedMember.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp}else{$lastLogon = ""}
+					$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+				}
+			}
+
+			[PSCustomObject]@{
+				"Name" = $membername
+				"Enabled" = $isEnabled
+				"Active" = $isActive
+				"Last Logon" = $lastLogon
+				"Member SID" = GetSID-FromBytes -sidBytes $PerformanceLogUser.objectsid
+				"Group Domain" = $PerformanceLogUser.domain
+			}
+		}
+	}
+
+	if ($TempPerformanceLogUsers) {
+		if(!$NoOutput){$TempPerformanceLogUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
+		$HTMLPerformanceLogUsers = $TempPerformanceLogUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='PerformanceLogUsers'>Performance Log Users</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='PerformanceLogUsers'>" }
+	}
+	
+	#################################################### 
+	########### Print Operators ################
+	####################################################
+	
+	Write-Host ""
+	Write-Host "Print Operators" -ForegroundColor Cyan
+	$TempPrintOperators = @()
+	$TempPrintOperators = foreach ($AllDomain in $AllDomains) {
+		$PrintOperators = @()
+		$PrintOperators = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Print Operators"
+		foreach($PrintOperator in $PrintOperators){
+
+			$isEnabled = if ($PrintOperator.useraccountcontrol -band 2) { "False" } else { "True" }
+			if($PrintOperator.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $PrintOperator.lastlogontimestamp}else{$lastLogon = ""}
+			$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+			$membername = $PrintOperator.samaccountname
+			if(!$membername){
+				$ExtractedMember = @()
+				$ExtractedMember = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq (GetSID-FromBytes -sidBytes $PrintOperator.objectsid)}
+				$tempmembername = $ExtractedMember.samaccountname
+				$memberdomain = $ExtractedMember.domain
+				$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
+				if(!$isEnabled){$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }}
+				if(!$isActive){
+					if($ExtractedMember.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp}else{$lastLogon = ""}
+					$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+				}
+			}
+
+			[PSCustomObject]@{
+				"Name" = $membername
+				"Enabled" = $isEnabled
+				"Active" = $isActive
+				"Last Logon" = $lastLogon
+				"Member SID" = GetSID-FromBytes -sidBytes $PrintOperator.objectsid
+				"Group Domain" = $PrintOperator.domain
+			}
+		}
+	}
+
+	if ($TempPrintOperators) {
+		if(!$NoOutput){$TempPrintOperators | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
+		$HTMLPrintOperators = $TempPrintOperators | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='PrintOperators'>Print Operators</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='PrintOperators'>" }
+	}
+	
+	#################################################### 
+	########### Protected Users ################
+	####################################################
+	
+	Write-Host ""
+	Write-Host "Protected Users" -ForegroundColor Cyan
+	$TempProtectedUsers = @()
+	$TempProtectedUsers = foreach ($AllDomain in $AllDomains) {
+		$ProtectedUsers = @()
+		$ProtectedUsers = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Protected Users"
+		foreach ($ProtectedUser in $ProtectedUsers) {
+
+			$isEnabled = if ($ProtectedUser.useraccountcontrol -band 2) { "False" } else { "True" }
+			if ($ProtectedUser.lastlogontimestamp) {
+				$lastLogon = Convert-LdapTimestamp -timestamp $ProtectedUser.lastlogontimestamp
+			} else {
+				$lastLogon = ""
+			}
+			$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+			$membername = $ProtectedUser.samaccountname
+
+			if (!$membername) {
+				$ExtractedMember = @()
+				$ExtractedMember = $SumGroupsUsers | Where-Object {
+					$sid = $null
+					try {
+						$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop
+					} catch {}
+					$sid -eq (GetSID-FromBytes -sidBytes $ProtectedUser.objectsid)
+				}
+				$tempmembername = $ExtractedMember.samaccountname
+				$memberdomain = $ExtractedMember.domain
+				$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
+				if (!$isEnabled) {
+					$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }
+				}
+				if (!$isActive) {
+					if ($ExtractedMember.lastlogontimestamp) {
+						$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp
+					} else {
+						$lastLogon = ""
+					}
+					$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+				}
+			}
+
+			[PSCustomObject]@{
+				"Name" = $membername
+				"Enabled"     = $isEnabled
+				"Active"      = $isActive
+				"Last Logon"  = $lastLogon
+				"Member SID"  = GetSID-FromBytes -sidBytes $ProtectedUser.objectsid
+				"Group Domain"= $ProtectedUser.domain
+			}
+		}
+	}
+
+	if ($TempProtectedUsers) {
+		if(!$NoOutput){$TempProtectedUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
+		$HTMLProtectedUsers = $TempProtectedUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ProtectedUsers'>Protected Users</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ProtectedUsers'>" }
+	}
+
+	
+	#################################################### 
+	########### Read-Only Domain Controllers ################
+	####################################################
+	
+	Write-Host ""
+	Write-Host "Read-Only Domain Controllers" -ForegroundColor Cyan
+	$TempRODCs = @()
+	$TempRODCs = foreach ($AllDomain in $AllDomains) {
+		$RODCs = @()
+		$RODCs = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Read-Only Domain Controllers"
+		foreach($RODC in $RODCs){
+			
+			$isEnabled = if ($RODC.useraccountcontrol -band 2) { "False" } else { "True" }
+			if($RODC.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $RODC.lastlogontimestamp}else{$lastLogon = ""}
+			$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+			$membername = $RODC.samaccountname
+			if(!$membername){
+				$ExtractedMember = @()
+				$ExtractedMember = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq (GetSID-FromBytes -sidBytes $RODC.objectsid)}
+				$tempmembername = $ExtractedMember.samaccountname
+				$memberdomain = $ExtractedMember.domain
+				$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
+				if(!$isEnabled){$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }}
+				if(!$isActive){
+					if($ExtractedMember.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp}else{$lastLogon = ""}
+					$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+				}
+			}
+
+			[PSCustomObject]@{
+				"Name" = $membername
+				"Enabled" = $isEnabled
+				"Active" = $isActive
+				"Last Logon" = $lastLogon
+				"Member SID" = GetSID-FromBytes -sidBytes $RODC.objectsid
+				"Group Domain" = $RODC.domain
+			}
+		}
+	}
+
+	if ($TempRODCs) {
+		if(!$NoOutput){$TempRODCs | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
+		$HTMLRODCs = $TempRODCs | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='RODCs'>Read-Only Domain Controllers</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='RODCs'>" }
+	}
+	
+	#################################################### 
+	########### Remote Desktop Users ################
+	####################################################
+	
+	Write-Host ""
+	Write-Host "Remote Desktop Users" -ForegroundColor Cyan
+	$TempRDPUsers = @()
+	$TempRDPUsers = foreach ($AllDomain in $AllDomains) {
+		$RDPUsers = @()
+		$RDPUsers = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Remote Desktop Users"
+		foreach($RDPUser in $RDPUsers){
+			
+			$isEnabled = if ($RDPUser.useraccountcontrol -band 2) { "False" } else { "True" }
+			if($RDPUser.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $RDPUser.lastlogontimestamp}else{$lastLogon = ""}
+			$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+			$membername = $RDPUser.samaccountname
+			if(!$membername){
+				$ExtractedMember = @()
+				$ExtractedMember = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq (GetSID-FromBytes -sidBytes $RDPUser.objectsid)}
+				$tempmembername = $ExtractedMember.samaccountname
+				$memberdomain = $ExtractedMember.domain
+				$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
+				if(!$isEnabled){$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }}
+				if(!$isActive){
+					if($ExtractedMember.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp}else{$lastLogon = ""}
+					$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+				}
+			}
+
+			[PSCustomObject]@{
+				"Name" = $membername
+				"Enabled" = $isEnabled
+				"Active" = $isActive
+				"Last Logon" = $lastLogon
+				"Member SID" = GetSID-FromBytes -sidBytes $RDPUser.objectsid
+				"Group Domain" = $RDPUser.domain
+			}
+		}
+	}
+
+	if ($TempRDPUsers) {
+		if(!$NoOutput){$TempRDPUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
+		$HTMLRDPUsers = $TempRDPUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='RDPUsers'>Remote Desktop Users</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='RDPUsers'>" }
+	}
+	
+	#################################################### 
+	########### Remote Management Users ################
+	####################################################
+	
+	Write-Host ""
+	Write-Host "Remote Management Users" -ForegroundColor Cyan
+	$TempRemManUsers = @()
+	$TempRemManUsers = foreach ($AllDomain in $AllDomains) {
+		$RemManUsers = @()
+		$RemManUsers = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Remote Management Users"
+		foreach($RemManUser in $RemManUsers){
+			
+			$isEnabled = if ($RemManUser.useraccountcontrol -band 2) { "False" } else { "True" }
+			if($RemManUser.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $RemManUser.lastlogontimestamp}else{$lastLogon = ""}
+			$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+			$membername = $RemManUser.samaccountname
+			if(!$membername){
+				$ExtractedMember = @()
+				$ExtractedMember = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq (GetSID-FromBytes -sidBytes $RemManUser.objectsid)}
+				$tempmembername = $ExtractedMember.samaccountname
+				$memberdomain = $ExtractedMember.domain
+				$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
+				if(!$isEnabled){$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }}
+				if(!$isActive){
+					if($ExtractedMember.lastlogontimestamp){$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp}else{$lastLogon = ""}
+					$isActive = if ($lastLogon -eq ""){""} elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+				}
+			}
+
+			[PSCustomObject]@{
+				"Name" = $membername
+				"Enabled" = $isEnabled
+				"Active" = $isActive
+				"Last Logon" = $lastLogon
+				"Member SID" = GetSID-FromBytes -sidBytes $RemManUser.objectsid
+				"Group Domain" = $RemManUser.domain
+			}
+		}
+	}
+
+	if ($TempRemManUsers) {
+		if(!$NoOutput){$TempRemManUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
+		$HTMLRemManUsers = $TempRemManUsers | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='RemManUsers'>Remote Management Users</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='RemManUsers'>" }
+	}
+	
+	#################################################### 
+	########### Schema Admins ################
+	####################################################
+	
+	Write-Host ""
+	Write-Host "Schema Admins" -ForegroundColor Cyan
+	$TempSchemaAdmins = @()
+	$TempSchemaAdmins = foreach ($AllDomain in $AllDomains) {
+		$SchemaAdmins = @()
+		$SchemaAdmins = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Schema Admins"
+		foreach ($SchemaAdmin in $SchemaAdmins) {
+			
+			$isEnabled = if ($SchemaAdmin.useraccountcontrol -band 2) { "False" } else { "True" }
+			if ($SchemaAdmin.lastlogontimestamp) { $lastLogon = Convert-LdapTimestamp -timestamp $SchemaAdmin.lastlogontimestamp } else { $lastLogon = "" }
+			$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+			$membername = $SchemaAdmin.samaccountname
+			if (!$membername) {
+				$ExtractedMember = @()
+				$ExtractedMember = $SumGroupsUsers | Where-Object {
+					$sid = $null;
+					try {
+						$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop
+					} catch {}
+					$sid -eq (GetSID-FromBytes -sidBytes $SchemaAdmin.objectsid)
+				}
+				$tempmembername = $ExtractedMember.samaccountname
+				$memberdomain = $ExtractedMember.domain
+				$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
+				if (!$isEnabled) {
+					$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }
+				}
+				if (!$isActive) {
+					if ($ExtractedMember.lastlogontimestamp) {
+						$lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp
+					} else {
+						$lastLogon = ""
+					}
+					$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+				}
+			}
+
+			[PSCustomObject]@{
+				"Name"  = $membername
+				"Enabled"      = $isEnabled
+				"Active"       = $isActive
+				"Last Logon"   = $lastLogon
+				"Member SID"   = GetSID-FromBytes -sidBytes $SchemaAdmin.objectsid
+				"Group Domain" = $SchemaAdmin.domain
+			}
+		}
+	}
+
+	if ($TempSchemaAdmins) {
+		if(!$NoOutput){$TempSchemaAdmins | Sort-Object -Unique "Group Domain","Name","Member SID" | ft -Autosize -Wrap}
+		$HTMLSchemaAdmins = $TempSchemaAdmins | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='SchemaAdmins'>Schema Admins</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='SchemaAdmins'>" }
+	}
+	
+	#################################################### 
+	########### Server Operators ################
+	####################################################
+	
+	Write-Host ""
+	Write-Host "Server Operators" -ForegroundColor Cyan
+	$TempServerOperators = @()
+	$TempServerOperators = foreach ($AllDomain in $AllDomains) {
+		$ServerOperators = @()
+		$ServerOperators = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Server Operators"
+		foreach ($ServerOperator in $ServerOperators) {
+			
+			$isEnabled = if ($ServerOperator.useraccountcontrol -band 2) { "False" } else { "True" }
+			if ($ServerOperator.lastlogontimestamp) { $lastLogon = Convert-LdapTimestamp -timestamp $ServerOperator.lastlogontimestamp } else { $lastLogon = "" }
+			$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+			$membername = $ServerOperator.samaccountname
+			if (!$membername) {
+				$ExtractedMember = @()
+				$ExtractedMember = $SumGroupsUsers | Where-Object {
+					$sid = $null
+					try {
+						$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop
+					} catch {}
+					$sid -eq (GetSID-FromBytes -sidBytes $ServerOperator.objectsid)
+				}
+				$tempmembername = $ExtractedMember.samaccountname
+				$memberdomain = $ExtractedMember.domain
+				$membername = ($memberdomain -split "\.")[0] + "\" + $tempmembername
+				if (!$isEnabled) {
+					$isEnabled = if ($ExtractedMember.useraccountcontrol -band 2) { "False" } else { "True" }
+				}
+				if (!$isActive) {
+					if ($ExtractedMember.lastlogontimestamp) { $lastLogon = Convert-LdapTimestamp -timestamp $ExtractedMember.lastlogontimestamp } else { $lastLogon = "" }
+					$isActive = if ($lastLogon -eq "") { "" } elseif ($lastLogon -ge $inactiveThreshold) { "True" } else { "False" }
+				}
+			}
+
+			[PSCustomObject]@{
+				"Name" = $membername
+				"Enabled"     = $isEnabled
+				"Active"      = $isActive
+				"Last Logon"  = $lastLogon
+				"Member SID"  = GetSID-FromBytes -sidBytes $ServerOperator.objectsid
+				"Group Domain"= $ServerOperator.domain
+			}
+		}
+	}
+
+	if ($TempServerOperators) {
+		if(!$NoOutput){$TempServerOperators | Sort-Object -Unique "Group Domain","Name","Member SID" | Format-Table -Autosize -Wrap}
+		$HTMLServerOperators = $TempServerOperators | Sort-Object -Unique "Group Domain","Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ServerOperators'>Server Operators</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ServerOperators'>" }
+	}
+
+	
 	
 	#####################################################
     ############### Interesting Data ###################
