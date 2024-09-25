@@ -2042,13 +2042,17 @@ Add-Type -TypeDefinition $code
 		$TempForeignGroupMembers = @()
 		$TempForeignGroupMembers = foreach ($ForeignGroupMember in $ForeignGroupMembers) {
 			
-			$ExtractedObject = $SumGroupsUsers | Where-Object {$_.domain -ne $ForeignGroupMember.GroupDomain} | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq $ForeignGroupMember.MemberName}
+			$ExtractedMemberName = $null
+			$TargetExtractedDomain = $null
+			$GroupMembers = @()
+   
+   			$ExtractedObject = $SumGroupsUsers | Where-Object {$_.domain -ne $ForeignGroupMember.GroupDomain} | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq $ForeignGroupMember.MemberName}
 			if ($ExtractedObject) {
 				$ExtractedMemberName = $ExtractedObject.samaccountname
 				$TargetExtractedDomain = $ExtractedObject.domain
 				$ObjectsForTheDomain = @($SumGroupsUsers | Where-Object {$_.domain -eq $TargetExtractedDomain})
 			}
-			$GroupMembers = @()
+
 			$GroupMembers = if($ExtractedMemberName) {RecursiveGroupMembers -Identity $ExtractedMemberName -AllADObjects $ObjectsForTheDomain} else {""}
 			$FinalMembers = $GroupMembers.MemberName -join ' - '
 			
