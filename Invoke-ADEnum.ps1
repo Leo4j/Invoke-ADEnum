@@ -924,8 +924,17 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 	}
 	
 	$inactiveThreshold = (Get-Date).AddMonths(-6)
-	
-	#############################################
+
+	#############################################################################
+    ############# List to all domain policies to avoid getting stuck ################
+	#############################################################################
+
+ 	foreach($AllDomain in $AllDomains){
+		$UnlocksysvolPath = "\\$AllDomain\SYSVOL\$AllDomain\Policies"
+		ls $UnlocksysvolPath | Out-Null
+	}
+
+ 	#############################################
     ############# Data Collection ################
 	#############################################
 	
@@ -2340,20 +2349,46 @@ Add-Type -TypeDefinition $code
 			# Read the content of the Registry.pol file as a single string
 			$content = Get-Content -Path $file.FullName -Encoding Unicode -Raw
 
-			$pattern = "EnableMulticast"
+			$pattern = "\[.*?EnableMulticast.*?\]"
 
 			# Perform the regex match to find the pattern
 			if ($content -match $pattern) {
 				
+				$extractedString = $matches[0]
+				$byteArray = [System.Text.Encoding]::Unicode.GetBytes($extractedString)
+				
 				$TempGPOPath = if ($file.DirectoryName -match '(.*\})') {$matches[1]}
 				$TargetGPO = @($AllCollectedGPOs | Where-Object {$_.domain -eq $AllDomain -AND $_.gpcfilesyspath -eq $TempGPOPath})
 				
-				[PSCustomObject]@{
-					Domain = $AllDomain
-					"GPO Name" = $TargetGPO.displayname
-					"Location" = $TargetGPO.gpcfilesyspath
-					"LLMNR" = "Disabled"
+				if($byteArray[148] -eq 0){
+					[PSCustomObject]@{
+						Domain = $AllDomain
+						"GPO Name" = $TargetGPO.displayname
+						"Location" = $TargetGPO.gpcfilesyspath
+						"LLMNR" = "Disabled"
+					}
 				}
+				elseif($byteArray[148] -eq 1){
+					[PSCustomObject]@{
+						Domain = $AllDomain
+						"GPO Name" = $TargetGPO.displayname
+						"Location" = $TargetGPO.gpcfilesyspath
+						"LLMNR" = "Explicitly Enabled"
+					}
+				}
+			}
+		}
+	}
+
+ 	foreach ($AllDomain in $AllDomains) {
+		$Tmpllmnrstatus = $null
+		$Tmpllmnrstatus = $TempLLMNR | Where-Object {$_.Domain -eq $AllDomain}
+		if(!$Tmpllmnrstatus){
+			$TempLLMNR += [PSCustomObject]@{
+				Domain = $AllDomain
+				"GPO Name" = "Not Found"
+				"Location" = "Not Found"
+				"LLMNR" = "No GPO has been found which explicitly disables LLMNR. Defaults to Enabled"
 			}
 		}
 	}
@@ -2375,7 +2410,7 @@ Add-Type -TypeDefinition $code
 				$FinalResult = "Enabled"
 			}
 		} else {
-			$FinalResult = "Not configured. Defaults to Enabled"
+			$FinalResult = "EnableMulticast is not configured. Defaults to Enabled"
 		}
 	} else {
 		$llmnrpath = "Path doesn't exist"
