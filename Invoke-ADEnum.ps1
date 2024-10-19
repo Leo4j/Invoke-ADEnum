@@ -7,7 +7,10 @@ function Invoke-ADEnum {
  	https://github.com/Leo4j/Invoke-ADEnum
 	
 	.DESCRIPTION
-	Automate Active Directory Enumeration
+	Automated Active Directory Enumeration
+
+ 	.LICENSE
+	GNU GENERAL PUBLIC LICENSE Version 3
 	
 	#>
 	
