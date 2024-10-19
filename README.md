@@ -11,6 +11,9 @@ iex(new-object net.webclient).downloadstring('https://raw.githubusercontent.com/
 ```
 Invoke-ADEnum
 ```
+```
+Invoke-ADEnum -Domain domain.local -Server DC.domain.local
+```
 
 ![2023-06-03_15-27](https://github.com/Leo4j/Invoke-ADEnum/assets/61951374/b1f72991-2177-4ff3-ae38-07b4ae43dd90)
 ![2023-06-03_15-28](https://github.com/Leo4j/Invoke-ADEnum/assets/61951374/ab4d4280-bffe-4d23-a327-65a616d8c967)
