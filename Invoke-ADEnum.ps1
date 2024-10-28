@@ -8481,7 +8481,7 @@ function SQL-Query{
 	$impersonationResults = $null
 
 	# Connection string
-	$connectionString = "Server=$Server;Database=$Database;Integrated Security=True;"
+	$connectionString = "Server=$Server;Database=$Database;Integrated Security=True;Connection Timeout=2;"
 	$connection = New-Object System.Data.SqlClient.SqlConnection $connectionString
 
 	try {
