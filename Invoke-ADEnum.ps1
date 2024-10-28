@@ -4402,13 +4402,18 @@ Add-Type -TypeDefinition $code
 		foreach($Machine in $FinalExtractedSQLMachines){
 			if($Machine.dnshostname){$IPAddress = (Resolve-DnsName -Name $Machine.dnshostname -Type A).IPAddress}
 			if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
+			$MSSQLAccessInfo = $null
+			$MSSQLAccessInfo = SQL-Query -Server $Machine.dnshostname
 			[PSCustomObject]@{
 				Server = $Machine.samaccountname
-				"Enabled" = if ($Machine.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if(!$Machine.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $Machine.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
 				'IP Address' = $IPAddress
 				"Operating System" = $Machine.operatingsystem
-				"Account SID" = GetSID-FromBytes -sidBytes $Machine.objectsid
+				"SID" = GetSID-FromBytes -sidBytes $Machine.objectsid
+				"Access" = $MSSQLAccessInfo.Access
+				"Mapping" = $MSSQLAccessInfo."Mapped to"
+				"Roles" = $MSSQLAccessInfo.Roles
+				"Impersonate" = $MSSQLAccessInfo.Impersonate
+				"Links" = $MSSQLAccessInfo.Links
 				Domain = $ServerDomain
 			}
 			$IPAddress = $null
@@ -8429,6 +8434,129 @@ Add-Type -TypeDefinition $source -Language CSharp
 	# Close and dispose of the runspace pool for good resource management
 	$runspacePool.Close()
 	$runspacePool.Dispose()
+}
+
+function SQL-Query{
+	param (
+		[string]$Server,
+		[string]$Database = "master"
+	)
+	
+	$access = $null
+	$loggedInUser = $null
+	$dbUser = $null
+	$rolesResults = $null
+	$impersonationResults = $null
+
+	# Connection string
+	$connectionString = "Server=$Server;Database=$Database;Integrated Security=True;"
+	$connection = New-Object System.Data.SqlClient.SqlConnection $connectionString
+
+	try {
+		$connection.Open()
+		$access = $true
+	} catch {
+		$access = $false
+	}
+	
+	if($access){
+		# Function to execute a query and fetch a single result
+		function ExecuteQuery {
+			param ($query)
+			$command = $connection.CreateCommand()
+			$command.CommandText = $query
+			$reader = $command.ExecuteReader()
+			$result = $null
+			if ($reader.Read()) {
+				$result = $reader[0]
+			}
+			$reader.Close()
+			return $result
+		}
+
+		# Fetch the SQL login
+		$loggedInUser = ExecuteQuery "SELECT SYSTEM_USER;"
+
+		# Fetch the username (database user)
+		$dbUser = ExecuteQuery "SELECT USER_NAME();"
+
+		# Check if user is part of various server roles
+		$roles = @("public", "sysadmin", "securityadmin", "serveradmin", "dbcreator", "diskadmin", "processadmin", "setupadmin", "bulkadmin")
+		$rolesResults = @()
+		foreach ($role in $roles) {
+			$isMember = ExecuteQuery "SELECT IS_SRVROLEMEMBER('$role');"
+			if ($isMember -eq 1) {
+				$rolesResults += $role
+			}
+		}
+		
+		if($rolesResults.count -gt 0){$rolesResults = $rolesResults -join ", "}else{$rolesResults = "None"}
+
+		# Logins that can be impersonated
+		$impersonateQuery = "SELECT DISTINCT b.name FROM sys.server_permissions a " +
+							"INNER JOIN sys.server_principals b ON a.grantor_principal_id = b.principal_id " +
+							"WHERE a.permission_name = 'IMPERSONATE';"
+
+		$command = $connection.CreateCommand()
+		$command.CommandText = $impersonateQuery
+		$reader = $command.ExecuteReader()
+		
+		$impersonationResults = @()
+		
+		while ($reader.Read()) {
+			$impersonationResults += $($reader[0])
+		}
+		$reader.Close()
+		
+		if($impersonationResults.count -gt 0){$impersonationResults = $impersonationResults -join ", "}else{$impersonationResults = "none"}
+		
+		$execCmd = "EXEC sp_linkedservers;"
+		$command = $connection.CreateCommand()
+		$command.CommandText = $execCmd
+		$reader = $command.ExecuteReader()
+
+		# Array to store linked server names
+		$linkedServers = @()
+
+		# Retrieve linked servers and store them in the array
+		while ($reader.Read()) {
+			$linkedServers += $reader[0]
+		}
+		$reader.Close()
+		
+		if ($linkedServers.Count -gt 0) {$linkedServers = $linkedServers -join ", "} else {$linkedServers = "none"}
+
+		# Close connection
+		$connection.Close()
+		
+		$MSSQLResults = $null
+		
+		$MSSQLResults = [PSCustomObject]@{
+			"Access" = $access
+			"Identity" = $loggedInUser
+			"Mapped to" = $dbUser
+			"Roles" = $rolesResults
+			"Impersonate" = $impersonationResults
+			"Links" = $linkedServers
+		}
+		
+		$MSSQLResults
+	}
+	
+	else{
+		$MSSQLResults = $null
+		
+		$MSSQLResults = [PSCustomObject]@{
+			"Access" = $access
+			"Identity" = "N/A"
+			"Mapped to" = "N/A"
+			"Roles" = "N/A"
+			"Impersonate" = "N/A"
+			"Links" = "N/A"
+		}
+		
+		$MSSQLResults
+	}
 }
 
 function VNCUnauthAccess
