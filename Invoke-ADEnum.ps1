@@ -7201,10 +7201,10 @@ Add-Type -TypeDefinition $efssource -Language CSharp
   	}
 	
 	############################################# 
-    ########### Output and Report ###############
+	########### Output and Report ###############
 	#############################################
     
-    # Stop the stopwatch
+	# Stop the stopwatch
 	$stopwatch.Stop()
 
 	# Get the elapsed time
@@ -7275,33 +7275,65 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	Write-Host ""
 	
 	# Stop capturing the output and display it on the console
-    Stop-Transcript | Out-Null
+	Stop-Transcript | Out-Null
 	
 	$host.UI.RawUI.BufferSize = $originalBufferSize
     
-    # Clean up error lines from output
+	# Clean up error lines from output
 	
-    (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'TerminatingError' } | Set-Content $OutputFilePath
-    (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Parameter name: binaryForm""' } | Set-Content $OutputFilePath
-    (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'PSEdition:' } | Set-Content $OutputFilePath
-    (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'PSRemotingProtocolVersion:' } | Set-Content $OutputFilePath
-    (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'PSCompatibleVersions:' } | Set-Content $OutputFilePath
-    (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'BuildVersion:' } | Set-Content $OutputFilePath
-    (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'CLRVersion:' } | Set-Content $OutputFilePath
-    (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'WSManStackVersion:' } | Set-Content $OutputFilePath
-    (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'PPSRemotingProtocolVersion:' } | Set-Content $OutputFilePath
-    (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'SerializationVersion:' } | Set-Content $OutputFilePath
-    (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'End time:' } | Set-Content $OutputFilePath
-    (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Windows PowerShell transcript end' } | Set-Content $OutputFilePath
-    (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'PSVersion:' } | Set-Content $OutputFilePath
-    (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Process ID:' } | Set-Content $OutputFilePath
-    (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Host Application:' } | Set-Content $OutputFilePath
-    (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Configuration Name:' } | Set-Content $OutputFilePath
-    (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Start time:' } | Set-Content $OutputFilePath
-    (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Windows PowerShell transcript start' } | Set-Content $OutputFilePath
-    (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Transcript started, output file is' } | Set-Content $OutputFilePath
-    (Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Parameter name: enumType""' } | Set-Content $OutputFilePath
+	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'TerminatingError' } | Set-Content $OutputFilePath
+	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Parameter name: binaryForm""' } | Set-Content $OutputFilePath
+	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'PSEdition:' } | Set-Content $OutputFilePath
+	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'PSRemotingProtocolVersion:' } | Set-Content $OutputFilePath
+	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'PSCompatibleVersions:' } | Set-Content $OutputFilePath
+	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'BuildVersion:' } | Set-Content $OutputFilePath
+	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'CLRVersion:' } | Set-Content $OutputFilePath
+	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'WSManStackVersion:' } | Set-Content $OutputFilePath
+	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'PPSRemotingProtocolVersion:' } | Set-Content $OutputFilePath
+	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'SerializationVersion:' } | Set-Content $OutputFilePath
+	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'End time:' } | Set-Content $OutputFilePath
+	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Windows PowerShell transcript end' } | Set-Content $OutputFilePath
+	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'PSVersion:' } | Set-Content $OutputFilePath
+	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Process ID:' } | Set-Content $OutputFilePath
+	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Host Application:' } | Set-Content $OutputFilePath
+	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Configuration Name:' } | Set-Content $OutputFilePath
+	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Start time:' } | Set-Content $OutputFilePath
+	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Windows PowerShell transcript start' } | Set-Content $OutputFilePath
+	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Transcript started, output file is' } | Set-Content $OutputFilePath
+	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Parameter name: enumType""' } | Set-Content $OutputFilePath
 	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Parameter name: sddlForm""' } | Set-Content $OutputFilePath
+
+	$oldBlockPattern = @"
+Data Collection in Progress\.\.\.
+\[\*\] Collecting Krbtgt\.\.\.
+\[\*\] Collecting Domain Trusts\.\.\.
+\[\*\] Collecting Domain Controllers\.\.\.
+\[\*\] Collecting Policies\.\.\.
+\[\*\] Collecting Users\.\.\.
+\[\*\] Collecting Machines\.\.\.
+\[\*\] Collecting Groups\.\.\.
+\[\*\] Collecting GPOs\.\.\.
+\[\*\] Collecting OUs\.\.\.
+\[\*\] Collecting Certificate Templates\.\.\.
+\[\*\] Collecting Subnets\.\.\.
+\[\*\] Collecting GUID Mappings\.\.\.
+\[\*\] Parsing Admin Groups members\.\.\.
+\[\*\] Parsing Security Groups Members\.\.\.
+\[\*\] Parsing RIDRole DCs\.\.
+"@ -replace '\r?\n', '.*\r?\n?'
+
+	$newBlock = @"
+  _____                 _                      _____  ______
+ |_   _|               | |               /\   |  __ \|  ____|
+   | |  _ ____   _____ | | _____ ______ /  \  | |  | | |__   _ __  _   _ _ __ ___
+   | | | '_ \ \ / / _ \| |/ / _ \______/ /\ \ | |  | |  __| | '_ \| | | | '_ ' _ \
+  _| |_| | | \ V / (_) |   <  __/     / ____ \| |__| | |____| | | | |_| | | | | | |
+ |_____|_| |_|\_/ \___/|_|\_\___|    /_/    \_\_____/|______|_| |_|\__,_|_| |_| |_|
+
+                                       [+] Rob LP (@L3o4j) https://github.com/Leo4j
+"@
+
+	(Get-Content $OutputFilePath -Raw) -replace $oldBlockPattern, $newBlock | Set-Content $OutputFilePath
    
 }
 
