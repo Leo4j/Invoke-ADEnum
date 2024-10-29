@@ -5684,7 +5684,15 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 					}
 				}
 				
-				$Results | Where-Object {$_."AD Rights" -match "WriteProperty|GenericWrite|GenericAll|WriteDacl" -AND $_.Account -notmatch $ExcludedAccounts} |
+				$Results | Where-Object {
+					# Match specific AD Rights
+					$_."AD Rights" -match "WriteProperty|GenericWrite|GenericAll|WriteDacl" -and
+					
+					(($_."AD Rights" -notmatch "WriteProperty") -or (($_."Object Ace Type" -match "msDS-AllowedToDelegateTo") -or ($_."Object Ace Type" -match "Any"))) -and
+
+					# Exclude specific accounts
+					$_.Account -notmatch $ExcludedAccounts
+				} |
 					Group-Object "Account", "Object", "AD Rights", "Domain" |
 					ForEach-Object {
 						[PSCustomObject]@{
@@ -5729,7 +5737,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			
 			$WeakPermissionsObjects = foreach ($AllDomain in $AllDomains) {
 				$domainSID = $TempTargetDomains | Where-Object {$_.Domain -eq $AllDomain} | Select-Object -ExpandProperty "Domain SID"
-				$TargetDomainComputers = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain}) + @($TotalGroups | Where-Object {$_.domain -eq $AllDomain})
+				$TargetDomainComputers = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain}) + @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain}) + @($TotalGroups | Where-Object {$_.domain -eq $AllDomain})
 			
 				# Retrieve the GUID to Name mapping
 				$guidMap = $null
@@ -5794,7 +5802,22 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 					}
 				}
 				
-				$Results | Where-Object {$_."AD Rights" -match "WriteProperty|GenericWrite|GenericAll|WriteDacl" -AND $_.Account -notmatch $ExcludedAccounts} |
+				$Results | Where-Object {
+					# Match specific AD Rights
+					$_."AD Rights" -match "GenericWrite|GenericAll|WriteDacl|WriteOwner|AllExtendedRights|ExtendedRight|ForceChangePassword|Self" -and
+
+					# Exclude specific accounts
+					$_.Account -notmatch $ExcludedAccounts -and
+
+					# Exclude specific Object Ace Types
+					$_."Object Ace Type" -ne "Change Password" -and
+					$_."Object Ace Type" -ne "Send To" -and
+
+					# Show only Self AD Rights if Object Ace Type is Self-Membership
+					(
+						($_."AD Rights" -notmatch "Self") -or ($_."Object Ace Type" -match "Self-Membership")
+					)
+				} |
 					Group-Object "Account", "Object", "AD Rights", "Domain" |
 					ForEach-Object {
 						[PSCustomObject]@{
