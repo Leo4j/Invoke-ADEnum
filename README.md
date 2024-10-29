@@ -39,7 +39,7 @@ Invoke-ADEnum -TargetsOnly
 Recommended Coverage
 
 ```
-Invoke-ADEnum -SprayEmptyPasswords -FindLocalAdminAccess -RBCD -UserCreatedObjects -MoreGPOs -AllDescriptions
+Invoke-ADEnum -SprayEmptyPasswords -FindLocalAdminAccess -RBCD -UserCreatedObjects -WeakPermissions -MoreGPOs -AllDescriptions
 ```
 
 Specify a single domain to enumerate and a DC to bind to
