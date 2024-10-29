@@ -5603,7 +5603,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		if($RBCD -OR $AllEnum){
 	  		Write-Host ""
 			Write-Host "Resource Based Constrained Delegation" -ForegroundColor Cyan
-			$ExcludedAccounts = "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions|SELF|SYSTEM|Domain Admins|Enterprise|CREATOR OWNER|BUILTIN|Key Admins|MSOL"
+			$ExcludedAccounts = "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions|SELF|SYSTEM|Domain Admins|Enterprise|CREATOR OWNER|BUILTIN|Key Admins|MSOL|Account Operators|Terminal Server License Servers"
 			$PlusExcludedAccounts = @($DAEABA | Where-Object{$_.domain -eq $AllDomain})
 			$PlusExcludedAccounts = ($PlusExcludedAccounts | Where-Object {$_.samaccountname}).samaccountname -join "|"
 			$ExcludedAccounts = $ExcludedAccounts + "|" + $PlusExcludedAccounts
@@ -5613,7 +5613,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			
 			$RBACDObjects = foreach ($AllDomain in $AllDomains) {
 				$domainSID = $TempTargetDomains | Where-Object {$_.Domain -eq $AllDomain} | Select-Object -ExpandProperty "Domain SID"
-				$TargetDomainComputers = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain}) + @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain})
+				$TargetDomainComputers = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain}) + @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain}) + @($TotalGroups | Where-Object {$_.domain -eq $AllDomain})
 			
 				# Retrieve the GUID to Name mapping
 				$guidMap = $null
