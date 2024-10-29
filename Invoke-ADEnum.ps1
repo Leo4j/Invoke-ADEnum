@@ -131,6 +131,10 @@ function Invoke-ADEnum {
 		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $RBCD,
+		
+		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Switch]
+        $WeakPermissions,
 
 		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
@@ -305,6 +309,8 @@ function Invoke-ADEnum {
 
  -UserCreatedObjects		Show Computers Objects created by regular users (may take a long time depending on domain size)
 
+ -WeakPermissions		Checks for users and groups weak permissions (may take a long time depending on domain size)
+ 
  -Workstations			Enumerate for Workstations
 
 "
@@ -325,7 +331,7 @@ function Invoke-ADEnum {
 "
 		Write-Host " [Recommended Coverage]" -ForegroundColor Yellow
 		Write-Host " 
- Invoke-ADEnum -Recommended -RBCD -UserCreatedObjects -SprayEmptyPasswords -FindLocalAdminAccess -AllDescriptions
+ Invoke-ADEnum -SprayEmptyPasswords -FindLocalAdminAccess -RBCD -WeakPermissions -UserCreatedObjects -AllDescriptions
 
 "
 		
@@ -390,7 +396,7 @@ $xlsHeader = @'
 			var nameMapping = {
 				'Foreign Domain Members': 'Foreign Members',
 				'Enterprise Read-Only Domain Controllers': 'Enterprise RODC',
-				'Constrained Delegation (Computers)': 'Constrained Delegation (C)',
+				'Constrained Delegation (Computers)': 'Constrained Delegation (Comp)',
 				'Resource Based Constrained Delegation': 'Resource Based C.D.',
 				'Computers Objects created by regular users': 'User Created Computers',
 				'Check if any User Passwords are set': 'User Passwords Set',
@@ -407,7 +413,6 @@ $xlsHeader = @'
 				'Domain Administrators': 'DAs',
 				'Group Policy Creator Owners': 'GPO Creator Owners',
 				'Read-Only Domain Controllers': 'Read-Only DCs',
-				'Constrained Delegation (U)': 'Constr.Deleg.(Users)',
 				'User Accounts with empty passwords': 'Empty Pass Users',
 				'Computer Accounts with empty passwords': 'Empty Pass Comp',
 				'Hosts running Unsupported OS': 'Unsupported OS',
@@ -605,6 +610,7 @@ $xlsHeader = @'
 			createDownloadLinkForTable('ConstrainedDelegationComputers');
 			createDownloadLinkForTable('ConstrainedDelegationUsers');
 			createDownloadLinkForTable('RBCDObjects');
+			createDownloadLinkForTable('WeakPermissions');
 			createDownloadLinkForTable('UserCreatedObjects');
 			createDownloadLinkForTable('PasswordSetUsers');
    			createDownloadLinkForTable('UnixPasswordSet');
@@ -5471,9 +5477,9 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	##################################
 	##################################
 	
-	$DelegationChecksBanner = "<h3>Delegation Checks</h3>"
+	$DelegationChecksBanner = "<h3>Delegations and Permissions</h3>"
 	Write-Host ""
-	Write-Host "Delegation Checks" -ForegroundColor Red
+	Write-Host "Delegations and Permissions" -ForegroundColor Red
 	Write-Host ""
 	
 	####################################################
@@ -5613,7 +5619,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			
 			$RBACDObjects = foreach ($AllDomain in $AllDomains) {
 				$domainSID = $TempTargetDomains | Where-Object {$_.Domain -eq $AllDomain} | Select-Object -ExpandProperty "Domain SID"
-				$TargetDomainComputers = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain}) + @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain}) + @($TotalGroups | Where-Object {$_.domain -eq $AllDomain})
+				$TargetDomainComputers = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain})
 			
 				# Retrieve the GUID to Name mapping
 				$guidMap = $null
@@ -5661,7 +5667,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 							}
 						}
 
-      						$ExtractObjCategory = $null
+						$ExtractObjCategory = $null
 						$ExtractObjCategory = ($comp.objectcategory -split ",")[0] -replace "CN=",""
 						
 						# Create a custom object with the resolved names
@@ -5669,7 +5675,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 							Domain = $AllDomain
 							"Account" = $FinalRBCDAccount
 							"Object" = $comp.samaccountname
-       							"Category" = $ExtractObjCategory
+							"Category" = $ExtractObjCategory
 							#AccessControlType = $ace.AccessControlType
 							#InheritedObjectType = $inheritedObjectTypeName
 							"AD Rights" = $ace.ActiveDirectoryRights
@@ -5685,7 +5691,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 							"Domain" = $_.Group[0].Domain
 							"Account" = $_.Group[0].Account
 							"Object" = $_.Group[0]."Object"
-       							"Category" = $_.Group[0]."Category"
+							"Category" = $_.Group[0]."Category"
 							"AD Rights" = $_.Group[0]."AD Rights"
 							"Object Ace Type" = ($_.Group | ForEach-Object { if($_."Object Ace Type"){$_."Object Ace Type"} }) -join ', '
 						}
@@ -5703,6 +5709,116 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 				$HTMLRBCDTable = $RBCDTable | ConvertTo-Html -As List -Fragment
     			$HTMLRBCDTable = $HTMLRBCDTable.Replace("*", "Recommendations")
 				$HTMLRBCDTable = "<div class='report-section' style='display:none;'>$HTMLRBCDTable</div>"
+			}
+  		}
+		
+		###########################################################
+	    ######## Weak Permissions ############
+		###########################################################
+	    
+		if($WeakPermissions -OR $AllEnum){
+	  		Write-Host ""
+			Write-Host "Weak Permissions" -ForegroundColor Cyan
+			$ExcludedAccounts = "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions|SELF|SYSTEM|Domain Admins|Enterprise|CREATOR OWNER|BUILTIN|Key Admins|MSOL|Account Operators|Terminal Server License Servers"
+			$PlusExcludedAccounts = @($DAEABA | Where-Object{$_.domain -eq $AllDomain})
+			$PlusExcludedAccounts = ($PlusExcludedAccounts | Where-Object {$_.samaccountname}).samaccountname -join "|"
+			$ExcludedAccounts = $ExcludedAccounts + "|" + $PlusExcludedAccounts
+			
+			# Load the required assembly
+			Add-Type -AssemblyName System.DirectoryServices
+			
+			$WeakPermissionsObjects = foreach ($AllDomain in $AllDomains) {
+				$domainSID = $TempTargetDomains | Where-Object {$_.Domain -eq $AllDomain} | Select-Object -ExpandProperty "Domain SID"
+				$TargetDomainComputers = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain}) + @($TotalGroups | Where-Object {$_.domain -eq $AllDomain})
+			
+				# Retrieve the GUID to Name mapping
+				$guidMap = $null
+				$guidMap = $AllGUIDMappings["$AllDomain"]
+				
+				# Iterate over each Machine
+				$Results = @()
+				$Results = foreach ($comp in $TargetDomainComputers) {
+					$distname = $comp.distinguishedname
+					$ldapPath = "LDAP://$distname"
+					$ouEntry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
+					$securityDescriptor = $ouEntry.ObjectSecurity
+					
+					foreach ($ace in $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount])) {
+						# Resolve ObjectType and InheritedObjectType using the GUID map
+						$objectTypeName = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
+						#$inheritedObjectTypeName = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
+
+						<# ## Do the SID conversion first ?
+						if(Test-SidFormat -SidString $ace.IdentityReference.Value){
+							$TargetFinalSID = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq $ace.IdentityReference.Value}
+							$FinalSID = $TargetFinalSID.samaccountname
+							if(!$FinalSID){$FinalSID = $ace.IdentityReference.Value}
+						}
+						else{$FinalSID = $ace.IdentityReference.Value} #>
+						
+						if(Test-SidFormat -SidString $ace.IdentityReference.Value){
+							foreach($SumGroupsUser in $SumGroupsUsers){
+								if($ace.IdentityReference.Value -eq (GetSID-FromBytes -sidBytes $SumGroupsUser.objectsid)){
+									$TryToExtractMember = $SumGroupsUser
+									break
+								}
+							}
+							if($TryToExtractMember){$FinalRBCDAccount = "$($TryToExtractMember.domain)\$($TryToExtractMember.samaccountname)"}
+							else{$FinalRBCDAccount = $ace.IdentityReference.Value}
+						}
+						else{
+							try {
+								$tempholder = $ace.IdentityReference.Value
+								$memberSID = New-Object System.Security.Principal.SecurityIdentifier($tempholder)
+								$memberUser = $memberSID.Translate([System.Security.Principal.NTAccount])
+								$FinalRBCDAccount = $memberUser.Value
+							} catch {
+								$FinalRBCDAccount = $ace.IdentityReference.Value
+							}
+						}
+
+						$ExtractObjCategory = $null
+						$ExtractObjCategory = ($comp.objectcategory -split ",")[0] -replace "CN=",""
+						
+						# Create a custom object with the resolved names
+						[PSCustomObject]@{
+							Domain = $AllDomain
+							"Account" = $FinalRBCDAccount
+							"Object" = $comp.samaccountname
+							"Category" = $ExtractObjCategory
+							#AccessControlType = $ace.AccessControlType
+							#InheritedObjectType = $inheritedObjectTypeName
+							"AD Rights" = $ace.ActiveDirectoryRights
+							"Object Ace Type" = $objectTypeName
+						}
+					}
+				}
+				
+				$Results | Where-Object {$_."AD Rights" -match "WriteProperty|GenericWrite|GenericAll|WriteDacl" -AND $_.Account -notmatch $ExcludedAccounts} |
+					Group-Object "Account", "Object", "AD Rights", "Domain" |
+					ForEach-Object {
+						[PSCustomObject]@{
+							"Domain" = $_.Group[0].Domain
+							"Account" = $_.Group[0].Account
+							"Object" = $_.Group[0]."Object"
+							"Category" = $_.Group[0]."Category"
+							"AD Rights" = $_.Group[0]."AD Rights"
+							"Object Ace Type" = ($_.Group | ForEach-Object { if($_."Object Ace Type"){$_."Object Ace Type"} }) -join ', '
+						}
+					}
+			}
+
+   			if ($WeakPermissionsObjects) {
+				if(!$NoOutput){$WeakPermissionsObjects | Sort-Object Domain,Account,"Object" | Format-Table -AutoSize -Wrap}
+				$HTMLWeakPermissionsObjects = $WeakPermissionsObjects | Sort-Object Domain,Account,"Object" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='WeakPermissions'>Weak Permissions</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='WeakPermissions'>" }
+
+    				$WeakPermissionsTable = [PSCustomObject]@{
+					"Recommendations" = "Regularly review and audit permissions to ensure they align with the principle of least privilege. Limit them to necessary resources and services only."
+				}
+				
+				$HTMLWeakPermissionsTable = $WeakPermissionsTable | ConvertTo-Html -As List -Fragment
+    			$HTMLWeakPermissionsTable = $HTMLWeakPermissionsTable.Replace("*", "Recommendations")
+				$HTMLWeakPermissionsTable = "<div class='report-section' style='display:none;'>$HTMLWeakPermissionsTable</div>"
 			}
   		}
 		
@@ -7198,9 +7314,9 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	$HTMLEnvironmentTable = $HTMLEnvironmentTable -replace 'Show/Hide', '<span onclick="toggleSections(event)" style="cursor:pointer; color:blue;">Click here to Show</span>'
 
 	if(!$HTMLGPOCreators -AND !$HTMLGPOsWhocanmodify -AND !$HTMLGpoLinkResults -AND !$HTMLLAPSGPOs -AND !$HTMLLAPSAdminGPOs -AND !$HTMLLAPSCanRead -AND !$HTMLLAPSExtended -AND !$HTMLLapsEnabledComputers -AND !$HTMLAppLockerGPOs -AND !$HTMLGPOLocalGroupsMembership){$GroupPolicyChecksBanner = $null}
-	if(!$HTMLUnconstrained -AND !$HTMLConstrainedDelegationComputers -AND !$HTMLConstrainedDelegationUsers -AND !$HTMLRBACDObjects -AND !$HTMLADComputersCreated){$DelegationChecksBanner = $null}
+	if(!$HTMLUnconstrained -AND !$HTMLConstrainedDelegationComputers -AND !$HTMLConstrainedDelegationUsers -AND !$HTMLRBACDObjects -AND !$HTMLWeakPermissionsObjects -AND !$HTMLADComputersCreated){$DelegationChecksBanner = $null}
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLAllForests $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLOtherPolicies $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLLLMNR $HTMLMachineQuota $HTMLMachineAccountQuotaTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLVulnLMCompLevelComp $HTMLSubnets $AdministratorsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLAdminsProtectedUsersAndSensitive $HTMLAdminsProtectedUsersAndSensitiveTable $HTMLSecurityProtectedUsersAndSensitive $HTMLSecurityProtectedUsersAndSensitiveTable $HTMLAdmCountProtectedUsersAndSensitive $HTMLAdmCountProtectedUsersAndSensitiveTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLFindLocalAdminAccess $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLCertTemplatesTable $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLEmptyPasswordComputers $HTMLEmptyPasswordComputersTable $HTMLTotalEmptyPass $HTMLTotalEmptyPassTable $HTMLCompTotalEmptyPass $HTMLCompTotalEmptyPassTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLWin7AndServer2008 $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $ExtendedChecksBanner $HTMLFileServers $HTMLSQLServers $HTMLSCCMServers $HTMLWSUSServers $HTMLSMBSigningDisabled $HTMLWebDAVStatusResults $HTMLVNCUnauthAccess $HTMLPrinters $HTMLSPNAccounts $HTMLSharesResultsTable $HTMLEmptyGroups $GroupPolicyChecksBanner $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $DelegationChecksBanner $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $SecurityGroupsBanner $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDCOMUsers $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLOrganizationManagement $HTMLPerformanceLogUsers $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLRDPUsers $HTMLRemManUsers $HTMLSchemaAdmins $HTMLServerOperators $InterestingDataBanner $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLAllForests $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLOtherPolicies $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLLLMNR $HTMLMachineQuota $HTMLMachineAccountQuotaTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLVulnLMCompLevelComp $HTMLSubnets $AdministratorsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLAdminsProtectedUsersAndSensitive $HTMLAdminsProtectedUsersAndSensitiveTable $HTMLSecurityProtectedUsersAndSensitive $HTMLSecurityProtectedUsersAndSensitiveTable $HTMLAdmCountProtectedUsersAndSensitive $HTMLAdmCountProtectedUsersAndSensitiveTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLFindLocalAdminAccess $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLCertTemplatesTable $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLEmptyPasswordComputers $HTMLEmptyPasswordComputersTable $HTMLTotalEmptyPass $HTMLTotalEmptyPassTable $HTMLCompTotalEmptyPass $HTMLCompTotalEmptyPassTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLWin7AndServer2008 $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $ExtendedChecksBanner $HTMLFileServers $HTMLSQLServers $HTMLSCCMServers $HTMLWSUSServers $HTMLSMBSigningDisabled $HTMLWebDAVStatusResults $HTMLVNCUnauthAccess $HTMLPrinters $HTMLSPNAccounts $HTMLSharesResultsTable $HTMLEmptyGroups $GroupPolicyChecksBanner $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $DelegationChecksBanner $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLWeakPermissionsObjects $HTMLWeakPermissionsTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $SecurityGroupsBanner $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDCOMUsers $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLOrganizationManagement $HTMLPerformanceLogUsers $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLRDPUsers $HTMLRemManUsers $HTMLSchemaAdmins $HTMLServerOperators $InterestingDataBanner $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
 	
 	if($Output){
 		$Output = $Output.TrimEnd('\')
