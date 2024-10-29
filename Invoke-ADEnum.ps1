@@ -5660,12 +5660,16 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 								$FinalRBCDAccount = $ace.IdentityReference.Value
 							}
 						}
+
+      						$ExtractObjCategory = $null
+						$ExtractObjCategory = ($comp.objectcategory -split ",")[0] -replace "CN=",""
 						
 						# Create a custom object with the resolved names
 						[PSCustomObject]@{
 							Domain = $AllDomain
 							"Account" = $FinalRBCDAccount
 							"Object" = $comp.samaccountname
+       							"Category" = $ExtractObjCategory
 							#AccessControlType = $ace.AccessControlType
 							#InheritedObjectType = $inheritedObjectTypeName
 							"AD Rights" = $ace.ActiveDirectoryRights
@@ -5681,6 +5685,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 							"Domain" = $_.Group[0].Domain
 							"Account" = $_.Group[0].Account
 							"Object" = $_.Group[0]."Object"
+       							"Category" = $_.Group[0]."Category"
 							"AD Rights" = $_.Group[0]."AD Rights"
 							"Object Ace Type" = ($_.Group | ForEach-Object { if($_."Object Ace Type"){$_."Object Ace Type"} }) -join ', '
 						}
