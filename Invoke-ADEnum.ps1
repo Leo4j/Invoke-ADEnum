@@ -9709,40 +9709,65 @@ function Get-ADGuidMapping {
     }
     $ldapPathRootDSE += "$Domain/RootDSE"
 
-    # Connect to the Domain RootDSE to get the schema naming context
+    # Connect to the Domain RootDSE to get the schema naming context and configuration naming context
     $rootDSE = New-Object System.DirectoryServices.DirectoryEntry($ldapPathRootDSE)
     $schemaNC = $rootDSE.Properties["schemaNamingContext"].Value
+    $configNC = $rootDSE.Properties["configurationNamingContext"].Value
 
+    # Construct schema path
     $ldapPathSchemaNC = "LDAP://"
     if ($PSBoundParameters.ContainsKey('Server')) {
         $ldapPathSchemaNC += "$Server/"
     }
     $ldapPathSchemaNC += "$Domain/$schemaNC"
 
-    $searchRoot = New-Object System.DirectoryServices.DirectoryEntry($ldapPathSchemaNC)
+    # Construct Extended Rights path
+    $ldapPathExtendedRights = "LDAP://"
+    if ($PSBoundParameters.ContainsKey('Server')) {
+        $ldapPathExtendedRights += "$Server/"
+    }
+    $ldapPathExtendedRights += "$Domain/CN=Extended-Rights,$configNC"
 
-    # Create a searcher to find all schema objects with a schemaIDGUID
-    $searcher = New-Object System.DirectoryServices.DirectorySearcher($searchRoot)
-    $searcher.Filter = "(schemaIDGUID=*)"
-    $searcher.PropertiesToLoad.Add("name") > $null
-    $searcher.PropertiesToLoad.Add("schemaIDGUID") > $null
-    $searcher.PageSize = 1000
+    # Query schema container for schemaIDGUIDs
+    $searchRootSchema = New-Object System.DirectoryServices.DirectoryEntry($ldapPathSchemaNC)
+    $searcherSchema = New-Object System.DirectoryServices.DirectorySearcher($searchRootSchema)
+    $searcherSchema.Filter = "(schemaIDGUID=*)"
+    $searcherSchema.PropertiesToLoad.Add("name") > $null
+    $searcherSchema.PropertiesToLoad.Add("schemaIDGUID") > $null
+    $searcherSchema.PageSize = 1000
 
-    # Perform the search
-    $results = $searcher.FindAll()
-
-    # Process the results
-    foreach ($result in $results) {
+    # Perform the schema search
+    $resultsSchema = $searcherSchema.FindAll()
+    foreach ($result in $resultsSchema) {
         $name = $result.Properties["name"][0]
         $guidBytes = $result.Properties["schemaIDGUID"][0]
-        $guid = New-Object Guid (,$guidBytes)  # The comma is used to treat the byte array as a single argument
+        $guid = New-Object Guid (,$guidBytes)  # Correct byte order conversion
         $guidMap[$guid] = $name
     }
 
+    # Query Extended Rights container for rightsGuid
+    $searchRootExtRights = New-Object System.DirectoryServices.DirectoryEntry($ldapPathExtendedRights)
+    $searcherExtRights = New-Object System.DirectoryServices.DirectorySearcher($searchRootExtRights)
+    $searcherExtRights.Filter = "(rightsGuid=*)"
+    $searcherExtRights.PropertiesToLoad.Add("displayName") > $null
+    $searcherExtRights.PropertiesToLoad.Add("rightsGuid") > $null
+    $searcherExtRights.PageSize = 1000
+
+    # Perform the Extended Rights search
+    $resultsExtRights = $searcherExtRights.FindAll()
+    foreach ($result in $resultsExtRights) {
+        $displayName = $result.Properties["displayName"][0]
+        $rightsGuidBytes = $result.Properties["rightsGuid"][0]
+        $rightsGuid = New-Object Guid (,$rightsGuidBytes)
+        $guidMap[$rightsGuid] = $displayName
+    }
+
     # Clean up resources
-    $searcher.Dispose()
+    $searcherSchema.Dispose()
+    $searcherExtRights.Dispose()
     $rootDSE.Close()
-    $searchRoot.Close()
+    $searchRootSchema.Close()
+    $searchRootExtRights.Close()
 
     return $guidMap
 }
