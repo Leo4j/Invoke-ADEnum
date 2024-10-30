@@ -5698,7 +5698,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 					# Match specific AD Rights
 					$_."AD Rights" -match "WriteProperty|GenericWrite|GenericAll|WriteDacl" -and
 					
-					(($_."AD Rights" -notmatch "WriteProperty") -or (($_."Object Ace Type" -match "msDS-AllowedToDelegateTo") -or ($_."Object Ace Type" -match "Any"))) -and
+					(($_."AD Rights" -notmatch "WriteProperty") -or (($_."Object Ace Type" -match "msDS-AllowedToActOnBehalfOfOtherIdentity") -or ($_."Object Ace Type" -match "Any"))) -and
 
 					# Exclude specific accounts
 					$_.Account -notmatch $ExcludedAccounts
