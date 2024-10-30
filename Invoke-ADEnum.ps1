@@ -5831,6 +5831,19 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 					}
 			}
 
+   			# Filter $WeakPermissionsObjects to exclude any entries already in $RBACDObjects
+			$WeakPermissionsObjects = $WeakPermissionsObjects | Where-Object {
+				$weakObject = $_
+				-not ($RBACDObjects | Where-Object {
+					$_.Domain -eq $weakObject.Domain -and
+					$_.Account -eq $weakObject.Account -and
+					$_.Object -eq $weakObject.Object -and
+					$_.Category -eq $weakObject.Category -and
+					$_."AD Rights" -eq $weakObject."AD Rights" -and
+					$_."Object Ace Type" -eq $weakObject."Object Ace Type"
+				})
+			}
+
    			if ($WeakPermissionsObjects) {
 				if(!$NoOutput){$WeakPermissionsObjects | Sort-Object Domain,Account,"Object" | Format-Table -AutoSize -Wrap}
 				$HTMLWeakPermissionsObjects = $WeakPermissionsObjects | Sort-Object Domain,Account,"Object" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='WeakPermissions'>Weak Permissions</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='WeakPermissions'>" }
