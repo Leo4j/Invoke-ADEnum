@@ -80,7 +80,7 @@ function Invoke-ADEnum {
         [Switch]
         $NoVulnCertTemplates,
 
- 	[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $NoADCSHTTPEndpoints,
 		
@@ -182,7 +182,11 @@ function Invoke-ADEnum {
 		
 		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
-    	$NoOutput
+    	$NoOutput,
+		
+		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Switch]
+    	$IncludeUnreachable
 	)
 	
 	$stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -260,6 +264,8 @@ function Invoke-ADEnum {
  -GPOsRights			Enumerate GPOs Rights | Who can Create/Modify/Link GPOs
  
  -Help				Show this Help page
+ 
+ -IncludeUnreachable		Will not exclude unreachable domains from the scope
  
  -LAPSComputers			Enumerate for Computer objects where LAPS is enabled
 
@@ -847,6 +853,7 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 	$ChildDomains = @($ChildContext | Select-Object -ExpandProperty Children | Select-Object -ExpandProperty Name)
 	
 	$AllDomains = @($ParentDomain)
+	$AllDomains += @($FindCurrentDomain | Select-Object -ExpandProperty Name)
 	
 	if($ChildDomains){
 		foreach($ChildDomain in $ChildDomains){
@@ -892,21 +899,24 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 		$AllDomains = $AllDomains | Where-Object { $_ -notin $ExcludeDomains }
 	}
 	
-	### Remove Unreachable domains
+	if(!$IncludeUnreachable){
+		### Remove Unreachable domains
 
-	$ReachableDomains = $AllDomains
+		$ReachableDomains = $AllDomains
 
-	foreach($AllDomain in $AllDomains){
-		$ReachableResult = $null
-		$DomainContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Domain', $AllDomain)
-		$ReachableResult = [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain($DomainContext)
-		if($ReachableResult){}
-		else{$ReachableDomains = $ReachableDomains | Where-Object { $_ -ne $AllDomain }}
+		foreach($AllDomain in $AllDomains){
+			$ReachableResult = $null
+			$DomainContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Domain', $AllDomain)
+			$ReachableResult = [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain($DomainContext)
+			if($ReachableResult){}
+			else{$ReachableDomains = $ReachableDomains | Where-Object { $_ -ne $AllDomain }}
+		}
 	}
 	
 	if($Domain){$AllDomains = $Domain}
 	else{
-		$AllDomains = $ReachableDomains
+		if(!$IncludeUnreachable){$AllDomains = $ReachableDomains}
+		
 		if($AllDomains -eq $null){
 			Write-Host ""
 			Write-Host " [-] No Domains in scope" -ForegroundColor Red
