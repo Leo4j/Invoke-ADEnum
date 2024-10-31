@@ -1994,21 +1994,20 @@ Add-Type -TypeDefinition $code
 
     Write-Host ""
     Write-Host "Trusted Domain Object GUIDs" -ForegroundColor Cyan
-    $TDOTargetNames = @(foreach($AllDomain in $AllDomains){$AllDomainTrusts | Where-Object { $_.SourceName -eq $AllDomain -AND $_.TrustDirection -eq 'Outbound' } | Select-Object -ExpandProperty TargetName})
-	$TDOTrustDirection = "Outbound"
+    $TDOTargetNames = @(foreach($AllDomain in $AllDomains){$AllDomainTrusts | Where-Object { $_.SourceName -eq $AllDomain}})
 	
 	$TempTrustedDomainObjectGUIDs = foreach($AllDomain in $AllDomains){
 		$TDOSourceDomainName = "DC=" + $AllDomain.Split(".")
 		$TDOSourceDomainName = $TDOSourceDomainName -replace " ", ",DC="
 		foreach($TDOTargetName in $TDOTargetNames){
-			$TDOName = "CN=$TDOTargetName,CN=System,$TDOSourceDomainName"
+			$TDOName = "CN=$($TDOTargetName.TargetName),CN=System,$TDOSourceDomainName"
 			$TrustedDomainObjectGUIDs = @(Collect-ADObjects -Domain $AllDomain -LDAP "distinguishedname=$TDOName")
 			
 			foreach ($TrustedDomainObjectGUID in $TrustedDomainObjectGUIDs) {
 				[PSCustomObject]@{
 					"Source Name" = $AllDomain
-					"Target Name" = $TDOTargetName
-					"Direction" = $TDOTrustDirection
+					"Target Name" = $($TDOTargetName.TargetName)
+					"Direction" = $($TDOTargetName.TrustDirection)
 					"Object GUID" = ([guid]::New(([string]::Join('', ($TrustedDomainObjectGUID.objectGuid | ForEach-Object { "{0:X2}" -f $_ }))[0..7] -join '') + "-" + 
                                               ([string]::Join('', ($TrustedDomainObjectGUID.objectGuid | ForEach-Object { "{0:X2}" -f $_ }))[8..11] -join '') + "-" +
                                               ([string]::Join('', ($TrustedDomainObjectGUID.objectGuid | ForEach-Object { "{0:X2}" -f $_ }))[12..15] -join '') + "-" +
@@ -2020,8 +2019,8 @@ Add-Type -TypeDefinition $code
 	}
 	
 	if($TempTrustedDomainObjectGUIDs){
-		$TempTrustedDomainObjectGUIDs | Sort-Object "Source Name","Target Name" | ft -AutoSize -Wrap
-		$HTMLTrustedDomainObjectGUIDs = $TempTrustedDomainObjectGUIDs | Sort-Object "Source Name","Target Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='TrustedDomainObjectGUIDs'>Trusted Domain Object GUIDs</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='TrustedDomainObjectGUIDs'>" }
+		$TempTrustedDomainObjectGUIDs | Sort-Object "Source Name","Target Name",Direction,"Object GUID" -Unique | ft -AutoSize -Wrap
+		$HTMLTrustedDomainObjectGUIDs = $TempTrustedDomainObjectGUIDs | Sort-Object "Source Name","Target Name",Direction,"Object GUID" -Unique | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='TrustedDomainObjectGUIDs'>Trusted Domain Object GUIDs</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='TrustedDomainObjectGUIDs'>" }
 	}
 	
 	if($PlaceHolderDomains.count -gt 1){
