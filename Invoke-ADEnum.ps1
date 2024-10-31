@@ -1635,9 +1635,10 @@ Add-Type -TypeDefinition $code
 				[PSCustomObject]@{
 					"Source Name" = $GetDomainTrust.SourceName
 					"Target Name" = $GetDomainTrust.TargetName
+     					"Trust Direction" = $GetDomainTrust.TrustDirection
+	  				"SIDHistory" = $GetDomainTrust.SIDHistoryStatus
 					"Trust Type" = $GetDomainTrust.TrustType
 					"Trust Attributes" = $GetDomainTrust.TrustAttributes
-					"Trust Direction" = $GetDomainTrust.TrustDirection
 					"When Created" = $GetDomainTrust.WhenCreated
 					"When Changed" = $GetDomainTrust.WhenChanged
 				}
@@ -1939,9 +1940,10 @@ Add-Type -TypeDefinition $code
 			[PSCustomObject]@{
 				"Source Name" = $GetDomainTrust.SourceName
 				"Target Name" = $GetDomainTrust.TargetName
+				"Trust Direction" = $GetDomainTrust.TrustDirection
+				"SIDHistory" = $GetDomainTrust.SIDHistoryStatus
 				"Trust Type" = $GetDomainTrust.TrustType
 				"Trust Attributes" = $GetDomainTrust.TrustAttributes
-				"Trust Direction" = $GetDomainTrust.TrustDirection
 				"When Created" = $GetDomainTrust.WhenCreated
 				"When Changed" = $GetDomainTrust.WhenChanged
 			}
@@ -8040,7 +8042,7 @@ function FindDomainTrusts {
     $TrustAttributesMapping = @{
         [uint32]'0x00000001' = 'NON_TRANSITIVE'
         [uint32]'0x00000002' = 'UPLEVEL_ONLY'
-        [uint32]'0x00000004' = 'FILTER_SIDS'
+        [uint32]'0x00000004' = 'FILTER_SIDS' # This indicates SID filtering
         [uint32]'0x00000008' = 'FOREST_TRANSITIVE'
         [uint32]'0x00000010' = 'CROSS_ORGANIZATION'
         [uint32]'0x00000020' = 'WITHIN_FOREST'
@@ -8081,21 +8083,35 @@ function FindDomainTrusts {
 
             # Resolve the trust attributes
             $TrustAttributes = @()
+            $SIDFilteringForestAware = $false
             foreach ($key in $TrustAttributesMapping.Keys) {
                 if ($result.Properties["trustattributes"][0] -band $key) {
                     $TrustAttributes += $TrustAttributesMapping[$key]
+                    
+                    # Check if FILTER_SIDS is set to determine SIDFilteringForestAware status
+                    if ($key -eq [uint32]'0x00000004') {
+                        $SIDFilteringForestAware = $true
+                    }
                 }
+            }
+
+            # Interpret SIDFilteringForestAware status for clarity
+            $SIDHistoryStatus = if ($SIDFilteringForestAware -and ($TrustAttributes -contains 'FOREST_TRANSITIVE')) {
+                'Enabled'
+            } else {
+                'Disabled'
             }
 
             # Create and output the custom object
             $trustInfo = New-Object PSObject -Property @{
-                SourceName      = $Domain
-                TargetName      = $result.Properties["trustPartner"][0]
-                TrustDirection  = $Direction
-                TrustType       = $TrustType
-                TrustAttributes = ($TrustAttributes -join ', ')
-                WhenCreated     = $result.Properties["whenCreated"][0]
-                WhenChanged     = $result.Properties["whenChanged"][0]
+                SourceName       = $Domain
+                TargetName       = $result.Properties["trustPartner"][0]
+                TrustDirection   = $Direction
+                TrustType        = $TrustType
+                TrustAttributes  = ($TrustAttributes -join ', ')
+                SIDHistoryStatus = $SIDHistoryStatus
+                WhenCreated      = $result.Properties["whenCreated"][0]
+                WhenChanged      = $result.Properties["whenChanged"][0]
             }
 
             $trustInfo
