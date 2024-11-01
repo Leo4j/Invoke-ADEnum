@@ -958,9 +958,9 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 	if($TargetsOnly){
 		
 		$ActiveDirectoryObjects = @()
-		
+		$TargetsOnlyCollection = @()
+  
 		if ($Domain -and $Server) {
-			$TargetsOnlyCollection = @()
 			$ActiveDirectoryObjects += Collect-ADObjects -Domain $Domain -Server $Server -Collect DomainControllers
 			$TargetsOnlyCollection += Collect-ADObjects -Domain $Domain -Server $Server -Collect Users -Property samaccounttype,userAccountControl,samaccountname
 			$TargetsOnlyCollection += Collect-ADObjects -Domain $Domain -Server $Server -Collect Computers -Property samaccounttype,userAccountControl,samaccountname,operatingSystem
@@ -968,7 +968,6 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 		
 		else{
 			foreach($AllDomain in $AllDomains){
-				$TargetsOnlyCollection = @()
 				$ActiveDirectoryObjects += Collect-ADObjects -Domain $AllDomain -Collect DomainControllers
 				$TargetsOnlyCollection += Collect-ADObjects -Domain $AllDomain -Collect Users -Property samaccounttype,userAccountControl,samaccountname
 				$TargetsOnlyCollection += Collect-ADObjects -Domain $AllDomain -Collect Computers -Property samaccounttype,userAccountControl,samaccountname,operatingSystem
