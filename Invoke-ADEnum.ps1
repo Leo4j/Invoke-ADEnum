@@ -4383,12 +4383,14 @@ Add-Type -TypeDefinition $code
 			[PSCustomObject]@{
 				Server = $Machine.samaccountname
 				'IP Address' = $IPAddress
-				"Operating System" = $Machine.operatingsystem
-				"SID" = GetSID-FromBytes -sidBytes $Machine.objectsid
 				"Access" = $MSSQLAccessInfo.Access
 				"Mapping" = $MSSQLAccessInfo."Mapped to"
 				"Roles" = $MSSQLAccessInfo.Roles
 				"Impersonate" = $MSSQLAccessInfo.Impersonate
+				"xp_cmd" = $MSSQLAccessInfo."xp_cmdshell"
+				"OLE" = $MSSQLAccessInfo."OLE Automation"
+				"CLR" = $MSSQLAccessInfo."CLR Enabled"
+				"RPC Out" = $MSSQLAccessInfo."RPC Out"
 				"Links" = $MSSQLAccessInfo.Links
 				Domain = $ServerDomain
 			}
@@ -8609,7 +8611,7 @@ Add-Type -TypeDefinition $source -Language CSharp
 	$runspacePool.Dispose()
 }
 
-function SQL-Query{
+function SQL-Query {
 	param (
 		[string]$Server,
 		[string]$Database = "master"
@@ -8620,6 +8622,10 @@ function SQL-Query{
 	$dbUser = $null
 	$rolesResults = $null
 	$impersonationResults = $null
+	$xpCmdShellStatus = "N/A"
+	$oleAutomationStatus = "N/A"
+	$clrStatus = "N/A"
+	$rpcOutStatus = "N/A"
 
 	# Connection string
 	$connectionString = "Server=$Server;Database=$Database;Integrated Security=True;Connection Timeout=2;"
@@ -8632,7 +8638,7 @@ function SQL-Query{
 		$access = $false
 	}
 	
-	if($access){
+	if ($access) {
 		# Function to execute a query and fetch a single result
 		function ExecuteQuery {
 			param ($query)
@@ -8663,7 +8669,11 @@ function SQL-Query{
 			}
 		}
 		
-		if($rolesResults.count -gt 0){$rolesResults = $rolesResults -join ", "}else{$rolesResults = "None"}
+		if ($rolesResults.count -gt 0) {
+			$rolesResults = $rolesResults -join ", "
+		} else {
+			$rolesResults = "None"
+		}
 
 		# Logins that can be impersonated
 		$impersonateQuery = "SELECT DISTINCT b.name FROM sys.server_permissions a " +
@@ -8681,8 +8691,13 @@ function SQL-Query{
 		}
 		$reader.Close()
 		
-		if($impersonationResults.count -gt 0){$impersonationResults = $impersonationResults -join ", "}else{$impersonationResults = "none"}
+		if ($impersonationResults.count -gt 0) {
+			$impersonationResults = $impersonationResults -join ", "
+		} else {
+			$impersonationResults = "none"
+		}
 		
+		# Linked Servers
 		$execCmd = "EXEC sp_linkedservers;"
 		$command = $connection.CreateCommand()
 		$command.CommandText = $execCmd
@@ -8697,35 +8712,75 @@ function SQL-Query{
 		}
 		$reader.Close()
 		
-		if ($linkedServers.Count -gt 0) {$linkedServers = $linkedServers -join ", "} else {$linkedServers = "none"}
+		if ($linkedServers.Count -gt 0) {
+			$linkedServers = $linkedServers -join ", "
+		} else {
+			$linkedServers = "none"
+		}
+
+		# Check xp_cmdshell status
+		$xpCmdShellStatus = ExecuteQuery "SELECT value FROM sys.configurations WHERE name = 'xp_cmdshell';"
+		if ($xpCmdShellStatus -eq 1) {
+			$xpCmdShellStatus = "Enabled"
+		} else {
+			$xpCmdShellStatus = "Disabled"
+		}
+
+		# Check OLE Automation Procedures status
+		$oleAutomationStatus = ExecuteQuery "SELECT value FROM sys.configurations WHERE name = 'Ole Automation Procedures';"
+		if ($oleAutomationStatus -eq 1) {
+			$oleAutomationStatus = "Enabled"
+		} else {
+			$oleAutomationStatus = "Disabled"
+		}
+
+		# Check CLR status
+		$clrStatus = ExecuteQuery "SELECT value FROM sys.configurations WHERE name = 'clr enabled';"
+		if ($clrStatus -eq 1) {
+			$clrStatus = "Enabled"
+		} else {
+			$clrStatus = "Disabled"
+		}
+
+		# Check RPC Out status
+		$rpcOutStatus = ExecuteQuery "SELECT is_rpc_out_enabled FROM sys.servers WHERE name = @@SERVERNAME;"
+		if ($rpcOutStatus -eq 1) {
+			$rpcOutStatus = "Enabled"
+		} else {
+			$rpcOutStatus = "Disabled"
+		}
 
 		# Close connection
 		$connection.Close()
 		
-		$MSSQLResults = $null
-		
 		$MSSQLResults = [PSCustomObject]@{
-			"Access" = $access
-			"Identity" = $loggedInUser
-			"Mapped to" = $dbUser
-			"Roles" = $rolesResults
-			"Impersonate" = $impersonationResults
-			"Links" = $linkedServers
+			"Access"        = $access
+			"Identity"      = $loggedInUser
+			"Mapped to"     = $dbUser
+			"Roles"         = $rolesResults
+			"Impersonate"   = $impersonationResults
+			"Links"         = $linkedServers
+			"xp_cmdshell"   = $xpCmdShellStatus
+			"OLE Automation"= $oleAutomationStatus
+			"CLR Enabled"   = $clrStatus
+			"RPC Out"       = $rpcOutStatus
 		}
 		
 		$MSSQLResults
 	}
-	
-	else{
-		$MSSQLResults = $null
-		
+	else {
+		# Return default values when access is not available
 		$MSSQLResults = [PSCustomObject]@{
-			"Access" = $access
-			"Identity" = "N/A"
-			"Mapped to" = "N/A"
-			"Roles" = "N/A"
-			"Impersonate" = "N/A"
-			"Links" = "N/A"
+			"Access"        = $access
+			"Identity"      = "N/A"
+			"Mapped to"     = "N/A"
+			"Roles"         = "N/A"
+			"Impersonate"   = "N/A"
+			"Links"         = "N/A"
+			"xp_cmdshell"   = "N/A"
+			"OLE Automation"= "N/A"
+			"CLR Enabled"   = "N/A"
+			"RPC Out"       = "N/A"
 		}
 		
 		$MSSQLResults
