@@ -1636,6 +1636,7 @@ Add-Type -TypeDefinition $code
 					"Target Name" = $GetDomainTrust.TargetName
      					"Trust Direction" = $GetDomainTrust.TrustDirection
 	  				"SIDHistory" = $GetDomainTrust.SIDHistoryStatus
+       					"Filter_SIDS" = $GetDomainTrust.Filter_SIDS
 					"Trust Type" = $GetDomainTrust.TrustType
 					"Trust Attributes" = $GetDomainTrust.TrustAttributes
 					"When Created" = $GetDomainTrust.WhenCreated
@@ -1941,6 +1942,7 @@ Add-Type -TypeDefinition $code
 				"Target Name" = $GetDomainTrust.TargetName
 				"Trust Direction" = $GetDomainTrust.TrustDirection
 				"SIDHistory" = $GetDomainTrust.SIDHistoryStatus
+    				"Filter_SIDS" = $GetDomainTrust.Filter_SIDS
 				"Trust Type" = $GetDomainTrust.TrustType
 				"Trust Attributes" = $GetDomainTrust.TrustAttributes
 				"When Created" = $GetDomainTrust.WhenCreated
@@ -8084,20 +8086,23 @@ function FindDomainTrusts {
 
             # Resolve the trust attributes
             $TrustAttributes = @()
-            $SIDFilteringForestAware = $false
+            $SIDFilteringEnabled = $false
+            $TreatAsExternal = $false
+            $ForestTransitive = $false
+
             foreach ($key in $TrustAttributesMapping.Keys) {
                 if ($result.Properties["trustattributes"][0] -band $key) {
                     $TrustAttributes += $TrustAttributesMapping[$key]
                     
-                    # Check if FILTER_SIDS is set to determine SIDFilteringForestAware status
-                    if ($key -eq [uint32]'0x00000004') {
-                        $SIDFilteringForestAware = $true
-                    }
+                    # Track specific attribute flags for SID history determination
+                    if ($key -eq [uint32]'0x00000004') { $SIDFilteringEnabled = $true }
+                    if ($key -eq [uint32]'0x00000040') { $TreatAsExternal = $true }
+                    if ($key -eq [uint32]'0x00000008') { $ForestTransitive = $true }
                 }
             }
 
-            # Interpret SIDFilteringForestAware status for clarity
-            $SIDHistoryStatus = if ($SIDFilteringForestAware -and ($TrustAttributes -contains 'FOREST_TRANSITIVE')) {
+            # Determine SID history status based on flags
+            $SIDHistoryStatus = if ($TreatAsExternal -and $ForestTransitive) {
                 'Enabled'
             } else {
                 'Disabled'
@@ -8111,6 +8116,7 @@ function FindDomainTrusts {
                 TrustType        = $TrustType
                 TrustAttributes  = ($TrustAttributes -join ', ')
                 SIDHistoryStatus = $SIDHistoryStatus
+                Filter_SIDS      = $SIDFilteringEnabled
                 WhenCreated      = $result.Properties["whenCreated"][0]
                 WhenChanged      = $result.Properties["whenChanged"][0]
             }
