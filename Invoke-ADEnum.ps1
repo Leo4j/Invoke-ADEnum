@@ -23,168 +23,168 @@ function Invoke-ADEnum {
         [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [String]
         $Server,
-        
+
         [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [String]
         $Output,
-	
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [String]
         $Exclude,
-		
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $NoServers,
-        
+
         [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $Workstations,
-        
+
         [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $NoUnsupportedOS,
-        
+
         [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $DomainUsers,
-        
+
         [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $FindLocalAdminAccess,
-        
+
         [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $GPOsRights,
-		
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $MoreGPOs,
-		
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $AllGPOs,
-		
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $NoLAPS,
-		
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $LAPSComputers,
-		
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $NoAppLocker,
-		
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $NoVulnCertTemplates,
 
         [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $NoADCSHTTPEndpoints,
-		
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $DomainOUs,
-		
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $Force,
-        
+
         [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $UserCreatedObjects,
-		
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $AllGroups,
-		
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $TargetsOnly,
-		
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $Debugging,
-		
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $NoClear,
-		
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $AllEnum,
-		
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $Help,
 
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $NoDelegation,
 
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $AllDescriptions,
 
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $RBCD,
-		
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $WeakPermissions,
 
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $LAPSExtended,
 
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $LAPSReadRights,
 
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $SprayEmptyPasswords,
-		
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $SaveToDisk,
-		
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $LoadFromDisk,
 
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $NoSMBSharesEnum,
 
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $NoSMBSigningEnum,
-		
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $NoVNCUnauthAccess,
 
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $NoWebDAVEnum,
 
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
-		$EmptyGroups,
+        $EmptyGroups,
 
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
     	$PassNotRequired,
-		
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
     	$NoOutput,
-		
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+
+        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
     	$IncludeUnreachable
 	)
