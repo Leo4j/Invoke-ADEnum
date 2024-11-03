@@ -635,6 +635,7 @@ $xlsHeader = @'
 			createDownloadLinkForTable('ServiceAccounts');
 			createDownloadLinkForTable('GMSAs');
 			createDownloadLinkForTable('nopreauthset');
+			createDownloadLinkForTable('GPPasswords');
 			createDownloadLinkForTable('GroupsAdminCount');
 			createDownloadLinkForTable('AdminsProtectedUsersAndSensitive');
 			createDownloadLinkForTable('SecProtectedUsersAndSensitive');
@@ -3681,6 +3682,50 @@ Add-Type -TypeDefinition $code
 		$HTMLNoPreauthenticationTable = "<div class='report-section' style='display:none;'>$HTMLNoPreauthenticationTable</div>"
 	}
 	
+	#################################################################################################
+    ########### Group Policy Passwords ###############
+	#################################################################################################
+	
+	if($SprayEmptyPasswords -OR $AllEnum){
+ 
+	 	Write-Host ""
+		Write-Host "Group Policy Passwords" -ForegroundColor Cyan
+		
+		$TempGPPasswords = foreach ($AllDomain in $AllDomains) {
+			
+			$GPPasswordsResults = $null
+			
+			$GPPasswordsResults = @(Find-GPPasswords -Domain $AllDomain)
+			
+			if($GPPasswordsResults){
+				foreach($GPPasswordsResult in $GPPasswordsResults){
+					[PSCustomObject]@{
+						"Domain" = $AllDomain
+						"GPO Name" = ($AllCollectedGPOs | Where-Object { $_.domain -eq $AllDomain -AND $_.gpcfilesyspath -eq (($GPPasswordsResult.FilePath -split "}")[0] + "}")}).DisplayName
+						"UserName" = $GPPasswordsResult.UserName
+						"Password" = $GPPasswordsResult.Password
+						"FilePath" = $GPPasswordsResult.FilePath
+					}
+				}
+			}
+		}
+	
+	 	if ($TempGPPasswords) {
+			if(!$NoOutput){$TempGPPasswords | Sort-Object Domain,Username,FilePath | Format-Table -AutoSize -Wrap}
+			$HTMLGPPasswords = $TempGPPasswords | Sort-Object Domain,Username,FilePath | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='GPPasswords'>Group Policy Passwords</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='GPPasswords'>" }
+	
+	  		$GPPasswordsTable = [PSCustomObject]@{
+				"Risk Rating" = "Critical - Needs Immediate Attention"
+				"Description" = "While passwords in GPO are encrypted, the private key for the encryption is well known. This means that any authenticated user can decrypt them."
+				"Remediation" = "Make sure there are no passwords stored in GPO. Consider any passwords listed here as compromised and change them immediately."
+			}
+			
+			$HTMLGPPasswordsTable = $GPPasswordsTable | ConvertTo-Html -As List -Fragment
+			$HTMLGPPasswordsTable = "<div class='report-section' style='display:none;'>$HTMLGPPasswordsTable</div>"
+		}
+
+ 	}
+	
 	###############################################################
     ########### Check if any user passwords are set ###############
 	###############################################################
@@ -4081,7 +4126,7 @@ Add-Type -TypeDefinition $code
 	}
 	
 	####################################################################
-    ########### Machine Accounts in Privileged Groups) #################
+    ########### Machine Accounts in Privileged Groups ##################
 	####################################################################
 	
 	Write-Host ""
@@ -7366,7 +7411,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	if(!$HTMLGPOCreators -AND !$HTMLGPOsWhocanmodify -AND !$HTMLGpoLinkResults -AND !$HTMLLAPSGPOs -AND !$HTMLLAPSAdminGPOs -AND !$HTMLLAPSCanRead -AND !$HTMLLAPSExtended -AND !$HTMLLapsEnabledComputers -AND !$HTMLAppLockerGPOs -AND !$HTMLGPOLocalGroupsMembership){$GroupPolicyChecksBanner = $null}
 	if(!$HTMLUnconstrained -AND !$HTMLConstrainedDelegationComputers -AND !$HTMLConstrainedDelegationUsers -AND !$HTMLRBACDObjects -AND !$HTMLWeakPermissionsObjects -AND !$HTMLADComputersCreated){$DelegationChecksBanner = $null}
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLAllForests $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLOtherPolicies $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLLLMNR $HTMLMachineQuota $HTMLMachineAccountQuotaTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLVulnLMCompLevelComp $HTMLSubnets $AdministratorsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLAdminsProtectedUsersAndSensitive $HTMLAdminsProtectedUsersAndSensitiveTable $HTMLSecurityProtectedUsersAndSensitive $HTMLSecurityProtectedUsersAndSensitiveTable $HTMLAdmCountProtectedUsersAndSensitive $HTMLAdmCountProtectedUsersAndSensitiveTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLFindLocalAdminAccess $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLCertTemplatesTable $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLEmptyPasswordComputers $HTMLEmptyPasswordComputersTable $HTMLTotalEmptyPass $HTMLTotalEmptyPassTable $HTMLCompTotalEmptyPass $HTMLCompTotalEmptyPassTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLWin7AndServer2008 $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $ExtendedChecksBanner $HTMLFileServers $HTMLSQLServers $HTMLSCCMServers $HTMLWSUSServers $HTMLSMBSigningDisabled $HTMLWebDAVStatusResults $HTMLVNCUnauthAccess $HTMLPrinters $HTMLSPNAccounts $HTMLSharesResultsTable $HTMLEmptyGroups $GroupPolicyChecksBanner $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $DelegationChecksBanner $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLWeakPermissionsObjects $HTMLWeakPermissionsTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $SecurityGroupsBanner $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDCOMUsers $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLOrganizationManagement $HTMLPerformanceLogUsers $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLRDPUsers $HTMLRemManUsers $HTMLSchemaAdmins $HTMLServerOperators $InterestingDataBanner $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLAllForests $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLOtherPolicies $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLLLMNR $HTMLMachineQuota $HTMLMachineAccountQuotaTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLVulnLMCompLevelComp $HTMLSubnets $AdministratorsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLAdminsProtectedUsersAndSensitive $HTMLAdminsProtectedUsersAndSensitiveTable $HTMLSecurityProtectedUsersAndSensitive $HTMLSecurityProtectedUsersAndSensitiveTable $HTMLAdmCountProtectedUsersAndSensitive $HTMLAdmCountProtectedUsersAndSensitiveTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLFindLocalAdminAccess $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLCertTemplatesTable $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLGPPasswords $HTMLGPPasswordsTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLEmptyPasswordComputers $HTMLEmptyPasswordComputersTable $HTMLTotalEmptyPass $HTMLTotalEmptyPassTable $HTMLCompTotalEmptyPass $HTMLCompTotalEmptyPassTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLWin7AndServer2008 $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $ExtendedChecksBanner $HTMLFileServers $HTMLSQLServers $HTMLSCCMServers $HTMLWSUSServers $HTMLSMBSigningDisabled $HTMLWebDAVStatusResults $HTMLVNCUnauthAccess $HTMLPrinters $HTMLSPNAccounts $HTMLSharesResultsTable $HTMLEmptyGroups $GroupPolicyChecksBanner $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $DelegationChecksBanner $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLWeakPermissionsObjects $HTMLWeakPermissionsTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $SecurityGroupsBanner $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDCOMUsers $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLOrganizationManagement $HTMLPerformanceLogUsers $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLRDPUsers $HTMLRemManUsers $HTMLSchemaAdmins $HTMLServerOperators $InterestingDataBanner $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
 	
 	if($Output){
 		$Output = $Output.TrimEnd('\')
@@ -9752,6 +9797,91 @@ function CheckSMBSigning
 	# Close and dispose of the runspace pool for good resource management
 	$runspacePool.Close()
 	$runspacePool.Dispose()
+}
+
+function Find-GPPasswords {
+
+    Param (
+        [ValidateNotNullOrEmpty()]
+        [String]
+        $Domain
+    )
+
+    # Helper function to decrypt the cpassword field
+    function Decode-EncryptedField {
+        Param (
+            [string] $EncryptedData
+        )
+
+        try {
+            $LengthMod = ($EncryptedData.length % 4)
+            switch ($LengthMod) {
+                '1' { $EncryptedData = $EncryptedData.Substring(0, $EncryptedData.Length - 1) }
+                '2' { $EncryptedData += ('=' * (4 - $LengthMod)) }
+                '3' { $EncryptedData += ('=' * (4 - $LengthMod)) }
+            }
+
+            $DecodedBytes = [Convert]::FromBase64String($EncryptedData)
+            $CryptoProvider = New-Object System.Security.Cryptography.AesCryptoServiceProvider
+            [Byte[]] $StaticKey = @(0x4e, 0x99, 0x06, 0xe8, 0xfc, 0xb6, 0x6c, 0xc9, 0xfa, 0xf4, 0x93, 0x10, 0x62, 0x0f, 0xfe, 0xe8,
+                                    0xf4, 0x96, 0xe8, 0x06, 0xcc, 0x05, 0x79, 0x90, 0x20, 0x9b, 0x09, 0xa4, 0x33, 0xb6, 0x6c, 0x1b)
+
+            $CryptoProvider.IV = New-Object Byte[]($CryptoProvider.IV.Length) # Null IV
+            $CryptoProvider.Key = $StaticKey
+            $Decryptor = $CryptoProvider.CreateDecryptor()
+            [System.Text.UnicodeEncoding]::Unicode.GetString($Decryptor.TransformFinalBlock($DecodedBytes, 0, $DecodedBytes.length))
+        }
+        catch {
+            Write-Error "Error decrypting password: $_"
+        }
+    }
+
+    # Helper function to parse XML files for credentials
+    function Parse-CredentialFields {
+        Param (
+            [string] $FilePath
+        )
+
+        try {
+            [xml] $XmlContent = Get-Content -Path $FilePath
+            if ($XmlContent.InnerXml -match 'cpassword') {
+                $XmlContent.GetElementsByTagName('Properties') | ForEach-Object {
+                    $EncryptedPassword = $_.cpassword
+                    if ($EncryptedPassword) {
+                        $DecryptedPassword = Decode-EncryptedField -EncryptedData $EncryptedPassword
+                        $Username = if ($_.userName) { $_.userName }
+                                    elseif ($_.accountName) { $_.accountName }
+                                    elseif ($_.runAs) { $_.runAs }
+                                    else { '[BLANK]' }
+                        $ChangedDate = $_.ParentNode.changed
+
+                        $Result = [PSCustomObject]@{
+                            Username  = $Username
+                            Password  = $DecryptedPassword
+                            Changed   = $ChangedDate
+                            FilePath  = $FilePath
+                        }
+                        $Result
+                    }
+                }
+            }
+        }
+        catch {
+            Write-Warning "Failed to parse XML file '$FilePath' : $_"
+        }
+    }
+
+    try {
+        $XMLFiles = Get-ChildItem -Path "\\$Domain\SYSVOL\*\Policies" -Recurse -Include 'Groups.xml', 'Services.xml', 'Scheduledtasks.xml', 'DataSources.xml' -ErrorAction SilentlyContinue
+        if (-not $XMLFiles) { throw "No GPP XML files found in domain SYSVOL." }
+
+        ForEach ($File in $XMLFiles) {
+            Parse-CredentialFields -FilePath $File.FullName
+        }
+    }
+    catch {
+        Write-Error "An error occurred: $_"
+    }
 }
 
 function CheckAliveHosts
