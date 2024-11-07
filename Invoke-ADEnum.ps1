@@ -5448,114 +5448,171 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	####################################################################
 	
 	if($MoreGPOs -OR $AllEnum){
-        Write-Host ""
+        	Write-Host ""
 		Write-Host "GPOs that modify local group memberships" -ForegroundColor Cyan
 		
 		# Loop through each relevant GPO
-		$TempGPOLocalGroupsMembership = foreach($AllDomain in $AllDomains){
-			foreach ($gpo in ($AllCollectedGPOs | Where-Object {$_.domain -eq $AllDomain})) {
-				$gpoPath = $gpo.gpcfilesyspath.TrimStart("[").TrimEnd("]")
-				$gpoDisplayName = $gpo.displayname
-				
-				# Initialize collections for MemberOf and Members
-				$memberOfCollection = @()
-				$membersCollection = @()
-				
-				$GPOGuid = ($gpo.gpcfilesyspath -split "}")[-2].split("{")[-1]  # Extracting the GPO's GUID
-				$TargetOUs = @($AllCollectedOUs | Where-Object { $_.domain -eq $AllDomain -AND $_.gplink -like "*$GPOGuid*"} )
-				$OUs = $TargetOUs.name -Join " - "
-
-				# Check for Restricted Groups settings
-				$restrictedGroupsPath = Join-Path -Path $gpoPath -ChildPath "MACHINE\Microsoft\Windows NT\SecEdit\GptTmpl.inf"
-				if (Test-Path $restrictedGroupsPath) {
-					$restrictedGroupsContent = Get-Content -Path $restrictedGroupsPath -Raw
-
-					if ($restrictedGroupsContent -match "\[Group Membership\]") {
-						$lines = $restrictedGroupsContent -split "`r`n" | Where-Object { $_ -match "__Member" }
-
-						foreach ($line in $lines) {
-							if ($line -match "\*(?<sid>S-1-5-\d+(-\d+){3,})__(?<role>.+?)\s*=\s*(?<values>.*)") {
-								$sid = $Matches['sid']
-								$role = $Matches['role']
-								$values = $Matches['values'].Trim()
-
-								# Initialize userName in case SID translation fails
-								$userName = $null
-
-								try {
-									$objSID = New-Object System.Security.Principal.SecurityIdentifier($sid)
-									$objUser = $objSID.Translate([System.Security.Principal.NTAccount])
-									$userName = $objUser.Value
-								} catch {}
-
-								# Fallback to manually extracting the user/group name if SID translation fails
-								if(!$userName){
-									$ExtractedMember = @($SumGroupsUsers | Where-Object {$sid -eq (GetSID-FromBytes -sidBytes $_.objectsid)})
-									$tempmembername = $ExtractedMember.samaccountname
-									$memberdomain = $ExtractedMember.domain
-									$userName = ($memberdomain -split "\.")[0] + "\" + $tempmembername
+		$TempGPOLocalGroupsMembership = foreach($AllDomain in $AllDomains) {
+		    foreach ($gpo in ($AllCollectedGPOs | Where-Object {$_.domain -eq $AllDomain})) {
+		        $gpoPath = $gpo.gpcfilesyspath.TrimStart("[").TrimEnd("]")
+		        $gpoDisplayName = $gpo.displayname
+		        
+		        # Initialize collections for MemberOf and Members
+		        $memberOfCollection = @()
+		        $membersCollection = @()
+				$filtersCollection = @()
+		
+		        $GPOGuid = ($gpo.gpcfilesyspath -split "}")[-2].split("{")[-1]  # Extracting the GPO's GUID
+		        $TargetOUs = @($AllCollectedOUs | Where-Object { $_.domain -eq $AllDomain -AND $_.gplink -like "*$GPOGuid*" })
+		        $OUs = $TargetOUs.name -Join " - "
+		
+		        # Check for Restricted Groups settings in GptTmpl.inf
+		        $restrictedGroupsPath = Join-Path -Path $gpoPath -ChildPath "MACHINE\Microsoft\Windows NT\SecEdit\GptTmpl.inf"
+		        $groupsXmlPath = Join-Path -Path $gpoPath -ChildPath "MACHINE\Preferences\Groups\Groups.xml"
+		
+		        if (Test-Path $restrictedGroupsPath) {
+				$restrictedGroupsContent = Get-Content -Path $restrictedGroupsPath -Raw
+	
+				if ($restrictedGroupsContent -match "\[Group Membership\]") {
+					$lines = $restrictedGroupsContent -split "`r`n" | Where-Object { $_ -match "__Member" }
+	
+					foreach ($line in $lines) {
+						if ($line -match "\*(?<sid>S-1-5-\d+(-\d+){3,})__(?<role>.+?)\s*=\s*(?<values>.*)") {
+							$sid = $Matches['sid']
+							$role = $Matches['role']
+							$values = $Matches['values'].Trim()
+	
+							# Initialize userName in case SID translation fails
+							$userName = $null
+	
+							try {
+								$objSID = New-Object System.Security.Principal.SecurityIdentifier($sid)
+								$objUser = $objSID.Translate([System.Security.Principal.NTAccount])
+								$userName = $objUser.Value
+							} catch {}
+	
+							# Fallback to manually extracting the user/group name if SID translation fails
+							if(!$userName){
+								$ExtractedMember = @($SumGroupsUsers | Where-Object {$sid -eq (GetSID-FromBytes -sidBytes $_.objectsid)})
+								$tempmembername = $ExtractedMember.samaccountname
+								$memberdomain = $ExtractedMember.domain
+								$userName = ($memberdomain -split "\.")[0] + "\" + $tempmembername
+							}
+	
+							# Split the values by "," to support multiple entries
+							if($values -eq ""){}
+							else{
+								$memberValues = $values -split "," | ForEach-Object { $_.TrimStart("*") }
+	
+								# Translate member SIDs to names
+								$memberNames = $memberValues | ForEach-Object {
+									$tempholder = $_
+									if(Test-SidFormat $tempholder){
+										foreach($SumGroupsUser in $SumGroupsUsers){
+											if($tempholder -eq (GetSID-FromBytes -sidBytes $SumGroupsUser.objectsid)){
+												$TryToExtractMember = $SumGroupsUser
+												break
+											}
+										}
+										if($TryToExtractMember){"$($TryToExtractMember.domain)\$($TryToExtractMember.samaccountname)"}
+										else{$tempholder}
+									}
+									else{
+										try {
+											$tempholder = $_
+											$memberSID = New-Object System.Security.Principal.SecurityIdentifier($tempholder)
+											$memberUser = $memberSID.Translate([System.Security.Principal.NTAccount])
+											$memberUser.Value
+										} catch {
+											$tempholder
+										}
+									}
 								}
-
-								# Split the values by "," to support multiple entries
-								if($values -eq ""){}
-								else{
-									$memberValues = $values -split "," | ForEach-Object { $_.TrimStart("*") }
-
-									# Translate member SIDs to names
-									$memberNames = $memberValues | ForEach-Object {
-										$tempholder = $_
-										if(Test-SidFormat $tempholder){
-											foreach($SumGroupsUser in $SumGroupsUsers){
-												if($tempholder -eq (GetSID-FromBytes -sidBytes $SumGroupsUser.objectsid)){
-													$TryToExtractMember = $SumGroupsUser
-													break
-												}
-											}
-											if($TryToExtractMember){"$($TryToExtractMember.domain)\$($TryToExtractMember.samaccountname)"}
-											else{$tempholder}
-										}
-										else{
-											try {
-												$tempholder = $_
-												$memberSID = New-Object System.Security.Principal.SecurityIdentifier($tempholder)
-												$memberUser = $memberSID.Translate([System.Security.Principal.NTAccount])
-												$memberUser.Value
-											} catch {
-												$tempholder
-											}
-										}
-									}
-									
-									# Accumulate MemberOf and Members data
-									if ($role -eq 'MemberOf') {
-										$memberOfCollection += $memberNames
-									} elseif ($role -eq 'Members') {
-										$membersCollection += $memberNames
-									}
+								
+								# Accumulate MemberOf and Members data
+								if ($role -eq 'MemberOf') {
+									$memberOfCollection += $memberNames
+								} elseif ($role -eq 'Members') {
+									$membersCollection += $memberNames
 								}
 							}
 						}
-					
-					# Collect the result
-					[PSCustomObject]@{
-						"GPO Display Name" = $gpoDisplayName
-						"User/Group Name" = $userName
-						"MemberOf" = $memberOfCollection -join ', '
-						"Members" = $membersCollection -join ', '
-						"Target OUs" = $OUs
-						Domain = $AllDomain
 					}
-					
-					}
+				
+				# Collect the result
+				[PSCustomObject]@{
+					"GPO Display Name" = $gpoDisplayName
+					"User/Group Name" = $userName
+					"MemberOf" = $memberOfCollection -join ', '
+					"Members" = $membersCollection -join ', '
+					"Target OUs" = $OUs
+					"Filters" = N/A
+					Domain = $AllDomain
+				}
+				
 				}
 			}
+				
+			if (Test-Path $groupsXmlPath) {
+		            # New logic to handle Groups.xml
+		            [xml]$xmlContent = Get-Content -Path $groupsXmlPath
+		
+		            # Loop through each <Group> node
+		            foreach ($group in $xmlContent.Groups.Group) {
+		                $groupName = $group.Properties.groupName
+		                $groupSid = $group.Properties.groupSid
+		                $members = $group.Properties.Members.Member
+		
+		                foreach ($member in $members) {
+		                    $memberName = $member.name
+		                    $memberAction = $member.action
+		                    $memberSid = $member.sid
+		                    
+		                    # Add to collections based on action and SID translation logic
+		                    if ($memberAction -eq "ADD") {
+		                        # Translate SID to name if necessary
+		                        try {
+		                            $objSID = New-Object System.Security.Principal.SecurityIdentifier($memberSid)
+		                            $objUser = $objSID.Translate([System.Security.Principal.NTAccount])
+		                            $translatedName = $objUser.Value
+		                        } catch {
+		                            $translatedName = $memberName  # Fallback if SID translation fails
+		                        }
+		
+		                        # Add to members collection
+		                        $membersCollection += $translatedName
+		                    }
+		                }
+						
+						# Extract FilterComputer information
+		                $filters = $group.Filters.FilterComputer
+		                foreach ($filter in $filters) {
+		                    $filterName = $filter.name
+		                    if ($filterName) {
+		                        $filtersCollection += $filterName
+		                    }
+		                }
+		
+		                # Collect the result for each group processed
+		                [PSCustomObject]@{
+		                    "GPO Display Name" = $gpoDisplayName
+		                    "User/Group Name" = $groupName
+		                    "MemberOf" = $memberOfCollection -join ', '
+		                    "Members" = $membersCollection -join ', '
+		                    "Target OUs" = $OUs
+							"Filters" = $filtersCollection -join ', '
+		                    Domain = $AllDomain
+		                }
+		            }
+		        }
+		    }
 		}
 		
 		if ($TempGPOLocalGroupsMembership) {
 			if(!$NoOutput){$TempGPOLocalGroupsMembership | Sort-Object -Unique "Domain", "GPO Display Name", "User/Group Name" | Format-Table -AutoSize -Wrap}
 			$HTMLGPOLocalGroupsMembership = $TempGPOLocalGroupsMembership | Sort-Object -Unique "Domain", "GPO Display Name", "User/Group Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='GPOLocalGroupsMembership'>GPOs that modify local group memberships</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='GPOLocalGroupsMembership'>" }
 		}
-    }
+	}
 		
 	##################################
 	##################################
