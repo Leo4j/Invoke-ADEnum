@@ -3687,45 +3687,41 @@ Add-Type -TypeDefinition $code
     ########### Group Policy Passwords ###############
 	#################################################################################################
 	
-	if($SprayEmptyPasswords -OR $AllEnum){
- 
-	 	Write-Host ""
-		Write-Host "Group Policy Passwords" -ForegroundColor Cyan
+	Write-Host ""
+	Write-Host "Group Policy Passwords" -ForegroundColor Cyan
+	
+	$TempGPPasswords = foreach ($AllDomain in $AllDomains) {
 		
-		$TempGPPasswords = foreach ($AllDomain in $AllDomains) {
-			
-			$GPPasswordsResults = $null
-			
-			$GPPasswordsResults = @(Find-GPPasswords -Domain $AllDomain)
-			
-			if($GPPasswordsResults){
-				foreach($GPPasswordsResult in $GPPasswordsResults){
-					[PSCustomObject]@{
-						"Domain" = $AllDomain
-						"GPO Name" = ($AllCollectedGPOs | Where-Object { $_.domain -eq $AllDomain -AND $_.gpcfilesyspath -eq (($GPPasswordsResult.FilePath -split "}")[0] + "}")}).DisplayName
-						"UserName" = $GPPasswordsResult.UserName
-						"Password" = $GPPasswordsResult.Password
-						"FilePath" = $GPPasswordsResult.FilePath
-					}
+		$GPPasswordsResults = $null
+		
+		$GPPasswordsResults = @(Find-GPPasswords -Domain $AllDomain)
+		
+		if($GPPasswordsResults){
+			foreach($GPPasswordsResult in $GPPasswordsResults){
+				[PSCustomObject]@{
+					"Domain" = $AllDomain
+					"GPO Name" = ($AllCollectedGPOs | Where-Object { $_.domain -eq $AllDomain -AND $_.gpcfilesyspath -eq (($GPPasswordsResult.FilePath -split "}")[0] + "}")}).DisplayName
+					"UserName" = $GPPasswordsResult.UserName
+					"Password" = $GPPasswordsResult.Password
+					"FilePath" = $GPPasswordsResult.FilePath
 				}
 			}
 		}
-	
-	 	if ($TempGPPasswords) {
-			if(!$NoOutput){$TempGPPasswords | Sort-Object Domain,Username,FilePath | Format-Table -AutoSize -Wrap}
-			$HTMLGPPasswords = $TempGPPasswords | Sort-Object Domain,Username,FilePath | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='GPPasswords'>Group Policy Passwords</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='GPPasswords'>" }
-	
-	  		$GPPasswordsTable = [PSCustomObject]@{
-				"Risk Rating" = "Critical - Needs Immediate Attention"
-				"Description" = "While passwords in GPO are encrypted, the private key for the encryption is well known. This means that any authenticated user can decrypt them."
-				"Remediation" = "Make sure there are no passwords stored in GPO. Consider any passwords listed here as compromised and change them immediately."
-			}
-			
-			$HTMLGPPasswordsTable = $GPPasswordsTable | ConvertTo-Html -As List -Fragment
-			$HTMLGPPasswordsTable = "<div class='report-section' style='display:none;'>$HTMLGPPasswordsTable</div>"
-		}
+	}
 
- 	}
+	if ($TempGPPasswords) {
+		if(!$NoOutput){$TempGPPasswords | Sort-Object Domain,Username,FilePath | Format-Table -AutoSize -Wrap}
+		$HTMLGPPasswords = $TempGPPasswords | Sort-Object Domain,Username,FilePath | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='GPPasswords'>Group Policy Passwords</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='GPPasswords'>" }
+
+		$GPPasswordsTable = [PSCustomObject]@{
+			"Risk Rating" = "Critical - Needs Immediate Attention"
+			"Description" = "While passwords in GPO are encrypted, the private key for the encryption is well known. This means that any authenticated user can decrypt them."
+			"Remediation" = "Make sure there are no passwords stored in GPO. Consider any passwords listed here as compromised and change them immediately."
+		}
+		
+		$HTMLGPPasswordsTable = $GPPasswordsTable | ConvertTo-Html -As List -Fragment
+		$HTMLGPPasswordsTable = "<div class='report-section' style='display:none;'>$HTMLGPPasswordsTable</div>"
+	}
 	
 	###############################################################
     ########### Check if any user passwords are set ###############
