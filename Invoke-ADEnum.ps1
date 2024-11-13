@@ -5746,7 +5746,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		if($RBCD -OR $AllEnum){
 	  		Write-Host ""
 			Write-Host "Resource Based Constrained Delegation" -ForegroundColor Cyan
-			$ExcludedAccounts = "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions|SELF|SYSTEM|Domain Admins|Enterprise|CREATOR OWNER|BUILTIN|Key Admins|MSOL|Account Operators|Terminal Server License Servers"
+			$ExcludedAccounts = "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Exchange Recipient Administrators|Exchange Domain Servers|Exchange Organization Administrators|Exchange Public Folder Administrators|Managed Availability Servers|Exchange Windows Permissions|SELF|SYSTEM|Domain Admins|Enterprise|CREATOR OWNER|BUILTIN|Key Admins|MSOL|Account Operators|Terminal Server License Servers"
 			$PlusExcludedAccounts = @($DAEABA | Where-Object{$_.domain -eq $AllDomain})
 			$PlusExcludedAccounts = ($PlusExcludedAccounts | Where-Object {$_.samaccountname}).samaccountname -join "|"
 			$ExcludedAccounts = $ExcludedAccounts + "|" + $PlusExcludedAccounts
@@ -5864,7 +5864,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		if($WeakPermissions -OR $AllEnum){
 	  		Write-Host ""
 			Write-Host "Weak Permissions" -ForegroundColor Cyan
-			$ExcludedAccounts = "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Managed Availability Servers|Exchange Windows Permissions|SELF|SYSTEM|Domain Admins|Enterprise|CREATOR OWNER|BUILTIN|Key Admins|MSOL|Account Operators|Terminal Server License Servers"
+			$ExcludedAccounts = "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Exchange Recipient Administrators|Exchange Domain Servers|Exchange Organization Administrators|Exchange Public Folder Administrators|Managed Availability Servers|Exchange Windows Permissions|SELF|SYSTEM|Domain Admins|Enterprise|CREATOR OWNER|BUILTIN|Key Admins|MSOL|Account Operators|Terminal Server License Servers"
 			$PlusExcludedAccounts = @($DAEABA | Where-Object{$_.domain -eq $AllDomain})
 			$PlusExcludedAccounts = ($PlusExcludedAccounts | Where-Object {$_.samaccountname}).samaccountname -join "|"
 			$ExcludedAccounts = $ExcludedAccounts + "|" + $PlusExcludedAccounts
@@ -5949,6 +5949,10 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 					# Exclude specific Object Ace Types
 					$_."Object Ace Type" -ne "Change Password" -and
 					$_."Object Ace Type" -ne "Send To" -and
+					$_."Object Ace Type" -ne "Lockout-Time" -and
+					$_."Object Ace Type" -ne "Send As" -and
+					$_."Object Ace Type" -ne "Personal Information" -and
+					$_."Object Ace Type" -ne "Personal Information, Send As" -and
 
 					# Show only Self AD Rights if Object Ace Type is Self-Membership
 					(
