@@ -207,7 +207,7 @@ function Invoke-ADEnum {
 	
 	Set-Variable MaximumHistoryCount 32767
 	
-	if($TargetsOnly -OR $Help){}
+	if($TargetsOnly -OR $Help -OR $NoOutput){}
 	else{
  		$originalBufferSize = $host.UI.RawUI.BufferSize
  		$host.UI.RawUI.BufferSize = New-Object Management.Automation.Host.Size(4096, $Host.UI.RawUI.BufferSize.Height)
