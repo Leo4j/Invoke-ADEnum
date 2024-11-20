@@ -4430,6 +4430,7 @@ Add-Type -TypeDefinition $code
 				"Mapping" = $MSSQLAccessInfo."Mapped to"
 				"Roles" = $MSSQLAccessInfo.Roles
 				"Impersonate" = $MSSQLAccessInfo.Impersonate
+				"Service Account" = $MSSQLAccessInfo."Service Account"
 				"xp_cmd" = $MSSQLAccessInfo."xp_cmdshell"
 				"OLE" = $MSSQLAccessInfo."OLE Automation"
 				"CLR" = $MSSQLAccessInfo."CLR Enabled"
@@ -8758,6 +8759,7 @@ function SQL-Query {
 	$oleAutomationStatus = "N/A"
 	$clrStatus = "N/A"
 	$rpcOutStatus = "N/A"
+	$serviceAccount = "N/A"
 
 	# Connection string
 	$connectionString = "Server=$Server;Database=$Database;Integrated Security=True;Connection Timeout=2;"
@@ -8881,6 +8883,35 @@ function SQL-Query {
 		} else {
 			$rpcOutStatus = "Disabled"
 		}
+		
+		# Fetch the service account using xp_instance_regread
+        $serviceAccountQuery = @"
+DECLARE @SQLServerInstance NVARCHAR(255)
+DECLARE @ServiceAccountName NVARCHAR(255)
+
+IF @@SERVICENAME = 'MSSQLSERVER'
+    SET @SQLServerInstance = 'SYSTEM\CurrentControlSet\Services\MSSQLSERVER'
+ELSE
+    SET @SQLServerInstance = 'SYSTEM\CurrentControlSet\Services\MSSQL$' + CAST(@@SERVICENAME AS NVARCHAR(255))
+
+EXEC master.dbo.xp_instance_regread
+    N'HKEY_LOCAL_MACHINE',
+    @SQLServerInstance,
+    N'ObjectName',
+    @ServiceAccountName OUTPUT
+
+SELECT @ServiceAccountName AS [ServiceAccount]
+"@
+        try {
+            $serviceAccounts = ExecuteQuery $serviceAccountQuery
+            if ($serviceAccounts.Count -gt 0) {
+                $serviceAccount = $serviceAccounts -join ", "
+            } else {
+                $serviceAccount = "Not available"
+            }
+        } catch {
+            $serviceAccount = "Error retrieving service account"
+        }
 
 		# Close connection
 		$connection.Close()
@@ -8896,6 +8927,7 @@ function SQL-Query {
 			"OLE Automation"= $oleAutomationStatus
 			"CLR Enabled"   = $clrStatus
 			"RPC Out"       = $rpcOutStatus
+			"Service Account"= $serviceAccount
 		}
 		
 		$MSSQLResults
@@ -8913,6 +8945,7 @@ function SQL-Query {
 			"OLE Automation"= "N/A"
 			"CLR Enabled"   = "N/A"
 			"RPC Out"       = "N/A"
+			"Service Account"= "N/A"
 		}
 		
 		$MSSQLResults
