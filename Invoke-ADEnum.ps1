@@ -863,19 +863,60 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 		}
 	}
 	
-	# Trust Domains (save to variable)
-	
-	if($Domain -AND $Server) {
-		$TrustTargetNames = @((FindDomainTrusts -Domain $Domain -Server $Server).TargetName)
-		$TrustTargetNames = $TrustTargetNames | Sort-Object -Unique
-		$TrustTargetNames = $TrustTargetNames | Where-Object { $_ -notin $Domain }
+	# Trust Domains
+	$DiscoveredDomains = @()   # All discovered domains
+	$DomainsToCheck = @()      # Queue of domains to check
+	$CheckedDomains = @()      # Domains that have already been checked
+
+	if ($Domain -and $Server) {
+		$DomainsToCheck = @($Domain)
+	} elseif ($AllDomains) {
+		$DomainsToCheck = @($AllDomains)
+	} else {
+		Write-Error "No domain or server information provided."
+		return
 	}
-	
-	else{
-		$TrustTargetNames = @(foreach($AllDomain in $AllDomains){(FindDomainTrusts -Domain $AllDomain).TargetName})
-		$TrustTargetNames = $TrustTargetNames | Sort-Object -Unique
-		$TrustTargetNames = $TrustTargetNames | Where-Object { $_ -notin $AllDomains }
-	}
+
+	do {
+		$NewDomains = @()
+
+		foreach ($CurrentDomain in $DomainsToCheck) {
+			# Skip if the domain has already been checked
+			if ($CurrentDomain -in $CheckedDomains) {
+				continue
+			}
+
+			# Find trusts for the current domain
+			if ($CurrentDomain -and $Server) {
+				$Trusts = FindDomainTrusts -Domain $CurrentDomain -Server $Server
+			} else {
+				$Trusts = FindDomainTrusts -Domain $CurrentDomain
+			}
+
+			# Extract unique trust target names
+			$TrustTargetNames = @($Trusts.TargetName | Sort-Object -Unique)
+
+			# Exclude already discovered domains
+			$TrustTargetNames = @($TrustTargetNames | Where-Object { $_ -notin $DiscoveredDomains })
+
+			# Add these new domains to the current iteration
+			$NewDomains += @($TrustTargetNames)
+
+			# Mark the current domain as checked
+			$CheckedDomains += @($CurrentDomain)
+		}
+
+		# Add newly discovered domains to the global list
+		$DiscoveredDomains += @($NewDomains)
+		$DiscoveredDomains = @($DiscoveredDomains | Sort-Object -Unique)
+
+		# Update domains to check for the next iteration
+		$DomainsToCheck = @($NewDomains)
+
+	} while ($DomainsToCheck.Count -gt 0) # Continue until no new domains are found
+
+	# Output all discovered domains
+	$TrustTargetNames = $DiscoveredDomains
 	
 	# Remove Outbound Trust from $AllDomains
 	
