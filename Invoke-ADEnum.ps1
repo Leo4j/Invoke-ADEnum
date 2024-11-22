@@ -1374,13 +1374,13 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 		if($LoadFromDisk){
 			# Import the JSON data from the file
 			$jsonData = Get-Content -Path c:\Users\Public\Documents\Invoke-ADEnum\GUIDMappings.json -Raw | ConvertFrom-Json
-			foreach ($domain in $jsonData.PSObject.Properties.Name) {
-				$AllGUIDMappings[$domain] = @{}
-				$domainData = $jsonData.$domain
+			foreach ($guiddomain in $jsonData.PSObject.Properties.Name) {
+				$AllGUIDMappings[$guiddomain] = @{}
+				$domainData = $jsonData.$guiddomain
 				
 				foreach ($guid in $domainData.PSObject.Properties.Name) {
 					$guidKey = [Guid]::Parse($guid)
-					$AllGUIDMappings[$domain][$guidKey] = $domainData.$guid
+					$AllGUIDMappings[$guiddomain][$guidKey] = $domainData.$guid
 				}
 			}
 		}
@@ -1399,10 +1399,10 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 			if($SaveToDisk){
 				# Convert the hash table keys to strings
 				$TransformedGUIDMappings = @{}
-				foreach ($domain in $AllGUIDMappings.Keys) {
-					$TransformedGUIDMappings[$domain] = @{}
-					foreach ($guid in $AllGUIDMappings[$domain].Keys) {
-						$TransformedGUIDMappings[$domain][$guid.ToString()] = $AllGUIDMappings[$domain][$guid]
+				foreach ($guiddomain in $AllGUIDMappings.Keys) {
+					$TransformedGUIDMappings[$guiddomain] = @{}
+					foreach ($guid in $AllGUIDMappings[$guiddomain].Keys) {
+						$TransformedGUIDMappings[$guiddomain][$guid.ToString()] = $AllGUIDMappings[$guiddomain][$guid]
 					}
 				}
 				$TransformedGUIDMappings | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\GUIDMappings.json
@@ -2748,7 +2748,6 @@ Add-Type -TypeDefinition $code
 		$VulnerableLMCompLevelComp = @()
 		foreach($OUCollected in $AllOUsToCollect){
 			$ouDN = $OUCollected.distinguishedName
-			$domain = $OUCollected.domain
 			$OUVulnGPO = $OUCollected.VulnGPO
 			
 			# Filter users within this OU
@@ -2764,7 +2763,7 @@ Add-Type -TypeDefinition $code
 				$Targetsid = GetSID-FromBytes -sidBytes $comp.objectsid
 				
 				$VulnerableLMCompLevelComp += [PSCustomObject]@{
-					Domain  = $domain
+					Domain  = $OUCollected.domain
 					"Vulnerble GPO" = $OUVulnGPO
 					"OU Name" = $OUCollected.name
 					Members = $comp.samaccountname
@@ -3890,8 +3889,10 @@ Add-Type -TypeDefinition $code
 				}
 			}
 		}
+		
+		$TrustAccountsExcludedSIDs = $TempTrustAccounts | Select-Object -ExpandProperty 'Object SID'
 	
-	 	if ($TempEmptyPasswordUsers | Where-Object {$_.Enabled -eq "True"}) {
+	 	if ($TempEmptyPasswordUsers | Where-Object {$_.Enabled -eq "True" -AND (-not ($TrustAccountsExcludedSIDs -contains $_.SID))}) {
 			if(!$NoOutput){$TempEmptyPasswordUsers | Where-Object {$_.Enabled -eq "True"} | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap}
 			$HTMLEmptyPasswordUsers = $TempEmptyPasswordUsers | Where-Object {$_.Enabled -eq "True"} | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='PassNotRequired'>Users with Password-not-required attribute set</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='PassNotRequired'>" }
 			
@@ -7438,7 +7439,6 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			foreach ($ou in $CollectOUs) {
 				
 				$ouDN = $ou.distinguishedName
-				$domain = $ou.domain
 				
 				# Filter users within this OU
 				$users = ($TotalEnabledUsers | Where-Object { $_.domain -eq $AllDomain -AND $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.samaccountname })
@@ -7461,7 +7461,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 				# Create a custom object for each OU with its members
 				[PSCustomObject]@{
 					Name    = $ou.name
-					Domain  = $domain
+					Domain  = $ou.domain
 					Members = $members
 				}
 			}
