@@ -5984,7 +5984,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 				
 				$Results | Where-Object {
 					# Match specific AD Rights
-					$_."AD Rights" -match "GenericWrite|GenericAll|WriteDacl|WriteOwner|WriteProperty|AllExtendedRights|ExtendedRight|ForceChangePassword|Self" -and
+					$_."AD Rights" -match "GenericWrite|GenericAll|WriteDacl|WriteOwner|WriteProperty|WriteSPN|WriteAccountRestrictions|AllExtendedRights|ExtendedRight|AddAllowedToAct|SyncLAPSPassword|ForceChangePassword|Self" -and
 
 					# Exclude specific accounts
 					$_.Account -notmatch $ExcludedAccounts -and
