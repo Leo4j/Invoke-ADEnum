@@ -1201,7 +1201,7 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 				$CollectGMSAs += @(Collect-ADObjects -Domain $Domain -Server $Server -LDAP "objectClass=msDS-GroupManagedServiceAccount" -Property samaccountname,lastlogontimestamp,msds-managedpasswordinterval,pwdlastset,objectSID,objectGuid)
 				
 				# Collect SCCM Servers
-				$CollectSCCMServers += @(Collect-ADObjects -Domain $Domain -Server $Server -LDAP "objectClass=mSSMSManagementPoint" -Property mssmsmpname)
+				$CollectSCCMServers += @(Collect-ADObjects -Domain $Domain -Server $Server -LDAP "objectClass=mSSMSManagementPoint" -Property mssmsmpname,dnshostname)
 				
 				# Printers
 				$PrintersCollection += @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Printers -Property servername,shortservername,printsharename,portname,drivername,url)
@@ -1325,7 +1325,7 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 				
 				# Collect SCCM Servers
 				foreach($AllDomain in $AllDomains){
-					$CollectSCCMServers += @(Collect-ADObjects -Domain $AllDomain -LDAP "objectClass=mSSMSManagementPoint" -Property mssmsmpname)
+					$CollectSCCMServers += @(Collect-ADObjects -Domain $AllDomain -LDAP "objectClass=mSSMSManagementPoint" -Property mssmsmpname,dnshostname)
 				}
 				
 				# Printers
@@ -3278,7 +3278,7 @@ Add-Type -TypeDefinition $code
 		$CertPublishers = @()
 		
 		$CertPublishers += foreach ($AllDomain in $AllDomains) {
-			RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Domain $AllDomain -Identity "Cert Publishers"
+			RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Domain $AllDomain -Identity "Cert Publishers" | Where-Object {$_.MemberObjectClass -eq "computer"}
 		}
 		
 		$TempCertPublishers = foreach ($CertPublisher in $CertPublishers) {
@@ -4455,7 +4455,7 @@ Add-Type -TypeDefinition $code
 			}
 		}
 		
-		$NameExtractedSQLMachines = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -and (($_.samaccountname -like "*SQL*" -and $_.operatingsystem) -OR ($_.servicePrincipalName -like "*SQL*"))})
+		$NameExtractedSQLMachines = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -and ((($_.samaccountname -like "*SQL*" -OR $_.samaccountname -like "*DB*") -and $_.operatingsystem) -OR ($_.servicePrincipalName -like "*SQL*"))})
 		#$NameExtractedSQLMachines = @($TotalEnabledDisabledMachines | Where-Object {$_.domain -eq $AllDomain -and $_.samaccountname -like "*SQL*" -and $_.objectcategory -like "*CN=Computer*"})
 		
 		$FinalExtractedSQLMachines = @($ExtractedSQLMachines + $NameExtractedSQLMachines)
@@ -4509,10 +4509,10 @@ Add-Type -TypeDefinition $code
 		$Searcher.Filter = $SearcherArguments.LDAPFilter
 		$Searcher.PropertiesToLoad.Add($SearcherArguments.Properties) | Out-Null
 		$Results = $Searcher.FindAll() #>
-		$Results = @($CollectSCCMServers | Where-Object {$_.domain -eq $AllDomain -AND $_.mssmsmpname -like "*.*"})
+		$Results = @($CollectSCCMServers | Where-Object {$_.domain -eq $AllDomain})
 		$ProcessedSCCMServers = @{}
 		foreach ($Result in $Results) {
-			$dNSHostName = $Result.mssmsmpname
+			$dNSHostName = if($Result.dnshostname){$Result.dnshostname}else{$Result.mssmsmpname}
 			if ($ProcessedSCCMServers.ContainsKey($dNSHostName)) {continue}
 			$SCCMServerShort = $dNSHostName.Split('.')[0]
 			$DomainParts = $dNSHostName.Split('.') | Select-Object -Skip 1
@@ -4524,7 +4524,7 @@ Add-Type -TypeDefinition $code
 			$ObjectRetrieve = $TotalEnabledDisabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $_.dnshostname -eq $dNSHostName}
 			$ProcessedSCCMServers[$dNSHostName] = $true
 			[PSCustomObject]@{
-				Server = $ObjectRetrieve.samaccountname
+				Server = $SCCMServerShort
 				"Enabled" = if ($ObjectRetrieve.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if(!$ObjectRetrieve.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $ObjectRetrieve.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
 				Enrolled = $Enrolled
