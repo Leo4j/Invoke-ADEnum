@@ -5150,6 +5150,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		Write-Host "Who can link GPOs" -ForegroundColor Cyan
 		$TempGpoLinkResults = foreach ($AllDomain in $AllDomains) {
 			
+			$ExcludedAccounts = "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Exchange Recipient Administrators|Exchange Domain Servers|Exchange Organization Administrators|Exchange Public Folder Administrators|Managed Availability Servers|Exchange Windows Permissions|SELF|SYSTEM|Domain Admins|Enterprise|CREATOR OWNER|BUILTIN|Key Admins|MSOL|Account Operators|Terminal Server License Servers"
+			$PlusExcludedAccounts = @($DAEABA | Where-Object{$_.domain -eq $AllDomain})
+			$PlusExcludedAccounts = ($PlusExcludedAccounts | Where-Object {$_.samaccountname}).samaccountname -join "|"
+			$ExcludedAccounts = $ExcludedAccounts + "|" + $PlusExcludedAccounts
+			
 			# Retrieve the GUID to Name mapping
 			$guidMap = $null
 			$guidMap = $AllGUIDMappings["$AllDomain"]
@@ -5161,10 +5166,15 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 				$ldapPath = "LDAP://$AllDomain/$OU"
 				$ouEntry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
 				$securityDescriptor = $ouEntry.ObjectSecurity
+				
+				$AllGPOLinksDescriptors = $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount]) | Where-Object {$_.ActiveDirectoryRights -match "WriteProperty" -AND $_.IdentityReference -notmatch $ExcludedAccounts -AND !(Test-SidFormat -SidString $_.IdentityReference.Value)}
 
-				foreach ($ace in $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount])) {
+				foreach ($ace in $AllGPOLinksDescriptors) {
 					# Resolve ObjectType and InheritedObjectType using the GUID map
 					$objectTypeName = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
+					
+					if($objectTypeName -notmatch "\bAny\b|GP-Link"){continue}
+					
 					$inheritedObjectTypeName = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
 					
 					<# # Do the conversion First ?
@@ -5175,7 +5185,9 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 					}
 					else{$FinalSID = $ace.IdentityReference.Value} #>
 					
-					if(Test-SidFormat -SidString $ace.IdentityReference.Value){
+					$FinalLinkGPOAccount = $ace.IdentityReference.Value
+					
+					<# if(Test-SidFormat -SidString $ace.IdentityReference.Value){
 						foreach($SumGroupsUser in $SumGroupsUsers){
 							if($ace.IdentityReference.Value -eq (GetSID-FromBytes -sidBytes $SumGroupsUser.objectsid)){
 								$TryToExtractMember = $SumGroupsUser
@@ -5194,7 +5206,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 						} catch {
 							$FinalLinkGPOAccount = $ace.IdentityReference.Value
 						}
-					}
+					} #>
 					
 					# Create a custom object with the resolved names
 					[PSCustomObject]@{
@@ -5210,9 +5222,9 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 				}
 			}
 			
-			$gpolinkresults = @($gpolinkresult | Where-Object { $_.ObjectType -eq "GP-Link" -and $_.ActiveDirectoryRights -match "WriteProperty" })
+			#$gpolinkresults = @($gpolinkresult | Where-Object { $_.ObjectType -eq "GP-Link" -and $_.ActiveDirectoryRights -match "WriteProperty" })
 			
-			foreach ($result in $gpolinkresults) {
+			foreach ($result in $gpolinkresult) {
 			
 				[PSCustomObject]@{
 					"Who can link" = $result."Delegated Groups"
@@ -5295,6 +5307,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			Write-Host "Who can read LAPS" -ForegroundColor Cyan
 			$TempLAPSCanRead = foreach ($AllDomain in $AllDomains) {
 				
+				$ExcludedAccounts = "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Exchange Recipient Administrators|Exchange Domain Servers|Exchange Organization Administrators|Exchange Public Folder Administrators|Managed Availability Servers|Exchange Windows Permissions|SELF|SYSTEM|Domain Admins|Enterprise|CREATOR OWNER|BUILTIN|Key Admins|MSOL|Account Operators|Terminal Server License Servers"
+				$PlusExcludedAccounts = @($DAEABA | Where-Object{$_.domain -eq $AllDomain})
+				$PlusExcludedAccounts = ($PlusExcludedAccounts | Where-Object {$_.samaccountname}).samaccountname -join "|"
+				$ExcludedAccounts = $ExcludedAccounts + "|" + $PlusExcludedAccounts
+				
 				# Retrieve the GUID to Name mapping
 				$guidMap = $null
 				$guidMap = $AllGUIDMappings["$AllDomain"]
@@ -5307,13 +5324,20 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 					$ldapPath = "LDAP://$ou"
 					$ouEntry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
 					$securityDescriptor = $ouEntry.ObjectSecurity
+					
+					$AllLAPSCanReadDescriptors = $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount]) | Where-Object {$_.ActiveDirectoryRights -match "ReadProperty" -AND $_.IdentityReference -notmatch $ExcludedAccounts -AND !(Test-SidFormat -SidString $_.IdentityReference.Value)}
 
-					foreach ($ace in $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount])) {
+					foreach ($ace in $AllLAPSCanReadDescriptors) {
 						# Resolve ObjectType and InheritedObjectType using the GUID map
 						$objectTypeName = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
+						
+						if($objectTypeName -notmatch "\bAny\b|ms-Mcs-AdmPwd"){continue}
+						
 						$inheritedObjectTypeName = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
 						
-						if(Test-SidFormat $ace.IdentityReference.Value){
+						$FinalAceAccount = $ace.IdentityReference.Value
+						
+						<# if(Test-SidFormat $ace.IdentityReference.Value){
 							foreach($SumGroupsUser in $SumGroupsUsers){
 								if($ace.IdentityReference.Value -eq (GetSID-FromBytes -sidBytes $SumGroupsUser.objectsid)){
 									$TryToExtractMember = $SumGroupsUser
@@ -5332,7 +5356,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 							} catch {
 								$FinalAceAccount = $ace.IdentityReference.Value
 							}
-						}
+						} #>
 
 						# Create a custom object with the resolved names
 						[PSCustomObject]@{
@@ -5347,7 +5371,8 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 					}
 				}
 
-				$Results | Where-Object {$_.ObjectType -eq 'ms-Mcs-AdmPwd' -AND ($_.ActiveDirectoryRights -match 'ReadProperty')}
+				$Results
+				#$Results | Where-Object {$_.ObjectType -eq 'ms-Mcs-AdmPwd' -AND ($_.ActiveDirectoryRights -match 'ReadProperty')}
 			}
 			
 			if ($TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null}) {
@@ -5366,6 +5391,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			
 			$TempLAPSExtended = foreach ($AllDomain in $AllDomains) {
 				
+				$ExcludedAccounts = "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Exchange Recipient Administrators|Exchange Domain Servers|Exchange Organization Administrators|Exchange Public Folder Administrators|Managed Availability Servers|Exchange Windows Permissions|SELF|SYSTEM|Domain Admins|Enterprise|CREATOR OWNER|BUILTIN|Key Admins|MSOL|Account Operators|Terminal Server License Servers"
+				$PlusExcludedAccounts = @($DAEABA | Where-Object{$_.domain -eq $AllDomain})
+				$PlusExcludedAccounts = ($PlusExcludedAccounts | Where-Object {$_.samaccountname}).samaccountname -join "|"
+				$ExcludedAccounts = $ExcludedAccounts + "|" + $PlusExcludedAccounts
+				
 				# Retrieve the GUID to Name mapping
 				$guidMap = $null
 				$guidMap = $AllGUIDMappings["$AllDomain"]
@@ -5380,14 +5410,21 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 					$ouEntry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
 					$securityDescriptor = $ouEntry.ObjectSecurity
 					
-					foreach ($ace in $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount])) {
+					$AllLAPSExtendedDescriptors = $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount]) | Where-Object {$_.ActiveDirectoryRights -match "ExtendedRight" -AND $_.IdentityReference -notmatch $ExcludedAccounts -AND !(Test-SidFormat -SidString $_.IdentityReference.Value)}
+					
+					foreach ($ace in $AllLAPSExtendedDescriptors) {
 						# Resolve ObjectType and InheritedObjectType using the GUID map
 						$objectTypeName = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
+						
+						if($objectTypeName -notmatch "\bAny\b|ms-Mcs-AdmPwd"){continue}
+						
 						$inheritedObjectTypeName = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
 
-						if($ace.ObjectType -match "All" -and $ace.IdentityReference -notmatch "BUILTIN") { $Status = "Non Delegated by Admin" }
+						if($objectTypeName -match "Any" -and $ace.IdentityReference -notmatch "BUILTIN") { $Status = "Non Delegated by Admin" }
 
-						if(Test-SidFormat -SidString $ace.IdentityReference.Value){
+						$FinalExtendedAccount = $ace.IdentityReference.Value
+						
+						<# if(Test-SidFormat -SidString $ace.IdentityReference.Value){
 							foreach($SumGroupsUser in $SumGroupsUsers){
 								if($ace.IdentityReference.Value -eq (GetSID-FromBytes -sidBytes $SumGroupsUser.objectsid)){
 									$TryToExtractMember = $SumGroupsUser
@@ -5406,7 +5443,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 							} catch {
 								$FinalExtendedAccount = $ace.IdentityReference.Value
 							}
-						}
+						} #>
       						
 						# Create a custom object with the resolved names
 						[PSCustomObject]@{
@@ -5422,7 +5459,8 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 					}
 				}
 				
-				$Results | Where-Object {$_.ActiveDirectoryRights -match 'ExtendedRight' -AND $_.ObjectType -eq 'ms-Mcs-AdmPwd'}
+				$Results
+				#$Results | Where-Object {$_.ActiveDirectoryRights -match 'ExtendedRight' -AND $_.ObjectType -eq 'ms-Mcs-AdmPwd'}
 				
 			}
 			
@@ -5815,7 +5853,9 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 					$ouEntry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
 					$securityDescriptor = $ouEntry.ObjectSecurity
 					
-					foreach ($ace in $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount])) {
+					$AllSecurityDescriptors = $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount]) | Where-Object {$_.ActiveDirectoryRights -match "WriteProperty|GenericWrite|GenericAll|WriteDacl" -AND $_.IdentityReference -notmatch $ExcludedAccounts -AND !(Test-SidFormat -SidString $_.IdentityReference.Value)}
+					
+					foreach ($ace in $AllSecurityDescriptors) {
 						# Resolve ObjectType and InheritedObjectType using the GUID map
 						$objectTypeName = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
 						#$inheritedObjectTypeName = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
@@ -5828,7 +5868,9 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 						}
 						else{$FinalSID = $ace.IdentityReference.Value} #>
 						
-						if(Test-SidFormat -SidString $ace.IdentityReference.Value){
+						$FinalRBCDAccount = $ace.IdentityReference.Value
+						
+						<# if(Test-SidFormat -SidString $ace.IdentityReference.Value){
 							foreach($SumGroupsUser in $SumGroupsUsers){
 								if($ace.IdentityReference.Value -eq (GetSID-FromBytes -sidBytes $SumGroupsUser.objectsid)){
 									$TryToExtractMember = $SumGroupsUser
@@ -5847,7 +5889,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 							} catch {
 								$FinalRBCDAccount = $ace.IdentityReference.Value
 							}
-						}
+						} #>
 
 						$ExtractObjCategory = $null
 						$ExtractObjCategory = ($comp.objectcategory -split ",")[0] -replace "CN=",""
@@ -5868,12 +5910,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 				
 				$Results | Where-Object {
 					# Match specific AD Rights
-					$_."AD Rights" -match "WriteProperty|GenericWrite|GenericAll|WriteDacl" -and
-					
-					(($_."AD Rights" -notmatch "WriteProperty") -or (($_."Object Ace Type" -match "msDS-AllowedToActOnBehalfOfOtherIdentity") -or ($_."Object Ace Type" -match "Any"))) -and
-
-					# Exclude specific accounts
-					$_.Account -notmatch $ExcludedAccounts
+					($_."AD Rights" -notmatch "WriteProperty") -or ($_."Object Ace Type" -match "\bmsDS-AllowedToActOnBehalfOfOtherIdentity\b|\bAny\b")
 				} |
 					Group-Object "Account", "Object", "AD Rights", "Domain" |
 					ForEach-Object {
@@ -5933,11 +5970,15 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 					$ouEntry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
 					$securityDescriptor = $ouEntry.ObjectSecurity
 					
-					foreach ($ace in $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount])) {
+					$AllWeakDescriptors = $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount]) | Where-Object {$_.ActiveDirectoryRights -match "WriteOwner|WriteSPN|WriteAccountRestrictions|AllExtendedRights|ExtendedRight|AddAllowedToAct|SyncLAPSPassword|ForceChangePassword|Self" -AND $_.IdentityReference -notmatch $ExcludedAccounts -AND !(Test-SidFormat -SidString $_.IdentityReference.Value)}
+					
+					foreach ($ace in $AllWeakDescriptors) {
 						# Resolve ObjectType and InheritedObjectType using the GUID map
 						$objectTypeName = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
 						#$inheritedObjectTypeName = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
 
+						if($objectTypeName -match "Change Password|Send To|Lockout-Time|Send As|Personal Information|Personal Information, Send As|Generate Resultant Set of Policy \(Logging\)|Generate Resultant Set of Policy \(Planning\)|Generate Resultant Set of Policy \(Planning\), Generate Resultant Set of Policy \(Logging\)"){continue}
+						
 						<# ## Do the SID conversion first ?
 						if(Test-SidFormat -SidString $ace.IdentityReference.Value){
 							$TargetFinalSID = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq $ace.IdentityReference.Value}
@@ -5946,7 +5987,9 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 						}
 						else{$FinalSID = $ace.IdentityReference.Value} #>
 						
-						if(Test-SidFormat -SidString $ace.IdentityReference.Value){
+						$FinalRBCDAccount = $ace.IdentityReference.Value
+						
+						<# if(Test-SidFormat -SidString $ace.IdentityReference.Value){
 							foreach($SumGroupsUser in $SumGroupsUsers){
 								if($ace.IdentityReference.Value -eq (GetSID-FromBytes -sidBytes $SumGroupsUser.objectsid)){
 									$TryToExtractMember = $SumGroupsUser
@@ -5965,7 +6008,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 							} catch {
 								$FinalRBCDAccount = $ace.IdentityReference.Value
 							}
-						}
+						} #>
 
 						$ExtractObjCategory = $null
 						$ExtractObjCategory = ($comp.objectcategory -split ",")[0] -replace "CN=",""
@@ -5985,24 +6028,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 				}
 				
 				$Results | Where-Object {
-					# Match specific AD Rights
-					$_."AD Rights" -match "GenericWrite|GenericAll|WriteDacl|WriteOwner|WriteProperty|WriteSPN|WriteAccountRestrictions|AllExtendedRights|ExtendedRight|AddAllowedToAct|SyncLAPSPassword|ForceChangePassword|Self" -and
-
-					# Exclude specific accounts
-					$_.Account -notmatch $ExcludedAccounts -and
-
-					# Exclude specific Object Ace Types
-					$_."Object Ace Type" -ne "Change Password" -and
-					$_."Object Ace Type" -ne "Send To" -and
-					$_."Object Ace Type" -ne "Lockout-Time" -and
-					$_."Object Ace Type" -ne "Send As" -and
-					$_."Object Ace Type" -ne "Personal Information" -and
-					$_."Object Ace Type" -ne "Personal Information, Send As" -and
-
-					# Show only Self AD Rights if Object Ace Type is Self-Membership
-					(
-						($_."AD Rights" -notmatch "Self") -or ($_."Object Ace Type" -match "Self-Membership")
-					)
+					($_."AD Rights" -notmatch "Self") -or ($_."Object Ace Type" -match "Self-Membership")
 				} |
 					Group-Object "Account", "Object", "AD Rights", "Domain" |
 					ForEach-Object {
@@ -6017,7 +6043,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 					}
 			}
 
-   			# Filter $WeakPermissionsObjects to exclude any entries already in $RBACDObjects
+   			<# # Filter $WeakPermissionsObjects to exclude any entries already in $RBACDObjects
 			$WeakPermissionsObjects = $WeakPermissionsObjects | Where-Object {
 				$weakObject = $_
 				-not ($RBACDObjects | Where-Object {
@@ -6028,7 +6054,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 					$_."AD Rights" -eq $weakObject."AD Rights" -and
 					$_."Object Ace Type" -eq $weakObject."Object Ace Type"
 				})
-			}
+			} #>
 
    			if ($WeakPermissionsObjects) {
 				if(!$NoOutput){$WeakPermissionsObjects | Sort-Object Domain,Account,"Object" | Format-Table -AutoSize -Wrap}
@@ -10101,7 +10127,11 @@ function CheckAliveHosts
 
  	[Parameter (Mandatory=$False, Position = 0, ValueFromPipeline=$true)]
         [PSObject[]]
-        $Targets
+        $Targets,
+		
+		[Parameter(Mandatory=$False)]
+		[int]
+		$CheckPort = 445
 
  	)
 	
@@ -10113,7 +10143,7 @@ function CheckAliveHosts
 	$scriptBlock = {
 		param ($computer)
 		$tcpClient = New-Object System.Net.Sockets.TcpClient
-		$asyncResult = $tcpClient.BeginConnect($computer.dnshostname, 445, $null, $null)
+		$asyncResult = $tcpClient.BeginConnect($computer.dnshostname, $CheckPort, $null, $null)
 		$wait = $asyncResult.AsyncWaitHandle.WaitOne(50)
 		if ($wait) {
 			try {
