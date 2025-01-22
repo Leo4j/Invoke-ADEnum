@@ -4458,7 +4458,11 @@ Add-Type -TypeDefinition $code
 		$NameExtractedSQLMachines = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -and ((($_.samaccountname -like "*SQL*" -OR $_.samaccountname -like "*DB*") -and $_.operatingsystem) -OR ($_.servicePrincipalName -like "*SQL*"))})
 		#$NameExtractedSQLMachines = @($TotalEnabledDisabledMachines | Where-Object {$_.domain -eq $AllDomain -and $_.samaccountname -like "*SQL*" -and $_.objectcategory -like "*CN=Computer*"})
 		
-		$FinalExtractedSQLMachines = @($ExtractedSQLMachines + $NameExtractedSQLMachines)
+		$Port1433ExtractedSQLMachines = @(CheckAliveHosts -Targets $TotalEnabledServers -CheckPort 1433)
+		
+		$Port1434ExtractedSQLMachines = @(CheckAliveHosts -Targets $TotalEnabledServers -CheckPort 1434)
+		
+		$FinalExtractedSQLMachines = @($ExtractedSQLMachines + $NameExtractedSQLMachines + $Port1433ExtractedSQLMachines + $Port1434ExtractedSQLMachines)
 		
 		$FinalExtractedSQLMachines = $FinalExtractedSQLMachines | Sort-Object -Unique Domain,dnshostname
 		
@@ -4509,7 +4513,16 @@ Add-Type -TypeDefinition $code
 		$Searcher.Filter = $SearcherArguments.LDAPFilter
 		$Searcher.PropertiesToLoad.Add($SearcherArguments.Properties) | Out-Null
 		$Results = $Searcher.FindAll() #>
-		$Results = @($CollectSCCMServers | Where-Object {$_.domain -eq $AllDomain})
+		
+		$Port8530ExtractedSQLMachines = @(CheckAliveHosts -Targets $TotalEnabledServers -CheckPort 8530)
+		
+		$Port8531ExtractedSQLMachines = @(CheckAliveHosts -Targets $TotalEnabledServers -CheckPort 8531)
+		
+		$FinalExtractedSCCMMachines = @($CollectSCCMServers + $Port8530ExtractedSQLMachines + $Port8531ExtractedSQLMachines)
+		
+		$FinalExtractedSCCMMachines = $FinalExtractedSCCMMachines | Sort-Object -Unique Domain,dnshostname
+		
+		$Results = @($FinalExtractedSCCMMachines | Where-Object {$_.domain -eq $AllDomain})
 		$ProcessedSCCMServers = @{}
 		foreach ($Result in $Results) {
 			$dNSHostName = if($Result.dnshostname){$Result.dnshostname}else{$Result.mssmsmpname}
@@ -10141,9 +10154,9 @@ function CheckAliveHosts
 
 	# Define the script block outside the loop for better efficiency
 	$scriptBlock = {
-		param ($computer)
+		param ($computer, $port)
 		$tcpClient = New-Object System.Net.Sockets.TcpClient
-		$asyncResult = $tcpClient.BeginConnect($computer.dnshostname, $CheckPort, $null, $null)
+		$asyncResult = $tcpClient.BeginConnect($computer.dnshostname, $port, $null, $null)
 		$wait = $asyncResult.AsyncWaitHandle.WaitOne(50)
 		if ($wait) {
 			try {
@@ -10159,7 +10172,7 @@ function CheckAliveHosts
 	$runspaces = New-Object 'System.Collections.Generic.List[System.Object]'
 
 	foreach ($computer in $Targets) {
-		$powerShellInstance = [powershell]::Create().AddScript($scriptBlock).AddArgument($computer)
+		$powerShellInstance = [powershell]::Create().AddScript($scriptBlock).AddArgument($computer).AddArgument($CheckPort)
 		$powerShellInstance.RunspacePool = $runspacePool
 		$runspaces.Add([PSCustomObject]@{
 			Instance = $powerShellInstance
