@@ -48,20 +48,15 @@ Exclude out-of-scope domains
 Invoke-ADEnum -Exclude "contoso.local,domain.local"
 ```
 
-## Recommended Usage/Coverage
+## Recommended Coverage
 
-For optimal results, I recommend running Invoke-ADEnum in two phases: an initial quick assessment followed by a more thorough analysis.
-Consider saving data to disk during the first pass to avoid redundant data collection on the second pass.
-
-```
-Invoke-ADEnum -SaveToDisk -FindLocalAdminAccess ### Save Location: C:\Users\Public\Documents\Invoke-ADEnum
-```
-
-On the second pass, reload the previously saved data from disk and perform more checks, such as Empty-Password Spraying, RBCD, User-Created Objects, Weak Permissions (it may take a very long time to complete depending on domain size), and potentially abusable GPOs.
+Empty-Password Spraying, Local Admin Access, RBCD, Weak Permissions, User-Created Objects, and abusable GPOs
 
 ```
-Invoke-ADEnum -LoadFromDisk -SprayEmptyPasswords -FindLocalAdminAccess -RBCD -UserCreatedObjects -WeakPermissions -MoreGPOs -AllDescriptions
+Invoke-ADEnum -SprayEmptyPasswords -FindLocalAdminAccess -RBCD -WeakPermissions -UserCreatedObjects -GPOsRights -MoreGPOs -AllDescriptions
 ```
+
+
 
 ## Full Coverage
 
