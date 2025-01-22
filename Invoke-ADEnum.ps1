@@ -8896,7 +8896,7 @@ function SQL-Query {
 	$serviceAccount = "N/A"
 
 	# Connection string
-	$connectionString = "Server=$Server;Database=$Database;Integrated Security=True;Connection Timeout=2;"
+	$connectionString = "Server=$Server;Database=$Database;Integrated Security=True;Connection Timeout=1;"
 	$connection = New-Object System.Data.SqlClient.SqlConnection $connectionString
 
 	try {
