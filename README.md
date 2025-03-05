@@ -53,7 +53,7 @@ Invoke-ADEnum -Exclude "contoso.local,domain.local"
 Empty-Password Spraying, Local Admin Access, RBCD, Weak Permissions, User-Created Objects, and abusable GPOs
 
 ```
-Invoke-ADEnum -SprayEmptyPasswords -FindLocalAdminAccess -RBCD -WeakPermissions -UserCreatedObjects -GPOsRights -MoreGPOs -AllDescriptions
+Invoke-ADEnum -FindLocalAdminAccess -RBCD -UserCreatedObjects -GPOsRights -MoreGPOs -AllDescriptions
 ```
 
 
