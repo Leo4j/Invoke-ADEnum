@@ -314,8 +314,6 @@ function Invoke-ADEnum {
  -RBCD				Check for Resource Based Constrained Delegation (may take a long time depending on domain size)
 
  -SaveToDisk			Save collection data to disk (Location: c:\Users\Public\Documents\Invoke-ADEnum)
-
- -SprayEmptyPasswords		Sprays Empty Passwords - counts towards Bad-Pwd-Count
  
  -TargetsOnly			Show Target Domains only (Stay in scope) - Will not create a Report
 
@@ -343,7 +341,7 @@ function Invoke-ADEnum {
 "
 		Write-Host " [Recommended Coverage]" -ForegroundColor Yellow
 		Write-Host " 
- Invoke-ADEnum -SprayEmptyPasswords -FindLocalAdminAccess -RBCD -WeakPermissions -UserCreatedObjects -AllDescriptions
+ Invoke-ADEnum -FindLocalAdminAccess -RBCD -UserCreatedObjects -GPOsRights -MoreGPOs -AllDescriptions
 
 "
 		
@@ -3965,140 +3963,6 @@ Add-Type -TypeDefinition $code
 		}
  	}
 
-	#################################################################################################
-    ########### Accounts with Empty Passwords ###############
-	#################################################################################################
-	
-	if($SprayEmptyPasswords -OR $AllEnum){
- 
-	 	Write-Host ""
-		Write-Host "User Accounts with empty passwords" -ForegroundColor Cyan
-		
-		$minDelay = 0
-		$maxDelay = 200
-		$delay = Get-Random -Minimum $minDelay -Maximum $maxDelay
-		
-		$TempTotalEmptyPass = foreach ($AllDomain in $AllDomains) {
-				
-			$PotentialUsersWithEmptyPassword = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain} | Sort-Object samaccountname)
-			$TotalPotentialEmptyPass = New-Object System.Collections.ArrayList
-			$null = $TotalPotentialEmptyPass.AddRange($PotentialUsersWithEmptyPassword)
-			
-			Add-Type -AssemblyName "System.DirectoryServices.AccountManagement"
-			$EmptyServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
-			$principalContext = New-Object System.DirectoryServices.AccountManagement.PrincipalContext([System.DirectoryServices.AccountManagement.ContextType]::Domain, $EmptyServer, $AllDomain)
-		
-			foreach($EmptyPasswordUser in $TotalPotentialEmptyPass){
-			
-				$EmptyPasswordUserName = $EmptyPasswordUser.samaccountname
-				
-				$EmptyCheck = $principalContext.ValidateCredentials("$EmptyPasswordUserName", "", 1)
-				
-				if ($EmptyCheck){
-					$EmptySIDUserName = GetSID-FromBytes -sidBytes $EmptyPasswordUser.objectSID
-					[PSCustomObject]@{
-						"User Name" = $EmptyPasswordUser.samaccountname
-						"Enabled" = if ($EmptyPasswordUser.useraccountcontrol -band 2) { "False" } else { "True" }
-						"Active" = if(!$EmptyPasswordUser.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $EmptyPasswordUser.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-						"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-						"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-						"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-						"Last Logon" = if($EmptyPasswordUser.lastlogontimestamp){Convert-LdapTimestamp -timestamp $EmptyPasswordUser.lastlogontimestamp}else{""}
-						"Pwd Last Set" = if($EmptyPasswordUser.pwdlastset){Convert-LdapTimestamp -timestamp $EmptyPasswordUser.pwdlastset}else{""}
-						"SID" = $EmptySIDUserName
-						"Domain" = $AllDomain
-					}
-				}	
-			}
-		}
-	
-	 	if ($TempTotalEmptyPass) {
-			if(!$NoOutput){$TempTotalEmptyPass | Sort-Object Domain,"User Name" | Format-Table -AutoSize -Wrap}
-			$HTMLTotalEmptyPass = $TempTotalEmptyPass | Sort-Object Domain,"User Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='EmptyPasswordUsers'>User Accounts with empty passwords</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='EmptyPasswordUsers'>" }
-			
-			$HTMLTotalEmptyPass = $HTMLTotalEmptyPass -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
-	
-	  		$TotalEmptyPassTable = [PSCustomObject]@{
-				"Risk Rating" = "High - Needs Immediate Attention"
-				"Description" = "Empty passwords can be set when password policies allow it or the Password-not-required attribute is enabled. These accounts are extremely easy for an attacker to compromise."
-				"Remediation" = "Enforce strong password policies and ensure that all user accounts have a secure and non-empty password."
-			}
-			
-			$HTMLTotalEmptyPassTable = $TotalEmptyPassTable | ConvertTo-Html -As List -Fragment
-			$HTMLTotalEmptyPassTable = "<div class='report-section' style='display:none;'>$HTMLTotalEmptyPassTable</div>"
-		}
-
- 	}
-	
-	#################################################################################################
-    ########### Computer Accounts with Empty Passwords ###############
-	#################################################################################################
-	
-	if($SprayEmptyPasswords -OR $AllEnum){
- 
-	 	Write-Host ""
-		Write-Host "Computer Accounts with empty passwords" -ForegroundColor Cyan
-		
-		$minDelay = 0
-		$maxDelay = 200
-		$delay = Get-Random -Minimum $minDelay -Maximum $maxDelay
-		
-		$TempTotalCompEmptyPass = foreach ($AllDomain in $AllDomains) {
-				
-			$PotentialComputersWithEmptyPassword = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain} | Sort-Object samaccountname)
-			$TotalPotentialEmptyPass = New-Object System.Collections.ArrayList
-			$null = $TotalPotentialEmptyPass.AddRange($PotentialComputersWithEmptyPassword)
-			#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
-			Add-Type -AssemblyName "System.DirectoryServices.AccountManagement"
-			$EmptyServer = $RIDRoleDCs | Where-Object {$_.Domain -eq $AllDomain} | Select-Object -ExpandProperty Name
-			$principalContext = New-Object System.DirectoryServices.AccountManagement.PrincipalContext([System.DirectoryServices.AccountManagement.ContextType]::Domain, $EmptyServer, $AllDomain)
-		
-			foreach($EmptyPasswordComp in $TotalPotentialEmptyPass){
-			
-				$EmptyPasswordCompName = $EmptyPasswordComp.samaccountname
-				
-				$EmptyCheck = $principalContext.ValidateCredentials("$EmptyPasswordCompName", "", 1)
-				
-				if ($EmptyCheck){
-					if($EmptyPasswordComp.dnshostname){$IPAddress = (Resolve-DnsName -Name $EmptyPasswordComp.dnshostname -Type A).IPAddress}
-					if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
-     					$EmptySIDCompName = GetSID-FromBytes -sidBytes $EmptyPasswordComp.objectSID
-					
-					[PSCustomObject]@{
-						"Name" = $EmptyPasswordComp.samaccountname
-						"Enabled" = if ($EmptyPasswordComp.useraccountcontrol -band 2) { "False" } else { "True" }
-						"Active" = if(!$EmptyPasswordComp.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $EmptyPasswordComp.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-						"IP Address" = $IPAddress
-						"Operating System" = $EmptyPasswordComp.operatingsystem
-						"SID" = $EmptySIDCompName
-						"Domain" = $AllDomain
-					}
-					
-					$IPAddress = $null
-				}
-				
-			}
-			
-		}
-	
-	 	if ($TempTotalCompEmptyPass) {
-			if(!$NoOutput){$TempTotalCompEmptyPass | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap}
-			$HTMLCompTotalEmptyPass = $TempTotalCompEmptyPass | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='EmptyPasswordComp'>Computer Accounts with empty passwords</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='EmptyPasswordComp'>" }
-			
-			$HTMLCompTotalEmptyPass = $HTMLCompTotalEmptyPass -replace '<td>YES</td>','<td class="YesStatus">YES</td>'
-	
-	  		$TotalCompEmptyPassTable = [PSCustomObject]@{
-				"Risk Rating" = "High - Needs Immediate Attention"
-				"Description" = "Empty passwords can be set when password policies allow it or the Password-not-required attribute is enabled. These accounts are extremely easy for an attacker to compromise."
-				"Remediation" = "Enforce strong password policies and ensure that all computer accounts have a secure and non-empty password."
-			}
-			
-			$HTMLCompTotalEmptyPassTable = $TotalCompEmptyPassTable | ConvertTo-Html -As List -Fragment
-			$HTMLCompTotalEmptyPassTable = "<div class='report-section' style='display:none;'>$HTMLCompTotalEmptyPassTable</div>"
-		}
-
- 	}
-	
 	############################################
     ########### Pre-Windows 2000 ###############
 	############################################
@@ -7575,7 +7439,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	if(!$HTMLCertPublishers -AND !$HTMLVulnCertTemplates -AND !$HTMLExchangeTrustedSubsystem -AND !$HTMLServiceAccounts -AND !$HTMLGMSAs -AND !$HTMLnopreauthset -AND !$HTMLGPPasswords -AND !$HTMLPasswordSetUsers -AND !$HTMLUnixPasswordSet -AND !$HTMLEmptyPasswordUsers -AND !$HTMLEmptyPasswordComputers -AND !$HTMLTotalEmptyPass -AND !$HTMLCompTotalEmptyPass -AND !$HTMLPreWin2kCompatibleAccess -AND !$HTMLWin7AndServer2008 -AND !$HTMLMachineAccountsPriv -AND !$HTMLsidHistoryUsers -AND !$HTMLRevEncUsers -AND !$HTMLUnsupportedHosts){$MisconfigurationsBanner = $null}
 	if(!$HTMLFileServers -AND !$HTMLSQLServers -AND !$HTMLSCCMServers -AND !$HTMLWSUSServers -AND !$HTMLSMBSigningDisabled -AND !$HTMLWebDAVStatusResults -AND !$HTMLVNCUnauthAccess -AND !$HTMLPrinters -AND !$HTMLSPNAccounts -AND !$HTMLSharesResultsTable -AND !$HTMLHomeDirectories -AND !$HTMLEmptyGroups){$ExtendedChecksBanner = $null}
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLAllForests $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLOtherPolicies $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLLLMNR $HTMLMachineQuota $HTMLMachineAccountQuotaTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLVulnLMCompLevelComp $HTMLSubnets $AdministratorsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLAdminsProtectedUsersAndSensitive $HTMLAdminsProtectedUsersAndSensitiveTable $HTMLSecurityProtectedUsersAndSensitive $HTMLSecurityProtectedUsersAndSensitiveTable $HTMLAdmCountProtectedUsersAndSensitive $HTMLAdmCountProtectedUsersAndSensitiveTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLFindLocalAdminAccess $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLCertTemplatesTable $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLGPPasswords $HTMLGPPasswordsTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLEmptyPasswordComputers $HTMLEmptyPasswordComputersTable $HTMLTotalEmptyPass $HTMLTotalEmptyPassTable $HTMLCompTotalEmptyPass $HTMLCompTotalEmptyPassTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLWin7AndServer2008 $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $ExtendedChecksBanner $HTMLFileServers $HTMLSQLServers $HTMLSCCMServers $HTMLWSUSServers $HTMLSMBSigningDisabled $HTMLWebDAVStatusResults $HTMLVNCUnauthAccess $HTMLPrinters $HTMLSPNAccounts $HTMLSharesResultsTable $HTMLHomeDirectories $HTMLEmptyGroups $GroupPolicyChecksBanner $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $DelegationChecksBanner $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLAccessAllowedComputers $HTMLAccessAllowedComputersTable $HTMLWeakPermissionsObjects $HTMLWeakPermissionsTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $SecurityGroupsBanner $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDCOMUsers $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLOrganizationManagement $HTMLPerformanceLogUsers $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLRDPUsers $HTMLRemManUsers $HTMLSchemaAdmins $HTMLServerOperators $InterestingDataBanner $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLAllForests $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLOtherPolicies $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLLLMNR $HTMLMachineQuota $HTMLMachineAccountQuotaTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLVulnLMCompLevelComp $HTMLSubnets $AdministratorsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLAdminsProtectedUsersAndSensitive $HTMLAdminsProtectedUsersAndSensitiveTable $HTMLSecurityProtectedUsersAndSensitive $HTMLSecurityProtectedUsersAndSensitiveTable $HTMLAdmCountProtectedUsersAndSensitive $HTMLAdmCountProtectedUsersAndSensitiveTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLFindLocalAdminAccess $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLCertTemplatesTable $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLGPPasswords $HTMLGPPasswordsTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLEmptyPasswordComputers $HTMLEmptyPasswordComputersTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLWin7AndServer2008 $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $ExtendedChecksBanner $HTMLFileServers $HTMLSQLServers $HTMLSCCMServers $HTMLWSUSServers $HTMLSMBSigningDisabled $HTMLWebDAVStatusResults $HTMLVNCUnauthAccess $HTMLPrinters $HTMLSPNAccounts $HTMLSharesResultsTable $HTMLHomeDirectories $HTMLEmptyGroups $GroupPolicyChecksBanner $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $DelegationChecksBanner $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLAccessAllowedComputers $HTMLAccessAllowedComputersTable $HTMLWeakPermissionsObjects $HTMLWeakPermissionsTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $SecurityGroupsBanner $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDCOMUsers $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLOrganizationManagement $HTMLPerformanceLogUsers $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLRDPUsers $HTMLRemManUsers $HTMLSchemaAdmins $HTMLServerOperators $InterestingDataBanner $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
 	
 	if($Output){
 		$Output = $Output.TrimEnd('\')
