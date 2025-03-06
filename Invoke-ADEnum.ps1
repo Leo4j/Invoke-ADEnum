@@ -1901,6 +1901,7 @@ Add-Type -TypeDefinition $code
 							"LDAPS" = ""
 							"OpenPorts" = ""
 							"Uptime" = ""
+							"Primary" = ""
 							Domain = $OutTrust
 						}
 					} else {
@@ -1908,6 +1909,12 @@ Add-Type -TypeDefinition $code
 							"DC Name"   = $dcname
 							"OS Version" = ""
 							"IP Address" = "Not found"
+							"Max Functional Level" = ""
+							"LDAP" = ""
+							"LDAPS" = ""
+							"OpenPorts" = ""
+							"Uptime" = ""
+							"Primary" = ""
 							Domain = $OutTrust
 						}
 					}
@@ -1917,8 +1924,8 @@ Add-Type -TypeDefinition $code
 	}
 	
 	if($TempHTMLdc){
-		$TempHTMLdc | Sort-Object Domain,"DC Name" | ft -Autosize -Wrap
-		$HTMLdc = $TempHTMLdc | Sort-Object Domain,"DC Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DomainControllers'>Domain Controllers</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DomainControllers'>" }
+		$TempHTMLdc | Sort-Object -Unique Domain,"DC Name" | ft -Autosize -Wrap
+		$HTMLdc = $TempHTMLdc | Sort-Object -Unique Domain,"DC Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DomainControllers'>Domain Controllers</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DomainControllers'>" }
 	}
 	
 	#############################################
