@@ -146,10 +146,6 @@ function Invoke-ADEnum {
 
         [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
-        $SprayEmptyPasswords,
-
-        [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
-        [Switch]
         $SaveToDisk,
 
         [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
