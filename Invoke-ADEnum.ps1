@@ -186,7 +186,11 @@ function Invoke-ADEnum {
 		
 		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
-    	$NoSQL
+    	$NoSQL,
+		
+		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Switch]
+    	$HomeDirectories
 	)
 	
 	$stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -264,6 +268,8 @@ function Invoke-ADEnum {
  -GPOsRights			Enumerate GPOs Rights | Who can Create/Modify/Link GPOs
  
  -Help				Show this Help page
+ 
+ -HomeDirectories			Enumerate for users home directories
  
  -IncludeUnreachable		Will not exclude unreachable domains from the scope
  
@@ -4809,24 +4815,26 @@ Add-Type -TypeDefinition $efssource -Language CSharp
     ############### Home Directories ###############
 	#############################################
 	
-	Write-Host ""
-	Write-Host "Home Directories" -ForegroundColor Cyan
-	
-    $TempHomeDirectories = foreach($AllDomain in $AllDomains){
-		$HomeDirectoriesResults = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.homedirectory})
-		foreach ($Result in $HomeDirectoriesResults) {
-			$HomeDirectory = $Result.homedirectory
-			[PSCustomObject]@{
-				"User Name" = $Result.samaccountname
-				"Home Directory" = $Result.homedirectory
-				Domain = $Result.domain
+	if($HomeDirectories -OR $AllEnum){
+		Write-Host ""
+		Write-Host "Home Directories" -ForegroundColor Cyan
+		
+		$TempHomeDirectories = foreach($AllDomain in $AllDomains){
+			$HomeDirectoriesResults = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.homedirectory})
+			foreach ($Result in $HomeDirectoriesResults) {
+				$HomeDirectory = $Result.homedirectory
+				[PSCustomObject]@{
+					"User Name" = $Result.samaccountname
+					"Home Directory" = $Result.homedirectory
+					Domain = $Result.domain
+				}
 			}
 		}
-	}
 
-    if($TempHomeDirectories){
-		if(!$NoOutput){$TempHomeDirectories | Sort-Object -Unique Domain,"User Name","Home Directory" | Format-Table -AutoSize -Wrap}
-		$HTMLHomeDirectories = $TempHomeDirectories | Sort-Object -Unique Domain,"User Name","Home Directory" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='HomeDirectories'>Home Directories</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='HomeDirectories'>" }
+		if($TempHomeDirectories){
+			if(!$NoOutput){$TempHomeDirectories | Sort-Object -Unique Domain,"User Name","Home Directory" | Format-Table -AutoSize -Wrap}
+			$HTMLHomeDirectories = $TempHomeDirectories | Sort-Object -Unique Domain,"User Name","Home Directory" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='HomeDirectories'>Home Directories</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='HomeDirectories'>" }
+		}
 	}
 	
 	##################################################
