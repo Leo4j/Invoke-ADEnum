@@ -831,7 +831,10 @@ $toggleScript = @"
 
 $header = $Comboheader + $xlsHeader + $toggleScript
 	
-    if($Domain){
+    Write-Host "Enumerating domains and forests..." -ForegroundColor Cyan
+	Write-Output ""
+	
+	if($Domain){
 		if(!$Server){
 			$currentDomain = [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain((New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Domain', $Domain)))
 			$domainControllers = $currentDomain.DomainControllers
