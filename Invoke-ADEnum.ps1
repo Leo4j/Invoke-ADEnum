@@ -269,7 +269,7 @@ function Invoke-ADEnum {
  
  -Help				Show this Help page
  
- -HomeDirectories			Enumerate for users home directories
+ -HomeDirectories		Enumerate for users home directories
  
  -IncludeUnreachable		Will not exclude unreachable domains from the scope
  
