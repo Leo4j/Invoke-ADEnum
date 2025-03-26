@@ -408,7 +408,10 @@ $xlsHeader = @'
 			var nameMapping = {
 				'Foreign Domain Members': 'Foreign Members',
 				'Enterprise Read-Only Domain Controllers': 'Enterprise RODC',
-				'Constrained Delegation (Computers)': 'Constrained Delegation (Comp)',
+				'Constrained Delegation (Computers)': 'Constrained Del. (Computers)',
+				'Constrained Delegation (Users)': 'Constrained Del. (Users)',
+				'Unconstrained Delegation (Computers)': 'Unconstrained Del. (Computers)',
+				'Unconstrained Delegation (Users)': 'Unconstrained Del. (Users)',
 				'Resource Based Constrained Delegation': 'Resource Based C.D.',
 				'Computer Objects created by regular users': 'User Created Computers',
 				'Allowed To Act On Behalf Of Other Identity': 'Allowed To Act',
@@ -620,7 +623,8 @@ $xlsHeader = @'
 			createDownloadLinkForTable('ServerOperators');
 			createDownloadLinkForTable('ADCSEndpoints');
 			createDownloadLinkForTable('CertTemplates');
-			createDownloadLinkForTable('Unconstrained');
+			createDownloadLinkForTable('UnconstrainedComputers');
+			createDownloadLinkForTable('UnconstrainedUsers');
 			createDownloadLinkForTable('ConstrainedDelegationComputers');
 			createDownloadLinkForTable('ConstrainedDelegationUsers');
 			createDownloadLinkForTable('RBCDObjects');
@@ -903,6 +907,8 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 			} else {
 				$Trusts = FindDomainTrusts -Domain $CurrentDomain
 			}
+			
+			$Trusts = $Trusts | Where-Object {$_.TrustDirection -ne "Outbound"}
 
 			# Extract unique trust target names
 			$TrustTargetNames = @($Trusts.TargetName | Sort-Object -Unique)
@@ -1716,7 +1722,7 @@ Add-Type -TypeDefinition $code
 		foreach($AllDomain in $AllDomains){
 			$domainControllers = $TotalDomainControllers | Where-Object {$_.domain -eq $AllDomain}
 			foreach ($dc in $domainControllers) {
-				$TestingLDAP = Test-LDAPConnectivity -ComputerName $dc.dnshostname
+				#$TestingLDAP = Test-LDAPConnectivity -ComputerName $dc.dnshostname
 				#$isPrimaryDC = $RIDRoleDCs.dnshostname -contains $dc.dnshostname
 				#$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
 				$startupTime = [NativeMethods]::GetStartupTime($dc.dnshostname)
@@ -1742,9 +1748,9 @@ Add-Type -TypeDefinition $code
 					"OS Version" = $dc.operatingsystem
 					"IP Address" = $ipaddress
 					"Max Functional Level" = $MaxFunctionalLevel
-					"LDAP" = $TestingLDAP.PortLDAP
-					"LDAPS" = $TestingLDAP.PortLDAPS
-					"OpenPorts" = $TestingLDAP.SuccessfulPorts
+					#"LDAP" = $TestingLDAP.PortLDAP
+					#"LDAPS" = $TestingLDAP.PortLDAPS
+					#"OpenPorts" = $TestingLDAP.SuccessfulPorts
 					"Uptime" = $UptimeString
 					#"Primary" = if($RIDRoleDCs.dnshostname -contains $dc.dnshostname) {"YES"} else {"NO"}
 					Domain = $dc.Domain
@@ -1752,7 +1758,7 @@ Add-Type -TypeDefinition $code
 			}
 		}
 		
-		if($OutboundTrusts){
+		<# if($OutboundTrusts){
 			foreach($OutTrust in $OutboundTrusts){
 				$result = nslookup -type=all "_ldap._tcp.dc._msdcs.$OutTrust" 2>$null
 				if ($result) {
@@ -1784,7 +1790,7 @@ Add-Type -TypeDefinition $code
 					}
 				}
 			}
-		}
+		} #>
 		
 		if($TempHTMLdc ){
 			$TempHTMLdc | Sort-Object Domain,"DC Name" | ft -Autosize -Wrap
@@ -1851,7 +1857,7 @@ Add-Type -TypeDefinition $code
     foreach($AllDomain in $AllDomains){
 		$domainControllers = $TotalDomainControllers | Where-Object {$_.domain -eq $AllDomain}
 		foreach ($dc in $domainControllers) {
-			$TestingLDAP = Test-LDAPConnectivity -ComputerName $dc.dnshostname
+			#$TestingLDAP = Test-LDAPConnectivity -ComputerName $dc.dnshostname
 			#$isPrimaryDC = $RIDRoleDCs.dnshostname -contains $dc.dnshostname
 			#$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
 			$startupTime = [NativeMethods]::GetStartupTime($dc.dnshostname)
@@ -1877,9 +1883,9 @@ Add-Type -TypeDefinition $code
 				"OS Version" = $dc.operatingsystem
 				"IP Address" = $ipaddress
 				"Max Functional Level" = $MaxFunctionalLevel
-				"LDAP" = $TestingLDAP.PortLDAP
-				"LDAPS" = $TestingLDAP.PortLDAPS
-				"OpenPorts" = $TestingLDAP.SuccessfulPorts
+				#"LDAP" = $TestingLDAP.PortLDAP
+				#"LDAPS" = $TestingLDAP.PortLDAPS
+				#"OpenPorts" = $TestingLDAP.SuccessfulPorts
 				"Uptime" = $UptimeString
 				"Primary" = if($RIDRoleDCs.dnshostname -contains $dc.dnshostname) {"YES"} else {"NO"}
 				Domain = $dc.Domain
@@ -1887,7 +1893,7 @@ Add-Type -TypeDefinition $code
 		}
 	}
 	
-	if($OutboundTrusts){
+	<# if($OutboundTrusts){
 		foreach($OutTrust in $OutboundTrusts){
 			$result = nslookup -type=all "_ldap._tcp.dc._msdcs.$OutTrust" 2>$null
 			if ($result) {
@@ -1926,7 +1932,7 @@ Add-Type -TypeDefinition $code
 				}
 			}
 		}
-	}
+	} #>
 	
 	if($TempHTMLdc){
 		$TempHTMLdc | Sort-Object -Unique Domain,"DC Name" | ft -Autosize -Wrap
@@ -4320,8 +4326,7 @@ Add-Type -TypeDefinition $code
 		$TempSQLServers = @()
 
 		$TempSQLServers = foreach($AllDomain in $AllDomains) {
-			#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
-			$Results = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.servicePrincipalName -like "*SQL*"})
+			<# $Results = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.servicePrincipalName -like "*SQL*"})
 			$ExtractedSQLMachines = @()
 			foreach ($Result in $Results) {
 				foreach ($SPN in $Result.servicePrincipalName) {
@@ -4336,16 +4341,17 @@ Add-Type -TypeDefinition $code
 					else{$ObjectRetrieve = @($TotalEnabledDisabledMachines | Where-Object {$_.samaccountname -eq "${ServerShort}$"})}
 					$ExtractedSQLMachines += $ObjectRetrieve
 				}
-			}
+			} #>
 			
-			$NameExtractedSQLMachines = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -and ((($_.samaccountname -like "*SQL*" -OR $_.samaccountname -like "*DB*") -and $_.operatingsystem) -OR ($_.servicePrincipalName -like "*SQL*"))})
-			#$NameExtractedSQLMachines = @($TotalEnabledDisabledMachines | Where-Object {$_.domain -eq $AllDomain -and $_.samaccountname -like "*SQL*" -and $_.objectcategory -like "*CN=Computer*"})
+			#$NameExtractedSQLMachines = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -and ((($_.samaccountname -like "*SQL*" -OR $_.samaccountname -like "*DB*") -and $_.operatingsystem) -OR ($_.servicePrincipalName -like "*SQL*"))})
 			
 			$Port1433ExtractedSQLMachines = @(CheckAliveHosts -Targets $TotalEnabledServers -CheckPort 1433)
 			
 			$Port1434ExtractedSQLMachines = @(CheckAliveHosts -Targets $TotalEnabledServers -CheckPort 1434)
 			
-			$FinalExtractedSQLMachines = @($ExtractedSQLMachines + $NameExtractedSQLMachines + $Port1433ExtractedSQLMachines + $Port1434ExtractedSQLMachines)
+			#$FinalExtractedSQLMachines = @($ExtractedSQLMachines + $NameExtractedSQLMachines + $Port1433ExtractedSQLMachines + $Port1434ExtractedSQLMachines)
+			
+			$FinalExtractedSQLMachines = @($Port1433ExtractedSQLMachines + $Port1434ExtractedSQLMachines)
 			
 			$FinalExtractedSQLMachines = $FinalExtractedSQLMachines | Sort-Object -Unique Domain,dnshostname
 			
@@ -4577,9 +4583,9 @@ Add-Type -TypeDefinition $code
 			}
 		}
 		
-		if($SMBSigningDisabled){
-	        if(!$NoOutput){$SMBSigningDisabled | Sort-Object -Unique Domain,Machine | Format-Table -AutoSize -Wrap}
-	        $HTMLSMBSigningDisabled = $SMBSigningDisabled | Sort-Object -Unique Domain,Machine | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='SMBSigningNotRequired'>SMB Signing Not Required</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='SMBSigningNotRequired'>" }
+		if($SMBSigningDisabled | Where-Object {$_.Machine}){
+	        if(!$NoOutput){$SMBSigningDisabled | Where-Object {$_.Machine} | Sort-Object -Unique Domain,Machine | Format-Table -AutoSize -Wrap}
+	        $HTMLSMBSigningDisabled = $SMBSigningDisabled | Where-Object {$_.Machine} | Sort-Object -Unique Domain,Machine | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='SMBSigningNotRequired'>SMB Signing Not Required</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='SMBSigningNotRequired'>" }
 	    }
     }
 	
@@ -5602,11 +5608,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	Write-Host ""
 	
 	####################################################
-	########### Unconstrained Delegation ###############
+	########### Unconstrained Delegation (Computers) ###############
 	####################################################
 	
 	Write-Host ""
-	Write-Host "Unconstrained Delegation" -ForegroundColor Cyan
+	Write-Host "Unconstrained Delegation (Computers)" -ForegroundColor Cyan
 	$TempUnconstrained = foreach ($AllDomain in $AllDomains) {
 		#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 		$Unconstrained = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $TotalDomainControllers.dnshostname -notcontains $_.dnshostname -AND $_.userAccountControl -band 524288 })
@@ -5628,7 +5634,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 
 	if ($TempUnconstrained) {
 		if(!$NoOutput){$TempUnconstrained | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap}
-		$HTMLUnconstrained = $TempUnconstrained | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='Unconstrained'>Unconstrained Delegation</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='Unconstrained'>" }
+		$HTMLUnconstrained = $TempUnconstrained | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='UnconstrainedComputers'>Unconstrained Delegation (Computers)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='UnconstrainedComputers'>" }
 
 		$UnconstrainedTable = [PSCustomObject]@{
 			"Risk Rating" = "Critical - Needs Immediate Attention"
@@ -5638,6 +5644,46 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		
 		$HTMLUnconstrainedTable = $UnconstrainedTable | ConvertTo-Html -As List -Fragment
 		$HTMLUnconstrainedTable = "<div class='report-section' style='display:none;'>$HTMLUnconstrainedTable</div>"
+	}
+	
+	####################################################
+	########### Unconstrained Delegation (Users) ###############
+	####################################################
+	
+	Write-Host ""
+	Write-Host "Unconstrained Delegation (Users)" -ForegroundColor Cyan
+	$TempUnconstrainedUsers = foreach ($AllDomain in $AllDomains) {
+		#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
+		$UnconstrainedUsers = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.userAccountControl -band 524288 })
+		foreach ($User in $UnconstrainedUsers) {
+			[PSCustomObject]@{
+				"Name" = $User.samaccountname
+				"Enabled" = if ($User.useraccountcontrol -band 2) { "False" } else { "True" }
+				"Active" = if(!$User.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $User.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
+				"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $User.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $User.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $User.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"Last Logon" = if($User.lastlogontimestamp){Convert-LdapTimestamp -timestamp $User.lastlogontimestamp}else{""}
+				"Pwd Last Set" = if($User.pwdlastset){Convert-LdapTimestamp -timestamp $User.pwdlastset}else{""}
+				"Object SID" = GetSID-FromBytes -sidBytes $User.objectsid
+				"Domain" = $AllDomain
+			}
+			$ipAddress = $null
+		}
+	}
+
+	if ($TempUnconstrainedUsers) {
+		if(!$NoOutput){$TempUnconstrainedUsers | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap}
+		$HTMLUnconstrainedUsers = $TempUnconstrainedUsers | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='UnconstrainedUsers'>Unconstrained Delegation (Users)</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='UnconstrainedUsers'>" }
+
+		$UnconstrainedUsersTable = [PSCustomObject]@{
+			"Risk Rating" = "Critical - Needs Immediate Attention"
+			"Description" = "Attackers can register a fake DNS entry, add a matching SPN to the user, and capture incoming TGTs from coerced connections to an attacker controlled machine, leading to domain compromise."
+			"Remediation" = "Remove the TRUSTED_FOR_DELEGATION flag from user accounts. Use Constrained or Resource-Based Constrained Delegation instead, and monitor for unauthorised SPN changes or rogue DNS records."
+		}
+		
+		$HTMLUnconstrainedUsersTable = $UnconstrainedUsersTable | ConvertTo-Html -As List -Fragment
+		$HTMLUnconstrainedUsersTable = "<div class='report-section' style='display:none;'>$HTMLUnconstrainedUsersTable</div>"
 	}
 		
 	if($NoDelegation){}
@@ -7453,7 +7499,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	if(!$HTMLCertPublishers -AND !$HTMLVulnCertTemplates -AND !$HTMLExchangeTrustedSubsystem -AND !$HTMLServiceAccounts -AND !$HTMLGMSAs -AND !$HTMLnopreauthset -AND !$HTMLGPPasswords -AND !$HTMLPasswordSetUsers -AND !$HTMLUnixPasswordSet -AND !$HTMLEmptyPasswordUsers -AND !$HTMLEmptyPasswordComputers -AND !$HTMLTotalEmptyPass -AND !$HTMLCompTotalEmptyPass -AND !$HTMLPreWin2kCompatibleAccess -AND !$HTMLWin7AndServer2008 -AND !$HTMLMachineAccountsPriv -AND !$HTMLsidHistoryUsers -AND !$HTMLRevEncUsers -AND !$HTMLUnsupportedHosts){$MisconfigurationsBanner = $null}
 	if(!$HTMLFileServers -AND !$HTMLSQLServers -AND !$HTMLSCCMServers -AND !$HTMLWSUSServers -AND !$HTMLSMBSigningDisabled -AND !$HTMLWebDAVStatusResults -AND !$HTMLVNCUnauthAccess -AND !$HTMLPrinters -AND !$HTMLSPNAccounts -AND !$HTMLSharesResultsTable -AND !$HTMLHomeDirectories -AND !$HTMLEmptyGroups){$ExtendedChecksBanner = $null}
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLAllForests $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLOtherPolicies $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLLLMNR $HTMLMachineQuota $HTMLMachineAccountQuotaTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLVulnLMCompLevelComp $HTMLSubnets $AdministratorsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLAdminsProtectedUsersAndSensitive $HTMLAdminsProtectedUsersAndSensitiveTable $HTMLSecurityProtectedUsersAndSensitive $HTMLSecurityProtectedUsersAndSensitiveTable $HTMLAdmCountProtectedUsersAndSensitive $HTMLAdmCountProtectedUsersAndSensitiveTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLFindLocalAdminAccess $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLCertTemplatesTable $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLGPPasswords $HTMLGPPasswordsTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLEmptyPasswordComputers $HTMLEmptyPasswordComputersTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLWin7AndServer2008 $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $ExtendedChecksBanner $HTMLFileServers $HTMLSQLServers $HTMLSCCMServers $HTMLWSUSServers $HTMLSMBSigningDisabled $HTMLWebDAVStatusResults $HTMLVNCUnauthAccess $HTMLPrinters $HTMLSPNAccounts $HTMLSharesResultsTable $HTMLHomeDirectories $HTMLEmptyGroups $GroupPolicyChecksBanner $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $DelegationChecksBanner $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLAccessAllowedComputers $HTMLAccessAllowedComputersTable $HTMLWeakPermissionsObjects $HTMLWeakPermissionsTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $SecurityGroupsBanner $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDCOMUsers $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLOrganizationManagement $HTMLPerformanceLogUsers $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLRDPUsers $HTMLRemManUsers $HTMLSchemaAdmins $HTMLServerOperators $InterestingDataBanner $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLAllForests $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLOtherPolicies $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLLLMNR $HTMLMachineQuota $HTMLMachineAccountQuotaTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLVulnLMCompLevelComp $HTMLSubnets $AdministratorsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLAdminsProtectedUsersAndSensitive $HTMLAdminsProtectedUsersAndSensitiveTable $HTMLSecurityProtectedUsersAndSensitive $HTMLSecurityProtectedUsersAndSensitiveTable $HTMLAdmCountProtectedUsersAndSensitive $HTMLAdmCountProtectedUsersAndSensitiveTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLFindLocalAdminAccess $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLCertTemplatesTable $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLGPPasswords $HTMLGPPasswordsTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLEmptyPasswordComputers $HTMLEmptyPasswordComputersTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLWin7AndServer2008 $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $ExtendedChecksBanner $HTMLFileServers $HTMLSQLServers $HTMLSCCMServers $HTMLWSUSServers $HTMLSMBSigningDisabled $HTMLWebDAVStatusResults $HTMLVNCUnauthAccess $HTMLPrinters $HTMLSPNAccounts $HTMLSharesResultsTable $HTMLHomeDirectories $HTMLEmptyGroups $GroupPolicyChecksBanner $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $DelegationChecksBanner $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLUnconstrainedUsers $HTMLUnconstrainedUsersTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLAccessAllowedComputers $HTMLAccessAllowedComputersTable $HTMLWeakPermissionsObjects $HTMLWeakPermissionsTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $SecurityGroupsBanner $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDCOMUsers $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLOrganizationManagement $HTMLPerformanceLogUsers $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLRDPUsers $HTMLRemManUsers $HTMLSchemaAdmins $HTMLServerOperators $InterestingDataBanner $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
 	
 	if($Output){
 		$Output = $Output.TrimEnd('\')
