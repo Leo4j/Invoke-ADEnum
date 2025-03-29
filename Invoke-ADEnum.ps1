@@ -622,6 +622,7 @@ $xlsHeader = @'
 			createDownloadLinkForTable('SchemaAdmins');
 			createDownloadLinkForTable('ServerOperators');
 			createDownloadLinkForTable('ADCSEndpoints');
+			createDownloadLinkForTable('ADCSRPCEndpoints');
 			createDownloadLinkForTable('CertTemplates');
 			createDownloadLinkForTable('UnconstrainedComputers');
 			createDownloadLinkForTable('UnconstrainedUsers');
@@ -3353,7 +3354,7 @@ Add-Type -TypeDefinition $code
 			if(!$NoOutput){$TempCertPublishers | Sort-Object Domain,"Name" | Format-Table -AutoSize -Wrap}
 			$HTMLCertPublishers = $TempCertPublishers | Sort-Object Domain,"Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ADCSEndpoints'>ADCS HTTP Endpoints</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ADCSEndpoints'>" }
 
-      			$ADCSEndpointsTable = [PSCustomObject]@{
+      		$ADCSEndpointsTable = [PSCustomObject]@{
 				#"Risk Rating" = "Critical - Needs Immediate Attention"
 				"Description" = "These endpoints could be exploited through NTLM relay attacks to issue unauthorized certificates for targeted domain computers, leading to domain compromise."
 				"Remediation" = "Disable HTTP and HTTPS access to the certificate enrolment interface (if enabled) for quick resolution."
@@ -3363,6 +3364,81 @@ Add-Type -TypeDefinition $code
    			$HTMLADCSEndpointsTable = $HTMLADCSEndpointsTable.Replace("Remediation", '<a href="https://support.microsoft.com/en-gb/topic/kb5005413-mitigating-ntlm-relay-attacks-on-active-directory-certificate-services-ad-cs-3612b773-4043-4aa9-b23d-b87910cd3429" target="_blank">Remediation</a>')
 			
 			$HTMLADCSEndpointsTable = "<div class='report-section' style='display:none;'>$HTMLADCSEndpointsTable</div>"
+			
+			$CollectedCertPublishers = $TempCertPublishers | Sort-Object Domain,"Name"
+		}
+	}
+	
+	###############################################
+    ########### ADCS ESC11 ###############
+	###############################################
+	
+	if($NoADCSHTTPEndpoints -OR !$CollectedCertPublishers){}
+	else{
+		
+		Write-Host ""
+		Write-Host "ADCS RPC Endpoints" -ForegroundColor Cyan
+		
+		$ESC11Table = @()
+		
+		foreach($CollectedCA in $CollectedCertPublishers){
+			$TempCAName = $CollectedCA.Name -Replace "\$",""
+			$CAServer = $TempCAName + "." + $CollectedCA.Domain
+			$CAInstances = try {
+					$reg = [Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey('LocalMachine', $CAServer)
+					$configKey = $reg.OpenSubKey("SYSTEM\CurrentControlSet\Services\CertSvc\Configuration")
+					if ($configKey -eq $null) {}
+					else {
+						$caNames = $configKey.GetSubKeyNames()
+						$caNames | ForEach-Object { Write-Output $_ }
+					}
+				}
+				catch {}
+			
+			$ESC11Table += foreach($CAInstance in $CAInstances){
+				try {
+					# Connect to the remote registry's LocalMachine hive
+					$reg = [Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey('LocalMachine', $CAServer)
+					$key = $reg.OpenSubKey("SYSTEM\CurrentControlSet\Services\CertSvc\Configuration\$CAInstance")
+					
+					if ($key -eq $null) {}
+					else {
+						$interfaceFlags = $key.GetValue("InterfaceFlags")
+						
+						# Check if the IF_ENFORCEENCRYPTICERTREQUEST flag (0x200 or 512) is set
+						if (($interfaceFlags -band 0x200) -eq 0x200) {
+							$InstanceResult =  "IF_ENFORCEENCRYPTICERTREQUEST is enabled. The instance is not vulnerable to ESC11."
+						}
+						else {
+							$InstanceResult = Write-Output "IF_ENFORCEENCRYPTICERTREQUEST is not enabled. The instance is vulnerable to ESC11."
+						}
+					}
+					[PSCustomObject]@{
+						"Server" = $CollectedCA.Name
+						"Instance" = $CAInstance
+						"IP Address" = $CollectedCA."IP Address"
+						"Status" = $InstanceResult
+						"Domain" = $CollectedCA.Domain
+					}
+				}
+				catch {}
+			}
+		}
+		
+		if ($ESC11Table) {
+			if(!$NoOutput){$ESC11Table | Sort-Object Domain,Server,Instance | Format-Table -AutoSize -Wrap}
+			$HTMLESC11Table = $ESC11Table | Sort-Object Domain,Server,Instance | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ADCSRPCEndpoints'>ADCS RPC Endpoints</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ADCSRPCEndpoints'>" }
+			
+			$ADCSRPCEndpointsTable = [PSCustomObject]@{
+				#"Risk Rating" = "Critical - Needs Immediate Attention"
+				"Description" = "These endpoints could be exploited through NTLM relay attacks to issue unauthorized certificates for targeted domain computers, leading to domain compromise."
+				"Remediation" = "System administrators can use certutil to set the IF_ENFORCEENCRYPTICERTREQUEST flag manually: certutil -setreg CA\InterfaceFlags +IF_ENFORCEENCRYPTICERTREQUEST"
+			}
+			
+			$HTMLADCSRPCEndpointsTable = $ADCSRPCEndpointsTable | ConvertTo-Html -As List -Fragment
+   			$HTMLADCSRPCEndpointsTable = $HTMLADCSRPCEndpointsTable.Replace("Remediation", '<a href="https://learn.microsoft.com/en-us/defender-for-identity/security-assessment-enforce-encryption-rpc" target="_blank">Remediation</a>')
+			
+			$HTMLADCSRPCEndpointsTable = "<div class='report-section' style='display:none;'>$HTMLADCSRPCEndpointsTable</div>"
 		}
 	}
 	
@@ -7499,7 +7575,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	if(!$HTMLCertPublishers -AND !$HTMLVulnCertTemplates -AND !$HTMLExchangeTrustedSubsystem -AND !$HTMLServiceAccounts -AND !$HTMLGMSAs -AND !$HTMLnopreauthset -AND !$HTMLGPPasswords -AND !$HTMLPasswordSetUsers -AND !$HTMLUnixPasswordSet -AND !$HTMLEmptyPasswordUsers -AND !$HTMLEmptyPasswordComputers -AND !$HTMLTotalEmptyPass -AND !$HTMLCompTotalEmptyPass -AND !$HTMLPreWin2kCompatibleAccess -AND !$HTMLWin7AndServer2008 -AND !$HTMLMachineAccountsPriv -AND !$HTMLsidHistoryUsers -AND !$HTMLRevEncUsers -AND !$HTMLUnsupportedHosts){$MisconfigurationsBanner = $null}
 	if(!$HTMLFileServers -AND !$HTMLSQLServers -AND !$HTMLSCCMServers -AND !$HTMLWSUSServers -AND !$HTMLSMBSigningDisabled -AND !$HTMLWebDAVStatusResults -AND !$HTMLVNCUnauthAccess -AND !$HTMLPrinters -AND !$HTMLSPNAccounts -AND !$HTMLSharesResultsTable -AND !$HTMLHomeDirectories -AND !$HTMLEmptyGroups){$ExtendedChecksBanner = $null}
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLAllForests $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLOtherPolicies $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLLLMNR $HTMLMachineQuota $HTMLMachineAccountQuotaTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLVulnLMCompLevelComp $HTMLSubnets $AdministratorsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLAdminsProtectedUsersAndSensitive $HTMLAdminsProtectedUsersAndSensitiveTable $HTMLSecurityProtectedUsersAndSensitive $HTMLSecurityProtectedUsersAndSensitiveTable $HTMLAdmCountProtectedUsersAndSensitive $HTMLAdmCountProtectedUsersAndSensitiveTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLFindLocalAdminAccess $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLVulnCertTemplates $HTMLCertTemplatesTable $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLGPPasswords $HTMLGPPasswordsTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLEmptyPasswordComputers $HTMLEmptyPasswordComputersTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLWin7AndServer2008 $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $ExtendedChecksBanner $HTMLFileServers $HTMLSQLServers $HTMLSCCMServers $HTMLWSUSServers $HTMLSMBSigningDisabled $HTMLWebDAVStatusResults $HTMLVNCUnauthAccess $HTMLPrinters $HTMLSPNAccounts $HTMLSharesResultsTable $HTMLHomeDirectories $HTMLEmptyGroups $GroupPolicyChecksBanner $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $DelegationChecksBanner $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLUnconstrainedUsers $HTMLUnconstrainedUsersTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLAccessAllowedComputers $HTMLAccessAllowedComputersTable $HTMLWeakPermissionsObjects $HTMLWeakPermissionsTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $SecurityGroupsBanner $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDCOMUsers $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLOrganizationManagement $HTMLPerformanceLogUsers $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLRDPUsers $HTMLRemManUsers $HTMLSchemaAdmins $HTMLServerOperators $InterestingDataBanner $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLAllForests $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLOtherPolicies $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLLLMNR $HTMLMachineQuota $HTMLMachineAccountQuotaTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLVulnLMCompLevelComp $HTMLSubnets $AdministratorsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLAdminsProtectedUsersAndSensitive $HTMLAdminsProtectedUsersAndSensitiveTable $HTMLSecurityProtectedUsersAndSensitive $HTMLSecurityProtectedUsersAndSensitiveTable $HTMLAdmCountProtectedUsersAndSensitive $HTMLAdmCountProtectedUsersAndSensitiveTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLFindLocalAdminAccess $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLESC11Table $HTMLADCSRPCEndpointsTable $HTMLVulnCertTemplates $HTMLCertTemplatesTable $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLGPPasswords $HTMLGPPasswordsTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLEmptyPasswordComputers $HTMLEmptyPasswordComputersTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLWin7AndServer2008 $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $ExtendedChecksBanner $HTMLFileServers $HTMLSQLServers $HTMLSCCMServers $HTMLWSUSServers $HTMLSMBSigningDisabled $HTMLWebDAVStatusResults $HTMLVNCUnauthAccess $HTMLPrinters $HTMLSPNAccounts $HTMLSharesResultsTable $HTMLHomeDirectories $HTMLEmptyGroups $GroupPolicyChecksBanner $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $DelegationChecksBanner $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLUnconstrainedUsers $HTMLUnconstrainedUsersTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLAccessAllowedComputers $HTMLAccessAllowedComputersTable $HTMLWeakPermissionsObjects $HTMLWeakPermissionsTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $SecurityGroupsBanner $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDCOMUsers $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLOrganizationManagement $HTMLPerformanceLogUsers $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLRDPUsers $HTMLRemManUsers $HTMLSchemaAdmins $HTMLServerOperators $InterestingDataBanner $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
 	
 	if($Output){
 		$Output = $Output.TrimEnd('\')
