@@ -4421,9 +4421,11 @@ Add-Type -TypeDefinition $code
 			
 			#$NameExtractedSQLMachines = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -and ((($_.samaccountname -like "*SQL*" -OR $_.samaccountname -like "*DB*") -and $_.operatingsystem) -OR ($_.servicePrincipalName -like "*SQL*"))})
 			
-			$Port1433ExtractedSQLMachines = @(CheckAliveHosts -Targets $TotalEnabledServers -CheckPort 1433)
+			$TempSQLTargets = @($TotalEnabledServers | Where-Object {$_.domain -eq $AllDomain})
 			
-			$Port1434ExtractedSQLMachines = @(CheckAliveHosts -Targets $TotalEnabledServers -CheckPort 1434)
+			$Port1433ExtractedSQLMachines = @(CheckAliveHosts -Targets $TempSQLTargets -CheckPort 1433)
+			
+			$Port1434ExtractedSQLMachines = @(CheckAliveHosts -Targets $TempSQLTargets -CheckPort 1434)
 			
 			#$FinalExtractedSQLMachines = @($ExtractedSQLMachines + $NameExtractedSQLMachines + $Port1433ExtractedSQLMachines + $Port1434ExtractedSQLMachines)
 			
@@ -4449,7 +4451,7 @@ Add-Type -TypeDefinition $code
 					"CLR" = $MSSQLAccessInfo."CLR Enabled"
 					"RPC Out" = $MSSQLAccessInfo."RPC Out"
 					"Links" = $MSSQLAccessInfo.Links
-					Domain = $ServerDomain
+					Domain = $AllDomain
 				}
 				$IPAddress = $null
 			}
@@ -4480,11 +4482,13 @@ Add-Type -TypeDefinition $code
 		$Searcher.PropertiesToLoad.Add($SearcherArguments.Properties) | Out-Null
 		$Results = $Searcher.FindAll() #>
 		
-		$Port8530ExtractedSQLMachines = @(CheckAliveHosts -Targets $TotalEnabledServers -CheckPort 8530)
+		$TempSCCMTargets = @($TotalEnabledServers | Where-Object {$_.domain -eq $AllDomain})
 		
-		$Port8531ExtractedSQLMachines = @(CheckAliveHosts -Targets $TotalEnabledServers -CheckPort 8531)
+		$Port8530ExtractedSCCMMachines = @(CheckAliveHosts -Targets $TempSCCMTargets -CheckPort 8530)
 		
-		$FinalExtractedSCCMMachines = @($CollectSCCMServers + $Port8530ExtractedSQLMachines + $Port8531ExtractedSQLMachines)
+		$Port8531ExtractedSCCMMachines = @(CheckAliveHosts -Targets $TempSCCMTargets -CheckPort 8531)
+		
+		$FinalExtractedSCCMMachines = @($CollectSCCMServers + $Port8530ExtractedSCCMMachines + $Port8531ExtractedSCCMMachines)
 		
 		$FinalExtractedSCCMMachines = $FinalExtractedSCCMMachines | Sort-Object -Unique Domain,dnshostname
 		
@@ -6090,12 +6094,9 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 									!($_.IdentityReference.Value -match '^S-\d-\d+-(\d+-){1,14}\d+$') -and
 									(
 										# Allow if rights include GenericWrite, GenericAll, or WriteDacl
-										(($_.ActiveDirectoryRights -match "WriteOwner|WriteSPN|WriteAccountRestrictions|AllExtendedRights|ExtendedRight|AddAllowedToAct|SyncLAPSPassword|ForceChangePassword") -and (( & { if ($_.ObjectType -ne [System.Guid]::Empty) { $guidMap[$_.ObjectType] } else { "Any" } } ) -notmatch "Change Password|Send To|Lockout-Time|Send As|Personal Information|Personal Information, Send As|Generate Resultant Set of Policy \(Logging\)|Generate Resultant Set of Policy \(Planning\)|Generate Resultant Set of Policy \(Planning\), Generate Resultant Set of Policy \(Logging\)")) -or
+										($_.ActiveDirectoryRights -match "WriteProperty|FullControl|GenericWrite|GenericAll|Self|WriteDacl|WriteOwner|WriteSPN|WriteAccountRestrictions|AllExtendedRights|ExtendedRight|AddAllowedToAct|SyncLAPSPassword|ForceChangePassword") -and (( & { if ($_.ObjectType -ne [System.Guid]::Empty) { $guidMap[$_.ObjectType] } else { "Any" } } ) -notmatch "Change Password|Send To|Lockout-Time|Send As|Personal Information|Personal Information, Send As|Generate Resultant Set of Policy \(Logging\)|Generate Resultant Set of Policy \(Planning\)|Generate Resultant Set of Policy \(Planning\), Generate Resultant Set of Policy \(Logging\)")
 										# For WriteProperty, check that the resolved object type is allowed
-										($_.ActiveDirectoryRights -match "Self" -and 
-										( & { if ($_.ObjectType -ne [System.Guid]::Empty) { $guidMap[$_.ObjectType] } else { "Any" } } ) -match "Self-Membership") -or
-										($_.ActiveDirectoryRights -match "WriteProperty" -and 
-										( & { if ($_.ObjectType -ne [System.Guid]::Empty) { $guidMap[$_.ObjectType] } else { "Any" } } ) -match "\b(msDS-KeyCredentialLink|msDS-ShadowCredential|Any|servicePrincipalName|userAccountControl)\b")
+										
 									)
 								}
 
