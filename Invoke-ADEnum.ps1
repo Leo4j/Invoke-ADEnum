@@ -3712,7 +3712,8 @@ Add-Type -TypeDefinition $code
 				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $Account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
 				"Last Logon" = if($Account.lastlogontimestamp){Convert-LdapTimestamp -timestamp $Account.lastlogontimestamp}else{""}
 				"Pwd Last Set" = if($Account.pwdlastset){Convert-LdapTimestamp -timestamp $Account.pwdlastset}else{""}
-				"SID" = GetSID-FromBytes -sidBytes $Account.objectSID
+				"SPN" = $Account.serviceprincipalname
+				#"SID" = GetSID-FromBytes -sidBytes $Account.objectSID
 				"Domain" = $AllDomain
 			}
 		}
