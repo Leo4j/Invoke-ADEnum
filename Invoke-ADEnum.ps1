@@ -6091,6 +6091,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 
 							$AllSecurityDescriptors = $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount]) |
 								Where-Object {
+									$_.AccessControlType -ne 'deny' -and
 									$_.IdentityReference -notmatch $ExcludedAccounts -and
 									!($_.IdentityReference.Value -match '^S-\d-\d+-(\d+-){1,14}\d+$') -and
 									(
