@@ -5135,7 +5135,9 @@ Add-Type -TypeDefinition $efssource -Language CSharp
         Write-Host ""
 		Write-Host "Who can link GPOs" -ForegroundColor Cyan
 		$TempGpoLinkResults = foreach ($AllDomain in $AllDomains) {
-			
+			$SelectTheDCName = ($TempHTMLdc | Where-Object{$_.domain -eq $AllDomain -and $_.Primary -eq 'YES'})."DC Name" + '.' + $AllDomain
+			$rootDse  = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$SelectTheDCName/RootDSE")
+			$domainDN = $rootDse.defaultNamingContext
 			$ExcludedAccounts = "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Exchange Recipient Administrators|Exchange Domain Servers|Exchange Organization Administrators|Exchange Public Folder Administrators|Managed Availability Servers|Exchange Windows Permissions|SELF|SYSTEM|Domain Admins|Enterprise|CREATOR OWNER|BUILTIN|Key Admins|MSOL|Account Operators|Terminal Server License Servers"
 			$PlusExcludedAccounts = @($DAEABA | Where-Object{$_.domain -eq $AllDomain})
 			$PlusExcludedAccounts = ($PlusExcludedAccounts | Where-Object {$_.samaccountname}).samaccountname -join "|"
@@ -5145,11 +5147,13 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			$guidMap = $null
 			$guidMap = $AllGUIDMappings["$AllDomain"]
 			
+			#### 1) OU-level GP-Link ACLs ####################################################
+			
 			$OurTargetOUs = @($AllCollectedOUs | Where-Object {$_.domain -eq $AllDomain})
 			$gpolinkresult = @()
 			$gpolinkresult = foreach ($OU in $OurTargetOUs.distinguishedname){
 				
-				$ldapPath = "LDAP://$AllDomain/$OU"
+				$ldapPath = "LDAP://$SelectTheDCName/$OU"
 				$ouEntry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
 				$securityDescriptor = $ouEntry.ObjectSecurity
 				
@@ -5163,40 +5167,9 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 					
 					$inheritedObjectTypeName = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
 					
-					<# # Do the conversion First ?
-					if(!(Test-SidFormat -SidString $ace.IdentityReference.Value)){
-						$TargetFinalSID = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq $ace.IdentityReference.Value}
-						$FinalSID = $TargetFinalSID.samaccountname
-						if(!$FinalSID){$FinalSID = $ace.IdentityReference.Value}
-					}
-					else{$FinalSID = $ace.IdentityReference.Value} #>
-					
-					$FinalLinkGPOAccount = $ace.IdentityReference.Value
-					
-					<# if(Test-SidFormat -SidString $ace.IdentityReference.Value){
-						foreach($SumGroupsUser in $SumGroupsUsers){
-							if($ace.IdentityReference.Value -eq (GetSID-FromBytes -sidBytes $SumGroupsUser.objectsid)){
-								$TryToExtractMember = $SumGroupsUser
-								break
-							}
-						}
-						if($TryToExtractMember){$FinalLinkGPOAccount = "$($TryToExtractMember.domain)\$($TryToExtractMember.samaccountname)"}
-						else{$FinalLinkGPOAccount = $ace.IdentityReference.Value}
-					}
-					else{
-						try {
-							$tempholder = $ace.IdentityReference.Value
-							$memberSID = New-Object System.Security.Principal.SecurityIdentifier($tempholder)
-							$memberUser = $memberSID.Translate([System.Security.Principal.NTAccount])
-							$FinalLinkGPOAccount = $memberUser.Value
-						} catch {
-							$FinalLinkGPOAccount = $ace.IdentityReference.Value
-						}
-					} #>
-					
 					# Create a custom object with the resolved names
 					[PSCustomObject]@{
-						"Delegated Groups" = $FinalLinkGPOAccount
+						"Delegated Groups" = $ace.IdentityReference.Value
 						"Target OU" = $OU
 						#AccessControlType = $ace.AccessControlType
 						ObjectType = $objectTypeName
@@ -5208,8 +5181,6 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 				}
 			}
 			
-			#$gpolinkresults = @($gpolinkresult | Where-Object { $_.ObjectType -eq "GP-Link" -and $_.ActiveDirectoryRights -match "WriteProperty" })
-			
 			foreach ($result in $gpolinkresult) {
 			
 				[PSCustomObject]@{
@@ -5218,10 +5189,52 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 					"Object DN" = $result."Target OU"
 					"Object Ace Type" = $result.ObjectType
 					"Active Directory Rights" = $result.ActiveDirectoryRights
+					Location = "OUs"
 					Domain = $AllDomain
 				}
 			}
 			
+			#### 2) Domain-level GP-Link ACLs ################################################
+			$domainEntry = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$SelectTheDCName/$domainDN")
+			$domainSD    = $domainEntry.ObjectSecurity
+			$domainACEs  = $domainSD.GetAccessRules($true,$true,[System.Security.Principal.NTAccount]) | Where-Object { $_.ActiveDirectoryRights -match 'WriteProperty' -and $_.IdentityReference -notmatch $ExcludedAccounts -AND !(Test-SidFormat -SidString $_.IdentityReference.Value)}
+			  
+			foreach ($ace in $domainACEs) {
+				$objectTypeName = if ($ace.ObjectType -ne [Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
+				if ($objectTypeName -notmatch '\bAny\b|GP-Link') { continue }
+
+				[PSCustomObject]@{
+					'Who can link'            = $ace.IdentityReference.Value
+					'Object DN'               = $domainDN
+					'Object Ace Type'         = $objectTypeName
+					'Active Directory Rights' = $ace.ActiveDirectoryRights
+					Location                  = "Domains"
+					'Domain'                  = $AllDomain
+				}
+			}
+
+			#### 3) Site-level GP-Link ACLs ##################################################
+			$sitesContainer = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$SelectTheDCName/CN=Sites,CN=Configuration,$domainDN")
+			$sitesContainer.Children | Where-Object { $_.SchemaClassName -eq 'site' } |
+			  ForEach-Object {
+				$siteDN   = $_.distinguishedName
+				$siteSD   = $_.ObjectSecurity
+				$siteACEs = $siteSD.GetAccessRules($true,$true,[System.Security.Principal.NTAccount]) | Where-Object { $_.ActiveDirectoryRights -match 'WriteProperty' -and $_.IdentityReference -notmatch $ExcludedAccounts -AND !(Test-SidFormat -SidString $_.IdentityReference.Value)}
+
+				foreach ($ace in $siteACEs) {
+					$objectTypeName = if ($ace.ObjectType -ne [Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
+					if ($objectTypeName -notmatch '\bAny\b|GP-Link') { continue }
+
+					[PSCustomObject]@{
+						'Who can link'            = $ace.IdentityReference.Value
+						'Object DN'               = $siteDN
+						'Object Ace Type'         = $objectTypeName
+						'Active Directory Rights' = $ace.ActiveDirectoryRights
+						Location                  = "Sites"
+						'Domain'                  = $AllDomain
+					}
+				}
+			  }
 		}
 		
 		if ($TempGpoLinkResults) {
