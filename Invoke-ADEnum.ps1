@@ -190,7 +190,11 @@ function Invoke-ADEnum {
 		
 		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
-    	$HomeDirectories
+    	$HomeDirectories,
+		
+		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Switch]
+    	$OPSec
 	)
 	
 	$stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -310,6 +314,8 @@ function Invoke-ADEnum {
  -NoVulnCertTemplates		Do not enumerate for Misconfigured Certificate Templates
 
  -NoWebDAVEnum			Do not enumerate for machines where WebDAV Service is running
+ 
+ -OPSec				Avoid enumeration that runs port-scanning, and suspicious checks
 
  -PassNotRequired		Enumerate for Users and Computers having Password-not-required attribute set
 
@@ -3254,7 +3260,7 @@ Add-Type -TypeDefinition $code
     ######### Find Local Admin Access ###############
 	#################################################
 	
-	if($FindLocalAdminAccess -OR $AllEnum){
+	if(($FindLocalAdminAccess -OR $AllEnum) -AND !$OPSec){
         Write-Host ""
 		Write-Host "Local Admin Access" -ForegroundColor Cyan
 		$TempFindLocalAdminAccess = foreach ($AllDomain in $AllDomains) {
@@ -4395,7 +4401,7 @@ Add-Type -TypeDefinition $code
 	############### SQL Instances #################
 	#############################################
 
-	if(!$NoSQL){
+	if(!$NoSQL -AND !$OPSec){
 		Write-Host ""
 		Write-Host "SQL Instances" -ForegroundColor Cyan
 		
@@ -4468,63 +4474,65 @@ Add-Type -TypeDefinition $code
     ############### SCCM Servers ################
     #############################################
     
-    Write-Host ""
-    Write-Host "SCCM Servers" -ForegroundColor Cyan
-    
-    $TempSCCMServers = foreach($AllDomain in $AllDomains){
-		#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
-		<# $DomainEntry = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$AllDomain")
-		$SearcherArguments = @{
-			LDAPFilter = '(objectClass=mSSMSManagementPoint)'
-			Properties = 'dNSHostName'
-		}
-		$Searcher = New-Object System.DirectoryServices.DirectorySearcher($DomainEntry)
-		$Searcher.Filter = $SearcherArguments.LDAPFilter
-		$Searcher.PropertiesToLoad.Add($SearcherArguments.Properties) | Out-Null
-		$Results = $Searcher.FindAll() #>
+	if(!$OPSec){
+		Write-Host ""
+		Write-Host "SCCM Servers" -ForegroundColor Cyan
 		
-		$TempSCCMTargets = @($TotalEnabledServers | Where-Object {$_.domain -eq $AllDomain})
-		
-		$Port8530ExtractedSCCMMachines = @(CheckAliveHosts -Targets $TempSCCMTargets -CheckPort 8530)
-		
-		$Port8531ExtractedSCCMMachines = @(CheckAliveHosts -Targets $TempSCCMTargets -CheckPort 8531)
-		
-		$FinalExtractedSCCMMachines = @($CollectSCCMServers + $Port8530ExtractedSCCMMachines + $Port8531ExtractedSCCMMachines)
-		
-		$FinalExtractedSCCMMachines = $FinalExtractedSCCMMachines | Sort-Object -Unique Domain,dnshostname
-		
-		$Results = @($FinalExtractedSCCMMachines | Where-Object {$_.domain -eq $AllDomain})
-		$ProcessedSCCMServers = @{}
-		foreach ($Result in $Results) {
-			$dNSHostName = if($Result.dnshostname){$Result.dnshostname}else{$Result.mssmsmpname}
-			if ($ProcessedSCCMServers.ContainsKey($dNSHostName)) {continue}
-			$SCCMServerShort = $dNSHostName.Split('.')[0]
-			$DomainParts = $dNSHostName.Split('.') | Select-Object -Skip 1
-			$SCCMServerDomain = $DomainParts -join '.'
-			if($dNSHostName){$IPAddress = (Resolve-DnsName -Name $dNSHostName -Type A).IPAddress}
-			if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
-			#$ObjectRetrieve = $TotalAllMachines | Where-Object {$_.domain -eq $AllDomain} | Where-Object {$_.name -eq $SCCMServerShort}
-			$Enrolled = (Get-WmiObject -Class SMS_Authority -Namespace root\CCM).CurrentManagementPoint -contains $dNSHostName
-			$ObjectRetrieve = $TotalEnabledDisabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $_.dnshostname -eq $dNSHostName}
-			$ProcessedSCCMServers[$dNSHostName] = $true
-			[PSCustomObject]@{
-				Server = $SCCMServerShort
-				"Enabled" = if ($ObjectRetrieve.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if(!$ObjectRetrieve.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $ObjectRetrieve.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-				Enrolled = $Enrolled
-				'IP Address' = $IPAddress
-				"Operating System" = $ObjectRetrieve.operatingsystem
-				"Account SID" = GetSID-FromBytes -sidBytes $ObjectRetrieve.objectsid
-				Domain = $SCCMServerDomain
+		$TempSCCMServers = foreach($AllDomain in $AllDomains){
+			#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
+			<# $DomainEntry = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$AllDomain")
+			$SearcherArguments = @{
+				LDAPFilter = '(objectClass=mSSMSManagementPoint)'
+				Properties = 'dNSHostName'
 			}
-			$IPAddress = $null
+			$Searcher = New-Object System.DirectoryServices.DirectorySearcher($DomainEntry)
+			$Searcher.Filter = $SearcherArguments.LDAPFilter
+			$Searcher.PropertiesToLoad.Add($SearcherArguments.Properties) | Out-Null
+			$Results = $Searcher.FindAll() #>
+			
+			$TempSCCMTargets = @($TotalEnabledServers | Where-Object {$_.domain -eq $AllDomain})
+			
+			$Port8530ExtractedSCCMMachines = @(CheckAliveHosts -Targets $TempSCCMTargets -CheckPort 8530)
+			
+			$Port8531ExtractedSCCMMachines = @(CheckAliveHosts -Targets $TempSCCMTargets -CheckPort 8531)
+			
+			$FinalExtractedSCCMMachines = @($CollectSCCMServers + $Port8530ExtractedSCCMMachines + $Port8531ExtractedSCCMMachines)
+			
+			$FinalExtractedSCCMMachines = $FinalExtractedSCCMMachines | Sort-Object -Unique Domain,dnshostname
+			
+			$Results = @($FinalExtractedSCCMMachines | Where-Object {$_.domain -eq $AllDomain})
+			$ProcessedSCCMServers = @{}
+			foreach ($Result in $Results) {
+				$dNSHostName = if($Result.dnshostname){$Result.dnshostname}else{$Result.mssmsmpname}
+				if ($ProcessedSCCMServers.ContainsKey($dNSHostName)) {continue}
+				$SCCMServerShort = $dNSHostName.Split('.')[0]
+				$DomainParts = $dNSHostName.Split('.') | Select-Object -Skip 1
+				$SCCMServerDomain = $DomainParts -join '.'
+				if($dNSHostName){$IPAddress = (Resolve-DnsName -Name $dNSHostName -Type A).IPAddress}
+				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
+				#$ObjectRetrieve = $TotalAllMachines | Where-Object {$_.domain -eq $AllDomain} | Where-Object {$_.name -eq $SCCMServerShort}
+				$Enrolled = (Get-WmiObject -Class SMS_Authority -Namespace root\CCM).CurrentManagementPoint -contains $dNSHostName
+				$ObjectRetrieve = $TotalEnabledDisabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $_.dnshostname -eq $dNSHostName}
+				$ProcessedSCCMServers[$dNSHostName] = $true
+				[PSCustomObject]@{
+					Server = $SCCMServerShort
+					"Enabled" = if ($ObjectRetrieve.useraccountcontrol -band 2) { "False" } else { "True" }
+					"Active" = if(!$ObjectRetrieve.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $ObjectRetrieve.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
+					Enrolled = $Enrolled
+					'IP Address' = $IPAddress
+					"Operating System" = $ObjectRetrieve.operatingsystem
+					"Account SID" = GetSID-FromBytes -sidBytes $ObjectRetrieve.objectsid
+					Domain = $SCCMServerDomain
+				}
+				$IPAddress = $null
+			}
+		}
+		
+		if($TempSCCMServers){
+			if(!$NoOutput){$TempSCCMServers | Sort-Object -Unique Domain,Server | Format-Table -AutoSize -Wrap}
+			$HTMLSCCMServers = $TempSCCMServers | Sort-Object -Unique Domain,Server | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='SCCMServers'>SCCM Servers</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='SCCMServers'>" }
 		}
 	}
-    
-    if($TempSCCMServers){
-        if(!$NoOutput){$TempSCCMServers | Sort-Object -Unique Domain,Server | Format-Table -AutoSize -Wrap}
-        $HTMLSCCMServers = $TempSCCMServers | Sort-Object -Unique Domain,Server | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='SCCMServers'>SCCM Servers</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='SCCMServers'>" }
-    }
 	
 	####################################################
     ######### WSUS Servers ###############
@@ -4631,7 +4639,7 @@ Add-Type -TypeDefinition $code
 	####################################################
     ######### Check Alive Hosts ###############
 	####################################################
-	if(-NOT ($NoSMBSigningEnum -AND $NoWebDAVEnum)){
+	if(-NOT ($NoSMBSigningEnum -AND $NoWebDAVEnum -AND $OPSec)){
 		$AllAliveTargets = @()
 		$AllAliveTargets = CheckAliveHosts -Targets $TotalEnabledMachines
   	}
@@ -4639,7 +4647,7 @@ Add-Type -TypeDefinition $code
 	####################################################
     ######### SMB Signing Disabled ###############
 	####################################################
-	if(!$NoSMBSigningEnum){
+	if(!$NoSMBSigningEnum -AND !$OPSec){
 	    Write-Host ""
 	    Write-Host "SMB Signing Not Required" -ForegroundColor Cyan
 		
@@ -4673,7 +4681,7 @@ Add-Type -TypeDefinition $code
 	####################################################
     ######### WebDAV Enabled ###############
 	####################################################
-	if(!$NoWebDAVEnum){
+	if(!$NoWebDAVEnum -AND !$OPSec){
 
 $efssource = @"
 using System;
@@ -4740,7 +4748,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	####################################################
     ######### VNC Unauthenticated Access ###############
 	####################################################
-	if(!$NoVNCUnauthAccess){
+	if(!$NoVNCUnauthAccess -AND !$OPSec){
 	    Write-Host ""
 	    Write-Host "VNC Unauthenticated Access" -ForegroundColor Cyan
 		
@@ -4862,7 +4870,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	####################################################
     ######### Readable Writable Shares ###############
 	####################################################
-	if(!$NoSMBSharesEnum){
+	if(!$NoSMBSharesEnum -AND !$OPSec){
 		Write-Host ""
 		Write-Host "Readable and Writable Shares" -ForegroundColor Cyan
 	
