@@ -2705,7 +2705,7 @@ Add-Type -TypeDefinition $code
 										break
 									}
 								}
-								if($TryToExtractMember){"$($TryToExtractMember.domain)\$($TryToExtractMember.samaccountname)"}
+								if($TryToExtractMember){"$(($TryToExtractMember.domain -split "\.")[0])\$($TryToExtractMember.samaccountname)"}
 								else{$tempholder}
 							}
 							else{
