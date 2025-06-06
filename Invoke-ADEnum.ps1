@@ -322,6 +322,8 @@ function Invoke-ADEnum {
  -OPSec				Avoid enumeration that runs port-scanning, and suspicious checks
 
  -PassNotRequired		Enumerate for Users and Computers having Password-not-required attribute set
+ 
+ -PopulateHosts			Populates the hosts file | Needs admin | Useful from non-joined machines
 
  -RBCD				Check for Resource Based Constrained Delegation (may take a long time depending on domain size)
 
