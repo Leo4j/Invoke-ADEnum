@@ -194,7 +194,11 @@ function Invoke-ADEnum {
 		
 		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
-    	$OPSec
+    	$OPSec,
+		
+		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Switch]
+    	$PopulateHosts
 	)
 	
 	$stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -797,30 +801,6 @@ $xlsHeader = @'
 	if($Domain){$xlsHeader = $xlsHeader -Replace "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","$($DateFormat)_AD-Audit_$Domain"}
 	else{$OutDomain=($env:userdnsdomain).ToLower();$xlsHeader = $xlsHeader -Replace "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","$($DateFormat)_AD-Audit_$OutDomain"}
 
-	if($Output){
-		$Output = $Output.TrimEnd('\')
-		if($Domain){
-			$OutputFilePath = "$Output\$($DateFormat)_AD-Audit_$Domain.txt"
-		}
-		else{
-			$OutDomain=($env:userdnsdomain).ToLower()
-			$OutputFilePath = "$Output\$($DateFormat)_AD-Audit_$OutDomain.txt"
-		}
-	}
-	else{
-		if($Domain){
-			$OutputFilePath = "$pwd\$($DateFormat)_AD-Audit_$Domain.txt"
-		}
-		else{
-			$OutDomain=($env:userdnsdomain).ToLower()
-			$OutputFilePath = "$pwd\$($DateFormat)_AD-Audit_$OutDomain.txt"
-		}
-	}
-	
-	# Start capturing the script's output and save it to the file
-	
-	if(!($TargetsOnly -OR $Help)){Start-Transcript -Path $OutputFilePath | Out-Null}
-
 $toggleScript = @"
 <script>
   function toggleSections(event) {
@@ -866,15 +846,23 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 	}
 	
 	# All Domains
-	$FindCurrentDomain = [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain()
-	if(!$FindCurrentDomain){$FindCurrentDomain = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().DomainName.Trim()}
-	if(!$FindCurrentDomain){$FindCurrentDomain = $env:USERDNSDOMAIN}
-	if(!$FindCurrentDomain){$FindCurrentDomain = Get-WmiObject -Namespace root\cimv2 -Class Win32_ComputerSystem | Select Domain | Format-Table -HideTableHeaders | out-string | ForEach-Object { $_.Trim() }}
-	
-	$ParentDomain = ($FindCurrentDomain | Select-Object -ExpandProperty Forest | Select-Object -ExpandProperty Name)
-	$DomainContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Domain', $ParentDomain)
-	$ChildContext = [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain($DomainContext)
-	$ChildDomains = @($ChildContext | Select-Object -ExpandProperty Children | Select-Object -ExpandProperty Name)
+	if($Domain -and $Server){
+		$FindCurrentDomain =  Get-RemoteDomainInfo -Domain $Domain -Server $Server
+		$ParentDomain = ($FindCurrentDomain | Select-Object -ExpandProperty Forest)
+		$DomainContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Domain', $ParentDomain)
+		$ChildContext = Get-RemoteDomainInfo -Domain $DomainContext.Name -Server $Server
+		$ChildDomains = @($ChildContext | Select-Object -ExpandProperty Children)
+	}
+	else{
+		$FindCurrentDomain = [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain()
+		if(!$FindCurrentDomain){$FindCurrentDomain = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().DomainName.Trim()}
+		if(!$FindCurrentDomain){$FindCurrentDomain = $env:USERDNSDOMAIN}
+		if(!$FindCurrentDomain){$FindCurrentDomain = Get-WmiObject -Namespace root\cimv2 -Class Win32_ComputerSystem | Select Domain | Format-Table -HideTableHeaders | out-string | ForEach-Object { $_.Trim() }}
+		$ParentDomain = ($FindCurrentDomain | Select-Object -ExpandProperty Forest | Select-Object -ExpandProperty Name)
+		$DomainContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Domain', $ParentDomain)
+		$ChildContext = [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain($DomainContext)
+		$ChildDomains = @($ChildContext | Select-Object -ExpandProperty Children | Select-Object -ExpandProperty Name)
+	}
 	
 	$AllDomains = @($ParentDomain)
 	$AllDomains += @($FindCurrentDomain | Select-Object -ExpandProperty Name)
@@ -972,11 +960,19 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 		$ReachableDomains = $AllDomains
 
 		foreach($AllDomain in $AllDomains){
-			$ReachableResult = $null
-			$DomainContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Domain', $AllDomain)
-			$ReachableResult = [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain($DomainContext)
-			if($ReachableResult){}
-			else{$ReachableDomains = $ReachableDomains | Where-Object { $_ -ne $AllDomain }}
+			if($Domain -AND $Server){
+				$ReachableResult = $null
+				$ReachableResult = Get-RemoteDomainInfo -Domain $AllDomain -Server $Server
+				if($ReachableResult){}
+				else{$ReachableDomains = $ReachableDomains | Where-Object { $_ -ne $AllDomain }}
+			}
+			else{
+				$ReachableResult = $null
+				$DomainContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Domain', $AllDomain)
+				$ReachableResult = [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain($DomainContext)
+				if($ReachableResult){}
+				else{$ReachableDomains = $ReachableDomains | Where-Object { $_ -ne $AllDomain }}
+			}
 		}
 	}
 	
@@ -1009,8 +1005,14 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 	#############################################################################
 
  	foreach($AllDomain in $AllDomains){
-		$UnlocksysvolPath = "\\$AllDomain\SYSVOL\$AllDomain\Policies"
-		ls $UnlocksysvolPath | Out-Null
+		if($Domain -and $Server){
+			$UnlocksysvolPath = "\\$Server\SYSVOL\$AllDomain\Policies"
+			ls $UnlocksysvolPath | Out-Null
+		}
+		else{
+			$UnlocksysvolPath = "\\$AllDomain\SYSVOL\$AllDomain\Policies"
+			ls $UnlocksysvolPath | Out-Null
+		}
 	}
 
  	#############################################
@@ -1164,7 +1166,7 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 				Write-Output "[*] Collecting Domain Trusts..."
 				
 				# Domain Trusts
-				$AllDomainTrusts += FindDomainTrusts -Domain $Domain
+				$AllDomainTrusts += FindDomainTrusts -Domain $Domain -Server $Server
 				
 				Write-Output "[*] Collecting Domain Controllers..."
 				
@@ -1251,7 +1253,7 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 				Write-Output "[*] Collecting Subnets..."
 		
 				# Subnets
-				$AllSubnets = Subnets -Domain $Domain
+				$AllSubnets = Subnets -Domain $Domain -Server $Server
 			}
 			
 			else{	
@@ -1543,6 +1545,79 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 	}
 	
 	#############################################
+    ############# Hosts File ################
+	#############################################
+	
+	if ($PopulateHosts -and $Domain -and $Server) {
+		Write-Output "[*] Populating Hosts file..."
+
+		$hostsPath     = "$env:SystemRoot\System32\drivers\etc\hosts"
+		$currentHosts  = Get-Content $hostsPath -ErrorAction SilentlyContinue | ForEach-Object { $_.ToLower() }
+		$entriesToAdd  = [System.Collections.Concurrent.ConcurrentBag[string]]::new()
+
+		# create a runspace pool with a minimum of 1 and a maximum equal to the number of CPU cores
+		$pool = [RunspaceFactory]::CreateRunspacePool(1, [Environment]::ProcessorCount)
+		$pool.Open() | Out-Null
+
+		$runspaceJobs = @()
+
+		foreach ($EnbldSrvr in ($TotalEnabledMachines.dnshostname | Where-Object{$_})) {
+			$cleanName = $EnbldSrvr.ToLower()
+
+			# each runspace checks if the name already exists; if not, it resolves and returns the entry line
+			$ps = [PowerShell]::Create()
+			$ps.RunspacePool = $pool
+
+			$script = {
+				param($name, $hostsArray, $dnsServer)
+
+				# check using regex so we catch standalone names or whitespace-delimited
+				$pattern = "(^|\s)$name($|\s)"
+				$exists = $hostsArray | Where-Object { $_ -match $pattern }
+				if (-not $exists) {
+					try {
+						$ip = (Resolve-DnsName -Name $name -Type A -Server $dnsServer -ErrorAction Stop).IPAddress
+						return "$ip`t$name`t# Added by Invoke-ADEnum"
+					} catch {
+						# ignore failures (e.g. name not found)
+					}
+				}
+			}
+
+			$ps.AddScript($script).AddArgument($cleanName).AddArgument($currentHosts).AddArgument($Server) | Out-Null
+
+			$handle = $ps.BeginInvoke()
+			$runspaceJobs += [pscustomobject]@{
+				PowerShell = $ps
+				Handle     = $handle
+			}
+		}
+
+		# wait for all runspaces to finish, gather results
+		foreach ($job in $runspaceJobs) {
+			$results = $job.PowerShell.EndInvoke($job.Handle)
+			foreach ($line in $results) {
+				if ($line) {
+					$entriesToAdd.Add($line)
+				}
+			}
+			$job.PowerShell.Dispose()
+		}
+
+		# tidy up the pool
+		$pool.Close() | Out-Null
+		$pool.Dispose() | Out-Null
+
+		# if there’s anything to add, append a blank line and then all entries
+		if ($entriesToAdd.Count -gt 0) {
+			Add-Content -Path $hostsPath -Value "`n"
+			foreach ($entry in $entriesToAdd) {
+				Add-Content -Path $hostsPath -Value $entry
+			}
+		}
+	}
+	
+	#############################################
     ############# Target Domains ################
 	#############################################
 	
@@ -1561,22 +1636,35 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 	    7 = 'Windows Server 2016'
 	    8 = 'Windows Server 2019'
 	}
-	
-	Add-Type -AssemblyName System.DirectoryServices.AccountManagement
     
     $TempTargetDomains = foreach($AllDomain in $AllDomains){
-		$DomainContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Domain', $AllDomain)
-		$TargetDomain = [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain($DomainContext)
-		$domainRootDSE = [ADSI]("LDAP://" + $TargetDomain + "/RootDSE")
-		$domainFunctionalLevel = $domainRootDSE.Get("domainFunctionality")
-		$domainFunctionalLevelName = $functionalLevelMapping[[int]$domainFunctionalLevel]
-		$PrincipalContext = New-Object System.DirectoryServices.AccountManagement.PrincipalContext([System.DirectoryServices.AccountManagement.ContextType]::Domain, $TargetDomain.Name)
-		$DomainAdminsGroup = [System.DirectoryServices.AccountManagement.GroupPrincipal]::FindByIdentity($PrincipalContext, "Domain Admins")
-		$DomainAdminsSid = $DomainAdminsGroup.Sid.ToString()
-		$DomainSid = $DomainAdminsSid.Substring(0, $DomainAdminsSid.LastIndexOf('-'))
-		$CompiledDomainName = $AllDomain -replace "\.",",dc="
-		$CompiledAddress = "LDAP://dc=$CompiledDomainName"
-		$MSDSBehaviorVersion = ([ADSI]"$CompiledAddress").get("MSDS-Behavior-Version")
+		if($Domain -and $Server){
+			$TargetDomain = Get-RemoteDomainInfo -Domain $AllDomain -Server $Server
+			$domainRootDSE = [ADSI]("LDAP://" + $Server + "/RootDSE")
+			$domainFunctionalLevel = $TargetDomain.DomainModeLevel
+			$domainFunctionalLevelName = $functionalLevelMapping[[int]$domainFunctionalLevel]
+			$PrincipalContext = New-Object System.DirectoryServices.AccountManagement.PrincipalContext([System.DirectoryServices.AccountManagement.ContextType]::Domain, $Server)
+			$DomainAdminsGroup = [System.DirectoryServices.AccountManagement.GroupPrincipal]::FindByIdentity($PrincipalContext, "Domain Admins")
+			$DomainAdminsSid = $DomainAdminsGroup.Sid.ToString()
+			$DomainSid = $DomainAdminsSid.Substring(0, $DomainAdminsSid.LastIndexOf('-'))
+			$CompiledDomainName = $AllDomain -replace "\.",",dc="
+			$CompiledAddress = "LDAP://$Server/dc=$CompiledDomainName"
+			$MSDSBehaviorVersion = ([ADSI]"$CompiledAddress").get("MSDS-Behavior-Version")
+		}
+		else{
+			$DomainContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Domain', $AllDomain)
+			$TargetDomain = [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain($DomainContext)
+			$domainRootDSE = [ADSI]("LDAP://" + $TargetDomain + "/RootDSE")
+			$domainFunctionalLevel = $domainRootDSE.Get("domainFunctionality")
+			$domainFunctionalLevelName = $functionalLevelMapping[[int]$domainFunctionalLevel]
+			$PrincipalContext = New-Object System.DirectoryServices.AccountManagement.PrincipalContext([System.DirectoryServices.AccountManagement.ContextType]::Domain, $TargetDomain.Name)
+			$DomainAdminsGroup = [System.DirectoryServices.AccountManagement.GroupPrincipal]::FindByIdentity($PrincipalContext, "Domain Admins")
+			$DomainAdminsSid = $DomainAdminsGroup.Sid.ToString()
+			$DomainSid = $DomainAdminsSid.Substring(0, $DomainAdminsSid.LastIndexOf('-'))
+			$CompiledDomainName = $AllDomain -replace "\.",",dc="
+			$CompiledAddress = "LDAP://dc=$CompiledDomainName"
+			$MSDSBehaviorVersion = ([ADSI]"$CompiledAddress").get("MSDS-Behavior-Version")
+		}
 		
 		[PSCustomObject]@{
 			Domain = $TargetDomain.Name
@@ -1602,27 +1690,52 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 	Write-Host ""
 	Write-Host "Forests" -ForegroundColor Cyan
 	$TempAllForests = @()
-	$DefineAllForests = @($TempTargetDomains.Forest.Name | Sort-Object -Unique)
+	if($Domain -and $Server){$DefineAllForests = @($TempTargetDomains.Forest | Sort-Object -Unique)}
+	else{$DefineAllForests = @($TempTargetDomains.Forest.Name | Sort-Object -Unique)}
 	$TempAllForests = foreach($Forest in $DefineAllForests){
-		$ForestContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Forest', $Forest)
-		$TargetForest = [System.DirectoryServices.ActiveDirectory.Forest]::GetForest($ForestContext)
-		$SitesNames = $TargetForest.Sites.Name -join ", "
-		$ForestModeLevel = $functionalLevelMapping[[int]$TargetForest.ForestModeLevel]
-		$CompiledForestName = $Forest -replace "\.",",dc="
-		$CompiledAddress = "LDAP://cn=partitions,cn=configuration,dc=$CompiledForestName"
-		$MSDSBehaviorVersion = ([ADSI]"$CompiledAddress").get("MSDS-Behavior-Version")
-		if($MSDSBehaviorVersion -ge 4){
-			$ConfigurationNamingContext = "CN=Configuration,DC=" + $Forest.replace(".", ",DC=")
-			$RecycleBinFeaturePath = "LDAP://CN=Recycle Bin Feature,CN=Optional Features,CN=Directory Service,CN=Windows NT,CN=Services,$ConfigurationNamingContext"
-			try {
-				$RecycleBinFeature = [ADSI]$RecycleBinFeaturePath
-				if ($RecycleBinFeature -AND $RecycleBinFeature.psbase.Properties["msDS-EnabledFeatureBL"] -ne $null) {
-					$RecycleStatus = "Enabled"
-				} else {
-					$RecycleStatus = "Not Enabled"
+		if($Domain -and $Server){
+			$TargetForest = Get-RemoteForestInfo -Domain $Forest -Server $Server
+			$SitesNames = $TargetForest.Sites -join ", "
+			$ForestModeLevel = $functionalLevelMapping[[int]$TargetForest.ForestModeLevel]
+			$CompiledForestName = $Forest -replace "\.",",dc="
+			$CompiledAddress = "LDAP://$Server/cn=partitions,cn=configuration,dc=$CompiledForestName"
+			$MSDSBehaviorVersion = ([ADSI]"$CompiledAddress").get("MSDS-Behavior-Version")
+			if($MSDSBehaviorVersion -ge 4){
+				$ConfigurationNamingContext = "CN=Configuration,DC=" + $Forest.replace(".", ",DC=")
+				$RecycleBinFeaturePath = "LDAP://$Server/CN=Recycle Bin Feature,CN=Optional Features,CN=Directory Service,CN=Windows NT,CN=Services,$ConfigurationNamingContext"
+				try {
+					$RecycleBinFeature = [ADSI]$RecycleBinFeaturePath
+					if ($RecycleBinFeature -AND $RecycleBinFeature.psbase.Properties["msDS-EnabledFeatureBL"] -ne $null) {
+						$RecycleStatus = "Enabled"
+					} else {
+						$RecycleStatus = "Not Enabled"
+					}
+				} catch {
+					$RecycleStatus = "Unknown"
 				}
-			} catch {
-				$RecycleStatus = "Unknown"
+			}
+		}
+		else{
+			$ForestContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Forest', $Forest)
+			$TargetForest = [System.DirectoryServices.ActiveDirectory.Forest]::GetForest($ForestContext)
+			$SitesNames = $TargetForest.Sites.Name -join ", "
+			$ForestModeLevel = $functionalLevelMapping[[int]$TargetForest.ForestModeLevel]
+			$CompiledForestName = $Forest -replace "\.",",dc="
+			$CompiledAddress = "LDAP://cn=partitions,cn=configuration,dc=$CompiledForestName"
+			$MSDSBehaviorVersion = ([ADSI]"$CompiledAddress").get("MSDS-Behavior-Version")
+			if($MSDSBehaviorVersion -ge 4){
+				$ConfigurationNamingContext = "CN=Configuration,DC=" + $Forest.replace(".", ",DC=")
+				$RecycleBinFeaturePath = "LDAP://CN=Recycle Bin Feature,CN=Optional Features,CN=Directory Service,CN=Windows NT,CN=Services,$ConfigurationNamingContext"
+				try {
+					$RecycleBinFeature = [ADSI]$RecycleBinFeaturePath
+					if ($RecycleBinFeature -AND $RecycleBinFeature.psbase.Properties["msDS-EnabledFeatureBL"] -ne $null) {
+						$RecycleStatus = "Enabled"
+					} else {
+						$RecycleStatus = "Not Enabled"
+					}
+				} catch {
+					$RecycleStatus = "Unknown"
+				}
 			}
 		}
 		
@@ -1733,7 +1846,10 @@ Add-Type -TypeDefinition $code
 				#$isPrimaryDC = $RIDRoleDCs.dnshostname -contains $dc.dnshostname
 				#$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
 				$startupTime = [NativeMethods]::GetStartupTime($dc.dnshostname)
-				if($dc.DnsHostName){$ipaddress = (Resolve-DnsName -Name $dc.DnsHostName -Type A).IPAddress}
+				if($dc.DnsHostName){
+					if($Domain -and $Server){$ipaddress = (Resolve-DnsName -Name $dc.DnsHostName -Type A -Server $Server).IPAddress}
+					else{$ipaddress = (Resolve-DnsName -Name $dc.DnsHostName -Type A).IPAddress}
+				}
 				if($ipaddress.count -gt 1){$ipaddress = $ipaddress -join ", "}
 				if($startupTime -eq "01 January 0001 00:00:00"){
 					$UptimeString = "No Access"
@@ -1868,7 +1984,10 @@ Add-Type -TypeDefinition $code
 			#$isPrimaryDC = $RIDRoleDCs.dnshostname -contains $dc.dnshostname
 			#$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
 			$startupTime = [NativeMethods]::GetStartupTime($dc.dnshostname)
-			if($dc.DnsHostName){$ipaddress = (Resolve-DnsName -Name $dc.DnsHostName -Type A).IPAddress}
+			if($dc.DnsHostName){
+				if($Domain -and $Server){$ipaddress = (Resolve-DnsName -Name $dc.DnsHostName -Type A -Server $Server).IPAddress}
+				else{$ipaddress = (Resolve-DnsName -Name $dc.DnsHostName -Type A).IPAddress}
+			}
 			if($ipaddress.count -gt 1){$ipaddress = $ipaddress -join ", "}
 			if($startupTime -eq "01 January 0001 00:00:00"){
 				$UptimeString = "No Access"
@@ -1879,7 +1998,8 @@ Add-Type -TypeDefinition $code
 			}
 			
 			$CompiledDomainName = $AllDomain -replace "\.",",dc="
-			$ntdsSettingsPath = "LDAP://cn=NTDS Settings,cn=$($dc.Name),cn=Servers,cn=Default-First-Site-Name,cn=Sites,cn=Configuration,dc=$CompiledDomainName"
+			if($Domain -and $Server){$ntdsSettingsPath = "LDAP://$Server/cn=NTDS Settings,cn=$($dc.Name),cn=Servers,cn=Default-First-Site-Name,cn=Sites,cn=Configuration,dc=$CompiledDomainName"}
+			else{$ntdsSettingsPath = "LDAP://cn=NTDS Settings,cn=$($dc.Name),cn=Servers,cn=Default-First-Site-Name,cn=Sites,cn=Configuration,dc=$CompiledDomainName"}
 			$ntdsSettings = [ADSI]$ntdsSettingsPath
 			$dcBehaviorVersion = $ntdsSettings.get("msDS-Behavior-Version")
 			$TextFuncLevel = $functionalLevelMapping[[int]$dcBehaviorVersion]
@@ -1953,8 +2073,17 @@ Add-Type -TypeDefinition $code
     Write-Host ""
 	Write-Host "Domains for the current forest" -ForegroundColor Cyan
 	
-	$ForestObject = @([System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest())
-	$GetForestDomains = $ForestObject.domains
+	if($Domain -and $Server){
+		$ForestObject = Get-RemoteForestInfo -Domain $Domain -Server $Server
+		$GetForestDomains = foreach($ExtForestDomain in $ForestObject.domains){
+			Get-RemoteDomainInfo -Domain $ExtForestDomain -Server $Server
+		}
+	}
+	else{
+		$ForestObject = @([System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest())
+		$GetForestDomains = $ForestObject.domains
+	}
+	
 	$TempForestDomain = foreach ($GetForestDomain in $GetForestDomains) {
 		$domainFLevelName = $functionalLevelMapping[[int]$GetForestDomain.DomainModeLevel]
 		[PSCustomObject]@{
@@ -1981,9 +2110,17 @@ Add-Type -TypeDefinition $code
 	Write-Host ""
 	Write-Host "Forest Global Catalog" -ForegroundColor Cyan
 	$TempForestGlobalCatalog = @()
-	$DefineAllForests = @($TempTargetDomains.Forest.Name | Sort-Object -Unique)
-	$ForestCatalogObjects = @(foreach($Forest in $DefineAllForests){ $ForestContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Forest', $Forest);[System.DirectoryServices.ActiveDirectory.Forest]::GetForest($ForestContext)})
-	$GetForestGlobalCatalog = @(foreach($ForestObject in $ForestCatalogObjects){$ForestObject.FindAllGlobalCatalogs()})
+	if($Domain -and $Server){
+		$DefineAllForests = @($TempTargetDomains.Forest | Sort-Object -Unique)
+		$ForestCatalogObjects = @(foreach($Forest in $DefineAllForests){Get-RemoteForestInfo -Domain $Forest -Server $Server})
+		$GetForestGlobalCatalog = @(foreach($ForestObject in $ForestCatalogObjects){Get-RemoteForestGlobalCatalogInfo -Domain $ForestObject.Name -Server $Server})
+	}
+	else{
+		$DefineAllForests = @($TempTargetDomains.Forest.Name | Sort-Object -Unique)
+		$ForestCatalogObjects = @(foreach($Forest in $DefineAllForests){ $ForestContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Forest', $Forest);[System.DirectoryServices.ActiveDirectory.Forest]::GetForest($ForestContext)})
+		$GetForestGlobalCatalog = @(foreach($ForestObject in $ForestCatalogObjects){$ForestObject.FindAllGlobalCatalogs()})
+	}
+	
 	$TempForestGlobalCatalog = foreach ($GC in $GetForestGlobalCatalog) {
 		[PSCustomObject]@{
 			"DC Name" = $GC.Name
@@ -2100,7 +2237,7 @@ Add-Type -TypeDefinition $code
 		$HTMLTrustedDomainObjectGUIDs = $TempTrustedDomainObjectGUIDs | Sort-Object "Source Name","Target Name",Direction,"Object GUID" -Unique | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='TrustedDomainObjectGUIDs'>Trusted Domain Object GUIDs</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='TrustedDomainObjectGUIDs'>" }
 	}
 	
-	if($PlaceHolderDomains.count -gt 1){
+	if($PlaceHolderDomains.count -gt 1 -OR $OutboundTrusts){
 		#############################################
 		################ Outsiders ##################
 		#############################################
@@ -2158,10 +2295,10 @@ Add-Type -TypeDefinition $code
 			[PSCustomObject]@{
 				"Group Domain" = $ForeignGroupMember.GroupDomain
 				"Group Name" = $ForeignGroupMember.GroupName
-				"Member Domain" = $TargetExtractedDomain
-				"Member or Group Name" = $ExtractedMemberName
+				"Member Domain" = if($TargetExtractedDomain){$TargetExtractedDomain}else{"Not Resolvable"}
+				"Member or Group Name" = if($ExtractedMemberName){$ExtractedMemberName}else{"Not Resolvable"}
 				"Member or Group SID" = $ForeignGroupMember.MemberName
-				"Group Members" = $FinalMembers
+				"Group Members" = if($FinalMembers){$FinalMembers}else{"Not Resolvable"}
 			}
 		}
 
@@ -2219,7 +2356,8 @@ Add-Type -TypeDefinition $code
 	$TempOtherPolicies = @()
 	$TempOtherPolicies += foreach ($AllDomain in $AllDomains) {
 		
-		$sysvolPath = "\\$AllDomain\SYSVOL\$AllDomain\Policies"
+		if($Domain -and $Server){$sysvolPath = "\\$Server\SYSVOL\$AllDomain\Policies"}
+		else{$sysvolPath = "\\$AllDomain\SYSVOL\$AllDomain\Policies"}
 
 		$GptTmplFiles = Get-ChildItem -Path $sysvolPath -Filter GptTmpl.inf -Recurse
 		foreach ($file in $GptTmplFiles) {
@@ -2285,7 +2423,12 @@ Add-Type -TypeDefinition $code
 		}
 
 		foreach ($RelevantGpoPolicy in $RelevantGpoPolicies) {
-			$GptTmplPath = $RelevantGpoPolicy.gpcfilesyspath + "\MACHINE\Microsoft\Windows NT\SecEdit\GptTmpl.inf"
+			if($Domain -and $Server){
+				$GptTmplPath = $RelevantGpoPolicy.gpcfilesyspath + "\MACHINE\Microsoft\Windows NT\SecEdit\GptTmpl.inf"
+				$GptTmplPath = $GptTmplPath -replace '(?<=^\\\\)[^\\]+', $Server
+			}
+			else{$GptTmplPath = $RelevantGpoPolicy.gpcfilesyspath + "\MACHINE\Microsoft\Windows NT\SecEdit\GptTmpl.inf"}
+			
 			if (Test-Path $GptTmplPath) {
 				$GptTmplContent = Get-Content $GptTmplPath -Raw
 				$KerberosPolicies = @{}
@@ -2430,7 +2573,8 @@ Add-Type -TypeDefinition $code
 	$TempLLMNR = @()
 	$TempLLMNR += foreach ($AllDomain in $AllDomains) {
 		
-		$sysvolPath = "\\$AllDomain\SYSVOL\$AllDomain\Policies"
+		if($Domain -and $Server){$sysvolPath = "\\$Server\SYSVOL\$AllDomain\Policies"}
+		else{$sysvolPath = "\\$AllDomain\SYSVOL\$AllDomain\Policies"}
 
 		$registryPolFiles = Get-ChildItem -Path $sysvolPath -Filter Registry.pol -Recurse
 		foreach ($file in $registryPolFiles) {
@@ -2446,7 +2590,9 @@ Add-Type -TypeDefinition $code
 				$byteArray = [System.Text.Encoding]::Unicode.GetBytes($extractedString)
 				
 				$TempGPOPath = if ($file.DirectoryName -match '(.*\})') {$matches[1]}
-				$TargetGPO = @($AllCollectedGPOs | Where-Object {$_.domain -eq $AllDomain -AND $_.gpcfilesyspath -eq $TempGPOPath})
+				
+				if($Domain -and $Server){$TargetGPO = @($AllCollectedGPOs | Where-Object {$_.domain -eq $AllDomain -AND ($_.gpcfilesyspath -replace '(?<=^\\\\)[^\\]+', $Server) -eq $TempGPOPath})}
+				else{$TargetGPO = @($AllCollectedGPOs | Where-Object {$_.domain -eq $AllDomain -AND $_.gpcfilesyspath -eq $TempGPOPath})}
 				
 				if($byteArray[148] -eq 0){
 					[PSCustomObject]@{
@@ -2532,6 +2678,7 @@ Add-Type -TypeDefinition $code
 		
 		# Check for Restricted Groups settings
 		$restrictedGroupsPath = Join-Path -Path $gpoPath -ChildPath "MACHINE\Microsoft\Windows NT\SecEdit\GptTmpl.inf"
+		if($Domain -and $Server){$restrictedGroupsPath = $restrictedGroupsPath -replace '(?<=^\\\\)[^\\]+', $Server}
 		try{
 			$restrictedGroupsContent = Get-Content -Path $restrictedGroupsPath -Raw
 			
@@ -2662,6 +2809,7 @@ Add-Type -TypeDefinition $code
 			$settingValue = $null
 			$policySetting = $null
 			$gpoPath = $_.gpcfilesyspath.TrimStart("[").TrimEnd("]")
+			if($Domain -and $Server){$gpoPath = $gpoPath -replace '(?<=^\\\\)[^\\]+', $Server}
 			$gpoDisplayName = $_.displayname
 			if(Test-Path "$gpoPath\MACHINE\Microsoft\Windows NT\SecEdit\GptTmpl.inf"){
 				$gpoSetting = (Get-Content -Path "$gpoPath\MACHINE\Microsoft\Windows NT\SecEdit\GptTmpl.inf" -Raw | Select-String -Pattern "LmCompatibilityLevel" | Select-Object -Last 1).Line
@@ -2789,7 +2937,10 @@ Add-Type -TypeDefinition $code
 			
 			foreach($comp in $computers){
 				# Create a custom object for each OU with its members
-				if($comp.DnsHostName){$IPAddress = (Resolve-DnsName -Name $comp.DnsHostName -Type A).IPAddress}
+				if($comp.DnsHostName){
+					if($Domain -and $Server){$IPAddress = (Resolve-DnsName -Name $comp.DnsHostName -Type A -Server $Server).IPAddress}
+					else{$IPAddress = (Resolve-DnsName -Name $comp.DnsHostName -Type A).IPAddress}
+				}
 				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 				$Targetsid = GetSID-FromBytes -sidBytes $comp.objectsid
 				
@@ -2985,7 +3136,8 @@ Add-Type -TypeDefinition $code
 		
 		$dcName = "DC=" + $AllDomain.Split(".")
 		$dcName = $dcName -replace " ", ",DC="
-		$ldapPath = "LDAP://$dcName"
+		if($Domain -and $Server){$ldapPath = "LDAP://$($Server)/$dcName"}
+		else{$ldapPath = "LDAP://$dcName"}
 		$ouEntry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
 		$securityDescriptor = $ouEntry.ObjectSecurity
 			
@@ -3269,7 +3421,10 @@ Add-Type -TypeDefinition $code
 			$LocalAdminAccess = Find-LocalAdminAccess -Targets $OurFinalTargetsForAccess
 			foreach ($AdminAccess in $LocalAdminAccess) {
 				$CompObject = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $_.dnshostname -eq $AdminAccess.ComputerName})
-				if($AdminAccess.ComputerName){$IPAddress = (Resolve-DnsName -Name $AdminAccess.ComputerName -Type A).IPAddress}
+				if($AdminAccess.ComputerName){
+					if($Domain -and $Server){$IPAddress = (Resolve-DnsName -Name $AdminAccess.ComputerName -Type A -Server $Server).IPAddress}
+					else{$IPAddress = (Resolve-DnsName -Name $AdminAccess.ComputerName -Type A).IPAddress}
+				}
 				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 				[PSCustomObject]@{
 					"Target" = $AdminAccess.ComputerName
@@ -3315,27 +3470,36 @@ Add-Type -TypeDefinition $code
 			$CAName = $CertPublisher.MemberName.TrimEnd('$')
 			$CAFQDN = $CAName + "." + $CertPublisher.MemberDomain
 			
-			if($CAFQDN){$IPAddress = (Resolve-DnsName -Name $CAFQDN -Type A).IPAddress}
-			if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
+			if($CAFQDN){
+				if($Domain -and $Server){$IPAddresses = (Resolve-DnsName -Name $CAFQDN -Type A -Server $Server).IPAddress}
+				else{$IPAddresses = (Resolve-DnsName -Name $CAFQDN -Type A).IPAddress}
+			}
+			#if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 			
-			if($IPAddress){
-				$Endpoint = "$CAFQDN/certsrv/"
-				$httpuri = "http://$CAFQDN/certsrv/"
-				$httpsuri = "https://$CAFQDN/certsrv/"
-				
-				try{$httpresponse = Invoke-WebRequest -Uri $httpuri -UseDefaultCredentials -TimeoutSec 3 -UseBasicParsing}catch{$httperrorMessage = $_.Exception.Message}
+			if($IPAddresses){
+				foreach($IPAddress in $IPAddresses){
+					$Endpoint = "$CAFQDN/certsrv/"
+					$httpuri = "http://$IPAddress/certsrv/"
+					$httpsuri = "https://$IPAddress/certsrv/"
+					
+					try{$httpresponse = Invoke-WebRequest -Uri $httpuri -UseDefaultCredentials -TimeoutSec 3 -UseBasicParsing}catch{$httperrorMessage = $_.Exception.Message}
 
-				try{$httpsresponse = Invoke-WebRequest -Uri $httpsuri -UseDefaultCredentials -TimeoutSec 3 -UseBasicParsing}catch{$httpserrorMessage = $_.Exception.Message}
-				
-				[PSCustomObject]@{
-					"Name" = $CertPublisher.MemberName
-					"IP Address" = $IPAddress
-					"Member SID" = $CertPublisher.MemberSID
-					"Group Name" = $CertPublisher.GroupName
-					"Endpoint" = $Endpoint
-					"HTTP" = if ($httpresponse.statuscode -eq 200) {"True"} elseif ($httperrorMessage -like "*Could not establish trust relationship for the SSL/TLS secure channel*") {"Possible"} elseif ($httperrorMessage -like "*The remote server returned an error: (401) Unauthorized*") {"Possible"} else {"False"}
-					"HTTPS" = if ($httpsresponse.statuscode -eq 200) {"True"} elseif ($httpserrorMessage -like "*Could not establish trust relationship for the SSL/TLS secure channel*") {"Possible"} elseif ($httpserrorMessage -like "*The remote server returned an error: (401) Unauthorized*") {"Possible"} else {"False"}
-					"Domain" = $CertPublisher.GroupDomain
+					try{$httpsresponse = Invoke-WebRequest -Uri $httpsuri -UseDefaultCredentials -TimeoutSec 3 -UseBasicParsing}catch{$httpserrorMessage = $_.Exception.Message}
+					
+					if ($httpresponse.statuscode -eq 200) {$HTTPMessage = "True"} elseif ($httperrorMessage.ToString() -like "*Could not establish trust relationship for the SSL/TLS secure channel*") {$HTTPMessage = "Possible"} elseif ($httperrorMessage.ToString() -like "*The remote server returned an error: (401) Unauthorized*") {$HTTPMessage = "Possible"} else {$HTTPMessage = "False"}
+					
+					if ($httpsresponse.statuscode -eq 200) {$HTTPSMessage = "True"} elseif ($httpserrorMessage.ToString() -like "*Could not establish trust relationship for the SSL/TLS secure channel*") {$HTTPSMessage = "Possible"} elseif ($httpserrorMessage.ToString() -like "*The remote server returned an error: (401) Unauthorized*") {$HTTPSMessage = "Possible"} else {$HTTPSMessage = "False"}
+					
+					[PSCustomObject]@{
+						"Name" = $CertPublisher.MemberName
+						"IP Address" = $IPAddress
+						"Member SID" = $CertPublisher.MemberSID
+						"Group Name" = $CertPublisher.GroupName
+						"Endpoint" = $Endpoint
+						"HTTP" = $HTTPMessage
+						"HTTPS" = $HTTPSMessage
+						"Domain" = $CertPublisher.GroupDomain
+					}
 				}
 			}
 			
@@ -3352,7 +3516,7 @@ Add-Type -TypeDefinition $code
 				}
 			}
 			
-			$IPAddress = $null
+			$IPAddresses = $null
 			
 		}
 				
@@ -3456,9 +3620,6 @@ Add-Type -TypeDefinition $code
 		Write-Host ""
 		Write-Host "Certificate Templates" -ForegroundColor Cyan
 		
-		# Load the required assembly
-		Add-Type -AssemblyName System.DirectoryServices
-		
 		$excludedSIDs = @(
 			"S-1-5-32-544",   # Administrators
 			"S-1-5-32-549",   # Enterprise Admins
@@ -3494,12 +3655,21 @@ Add-Type -TypeDefinition $code
 				}
 
 			foreach ($Certificate in $MisconfiguredTemplates) {
-				$ldapPath = "LDAP://$($Certificate.distinguishedname)"
+				if($Domain -and $Server){$ldapPath = "LDAP://$($Server)/$($Certificate.distinguishedname)"}
+				else{$ldapPath = "LDAP://$($Certificate.distinguishedname)"}
 				$ouEntry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
 				$securityDescriptor = $ouEntry.ObjectSecurity
 
 				# Collect owner information
-				$owner = $securityDescriptor.GetOwner([System.Security.Principal.NTAccount]).Value
+				if ($securityDescriptor) {
+					try {
+						$owner = $securityDescriptor.GetOwner([System.Security.Principal.NTAccount]).Value
+					} catch {
+						$getownersid = $securityDescriptor.GetOwner([System.Security.Principal.SecurityIdentifier]).Value
+						try{$owner = $TotalEnabledUsers | Where-Object {$_.ObjectSID -eq $getownersid} | Select-Object -ExpandProperty samaccountname}
+						catch{$owner = $getownersid}
+					}
+				}
 
 				# Collect ACL information
 				$aclInfo = @()
@@ -3574,12 +3744,21 @@ Add-Type -TypeDefinition $code
 			}
 
 			foreach ($Certificate in $RemainingTemplates) {
-				$ldapPath = "LDAP://$($Certificate.distinguishedname)"
+				if($Domain -and $Server){$ldapPath = "LDAP://$($Server)/$($Certificate.distinguishedname)"}
+				else{$ldapPath = "LDAP://$($Certificate.distinguishedname)"}
 				$ouEntry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
 				$securityDescriptor = $ouEntry.ObjectSecurity
 
 				# Collect owner information
-				$owner = $securityDescriptor.GetOwner([System.Security.Principal.NTAccount]).Value
+				if ($securityDescriptor) {
+					try {
+						$owner = $securityDescriptor.GetOwner([System.Security.Principal.NTAccount]).Value
+					} catch {
+						$getownersid = $securityDescriptor.GetOwner([System.Security.Principal.SecurityIdentifier]).Value
+						try{$owner = $TotalEnabledUsers | Where-Object {$_.ObjectSID -eq $getownersid} | Select-Object -ExpandProperty samaccountname}
+						catch{$owner = $getownersid}
+					}
+				}
 
 				# Collect ACL information
 				$aclInfo = @()
@@ -3679,7 +3858,10 @@ Add-Type -TypeDefinition $code
 		$ExchangeTrustedSubsystemMembers = @(RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Domain $AllDomain -Raw -Identity "Exchange Trusted Subsystem")
 		foreach ($Member in $ExchangeTrustedSubsystemMembers) {
 			$memberName = $Member.samaccountname
-			if($Member.DnsHostName){$ipAddress = Resolve-DnsName -Name $Member.DnsHostName -Type A | Select-Object -ExpandProperty IPAddress}
+			if($Member.DnsHostName){
+				if($Domain -and $Server){$ipAddress = Resolve-DnsName -Name $Member.DnsHostName -Type A -Server $Server | Select-Object -ExpandProperty IPAddress}
+				else{$ipAddress = Resolve-DnsName -Name $Member.DnsHostName -Type A | Select-Object -ExpandProperty IPAddress}
+			}
 			if($ipAddress.count -gt 1){$ipAddress = $ipAddress -join ", "}
 			[PSCustomObject]@{
 				"Member" = $Member.samaccountname
@@ -3841,13 +4023,16 @@ Add-Type -TypeDefinition $code
 		
 		$GPPasswordsResults = $null
 		
-		$GPPasswordsResults = @(Find-GPPasswords -Domain $AllDomain)
+		if($Domain -and $Server){$GPPasswordsResults = @(Find-GPPasswords -Domain $AllDomain -Server $Server)}
+		else{$GPPasswordsResults = @(Find-GPPasswords -Domain $AllDomain)}
 		
 		if($GPPasswordsResults){
 			foreach($GPPasswordsResult in $GPPasswordsResults){
+				if($Domain -and $Server){$ExtGPOName = ($AllCollectedGPOs | Where-Object { $_.domain -eq $AllDomain -AND ($_.gpcfilesyspath -replace '(?<=^\\\\)[^\\]+', $Server) -eq (($GPPasswordsResult.FilePath -split "}")[0] + "}")}).DisplayName}
+				else{$ExtGPOName = ($AllCollectedGPOs | Where-Object { $_.domain -eq $AllDomain -AND $_.gpcfilesyspath -eq (($GPPasswordsResult.FilePath -split "}")[0] + "}")}).DisplayName}
 				[PSCustomObject]@{
 					"Domain" = $AllDomain
-					"GPO Name" = ($AllCollectedGPOs | Where-Object { $_.domain -eq $AllDomain -AND $_.gpcfilesyspath -eq (($GPPasswordsResult.FilePath -split "}")[0] + "}")}).DisplayName
+					"GPO Name" = $ExtGPOName
 					"UserName" = $GPPasswordsResult.UserName
 					"Password" = $GPPasswordsResult.Password
 					"FilePath" = $GPPasswordsResult.FilePath
@@ -4031,7 +4216,10 @@ Add-Type -TypeDefinition $code
 		
 			foreach($EmptyPasswordComp in $EmptyPasswordComputers){
 				
-				if($EmptyPasswordComp.DnsHostName){$IPAddress = (Resolve-DnsName -Name $EmptyPasswordComp.DnsHostName -Type A).IPAddress}
+				if($EmptyPasswordComp.DnsHostName){
+					if($Domain -and $Server){$IPAddress = (Resolve-DnsName -Name $EmptyPasswordComp.DnsHostName -Type A -Server $Server).IPAddress}
+					else{$IPAddress = (Resolve-DnsName -Name $EmptyPasswordComp.DnsHostName -Type A).IPAddress}
+				}
 				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 				
 				[PSCustomObject]@{
@@ -4078,7 +4266,10 @@ Add-Type -TypeDefinition $code
 		foreach ($Member in $PreWin2kCompatibleAccessMembers) {
 			$memberName = $Member.samaccountname
 			
-			if($Member.DnsHostName){$ipAddress = Resolve-DnsName -Name $Member.DnsHostName -Type A | Select-Object -ExpandProperty IPAddress}
+			if($Member.DnsHostName){
+				if($Domain -and $Server){$ipAddress = Resolve-DnsName -Name $Member.DnsHostName -Type A -Server $Server | Select-Object -ExpandProperty IPAddress}
+				else{$ipAddress = Resolve-DnsName -Name $Member.DnsHostName -Type A | Select-Object -ExpandProperty IPAddress}
+			}
 			if($ipAddress.count -gt 1){$ipAddress = $ipAddress -join ", "}
 			
 			[PSCustomObject]@{
@@ -4117,7 +4308,10 @@ Add-Type -TypeDefinition $code
 		#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 		$WinRMComputers = @($TotalEnabledMachines | Where-Object { $_.domain -eq $AllDomain -AND ($_.operatingsystem -like "*7*" -OR  $_.operatingsystem -like "*2008*") -AND $_.serviceprincipalname -like "wsman*" })
 		foreach ($Computer in $WinRMComputers) {
-			if($Computer.DnsHostName){$ipAddress = (Resolve-DnsName -Name $Computer.DnsHostName -Type A).IPAddress}
+			if($Computer.DnsHostName){
+				if($Domain -and $Server){$ipAddress = (Resolve-DnsName -Name $Computer.DnsHostName -Type A -Server $Server).IPAddress}
+				else{$ipAddress = (Resolve-DnsName -Name $Computer.DnsHostName -Type A).IPAddress}
+			}
 			if($ipAddress.count -gt 1){$ipAddress = $ipAddress -join ", "}
 			[PSCustomObject]@{
 				"Name" = $Computer.samaccountname
@@ -4172,7 +4366,10 @@ Add-Type -TypeDefinition $code
 				}
 			}
 			#$DomainComputerGroupMember = $TotalAllMachines | Where-Object {$_.domain -eq $AllDomain} | Where-Object {$_.name -eq $GroupMember.MemberName.TrimEnd('$')}
-			if($GroupMember.DnsHostName){$ipAddress = Resolve-DnsName -Name $GroupMember.DnsHostName -Type A | Select-Object -ExpandProperty IPAddress}
+			if($GroupMember.DnsHostName){
+				if($Domain -and $Server){$ipAddress = Resolve-DnsName -Name $GroupMember.DnsHostName -Type A -Server $Server | Select-Object -ExpandProperty IPAddress}
+				else{$ipAddress = Resolve-DnsName -Name $GroupMember.DnsHostName -Type A | Select-Object -ExpandProperty IPAddress}
+			}
 			if($ipAddress.count -gt 1){$ipAddress = $ipAddress -join ", "}
 			$Targetsid = GetSID-FromBytes -sidBytes $GroupMember.objectsid
 			$TargetTimestamp = Convert-LdapTimestamp -timestamp $GroupMember.lastlogontimestamp
@@ -4309,7 +4506,10 @@ Add-Type -TypeDefinition $code
 			}
 
 			foreach ($UnsupportedHost in $UnsupportedHosts) {
-				if($UnsupportedHost.DnsHostName){$IPAddress = (Resolve-DnsName -Name $UnsupportedHost.DnsHostName -Type A).IPAddress}
+				if($UnsupportedHost.DnsHostName){
+					if($Domain -and $Server){$IPAddress = (Resolve-DnsName -Name $UnsupportedHost.DnsHostName -Type A -Server $Server).IPAddress}
+					else{$IPAddress = (Resolve-DnsName -Name $UnsupportedHost.DnsHostName -Type A).IPAddress}
+				}
 				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 				[PSCustomObject]@{
 					"Name" = $UnsupportedHost.samaccountname
@@ -4360,8 +4560,6 @@ Add-Type -TypeDefinition $code
 	Write-Host "File Servers" -ForegroundColor Cyan
 	
     $TempFileServers = foreach($AllDomain in $AllDomains){
-		#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
-		
 		$Results = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.homedirectory})
 		$ProcessedFileServers = @{}
 		foreach ($Result in $Results) {
@@ -4370,21 +4568,27 @@ Add-Type -TypeDefinition $code
 			if ($ProcessedFileServers.ContainsKey($FileServer)) {continue}
 			$ProcessedFileServers[$FileServer] = $true
 			if($FileServer -like "*.*"){
-				$RetrieveObjectServers = @($TotalEnabledDisabledMachines | Where-Object {$_.dnshostname -eq $FileServer})
+				$RetrieveObjectServers = @($TotalEnabledMachines | Where-Object {$_.dnshostname -eq $FileServer})
 			}
-			else{$RetrieveObjectServers = @($TotalEnabledDisabledMachines | Where-Object {$_.samaccountname -eq "${FileServer}$"})}
+			else{$RetrieveObjectServers = @($TotalEnabledMachines | Where-Object {$_.samaccountname -eq "${FileServer}$"})}
 			foreach($RetrieveObjectServer in $RetrieveObjectServers){
 				$FileServerShort = $RetrieveObjectServer.name
 				$FileServerDomain = $RetrieveObjectServer.domain
-				if($RetrieveObjectServer.dnshostname){$IPAddress = (Resolve-DnsName -Name $RetrieveObjectServer.dnshostname -Type A).IPAddress}
+				if($RetrieveObjectServer.dnshostname){
+					if($Domain -and $Server){$IPAddress = (Resolve-DnsName -Name $RetrieveObjectServer.DnsHostName -Type A -Server $Server).IPAddress}
+					else{$IPAddress = (Resolve-DnsName -Name $RetrieveObjectServer.dnshostname -Type A).IPAddress}
+				}
 				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
+				$CheckEnabled = if ($RetrieveObjectServer.useraccountcontrol -band 2) { "False" } else { "True" }
+				$CheckActive = if(!$RetrieveObjectServer.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $RetrieveObjectServer.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
+				$ResolveSID = GetSID-FromBytes -sidBytes $RetrieveObjectServer.objectsid
 				[PSCustomObject]@{
 					Server = $RetrieveObjectServer.samaccountname
-					"Enabled" = if ($RetrieveObjectServer.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if(!$RetrieveObjectServer.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $RetrieveObjectServer.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
+					"Enabled" = $CheckEnabled
+					"Active" = $CheckActive
 					'IP Address' = $IPAddress
 					"Operating System" = $RetrieveObjectServer.operatingsystem
-					"Account SID" = GetSID-FromBytes -sidBytes $RetrieveObjectServer.objectsid
+					"Account SID" = $ResolveSID
 					Domain = $FileServerDomain
 				}
 				$IPAddress = $null
@@ -4441,7 +4645,10 @@ Add-Type -TypeDefinition $code
 			$FinalExtractedSQLMachines = $FinalExtractedSQLMachines | Sort-Object -Unique Domain,dnshostname
 			
 			foreach($Machine in $FinalExtractedSQLMachines){
-				if($Machine.dnshostname){$IPAddress = (Resolve-DnsName -Name $Machine.dnshostname -Type A).IPAddress}
+				if($Machine.dnshostname){
+					if($Domain -and $Server){$IPAddress = (Resolve-DnsName -Name $Machine.DnsHostName -Type A -Server $Server).IPAddress}
+					else{$IPAddress = (Resolve-DnsName -Name $Machine.dnshostname -Type A).IPAddress}
+				}
 				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 				$MSSQLAccessInfo = $null
 				$MSSQLAccessInfo = SQL-Query -Server $Machine.dnshostname
@@ -4508,7 +4715,10 @@ Add-Type -TypeDefinition $code
 				$SCCMServerShort = $dNSHostName.Split('.')[0]
 				$DomainParts = $dNSHostName.Split('.') | Select-Object -Skip 1
 				$SCCMServerDomain = $DomainParts -join '.'
-				if($dNSHostName){$IPAddress = (Resolve-DnsName -Name $dNSHostName -Type A).IPAddress}
+				if($dNSHostName){
+					if($Domain -and $Server){$IPAddress = (Resolve-DnsName -Name $dNSHostName -Type A -Server $Server).IPAddress}
+					else{$IPAddress = (Resolve-DnsName -Name $dNSHostName -Type A).IPAddress}
+				}
 				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 				#$ObjectRetrieve = $TotalAllMachines | Where-Object {$_.domain -eq $AllDomain} | Where-Object {$_.name -eq $SCCMServerShort}
 				$Enrolled = (Get-WmiObject -Class SMS_Authority -Namespace root\CCM).CurrentManagementPoint -contains $dNSHostName
@@ -4545,7 +4755,8 @@ Add-Type -TypeDefinition $code
 	$WSUSServers = @()
 	$TempWSUSServers += foreach ($AllDomain in $AllDomains) {
 		
-		$sysvolPath = "\\$AllDomain\SYSVOL\$AllDomain\Policies"
+		if($Domain -and $Server){$sysvolPath = "\\$Server\SYSVOL\$AllDomain\Policies"}
+		else{$sysvolPath = "\\$AllDomain\SYSVOL\$AllDomain\Policies"}
 		
 		$registryPolFiles = Get-ChildItem -Path $sysvolPath -Filter Registry.pol -Recurse
 		
@@ -4571,7 +4782,10 @@ Add-Type -TypeDefinition $code
 			else{$RetrievedWSUSServer = @($TotalEnabledDisabledMachines | Where-Object {$_.name -eq $wserver})}
 			
 			if($RetrievedWSUSServer){
-				if($RetrievedWSUSServer.dnshostname){$IPAddress = (Resolve-DnsName -Name $RetrievedWSUSServer.dnshostname -Type A).IPAddress}
+				if($RetrievedWSUSServer.dnshostname){
+					if($Domain -and $Server){$IPAddress = (Resolve-DnsName -Name $RetrievedWSUSServer.dnshostname -Type A -Server $Server).IPAddress}
+					else{$IPAddress = (Resolve-DnsName -Name $RetrievedWSUSServer.dnshostname -Type A).IPAddress}
+				}
 				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 				
 				[PSCustomObject]@{
@@ -4587,7 +4801,10 @@ Add-Type -TypeDefinition $code
 			}
 			else{
 				$RetrievedWSUSServer = $wserver
-				if($RetrievedWSUSServer){$IPAddress = (Resolve-DnsName -Name $RetrievedWSUSServer -Type A).IPAddress}
+				if($RetrievedWSUSServer){
+					if($Domain -and $Server){$IPAddress = (Resolve-DnsName -Name $RetrievedWSUSServer -Type A -Server $Server).IPAddress}
+					else{$IPAddress = (Resolve-DnsName -Name $RetrievedWSUSServer -Type A).IPAddress}
+				}
 				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 				
 				[PSCustomObject]@{
@@ -4616,7 +4833,10 @@ Add-Type -TypeDefinition $code
 			
 			if($wserver -like "*.*"){$RetrievedWSUSServer = @($TotalEnabledDisabledMachines | Where-Object {$_.dnshostname -eq $wserver})}
 			else{$RetrievedWSUSServer = @($TotalEnabledDisabledMachines | Where-Object {$_.name -eq $wserver})}
-			if($RetrievedWSUSServer.dnshostname){$IPAddress = (Resolve-DnsName -Name $RetrievedWSUSServer.dnshostname -Type A).IPAddress}
+			if($RetrievedWSUSServer.dnshostname){
+				if($Domain -and $Server){$IPAddress = (Resolve-DnsName -Name $RetrievedWSUSServer.dnshostname -Type A -Server $Server).IPAddress}
+				else{$IPAddress = (Resolve-DnsName -Name $RetrievedWSUSServer.dnshostname -Type A).IPAddress}
+			}
 			if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 			[PSCustomObject]@{
 				Server = $RetrievedWSUSServer.samaccountname
@@ -4657,7 +4877,10 @@ Add-Type -TypeDefinition $code
 			
 			if($SMBSigningTargets){
 				foreach($Target in $SMBSigningTargets){
-					if($Target.dnshostname){$IPAddress = (Resolve-DnsName -Name $Target.dnshostname -Type A).IPAddress}
+					if($Target.dnshostname){
+						if($Domain -and $Server){$IPAddress = (Resolve-DnsName -Name $Target.dnshostname -Type A -Server $Server).IPAddress}
+						else{$IPAddress = (Resolve-DnsName -Name $Target.dnshostname -Type A).IPAddress}
+					}
 					if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 					[PSCustomObject]@{
 						Machine = $Target.samaccountname
@@ -4722,7 +4945,10 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			
 			if($WebDAVStatusTargets){
 				foreach($Target in $WebDAVStatusTargets){
-					if($Target.dnshostname){$IPAddress = (Resolve-DnsName -Name $Target.dnshostname -Type A).IPAddress}
+					if($Target.dnshostname){
+						if($Domain -and $Server){$IPAddress = (Resolve-DnsName -Name $Target.dnshostname -Type A -Server $Server).IPAddress}
+						else{$IPAddress = (Resolve-DnsName -Name $Target.dnshostname -Type A).IPAddress}
+					}
 					if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
      					$EFSStatus = CheckEFSPipe -TargetHost $Target.dnshostname
 					[PSCustomObject]@{
@@ -4758,7 +4984,10 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			
 			if($VNCUnauthAccessTargets){
 				foreach($Target in $VNCUnauthAccessTargets){
-					if($Target.dnshostname){$IPAddress = (Resolve-DnsName -Name $Target.dnshostname -Type A).IPAddress}
+					if($Target.dnshostname){
+						if($Domain -and $Server){$IPAddress = (Resolve-DnsName -Name $Target.dnshostname -Type A -Server $Server).IPAddress}
+						else{$IPAddress = (Resolve-DnsName -Name $Target.dnshostname -Type A).IPAddress}
+					}
 					if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 					[PSCustomObject]@{
 						Machine = $Target.samaccountname
@@ -4791,7 +5020,10 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		$TotPrinters = @($PrintersCollection | Where-Object {$_.domain -eq $AllDomain})
 		
 		foreach($printer in $TotPrinters){
-			if($printer.servername){$IPAddress = (Resolve-DnsName -Name $printer.servername -Type A).IPAddress}
+			if($printer.servername){
+				if($Domain -and $Server){$IPAddress = (Resolve-DnsName -Name $printer.dnshostname -Type A -Server $Server).IPAddress}
+				else{$IPAddress = (Resolve-DnsName -Name $printer.servername -Type A).IPAddress}
+			}
 			if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 			[PSCustomObject]@{
 				Name = $printer.shortservername
@@ -4942,11 +5174,10 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		Write-Host ""
 		Write-Host "Empty Groups" -ForegroundColor Cyan
 		
-		$EmptyGroupsResults = foreach ($AllDomain in $AllDomains) {
-			$EmptyGroups = @($TotalGroups | Where-Object {$_.domain -eq $AllDomain -AND -not $_.member -and ((GetSID-FromBytes -sidBytes $_.objectsid) -match "S-1-(\d+-){4,}[\d]{4,10}$")})
-			
-			if($EmptyGroups){
-				foreach($EmptyGroup in $EmptyGroups){
+		$FinalGroupResults = foreach($AllDomain in $AllDomains){
+			$TempGroupResults = $TotalGroups | Where-Object {$_.domain -eq $AllDomain -AND -not $_.member -and ((GetSID-FromBytes -sidBytes $_.objectsid) -match "S-1-(\d+-){4,}[\d]{4,10}$")}
+			if($TempGroupResults){
+				foreach($EmptyGroup in $TempGroupResults){
 					[PSCustomObject]@{
 						"Group Name" = $EmptyGroup.SamAccountName
 						"Group SID" = GetSID-FromBytes -sidBytes $EmptyGroup.objectsid
@@ -4956,9 +5187,9 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			}
 		}
 		
-		if ($EmptyGroupsResults | Where-Object {$_."Group Name"}) {
-			if(!$NoOutput){$EmptyGroupsResults | Where-Object {$_."Group Name"} | Sort-Object Domain,"Group Name" | Format-Table -AutoSize -Wrap}
-			$HTMLEmptyGroups = $EmptyGroupsResults | Where-Object {$_."Group Name"} | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='EmptyGroups'>Empty Groups</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='EmptyGroups'>" }
+		if ($FinalGroupResults | Where-Object {$_."Group Name"}) {
+			if(!$NoOutput){$FinalGroupResults | Where-Object {$_."Group Name"} | Sort-Object Domain,"Group Name" | Format-Table -AutoSize -Wrap}
+			$HTMLEmptyGroups = $FinalGroupResults | Where-Object {$_."Group Name"} | Sort-Object Domain,"Group Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='EmptyGroups'>Empty Groups</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='EmptyGroups'>" }
 		}
   	}
 	
@@ -4977,9 +5208,6 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	#######################################
 
     if($GPOsRights -OR $AllEnum){
-		
-		# Load the required assembly
-		Add-Type -AssemblyName System.DirectoryServices
 	
 		Write-Host ""
 		Write-Host "Who can create GPOs" -ForegroundColor Cyan
@@ -4993,6 +5221,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			$GPOCreators = foreach ($Policy in ($PolicyTargets | Where-Object {$_.domain -eq $AllDomain}).distinguishedname) {
 			
 				$ldapPath = "LDAP://$Policy"
+				if($Domain -and $Server){$ldapPath = $ldapPath -Replace "LDAP://", "LDAP://$($Server)/"}
 				$ouEntry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
 				$securityDescriptor = $ouEntry.ObjectSecurity
 
@@ -5026,7 +5255,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 							break
 						}
 					}
-					if($TryToExtractMember){$FinalExtAccount = "$($TryToExtractMember.domain)\$($TryToExtractMember.samaccountname)"}
+					if($TryToExtractMember){$FinalExtAccount = "$(($TryToExtractMember.domain -split "\.")[0])\$($TryToExtractMember.samaccountname)"}
 					else{$FinalExtAccount = $GPOCreator."Delegated Groups"}
 				}
 				else{
@@ -5069,6 +5298,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			$jGPOIDRAW = foreach ($GPO in $GPOTargets.distinguishedname){
 				
 				$ldapPath = "LDAP://$GPO"
+				if($Domain -and $Server){$ldapPath = $ldapPath -Replace "LDAP://", "LDAP://$($Server)/"}
 				$ouEntry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
 				$securityDescriptor = $ouEntry.ObjectSecurity
 
@@ -5077,14 +5307,6 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 					$objectTypeName = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
 					$inheritedObjectTypeName = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
 					
-					<# # Do the conversion first ?
-					if(Test-SidFormat -SidString $ace.IdentityReference.Value){
-						$TargetFinalSID = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq $ace.IdentityReference.Value}
-						$FinalSID = $TargetFinalSID.samaccountname
-						if(!$FinalSID){$FinalSID = $ace.IdentityReference.Value}
-					}
-					else{$FinalSID = $ace.IdentityReference.Value} #>
-					
 					if(Test-SidFormat -SidString $ace.IdentityReference.Value){
 						foreach($SumGroupsUser in $SumGroupsUsers){
 							if($ace.IdentityReference.Value -eq (GetSID-FromBytes -sidBytes $SumGroupsUser.objectsid)){
@@ -5092,7 +5314,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 								break
 							}
 						}
-						if($TryToExtractMember){$FinalModGPOAccount = "$($TryToExtractMember.domain)\$($TryToExtractMember.samaccountname)"}
+						if($TryToExtractMember){$FinalModGPOAccount = "$(($TryToExtractMember.domain -split "\.")[0])\$($TryToExtractMember.samaccountname)"}
 						else{$FinalModGPOAccount = $ace.IdentityReference.Value}
 					}
 					else{
@@ -5143,7 +5365,8 @@ Add-Type -TypeDefinition $efssource -Language CSharp
         Write-Host ""
 		Write-Host "Who can link GPOs" -ForegroundColor Cyan
 		$TempGpoLinkResults = foreach ($AllDomain in $AllDomains) {
-			$SelectTheDCName = ($TempHTMLdc | Where-Object{$_.domain -eq $AllDomain -and $_.Primary -eq 'YES'})."DC Name" + '.' + $AllDomain
+			if($Domain -and $Server){$SelectTheDCName = $Server}
+			else{$SelectTheDCName = ($TempHTMLdc | Where-Object{$_.domain -eq $AllDomain -and $_.Primary -eq 'YES'})."DC Name" + '.' + $AllDomain}
 			$rootDse  = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$SelectTheDCName/RootDSE")
 			$domainDN = $rootDse.defaultNamingContext
 			$ExcludedAccounts = "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Exchange Recipient Administrators|Exchange Domain Servers|Exchange Organization Administrators|Exchange Public Folder Administrators|Managed Availability Servers|Exchange Windows Permissions|SELF|SYSTEM|Domain Admins|Enterprise|CREATOR OWNER|BUILTIN|Key Admins|MSOL|Account Operators|Terminal Server License Servers"
@@ -5165,26 +5388,50 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 				$ouEntry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
 				$securityDescriptor = $ouEntry.ObjectSecurity
 				
-				$AllGPOLinksDescriptors = $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount]) | Where-Object {$_.ActiveDirectoryRights -match "WriteProperty" -AND $_.IdentityReference -notmatch $ExcludedAccounts -AND !(Test-SidFormat -SidString $_.IdentityReference.Value)}
+				if($Domain -and $Server){
+					$AllGPOLinksDescriptors = $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]) | Where-Object { $_.ActiveDirectoryRights -match "WriteProperty" }
 
-				foreach ($ace in $AllGPOLinksDescriptors) {
-					# Resolve ObjectType and InheritedObjectType using the GUID map
-					$objectTypeName = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
-					
-					if($objectTypeName -notmatch "\bAny\b|GP-Link"){continue}
-					
-					$inheritedObjectTypeName = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
-					
-					# Create a custom object with the resolved names
-					[PSCustomObject]@{
-						"Delegated Groups" = $ace.IdentityReference.Value
-						"Target OU" = $OU
-						#AccessControlType = $ace.AccessControlType
-						ObjectType = $objectTypeName
-						InheritedObjectType = $inheritedObjectTypeName
-						#SecurityIdentifier = $ace.SecurityIdentifier.Value
-						ActiveDirectoryRights = $ace.ActiveDirectoryRights
-						Domain = $AllDomain
+					foreach ($ace in $AllGPOLinksDescriptors) {
+						$resolvedAccount = Resolve-SIDViaLDAP -SID $ace.IdentityReference.Value -Server $Server
+						if ($resolvedAccount -match $ExcludedAccounts) { continue }
+
+						$objectTypeName = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
+						if ($objectTypeName -notmatch "\bAny\b|GP-Link") { continue }
+
+						$inheritedObjectTypeName = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
+
+						[PSCustomObject]@{
+							"Delegated Groups"    = $resolvedAccount
+							"Target OU"           = $OU
+							ObjectType            = $objectTypeName
+							InheritedObjectType   = $inheritedObjectTypeName
+							ActiveDirectoryRights = $ace.ActiveDirectoryRights
+							Domain                = $AllDomain
+						}
+					}
+				}
+				else{
+					$AllGPOLinksDescriptors = $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount]) | Where-Object {$_.ActiveDirectoryRights -match "WriteProperty" -AND $_.IdentityReference -notmatch $ExcludedAccounts -AND !(Test-SidFormat -SidString $_.IdentityReference.Value)}
+
+					foreach ($ace in $AllGPOLinksDescriptors) {
+						# Resolve ObjectType and InheritedObjectType using the GUID map
+						$objectTypeName = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
+						
+						if($objectTypeName -notmatch "\bAny\b|GP-Link"){continue}
+						
+						$inheritedObjectTypeName = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
+						
+						# Create a custom object with the resolved names
+						[PSCustomObject]@{
+							"Delegated Groups" = $ace.IdentityReference.Value
+							"Target OU" = $OU
+							#AccessControlType = $ace.AccessControlType
+							ObjectType = $objectTypeName
+							InheritedObjectType = $inheritedObjectTypeName
+							#SecurityIdentifier = $ace.SecurityIdentifier.Value
+							ActiveDirectoryRights = $ace.ActiveDirectoryRights
+							Domain = $AllDomain
+						}
 					}
 				}
 			}
@@ -5195,8 +5442,8 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 					"Who can link" = $result."Delegated Groups"
 					#"Security Identifier" = $result.SecurityIdentifier
 					"Object DN" = $result."Target OU"
-					"Object Ace Type" = $result.ObjectType
-					"Active Directory Rights" = $result.ActiveDirectoryRights
+					"Ace Type" = $result.ObjectType
+					"AD Rights" = $result.ActiveDirectoryRights
 					Location = "OUs"
 					Domain = $AllDomain
 				}
@@ -5205,44 +5452,94 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			#### 2) Domain-level GP-Link ACLs ################################################
 			$domainEntry = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$SelectTheDCName/$domainDN")
 			$domainSD    = $domainEntry.ObjectSecurity
-			$domainACEs  = $domainSD.GetAccessRules($true,$true,[System.Security.Principal.NTAccount]) | Where-Object { $_.ActiveDirectoryRights -match 'WriteProperty' -and $_.IdentityReference -notmatch $ExcludedAccounts -AND !(Test-SidFormat -SidString $_.IdentityReference.Value)}
-			  
-			foreach ($ace in $domainACEs) {
-				$objectTypeName = if ($ace.ObjectType -ne [Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
-				if ($objectTypeName -notmatch '\bAny\b|GP-Link') { continue }
+			if($Domain -and $Server){
+				$domainACEs  = $domainSD.GetAccessRules($true,$true,[System.Security.Principal.SecurityIdentifier]) | Where-Object { $_.ActiveDirectoryRights -match 'WriteProperty' }
 
-				[PSCustomObject]@{
-					'Who can link'            = $ace.IdentityReference.Value
-					'Object DN'               = $domainDN
-					'Object Ace Type'         = $objectTypeName
-					'Active Directory Rights' = $ace.ActiveDirectoryRights
-					Location                  = "Domains"
-					'Domain'                  = $AllDomain
+				foreach ($ace in $domainACEs) {
+					$resolvedAccount = Resolve-SIDViaLDAP -SID $ace.IdentityReference.Value -Server $Server
+					if ($resolvedAccount -match $ExcludedAccounts) { continue }
+
+					$objectTypeName = if ($ace.ObjectType -ne [Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
+					if ($objectTypeName -notmatch '\bAny\b|GP-Link') { continue }
+
+					[PSCustomObject]@{
+						'Who can link'    = $resolvedAccount
+						'Object DN'       = $domainDN
+						'Ace Type'        = $objectTypeName
+						'AD Rights'       = $ace.ActiveDirectoryRights
+						Location          = "Domains"
+						Domain            = $AllDomain
+					}
 				}
 			}
-
-			#### 3) Site-level GP-Link ACLs ##################################################
-			$sitesContainer = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$SelectTheDCName/CN=Sites,CN=Configuration,$domainDN")
-			$sitesContainer.Children | Where-Object { $_.SchemaClassName -eq 'site' } |
-			  ForEach-Object {
-				$siteDN   = $_.distinguishedName
-				$siteSD   = $_.ObjectSecurity
-				$siteACEs = $siteSD.GetAccessRules($true,$true,[System.Security.Principal.NTAccount]) | Where-Object { $_.ActiveDirectoryRights -match 'WriteProperty' -and $_.IdentityReference -notmatch $ExcludedAccounts -AND !(Test-SidFormat -SidString $_.IdentityReference.Value)}
-
-				foreach ($ace in $siteACEs) {
+			else{
+				$domainACEs  = $domainSD.GetAccessRules($true,$true,[System.Security.Principal.NTAccount]) | Where-Object { $_.ActiveDirectoryRights -match 'WriteProperty' -and $_.IdentityReference -notmatch $ExcludedAccounts -AND !(Test-SidFormat -SidString $_.IdentityReference.Value)}
+				  
+				foreach ($ace in $domainACEs) {
 					$objectTypeName = if ($ace.ObjectType -ne [Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
 					if ($objectTypeName -notmatch '\bAny\b|GP-Link') { continue }
 
 					[PSCustomObject]@{
 						'Who can link'            = $ace.IdentityReference.Value
-						'Object DN'               = $siteDN
-						'Object Ace Type'         = $objectTypeName
-						'Active Directory Rights' = $ace.ActiveDirectoryRights
-						Location                  = "Sites"
+						'Object DN'               = $domainDN
+						'Ace Type'         = $objectTypeName
+						'AD Rights' = $ace.ActiveDirectoryRights
+						Location                  = "Domains"
 						'Domain'                  = $AllDomain
 					}
 				}
-			  }
+			}
+
+			#### 3) Site-level GP-Link ACLs ##################################################
+			$sitesContainer = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$SelectTheDCName/CN=Sites,CN=Configuration,$domainDN")
+			if($Domain -and $Server){
+				$sitesContainer.Children | Where-Object { $_.SchemaClassName -eq 'site' } |
+					ForEach-Object {
+						$siteDN   = $_.distinguishedName
+						$siteSD   = $_.ObjectSecurity
+						$siteACEs = $siteSD.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]) |
+							Where-Object { $_.ActiveDirectoryRights -match 'WriteProperty' }
+
+						foreach ($ace in $siteACEs) {
+							$resolvedAccount = Resolve-SIDViaLDAP -SID $ace.IdentityReference.Value -Server $Server
+							if ($resolvedAccount -match $ExcludedAccounts) { continue }
+
+							$objectTypeName = if ($ace.ObjectType -ne [Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
+							if ($objectTypeName -notmatch '\bAny\b|GP-Link') { continue }
+
+							[PSCustomObject]@{
+								'Who can link'       = $resolvedAccount
+								'Object DN'          = $siteDN
+								'Ace Type'           = $objectTypeName
+								'AD Rights'          = $ace.ActiveDirectoryRights
+								Location             = "Sites"
+								Domain               = $AllDomain
+							}
+						}
+					}
+			}
+			else{
+				$sitesContainer.Children | Where-Object { $_.SchemaClassName -eq 'site' } |
+					ForEach-Object {
+						$siteDN   = $_.distinguishedName
+						$siteSD   = $_.ObjectSecurity
+						$siteACEs = $siteSD.GetAccessRules($true,$true,[System.Security.Principal.NTAccount]) | Where-Object { $_.ActiveDirectoryRights -match 'WriteProperty' -and $_.IdentityReference -notmatch $ExcludedAccounts -AND !(Test-SidFormat -SidString $_.IdentityReference.Value)}
+
+						foreach ($ace in $siteACEs) {
+							$objectTypeName = if ($ace.ObjectType -ne [Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
+							if ($objectTypeName -notmatch '\bAny\b|GP-Link') { continue }
+
+							[PSCustomObject]@{
+								'Who can link'            = $ace.IdentityReference.Value
+								'Object DN'               = $siteDN
+								'Ace Type'         = $objectTypeName
+								'AD Rights' = $ace.ActiveDirectoryRights
+								Location                  = "Sites"
+								'Domain'                  = $AllDomain
+							}
+						}
+					}
+			}
 		}
 		
 		if ($TempGpoLinkResults) {
@@ -5267,6 +5564,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 				$LAPSGPOLocation = $LAPSGPO | select-object -ExpandProperty GPCFileSysPath
 			
 				foreach($LAPSGPOLoc in $LAPSGPOLocation){
+					if($Domain -and $Server){$LAPSGPOLoc = $LAPSGPOLoc -replace '(?<=^\\\\)[^\\]+', $Server}
 					$inputString = Get-Content $LAPSGPOLoc\Machine\Registry.pol
 					$splitString = $inputString.Substring($inputString.IndexOf('['), $inputString.LastIndexOf(']') - $inputString.IndexOf('[') + 1)
 					$splitString = ($splitString -split '\[|\]').Where{$_ -ne ''}
@@ -5306,9 +5604,6 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
 		
 		if($TempLAPSGPOs -AND ($LAPSReadRights -OR $AllEnum)){
-			
-			# Load the required assembly
-			Add-Type -AssemblyName System.DirectoryServices
 
 			Write-Host ""
 			Write-Host "Who can read LAPS" -ForegroundColor Cyan
@@ -5329,57 +5624,60 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 				$Results = @()
 				$Results = foreach ($ou in $DomainSelectedOUs.distinguishedname) {
 					$ldapPath = "LDAP://$ou"
+					if($Domain -and $Server){$ldapPath = $ldapPath -Replace "LDAP://", "LDAP://$($Server)/"}
 					$ouEntry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
 					$securityDescriptor = $ouEntry.ObjectSecurity
-					
-					$AllLAPSCanReadDescriptors = $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount]) | Where-Object {$_.ActiveDirectoryRights -match "ReadProperty" -AND $_.IdentityReference -notmatch $ExcludedAccounts -AND !(Test-SidFormat -SidString $_.IdentityReference.Value)}
+					if($Domain -and $Server){
+						$AllLAPSCanReadDescriptors = $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]) |
+							Where-Object { $_.ActiveDirectoryRights -match "ReadProperty" }
 
-					foreach ($ace in $AllLAPSCanReadDescriptors) {
-						# Resolve ObjectType and InheritedObjectType using the GUID map
-						$objectTypeName = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
-						
-						if($objectTypeName -notmatch "\bAny\b|ms-Mcs-AdmPwd"){continue}
-						
-						$inheritedObjectTypeName = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
-						
-						$FinalAceAccount = $ace.IdentityReference.Value
-						
-						<# if(Test-SidFormat $ace.IdentityReference.Value){
-							foreach($SumGroupsUser in $SumGroupsUsers){
-								if($ace.IdentityReference.Value -eq (GetSID-FromBytes -sidBytes $SumGroupsUser.objectsid)){
-									$TryToExtractMember = $SumGroupsUser
-									break
-								}
+						foreach ($ace in $AllLAPSCanReadDescriptors) {
+							$resolvedAccount = Resolve-SIDViaLDAP -SID $ace.IdentityReference.Value -Server $Server
+							if ($resolvedAccount -match $ExcludedAccounts) { continue }
+
+							$objectTypeName = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
+							if ($objectTypeName -notmatch "\bAny\b|ms-Mcs-AdmPwd") { continue }
+
+							$inheritedObjectTypeName = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
+
+							[PSCustomObject]@{
+								"Delegated Groups"     = $resolvedAccount
+								"Target OU"            = $ou
+								Property               = $objectTypeName
+								InheritedObjectType    = $inheritedObjectTypeName
+								ActiveDirectoryRights  = $ace.ActiveDirectoryRights
+								Domain                 = $AllDomain
 							}
-							if($TryToExtractMember){$FinalAceAccount = "$($TryToExtractMember.domain)\$($TryToExtractMember.samaccountname)"}
-							else{$FinalAceAccount = $ace.IdentityReference.Value}
 						}
-						else{
-							try {
-								$tempholder = $ace.IdentityReference.Value
-								$memberSID = New-Object System.Security.Principal.SecurityIdentifier($tempholder)
-								$memberUser = $memberSID.Translate([System.Security.Principal.NTAccount])
-								$FinalAceAccount = $memberUser.Value
-							} catch {
-								$FinalAceAccount = $ace.IdentityReference.Value
-							}
-						} #>
+					}
+					else{
+						$AllLAPSCanReadDescriptors = $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount]) | Where-Object {$_.ActiveDirectoryRights -match "ReadProperty" -AND $_.IdentityReference -notmatch $ExcludedAccounts -AND !(Test-SidFormat -SidString $_.IdentityReference.Value)}
 
-						# Create a custom object with the resolved names
-						[PSCustomObject]@{
-							"Delegated Groups" = $FinalAceAccount
-							"Target OU" = $ou
-							#AccessControlType = $ace.AccessControlType
-							ObjectType = $objectTypeName
-							InheritedObjectType = $inheritedObjectTypeName
-							ActiveDirectoryRights = $ace.ActiveDirectoryRights
-							Domain = $AllDomain
+						foreach ($ace in $AllLAPSCanReadDescriptors) {
+							# Resolve ObjectType and InheritedObjectType using the GUID map
+							$objectTypeName = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
+							
+							if($objectTypeName -notmatch "\bAny\b|ms-Mcs-AdmPwd"){continue}
+							
+							$inheritedObjectTypeName = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
+							
+							$FinalAceAccount = $ace.IdentityReference.Value
+							
+							# Create a custom object with the resolved names
+							[PSCustomObject]@{
+								"Delegated Groups" = $FinalAceAccount
+								"Target OU" = $ou
+								#AccessControlType = $ace.AccessControlType
+								Property = $objectTypeName
+								InheritedObjectType = $inheritedObjectTypeName
+								ActiveDirectoryRights = $ace.ActiveDirectoryRights
+								Domain = $AllDomain
+							}
 						}
 					}
 				}
 
 				$Results
-				#$Results | Where-Object {$_.ObjectType -eq 'ms-Mcs-AdmPwd' -AND ($_.ActiveDirectoryRights -match 'ReadProperty')}
 			}
 			
 			if ($TempLAPSCanRead | Where-Object {$_."Delegated Groups" -ne $null}) {
@@ -5389,9 +5687,6 @@ Add-Type -TypeDefinition $efssource -Language CSharp
   		}
 
   		if($TempLAPSGPOs -AND ($LAPSExtended -OR $AllEnum)){
-			
-			# Load the required assembly
-			Add-Type -AssemblyName System.DirectoryServices
 			
 			Write-Host ""
 			Write-Host "LAPS Extended Rights" -ForegroundColor Cyan
@@ -5414,60 +5709,66 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 				$Results = foreach ($comp in $TargetingDomainMachines) {
 					$distname = $comp.distinguishedname
 					$ldapPath = "LDAP://$distname"
+					if($Domain -and $Server){$ldapPath = $ldapPath -Replace "LDAP://", "LDAP://$($Server)/"}
 					$ouEntry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
 					$securityDescriptor = $ouEntry.ObjectSecurity
-					
-					$AllLAPSExtendedDescriptors = $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount]) | Where-Object {$_.ActiveDirectoryRights -match "ExtendedRight" -AND $_.IdentityReference -notmatch $ExcludedAccounts -AND !(Test-SidFormat -SidString $_.IdentityReference.Value)}
-					
-					foreach ($ace in $AllLAPSExtendedDescriptors) {
-						# Resolve ObjectType and InheritedObjectType using the GUID map
-						$objectTypeName = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
-						
-						if($objectTypeName -notmatch "\bAny\b|ms-Mcs-AdmPwd"){continue}
-						
-						$inheritedObjectTypeName = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
+					if($Domain -and $Server){
+						$AllLAPSExtendedDescriptors = $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]) |
+							Where-Object { $_.ActiveDirectoryRights -match "ExtendedRight" }
 
-						if($objectTypeName -match "Any" -and $ace.IdentityReference -notmatch "BUILTIN") { $Status = "Non Delegated by Admin" }
+						foreach ($ace in $AllLAPSExtendedDescriptors) {
+							$resolvedAccount = Resolve-SIDViaLDAP -SID $ace.IdentityReference.Value -Server $Server
+							if ($resolvedAccount -match $ExcludedAccounts) { continue }
 
-						$FinalExtendedAccount = $ace.IdentityReference.Value
-						
-						<# if(Test-SidFormat -SidString $ace.IdentityReference.Value){
-							foreach($SumGroupsUser in $SumGroupsUsers){
-								if($ace.IdentityReference.Value -eq (GetSID-FromBytes -sidBytes $SumGroupsUser.objectsid)){
-									$TryToExtractMember = $SumGroupsUser
-									break
-								}
+							$objectTypeName = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
+							if ($objectTypeName -notmatch "\bAny\b|ms-Mcs-AdmPwd") { continue }
+
+							$inheritedObjectTypeName = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
+
+							$Status = if ($objectTypeName -match "Any" -and $resolvedAccount -notmatch "BUILTIN") { "Non Delegated by Admin" } else { "" }
+
+							[PSCustomObject]@{
+								"Computer Name"       = $comp.samaccountname
+								"Identity"            = $resolvedAccount
+								ObjectType            = $objectTypeName
+								InheritedObjectType   = $inheritedObjectTypeName
+								"AD Rights"           = $ace.ActiveDirectoryRights
+								"Status"              = $Status
+								Domain                = $AllDomain
 							}
-							if($TryToExtractMember){$FinalExtendedAccount = "$($TryToExtractMember.domain)\$($TryToExtractMember.samaccountname)"}
-							else{$FinalExtendedAccount = $ace.IdentityReference.Value}
 						}
-						else{
-							try {
-								$tempholder = $ace.IdentityReference.Value
-								$memberSID = New-Object System.Security.Principal.SecurityIdentifier($tempholder)
-								$memberUser = $memberSID.Translate([System.Security.Principal.NTAccount])
-								$FinalExtendedAccount = $memberUser.Value
-							} catch {
-								$FinalExtendedAccount = $ace.IdentityReference.Value
+					}
+					else{
+						$AllLAPSExtendedDescriptors = $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount]) | Where-Object {$_.ActiveDirectoryRights -match "ExtendedRight" -AND $_.IdentityReference -notmatch $ExcludedAccounts -AND !(Test-SidFormat -SidString $_.IdentityReference.Value)}
+						
+						foreach ($ace in $AllLAPSExtendedDescriptors) {
+							# Resolve ObjectType and InheritedObjectType using the GUID map
+							$objectTypeName = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
+							
+							if($objectTypeName -notmatch "\bAny\b|ms-Mcs-AdmPwd"){continue}
+							
+							$inheritedObjectTypeName = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
+
+							if($objectTypeName -match "Any" -and $ace.IdentityReference -notmatch "BUILTIN") { $Status = "Non Delegated by Admin" }
+
+							$FinalExtendedAccount = $ace.IdentityReference.Value
+							
+							# Create a custom object with the resolved names
+							[PSCustomObject]@{
+								"Computer Name" = $comp.samaccountname
+								"Identity" = $FinalExtendedAccount
+								#AccessControlType = $ace.AccessControlType
+								ObjectType = $objectTypeName
+								InheritedObjectType = $inheritedObjectTypeName
+								"AD Rights" = $ace.ActiveDirectoryRights
+								"Status" = $Status
+								Domain = $AllDomain
 							}
-						} #>
-      						
-						# Create a custom object with the resolved names
-						[PSCustomObject]@{
-							"Computer Name" = $comp.samaccountname
-							"Identity" = $FinalExtendedAccount
-							#AccessControlType = $ace.AccessControlType
-							ObjectType = $objectTypeName
-							InheritedObjectType = $inheritedObjectTypeName
-							ActiveDirectoryRights = $ace.ActiveDirectoryRights
-							"Status" = $Status
-							Domain = $AllDomain
 						}
 					}
 				}
 				
 				$Results
-				#$Results | Where-Object {$_.ActiveDirectoryRights -match 'ExtendedRight' -AND $_.ObjectType -eq 'ms-Mcs-AdmPwd'}
 				
 			}
 			
@@ -5484,7 +5785,10 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			$TempLapsEnabledComputers = foreach ($AllDomain in $AllDomains) {
 				$LapsEnabledComputers = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $_."ms-Mcs-AdmPwdExpirationTime" -ne $null})
 				foreach ($LapsEnabledComputer in $LapsEnabledComputers) {
-					if($LapsEnabledComputer.DnsHostName){$IPAddress = Resolve-DnsName -Name $LapsEnabledComputer.DnsHostName -Type A | Select-Object -ExpandProperty IPAddress}
+					if($LapsEnabledComputer.DnsHostName){
+						if($Domain -and $Server){$IPAddress = Resolve-DnsName -Name $LapsEnabledComputer.dnshostname -Type A -Server $Server | Select-Object -ExpandProperty IPAddress}
+						else{$IPAddress = Resolve-DnsName -Name $LapsEnabledComputer.DnsHostName -Type A | Select-Object -ExpandProperty IPAddress}
+					}
 					if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 					[PSCustomObject]@{
 						"Name" = $LapsEnabledComputer.samaccountname
@@ -5534,7 +5838,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	####################################################################
 	
 	if($MoreGPOs -OR $AllEnum){
-        	Write-Host ""
+        Write-Host ""
 		Write-Host "GPOs that modify local group memberships" -ForegroundColor Cyan
 		
 		# Loop through each relevant GPO
@@ -5555,91 +5859,96 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		        # Check for Restricted Groups settings in GptTmpl.inf
 		        $restrictedGroupsPath = Join-Path -Path $gpoPath -ChildPath "MACHINE\Microsoft\Windows NT\SecEdit\GptTmpl.inf"
 		        $groupsXmlPath = Join-Path -Path $gpoPath -ChildPath "MACHINE\Preferences\Groups\Groups.xml"
+				
+				if($Domain -and $Server){
+					$restrictedGroupsPath = $restrictedGroupsPath -replace '(?<=^\\\\)[^\\]+', $Server
+					$groupsXmlPath = $groupsXmlPath -replace '(?<=^\\\\)[^\\]+', $Server
+				}
 		
 		        if (Test-Path $restrictedGroupsPath) {
-				$restrictedGroupsContent = Get-Content -Path $restrictedGroupsPath -Raw
-	
-				if ($restrictedGroupsContent -match "\[Group Membership\]") {
-					$lines = $restrictedGroupsContent -split "`r`n" | Where-Object { $_ -match "__Member" }
-	
-					foreach ($line in $lines) {
-						if ($line -match "\*(?<sid>S-1-5-\d+(-\d+){3,})__(?<role>.+?)\s*=\s*(?<values>.*)") {
-							$sid = $Matches['sid']
-							$role = $Matches['role']
-							$values = $Matches['values'].Trim()
-	
-							# Initialize userName in case SID translation fails
-							$userName = $null
-	
-							try {
-								$objSID = New-Object System.Security.Principal.SecurityIdentifier($sid)
-								$objUser = $objSID.Translate([System.Security.Principal.NTAccount])
-								$userName = $objUser.Value
-							} catch {}
-	
-							# Fallback to manually extracting the user/group name if SID translation fails
-							if(!$userName){
-								$ExtractedMember = @($SumGroupsUsers | Where-Object {$sid -eq (GetSID-FromBytes -sidBytes $_.objectsid)})
-								$tempmembername = $ExtractedMember.samaccountname
-								$memberdomain = $ExtractedMember.domain
-								$userName = ($memberdomain -split "\.")[0] + "\" + $tempmembername
-							}
-	
-							# Split the values by "," to support multiple entries
-							if($values -eq ""){}
-							else{
-								$memberValues = $values -split "," | ForEach-Object { $_.TrimStart("*") }
-	
-								# Translate member SIDs to names
-								$memberNames = $memberValues | ForEach-Object {
-									$tempholder = $_
-									if(Test-SidFormat $tempholder){
-										foreach($SumGroupsUser in $SumGroupsUsers){
-											if($tempholder -eq (GetSID-FromBytes -sidBytes $SumGroupsUser.objectsid)){
-												$TryToExtractMember = $SumGroupsUser
-												break
+					$restrictedGroupsContent = Get-Content -Path $restrictedGroupsPath -Raw
+		
+					if ($restrictedGroupsContent -match "\[Group Membership\]") {
+						$lines = $restrictedGroupsContent -split "`r`n" | Where-Object { $_ -match "__Member" }
+		
+						foreach ($line in $lines) {
+							if ($line -match "\*(?<sid>S-1-5-\d+(-\d+){3,})__(?<role>.+?)\s*=\s*(?<values>.*)") {
+								$sid = $Matches['sid']
+								$role = $Matches['role']
+								$values = $Matches['values'].Trim()
+		
+								# Initialize userName in case SID translation fails
+								$userName = $null
+		
+								try {
+									$objSID = New-Object System.Security.Principal.SecurityIdentifier($sid)
+									$objUser = $objSID.Translate([System.Security.Principal.NTAccount])
+									$userName = $objUser.Value
+								} catch {}
+		
+								# Fallback to manually extracting the user/group name if SID translation fails
+								if(!$userName){
+									$ExtractedMember = @($SumGroupsUsers | Where-Object {$sid -eq (GetSID-FromBytes -sidBytes $_.objectsid)})
+									$tempmembername = $ExtractedMember.samaccountname
+									$memberdomain = $ExtractedMember.domain
+									$userName = ($memberdomain -split "\.")[0] + "\" + $tempmembername
+								}
+		
+								# Split the values by "," to support multiple entries
+								if($values -eq ""){}
+								else{
+									$memberValues = $values -split "," | ForEach-Object { $_.TrimStart("*") }
+		
+									# Translate member SIDs to names
+									$memberNames = $memberValues | ForEach-Object {
+										$tempholder = $_
+										if(Test-SidFormat $tempholder){
+											foreach($SumGroupsUser in $SumGroupsUsers){
+												if($tempholder -eq (GetSID-FromBytes -sidBytes $SumGroupsUser.objectsid)){
+													$TryToExtractMember = $SumGroupsUser
+													break
+												}
+											}
+											if($TryToExtractMember){"$(($TryToExtractMember.domain -split "\.")[0])\$($TryToExtractMember.samaccountname)"}
+											else{$tempholder}
+										}
+										else{
+											try {
+												$tempholder = $_
+												$memberSID = New-Object System.Security.Principal.SecurityIdentifier($tempholder)
+												$memberUser = $memberSID.Translate([System.Security.Principal.NTAccount])
+												$memberUser.Value
+											} catch {
+												$tempholder
 											}
 										}
-										if($TryToExtractMember){"$($TryToExtractMember.domain)\$($TryToExtractMember.samaccountname)"}
-										else{$tempholder}
 									}
-									else{
-										try {
-											$tempholder = $_
-											$memberSID = New-Object System.Security.Principal.SecurityIdentifier($tempholder)
-											$memberUser = $memberSID.Translate([System.Security.Principal.NTAccount])
-											$memberUser.Value
-										} catch {
-											$tempholder
-										}
+									
+									# Accumulate MemberOf and Members data
+									if ($role -eq 'MemberOf') {
+										$memberOfCollection += $memberNames
+									} elseif ($role -eq 'Members') {
+										$membersCollection += $memberNames
 									}
-								}
-								
-								# Accumulate MemberOf and Members data
-								if ($role -eq 'MemberOf') {
-									$memberOfCollection += $memberNames
-								} elseif ($role -eq 'Members') {
-									$membersCollection += $memberNames
 								}
 							}
 						}
+					
+						# Collect the result
+						[PSCustomObject]@{
+							"GPO Display Name" = $gpoDisplayName
+							"User/Group Name" = $userName
+							"MemberOf" = $memberOfCollection -join ', '
+							"Members" = $membersCollection -join ', '
+							"Target OUs" = $OUs
+							"Filters" = "N/A"
+							Domain = $AllDomain
+						}
+					
 					}
-				
-				# Collect the result
-				[PSCustomObject]@{
-					"GPO Display Name" = $gpoDisplayName
-					"User/Group Name" = $userName
-					"MemberOf" = $memberOfCollection -join ', '
-					"Members" = $membersCollection -join ', '
-					"Target OUs" = $OUs
-					"Filters" = N/A
-					Domain = $AllDomain
 				}
 				
-				}
-			}
-				
-			if (Test-Path $groupsXmlPath) {
+				if (Test-Path $groupsXmlPath) {
 		            # New logic to handle Groups.xml
 		            [xml]$xmlContent = Get-Content -Path $groupsXmlPath
 		
@@ -5658,9 +5967,12 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		                    if ($memberAction -eq "ADD") {
 		                        # Translate SID to name if necessary
 		                        try {
-		                            $objSID = New-Object System.Security.Principal.SecurityIdentifier($memberSid)
-		                            $objUser = $objSID.Translate([System.Security.Principal.NTAccount])
-		                            $translatedName = $objUser.Value
+									if($Domain -and $Server){$translatedName = Resolve-SIDViaLDAP -SID $memberSid -Server $Server}
+									else{
+										$objSID = New-Object System.Security.Principal.SecurityIdentifier($memberSid)
+										$objUser = $objSID.Translate([System.Security.Principal.NTAccount])
+										$translatedName = $objUser.Value
+									}
 		                        } catch {
 		                            $translatedName = $memberName  # Fallback if SID translation fails
 		                        }
@@ -5719,7 +6031,10 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 		$Unconstrained = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $TotalDomainControllers.dnshostname -notcontains $_.dnshostname -AND $_.userAccountControl -band 524288 })
 		foreach ($Computer in $Unconstrained) {
-			if($Computer.DnsHostName){$ipAddress = Resolve-DnsName -Name $Computer.DnsHostName -Type A | Select-Object -ExpandProperty IPAddress}
+			if($Computer.DnsHostName){
+				if($Domain -and $Server){$ipAddress = Resolve-DnsName -Name $Computer.dnshostname -Type A -Server $Server | Select-Object -ExpandProperty IPAddress}
+				else{$ipAddress = Resolve-DnsName -Name $Computer.DnsHostName -Type A | Select-Object -ExpandProperty IPAddress}
+			}
 			if($ipAddress.count -gt 1){$ipAddress = $ipAddress -join ", "}
 			[PSCustomObject]@{
 				"Name" = $Computer.samaccountname
@@ -5801,7 +6116,10 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 			$ConstrainedDelegationComputers = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $_."msds-allowedtodelegateto"})
 			foreach ($ConstrainedDelegationComputer in $ConstrainedDelegationComputers) {
-				if($ConstrainedDelegationComputer.DnsHostName){$IPAddress = Resolve-DnsName -Name $ConstrainedDelegationComputer.DnsHostName -Type A | Select-Object -ExpandProperty IPAddress}
+				if($ConstrainedDelegationComputer.DnsHostName){
+					if($Domain -and $Server){$IPAddress = Resolve-DnsName -Name $ConstrainedDelegationComputer.dnshostname -Type A -Server $Server | Select-Object -ExpandProperty IPAddress}
+					else{$IPAddress = Resolve-DnsName -Name $ConstrainedDelegationComputer.DnsHostName -Type A | Select-Object -ExpandProperty IPAddress}
+				}
 				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 				[PSCustomObject]@{
 					Domain = $AllDomain
@@ -5877,9 +6195,6 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			Write-Host ""
 			Write-Host "Resource Based Constrained Delegation" -ForegroundColor Cyan
 
-			# Load the required assembly
-			Add-Type -AssemblyName System.DirectoryServices
-
 			$RBACDObjects = foreach ($AllDomain in $AllDomains) {
 				# Define excluded accounts
 				$ExcludedAccounts = "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Exchange Recipient Administrators|Exchange Domain Servers|Exchange Organization Administrators|Exchange Public Folder Administrators|Managed Availability Servers|Exchange Windows Permissions|SELF|SYSTEM|Domain Admins|Enterprise|CREATOR OWNER|BUILTIN|Key Admins|MSOL|Account Operators|Terminal Server License Servers"
@@ -5906,39 +6221,104 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 					$ps.RunspacePool = $RunspacePool
 
 					$scriptBlock = {
-						param($comp, $guidMap, $ExcludedAccounts, $AllDomain)
+						param($comp, $guidMap, $ExcludedAccounts, $AllDomain, $Server)
+						
+						function Resolve-SIDViaLDAP {
+							param (
+								[string]$SID,
+								[string]$Server
+							)
+							try {
+								# Try LDAP first
+								$filter = "(objectSid=$SID)"
+								$searcher = New-Object DirectoryServices.DirectorySearcher([ADSI]"LDAP://$Server")
+								$searcher.Filter = $filter
+								$searcher.PropertiesToLoad.Add("sAMAccountName") | Out-Null
+								$searcher.PropertiesToLoad.Add("distinguishedName") | Out-Null
+								$searcher.PropertiesToLoad.Add("objectSid") | Out-Null
+								$result = $searcher.FindOne()
+								if ($result) {
+									$sam = $result.Properties["samaccountname"][0]
+									$dn = $result.Properties["distinguishedname"][0]
+									if ($dn -match "DC=([^,]+)") {
+										$domain = $matches[1]
+										return "$domain\$sam"
+									}
+									return $sam
+								}
+							} catch {}
+
+							try {
+								# Fall back to local SID translation
+								$objSID = New-Object System.Security.Principal.SecurityIdentifier($SID)
+								$account = $objSID.Translate([System.Security.Principal.NTAccount]).Value
+								return $account
+							} catch {
+								return $SID
+							}
+						}
+						
 						$localResults = @()
 						try {
 							$distname = $comp.distinguishedname
-							$ldapPath = "LDAP://$distname"
+							if($Server){$ldapPath = "LDAP://$Server/$distname"}
+							else{$ldapPath = "LDAP://$distname"}
 							$ouEntry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
 							$securityDescriptor = $ouEntry.ObjectSecurity
 
-							$AllSecurityDescriptors = $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount]) |
-								Where-Object {
-									$_.IdentityReference -notmatch $ExcludedAccounts -and
-									!($_.IdentityReference.Value -match '^S-\d-\d+-(\d+-){1,14}\d+$') -and
-									(
-										# Allow if rights include GenericWrite, GenericAll, or WriteDacl
-										$_.ActiveDirectoryRights -match "GenericWrite|GenericAll|WriteDacl" -or
-										# For WriteProperty, check that the resolved object type is allowed
-										($_.ActiveDirectoryRights -match "WriteProperty" -and 
-										( & { if ($_.ObjectType -ne [System.Guid]::Empty) { $guidMap[$_.ObjectType] } else { "Any" } } ) -match "\b(msDS-AllowedToActOnBehalfOfOtherIdentity|Any)\b")
-									)
-								}
+							if($Server){
+								$AllSecurityDescriptors = $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier])
 
-							foreach ($ace in $AllSecurityDescriptors) {
-								# Resolve ObjectType using the GUID mapping
-								$objectTypeName = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
-								$FinalRBCDAccount = $ace.IdentityReference.Value
-								$ExtractObjCategory = ($comp.objectcategory -split ",")[0] -replace "CN=", ""
-								$localResults += [PSCustomObject]@{
-									Domain           = $AllDomain
-									Account          = $FinalRBCDAccount
-									Object           = $comp.samaccountname
-									Category         = $ExtractObjCategory
-									'AD Rights'      = $ace.ActiveDirectoryRights
-									'Object Ace Type' = $objectTypeName
+								foreach ($ace in $AllSecurityDescriptors) {
+									$sid = $ace.IdentityReference.Value
+									$resolvedAccount = Resolve-SIDViaLDAP -SID $sid -Server $Server
+									if ($resolvedAccount -match '^[^\\]+\\\s*$') {continue}
+
+									if ($resolvedAccount -notmatch $ExcludedAccounts -and (
+										$ace.ActiveDirectoryRights -match "GenericWrite|GenericAll|WriteDacl" -or
+										($ace.ActiveDirectoryRights -match "WriteProperty" -and
+										( & { if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" } } ) -match "\b(msDS-AllowedToActOnBehalfOfOtherIdentity|Any)\b")
+									)) {
+										$objectTypeName = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
+										$ExtractObjCategory = ($comp.objectcategory -split ",")[0] -replace "CN=", ""
+										$localResults += [PSCustomObject]@{
+											Domain           = $AllDomain
+											Account          = $resolvedAccount
+											Object           = $comp.samaccountname
+											Category         = $ExtractObjCategory
+											'AD Rights'      = $ace.ActiveDirectoryRights
+											'Object Ace Type'= $objectTypeName
+										}
+									}
+								}
+							}
+							else{
+								$AllSecurityDescriptors = $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount]) |
+									Where-Object {
+										$_.IdentityReference -notmatch $ExcludedAccounts -and
+										!($_.IdentityReference.Value -match '^S-\d-\d+-(\d+-){1,14}\d+$') -and
+										(
+											# Allow if rights include GenericWrite, GenericAll, or WriteDacl
+											$_.ActiveDirectoryRights -match "GenericWrite|GenericAll|WriteDacl" -or
+											# For WriteProperty, check that the resolved object type is allowed
+											($_.ActiveDirectoryRights -match "WriteProperty" -and 
+											( & { if ($_.ObjectType -ne [System.Guid]::Empty) { $guidMap[$_.ObjectType] } else { "Any" } } ) -match "\b(msDS-AllowedToActOnBehalfOfOtherIdentity|Any)\b")
+										)
+									}
+
+								foreach ($ace in $AllSecurityDescriptors) {
+									# Resolve ObjectType using the GUID mapping
+									$objectTypeName = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
+									$FinalRBCDAccount = $ace.IdentityReference.Value
+									$ExtractObjCategory = ($comp.objectcategory -split ",")[0] -replace "CN=", ""
+									$localResults += [PSCustomObject]@{
+										Domain           = $AllDomain
+										Account          = $FinalRBCDAccount
+										Object           = $comp.samaccountname
+										Category         = $ExtractObjCategory
+										'AD Rights'      = $ace.ActiveDirectoryRights
+										'Object Ace Type' = $objectTypeName
+									}
 								}
 							}
 						}
@@ -5949,7 +6329,8 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 					}
 
 					# Pass the required variables into the scriptblock
-					$ps.AddScript($scriptBlock).AddArgument($comp).AddArgument($guidMap).AddArgument($ExcludedAccounts).AddArgument($AllDomain) | Out-Null
+					if($Domain -and $Server){$ps.AddScript($scriptBlock).AddArgument($comp).AddArgument($guidMap).AddArgument($ExcludedAccounts).AddArgument($AllDomain).AddArgument($Server) | Out-Null}
+					else{$ps.AddScript($scriptBlock).AddArgument($comp).AddArgument($guidMap).AddArgument($ExcludedAccounts).AddArgument($AllDomain) | Out-Null}
 
 					# Begin asynchronous execution and store the job info
 					$job = @{
@@ -6027,11 +6408,19 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 					
 					foreach ($ActAce in $UniqueAces) {
 						$ActSid = $ActAce.SecurityIdentifier
-						$ActAccount = $ActSid.Translate([System.Security.Principal.NTAccount])
-						$AllowedToActIdentity = $ActAccount.Value
+						try{
+							$ActAccount = $ActSid.Translate([System.Security.Principal.NTAccount])
+							$AllowedToActIdentity = $ActAccount.Value
+						}
+						catch{
+							$WeExtract = $SumGroupsUsers | Where-Object{(GetSID-FromBytes -sidBytes $_.objectsid) -eq $ActSid.Value}
+							if($WeExtract){$AllowedToActIdentity = ($WeExtract.domain -split "\.")[0] + "\" + $WeExtract.samaccountname}
+							else{$AllowedToActIdentity = "Not Found"}
+						}
 						
 						if ($AllowedToActComputer.DnsHostName) {
-							$IPAddress = Resolve-DnsName -Name $AllowedToActComputer.DnsHostName -Type A | Select-Object -ExpandProperty IPAddress
+							if($Domain -and $Server){$IPAddress = Resolve-DnsName -Name $AllowedToActComputer.dnshostname -Type A -Server $Server | Select-Object -ExpandProperty IPAddress}
+							else{$IPAddress = Resolve-DnsName -Name $AllowedToActComputer.DnsHostName -Type A | Select-Object -ExpandProperty IPAddress}
 						}
 						if ($IPAddress.count -gt 1) {
 							$IPAddress = $IPAddress -join ", "
@@ -6072,9 +6461,6 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		if($WeakPermissions -OR $AllEnum){
 	  		Write-Host ""
 			Write-Host "Weak Permissions" -ForegroundColor Cyan
-						
-			# Load the required assembly
-			Add-Type -AssemblyName System.DirectoryServices
 			
 			$WeakPermissionsObjects = foreach ($AllDomain in $AllDomains) {
 				
@@ -6102,39 +6488,107 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 					$ps.RunspacePool = $RunspacePool
 
 					$scriptBlock = {
-						param($comp, $guidMap, $ExcludedAccounts, $AllDomain)
+						param($comp, $guidMap, $ExcludedAccounts, $AllDomain, $Server)
+						
+						function Resolve-SIDViaLDAP {
+							param (
+								[string]$SID,
+								[string]$Server
+							)
+							try {
+								# Try LDAP first
+								$filter = "(objectSid=$SID)"
+								$searcher = New-Object DirectoryServices.DirectorySearcher([ADSI]"LDAP://$Server")
+								$searcher.Filter = $filter
+								$searcher.PropertiesToLoad.Add("sAMAccountName") | Out-Null
+								$searcher.PropertiesToLoad.Add("distinguishedName") | Out-Null
+								$searcher.PropertiesToLoad.Add("objectSid") | Out-Null
+								$result = $searcher.FindOne()
+								if ($result) {
+									$sam = $result.Properties["samaccountname"][0]
+									$dn = $result.Properties["distinguishedname"][0]
+									if ($dn -match "DC=([^,]+)") {
+										$domain = $matches[1]
+										return "$domain\$sam"
+									}
+									return $sam
+								}
+							} catch {}
+
+							try {
+								# Fall back to local SID translation
+								$objSID = New-Object System.Security.Principal.SecurityIdentifier($SID)
+								$account = $objSID.Translate([System.Security.Principal.NTAccount]).Value
+								return $account
+							} catch {
+								return $SID
+							}
+						}
+						
 						$localResults = @()
 						try {
 							$distname = $comp.distinguishedname
-							$ldapPath = "LDAP://$distname"
+							if($Server){$ldapPath = "LDAP://$Server/$distname"}
+							else{$ldapPath = "LDAP://$distname"}
 							$ouEntry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
 							$securityDescriptor = $ouEntry.ObjectSecurity
+							
+							if($Server){
+								$AllSecurityDescriptors = $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]) |
+									Where-Object {
+										$resolved = Resolve-SIDViaLDAP -SID $_.IdentityReference.Value -Server $Server
+										$_.AccessControlType -ne 'deny' -and
+										$resolved -notmatch $ExcludedAccounts -and
+										(
+											($_.ActiveDirectoryRights -match "WriteProperty|FullControl|GenericWrite|GenericAll|Self|WriteDacl|WriteOwner|WriteSPN|WriteAccountRestrictions|AllExtendedRights|ExtendedRight|AddAllowedToAct|SyncLAPSPassword|ForceChangePassword") -and
+											(( & { if ($_.ObjectType -ne [System.Guid]::Empty) { $guidMap[$_.ObjectType] } else { "Any" } }) -notmatch "Change Password|Send To|Lockout-Time|Send As|Personal Information|Personal Information, Send As|Generate Resultant Set of Policy \(Logging\)|Generate Resultant Set of Policy \(Planning\)|Generate Resultant Set of Policy \(Planning\), Generate Resultant Set of Policy \(Logging\)")
+										)
+									}
 
-							$AllSecurityDescriptors = $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount]) |
-								Where-Object {
-									$_.AccessControlType -ne 'deny' -and
-									$_.IdentityReference -notmatch $ExcludedAccounts -and
-									!($_.IdentityReference.Value -match '^S-\d-\d+-(\d+-){1,14}\d+$') -and
-									(
-										# Allow if rights include GenericWrite, GenericAll, or WriteDacl
-										($_.ActiveDirectoryRights -match "WriteProperty|FullControl|GenericWrite|GenericAll|Self|WriteDacl|WriteOwner|WriteSPN|WriteAccountRestrictions|AllExtendedRights|ExtendedRight|AddAllowedToAct|SyncLAPSPassword|ForceChangePassword") -and (( & { if ($_.ObjectType -ne [System.Guid]::Empty) { $guidMap[$_.ObjectType] } else { "Any" } } ) -notmatch "Change Password|Send To|Lockout-Time|Send As|Personal Information|Personal Information, Send As|Generate Resultant Set of Policy \(Logging\)|Generate Resultant Set of Policy \(Planning\)|Generate Resultant Set of Policy \(Planning\), Generate Resultant Set of Policy \(Logging\)")
-										# For WriteProperty, check that the resolved object type is allowed
-										
-									)
+								foreach ($ace in $AllSecurityDescriptors) {
+									$sid = $ace.IdentityReference.Value
+									$resolvedAccount = Resolve-SIDViaLDAP -SID $sid -Server $Server
+									if ($resolvedAccount -match '^[^\\]+\\\s*$') {continue}
+									$objectTypeName = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
+									$ExtractObjCategory = ($comp.objectcategory -split ",")[0] -replace "CN=", ""
+									$localResults += [PSCustomObject]@{
+										Domain           = $AllDomain
+										Account          = $resolvedAccount
+										Object           = $comp.samaccountname
+										Category         = $ExtractObjCategory
+										'AD Rights'      = $ace.ActiveDirectoryRights
+										'Object Ace Type'= $objectTypeName
+									}
 								}
+							}
 
-							foreach ($ace in $AllSecurityDescriptors) {
-								# Resolve ObjectType using the GUID mapping
-								$objectTypeName = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
-								$FinalRBCDAccount = $ace.IdentityReference.Value
-								$ExtractObjCategory = ($comp.objectcategory -split ",")[0] -replace "CN=", ""
-								$localResults += [PSCustomObject]@{
-									Domain           = $AllDomain
-									Account          = $FinalRBCDAccount
-									Object           = $comp.samaccountname
-									Category         = $ExtractObjCategory
-									'AD Rights'      = $ace.ActiveDirectoryRights
-									'Object Ace Type' = $objectTypeName
+							else{
+								$AllSecurityDescriptors = $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount]) |
+									Where-Object {
+										$_.AccessControlType -ne 'deny' -and
+										$_.IdentityReference -notmatch $ExcludedAccounts -and
+										!($_.IdentityReference.Value -match '^S-\d-\d+-(\d+-){1,14}\d+$') -and
+										(
+											# Allow if rights include GenericWrite, GenericAll, or WriteDacl
+											($_.ActiveDirectoryRights -match "WriteProperty|FullControl|GenericWrite|GenericAll|Self|WriteDacl|WriteOwner|WriteSPN|WriteAccountRestrictions|AllExtendedRights|ExtendedRight|AddAllowedToAct|SyncLAPSPassword|ForceChangePassword") -and (( & { if ($_.ObjectType -ne [System.Guid]::Empty) { $guidMap[$_.ObjectType] } else { "Any" } } ) -notmatch "Change Password|Send To|Lockout-Time|Send As|Personal Information|Personal Information, Send As|Generate Resultant Set of Policy \(Logging\)|Generate Resultant Set of Policy \(Planning\)|Generate Resultant Set of Policy \(Planning\), Generate Resultant Set of Policy \(Logging\)")
+											# For WriteProperty, check that the resolved object type is allowed
+											
+										)
+									}
+
+								foreach ($ace in $AllSecurityDescriptors) {
+									# Resolve ObjectType using the GUID mapping
+									$objectTypeName = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
+									$FinalRBCDAccount = $ace.IdentityReference.Value
+									$ExtractObjCategory = ($comp.objectcategory -split ",")[0] -replace "CN=", ""
+									$localResults += [PSCustomObject]@{
+										Domain           = $AllDomain
+										Account          = $FinalRBCDAccount
+										Object           = $comp.samaccountname
+										Category         = $ExtractObjCategory
+										'AD Rights'      = $ace.ActiveDirectoryRights
+										'Object Ace Type' = $objectTypeName
+									}
 								}
 							}
 						}
@@ -6145,7 +6599,8 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 					}
 
 					# Pass the required variables into the scriptblock
-					$ps.AddScript($scriptBlock).AddArgument($comp).AddArgument($guidMap).AddArgument($ExcludedAccounts).AddArgument($AllDomain) | Out-Null
+					if($Domain -and $Server){$ps.AddScript($scriptBlock).AddArgument($comp).AddArgument($guidMap).AddArgument($ExcludedAccounts).AddArgument($AllDomain).AddArgument($Server) | Out-Null}
+					else{$ps.AddScript($scriptBlock).AddArgument($comp).AddArgument($guidMap).AddArgument($ExcludedAccounts).AddArgument($AllDomain) | Out-Null}
 
 					# Begin asynchronous execution and store the job info
 					$job = @{
@@ -6216,7 +6671,10 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 					$ComputerCreator = $SumGroupsUsers | Where-Object {$sid = $null;try {$sid = GetSID-FromBytes -sidBytes $_.objectsid -ErrorAction Stop}catch{};$sid -eq (GetSID-FromBytes -sidBytes $ComputerCreated.'ms-DS-CreatorSID')}
 					if(!$ComputerCreator){$ComputerCreator = GetSID-FromBytes -sidBytes $ComputerCreated.'ms-DS-CreatorSID'}
 										
-					if($ComputerCreated.DnsHostName){$IPAddress = Resolve-DnsName -Name $ComputerCreated.DnsHostName -Type A | Select-Object -ExpandProperty IPAddress}
+					if($ComputerCreated.DnsHostName){
+						if($Domain -and $Server){$IPAddress = Resolve-DnsName -Name $ComputerCreated.dnshostname -Type A -Server $Server | Select-Object -ExpandProperty IPAddress}
+						else{$IPAddress = Resolve-DnsName -Name $ComputerCreated.DnsHostName -Type A | Select-Object -ExpandProperty IPAddress}
+					}
 					if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 					
 					[PSCustomObject]@{
@@ -7194,7 +7652,10 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			$InterestingServers = @()
 			foreach($Keyword in $Keywords){$InterestingServers += $TotalEnabledMachines | Where-Object { $_.domain -eq $AllDomain -AND $_.operatingsystem -like "*Server*" -AND $_.samaccountname -like "*$Keyword*" }}
 			foreach ($InterestingServer in $InterestingServers) {
-				if($InterestingServer.DnsHostName){$IPAddress = (Resolve-DnsName -Name $InterestingServer.DnsHostName -Type A).IPAddress}
+				if($InterestingServer.DnsHostName){
+					if($Domain -and $Server){$IPAddress = (Resolve-DnsName -Name $InterestingServer.dnshostname -Type A -Server $Server).IPAddress}
+					else{$IPAddress = (Resolve-DnsName -Name $InterestingServer.DnsHostName -Type A).IPAddress}
+				}
 				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 				[PSCustomObject]@{
 					"Name" = $InterestingServer.samaccountname
@@ -7317,7 +7778,10 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		$TempServersEnabled = foreach ($AllDomain in $AllDomains) {
 			$ComputerServers = @($TotalEnabledServers | Where-Object {$_.domain -eq $AllDomain})
 			foreach ($ComputerServer in $ComputerServers) {
-				if($ComputerServer.DnsHostName){$IPAddress = (Resolve-DnsName -Name $ComputerServer.DnsHostName -Type A).IPAddress}
+				if($ComputerServer.DnsHostName){
+					if($Domain -and $Server){$IPAddress = (Resolve-DnsName -Name $ComputerServer.dnshostname -Type A -Server $Server).IPAddress}
+					else{$IPAddress = (Resolve-DnsName -Name $ComputerServer.DnsHostName -Type A).IPAddress}
+				}
 				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 				[PSCustomObject]@{
 					"Name" = $ComputerServer.samaccountname
@@ -7348,7 +7812,10 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		$TempWorkstationsEnabled = foreach ($AllDomain in $AllDomains) {
 			$AllWorkstations = @($TotalEnabledWorkstations | Where-Object {$_.domain -eq $AllDomain})
 			foreach ($Workstation in $AllWorkstations) {
-				if($Workstation.DnsHostName){$IPAddress = (Resolve-DnsName -Name $Workstation.DnsHostName -Type A).IPAddress}
+				if($Workstation.DnsHostName){
+					if($Domain -and $Server){$IPAddress = (Resolve-DnsName -Name $Workstation.dnshostname -Type A -Server $Server).IPAddress}
+					else{$IPAddress = (Resolve-DnsName -Name $Workstation.DnsHostName -Type A).IPAddress}
+				}
 				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 				[PSCustomObject]@{
 					"Name" = $Workstation.samaccountname
@@ -7632,71 +8099,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	Write-Host ""
 	Write-Host "Elapsed Time: $elapsedTimeString"
 	Write-Host ""
-	Write-Host "Output files: " -ForegroundColor Yellow
-	Write-Host "$OutputFilePath"
+	Write-Host "Output file: " -ForegroundColor Yellow
 	Write-Host "$HTMLOutputFilePath"
 	Write-Host ""
 	
-	# Stop capturing the output and display it on the console
-	Stop-Transcript | Out-Null
-	
 	$host.UI.RawUI.BufferSize = $originalBufferSize
-    
-	# Clean up error lines from output
-	
-	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'TerminatingError' } | Set-Content $OutputFilePath
-	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Parameter name: binaryForm""' } | Set-Content $OutputFilePath
-	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'PSEdition:' } | Set-Content $OutputFilePath
-	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'PSRemotingProtocolVersion:' } | Set-Content $OutputFilePath
-	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'PSCompatibleVersions:' } | Set-Content $OutputFilePath
-	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'BuildVersion:' } | Set-Content $OutputFilePath
-	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'CLRVersion:' } | Set-Content $OutputFilePath
-	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'WSManStackVersion:' } | Set-Content $OutputFilePath
-	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'PPSRemotingProtocolVersion:' } | Set-Content $OutputFilePath
-	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'SerializationVersion:' } | Set-Content $OutputFilePath
-	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'End time:' } | Set-Content $OutputFilePath
-	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Windows PowerShell transcript end' } | Set-Content $OutputFilePath
-	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'PSVersion:' } | Set-Content $OutputFilePath
-	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Process ID:' } | Set-Content $OutputFilePath
-	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Host Application:' } | Set-Content $OutputFilePath
-	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Configuration Name:' } | Set-Content $OutputFilePath
-	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Start time:' } | Set-Content $OutputFilePath
-	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Windows PowerShell transcript start' } | Set-Content $OutputFilePath
-	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Transcript started, output file is' } | Set-Content $OutputFilePath
-	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Parameter name: enumType""' } | Set-Content $OutputFilePath
-	(Get-Content $OutputFilePath) | Where-Object { $_ -notmatch 'Parameter name: sddlForm""' } | Set-Content $OutputFilePath
-
-	$oldBlockPattern = @"
-Data Collection in Progress\.\.\.
-\[\*\] Collecting Krbtgt\.\.\.
-\[\*\] Collecting Domain Trusts\.\.\.
-\[\*\] Collecting Domain Controllers\.\.\.
-\[\*\] Collecting Policies\.\.\.
-\[\*\] Collecting Users\.\.\.
-\[\*\] Collecting Machines\.\.\.
-\[\*\] Collecting Groups\.\.\.
-\[\*\] Collecting GPOs\.\.\.
-\[\*\] Collecting OUs\.\.\.
-\[\*\] Collecting Certificate Templates\.\.\.
-\[\*\] Collecting Subnets\.\.\.
-\[\*\] Collecting GUID Mappings\.\.\.
-\[\*\] Parsing Admin Groups members\.\.\.
-\[\*\] Parsing Security Groups Members\.\.\.
-\[\*\] Parsing RIDRole DCs\.\.
-"@ -replace '\r?\n', '.*\r?\n?'
-
-	$newBlock = @"
-  _____                 _                      _____  ______
- |_   _|               | |               /\   |  __ \|  ____|
-   | |  _ ____   _____ | | _____ ______ /  \  | |  | | |__   _ __  _   _ _ __ ___
-   | | | '_ \ \ / / _ \| |/ / _ \______/ /\ \ | |  | |  __| | '_ \| | | | '_ ' _ \
-  _| |_| | | \ V / (_) |   <  __/     / ____ \| |__| | |____| | | | |_| | | | | | |
- |_____|_| |_|\_/ \___/|_|\_\___|    /_/    \_\_____/|______|_| |_|\__,_|_| |_| |_|
-
-                                       [+] Rob LP (@L3o4j) https://github.com/Leo4j
-"@
-
-	(Get-Content $OutputFilePath -Raw) -replace $oldBlockPattern, $newBlock | Set-Content $OutputFilePath
    
 }
 
@@ -8016,7 +8423,7 @@ function Test-LDAPConnectivity {
         param($ServerName, $Port)
         try {
             $LDAPPath = "LDAP://" + $ServerName + ':' + $Port
-            $LDAPConnection = New-Object DirectoryServices.DirectoryEntry($LDAPPath)
+            $LDAPConnection = New-Object System.DirectoryServices.DirectoryEntry($LDAPPath)
             $LDAPConnection.close()
             return $true
         } catch {
@@ -8367,8 +8774,8 @@ function FindDomainTrusts {
 }
 
 # Load the necessary assemblies
-Add-Type -AssemblyName System.DirectoryServices.AccountManagement
 Add-Type -AssemblyName System.DirectoryServices
+Add-Type -AssemblyName System.DirectoryServices.AccountManagement
 
 # Define the C# code for multithreaded processing
 Add-Type -TypeDefinition @"
@@ -8737,8 +9144,7 @@ function Collect-ADCertificateTemplates {
         }
 		$ldapPath += "CN=Certificate Templates,CN=Public Key Services,CN=Services,CN=Configuration,$domainDistinguishedName"
 		
-		$ldapConnection = New-Object System.DirectoryServices.DirectoryEntry
-		$ldapConnection.Path = $ldapPath
+		$ldapConnection = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
 		
         $searcher = New-Object System.DirectoryServices.DirectorySearcher
 		$searcher.SearchRoot = $ldapConnection
@@ -10024,7 +10430,9 @@ function Find-GPPasswords {
     Param (
         [ValidateNotNullOrEmpty()]
         [String]
-        $Domain
+        $Domain,
+        [Parameter(Mandatory = $false)]
+        [string] $Server
     )
 
     # Helper function to decrypt the cpassword field
@@ -10092,7 +10500,8 @@ function Find-GPPasswords {
     }
 
     try {
-        $XMLFiles = Get-ChildItem -Path "\\$Domain\SYSVOL\*\Policies" -Recurse -Include 'Groups.xml', 'Services.xml', 'Scheduledtasks.xml', 'DataSources.xml' -ErrorAction SilentlyContinue
+        if($Domain -and $Server){$XMLFiles = Get-ChildItem -Path "\\$Server\SYSVOL\*\Policies" -Recurse -Include 'Groups.xml', 'Services.xml', 'Scheduledtasks.xml', 'DataSources.xml' -ErrorAction SilentlyContinue}
+		else{$XMLFiles = Get-ChildItem -Path "\\$Domain\SYSVOL\*\Policies" -Recurse -Include 'Groups.xml', 'Services.xml', 'Scheduledtasks.xml', 'DataSources.xml' -ErrorAction SilentlyContinue}
         if (-not $XMLFiles) { throw "No GPP XML files found in domain SYSVOL." }
 
         ForEach ($File in $XMLFiles) {
@@ -10178,11 +10587,8 @@ function Get-ADGuidMapping {
     $guidMap = @{}
 
     # Construct LDAP paths
-    $ldapPathRootDSE = "LDAP://"
-    if ($PSBoundParameters.ContainsKey('Server')) {
-        $ldapPathRootDSE += "$Server/"
-    }
-    $ldapPathRootDSE += "$Domain/RootDSE"
+    if ($PSBoundParameters.ContainsKey('Server')) {$ldapPathRootDSE = "LDAP://$Server/RootDSE"}
+    else{$ldapPathRootDSE = "LDAP://$Domain/RootDSE"}
 
     # Connect to the Domain RootDSE to get the schema naming context and configuration naming context
     $rootDSE = New-Object System.DirectoryServices.DirectoryEntry($ldapPathRootDSE)
@@ -10190,18 +10596,13 @@ function Get-ADGuidMapping {
     $configNC = $rootDSE.Properties["configurationNamingContext"].Value
 
     # Construct schema path
-    $ldapPathSchemaNC = "LDAP://"
-    if ($PSBoundParameters.ContainsKey('Server')) {
-        $ldapPathSchemaNC += "$Server/"
-    }
-    $ldapPathSchemaNC += "$Domain/$schemaNC"
+    if ($PSBoundParameters.ContainsKey('Server')) {$ldapPathSchemaNC = "LDAP://$Server/$schemaNC"}
+    else{$ldapPathSchemaNC = "LDAP://$Domain/$schemaNC"}
 
     # Construct Extended Rights path
     $ldapPathExtendedRights = "LDAP://"
-    if ($PSBoundParameters.ContainsKey('Server')) {
-        $ldapPathExtendedRights += "$Server/"
-    }
-    $ldapPathExtendedRights += "$Domain/CN=Extended-Rights,$configNC"
+    if ($PSBoundParameters.ContainsKey('Server')) {$ldapPathExtendedRights = "LDAP://$Server/CN=Extended-Rights,$configNC"}
+    else{$ldapPathExtendedRights = "LDAP://$Domain/CN=Extended-Rights,$configNC"}
 
     # Query schema container for schemaIDGUIDs
     $searchRootSchema = New-Object System.DirectoryServices.DirectoryEntry($ldapPathSchemaNC)
@@ -10251,10 +10652,18 @@ Function Subnets{
     param(
 
         [Parameter(Mandatory = $true)]
-        [string] $Domain
+        [string] $Domain,
+        [Parameter(Mandatory = $false)]
+        [string] $Server
     )
-	$DomainRootDSE = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$Domain/RootDSE"
-	$SearchPath = "LDAP://CN=Subnets,CN=Sites," + $DomainRootDSE.configurationNamingContext
+	if($Server){
+		$DomainRootDSE = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$Server/RootDSE"
+		$SearchPath = "LDAP://$Server/CN=Subnets,CN=Sites," + $DomainRootDSE.configurationNamingContext
+	}
+	else{
+		$DomainRootDSE = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$Domain/RootDSE"
+		$SearchPath = "LDAP://CN=Subnets,CN=Sites," + $DomainRootDSE.configurationNamingContext
+	}
 	$objSearchPath = New-Object System.DirectoryServices.DirectoryEntry $SearchPath
 	$objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objSearchPath
 	$ObjSearcher.Filter = "(objectClass=subnet)"
@@ -10279,4 +10688,339 @@ Function Subnets{
 	}
     if($FinalSubnets){Return $FinalSubnets}
     else{return $null}
+}
+
+function Get-RemoteDomainInfo {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Domain,
+        [Parameter(Mandatory = $true)]
+        [string]$Server
+    )
+
+    $rootDSE = [ADSI]"LDAP://$Server/RootDSE"
+    $domainDN = $rootDSE.defaultNamingContext
+    $configNC = $rootDSE.configurationNamingContext
+
+    $domainEntry = [ADSI]"LDAP://$Server/$domainDN"
+
+    function Convert-DistinguishedNameToHostname($dn) {
+        if ($dn -match "CN=NTDS Settings,CN=(.*?),CN=Servers") {
+            return "$($matches[1]).$Domain"
+        }
+        return $dn
+    }
+
+    # Try getting domain mode level from RootDSE or domain entry
+    try {
+        $domainModeLevel = $rootDSE.Properties["domainFunctionality"][0]
+    } catch {
+        try {
+            $domainModeLevel = $domainEntry.Properties["domainFunctionality"][0]
+        } catch {
+            $domainModeLevel = "<unknown>"
+        }
+    }
+
+    try { $pdcRoleOwner = Convert-DistinguishedNameToHostname $domainEntry.Properties["fSMORoleOwner"][0] } catch { $pdcRoleOwner = "<error>" }
+    try { $ridRoleOwner = Convert-DistinguishedNameToHostname $domainEntry.Properties["fSMORoleOwner"][0] } catch { $ridRoleOwner = "<error>" }
+    try { $infraRoleOwner = Convert-DistinguishedNameToHostname $domainEntry.Properties["fSMORoleOwner"][0] } catch { $infraRoleOwner = "<error>" }
+
+    $domainControllers = @()
+    try {
+        $searchRoot = New-Object DirectoryServices.DirectoryEntry("LDAP://$Server/CN=Sites,$configNC")
+        $dcSearcher = New-Object DirectoryServices.DirectorySearcher($searchRoot)
+        $dcSearcher.Filter = "(objectClass=server)"
+        $dcSearcher.PropertiesToLoad.Add("dNSHostName") > $null
+        $dcSearcher.SearchScope = "Subtree"
+        $dcResults = $dcSearcher.FindAll()
+
+        foreach ($result in $dcResults) {
+            $hostname = $result.Properties["dNSHostName"]
+            if ($hostname) {
+                $domainControllers += $hostname[0]
+            }
+        }
+    } catch {
+        $domainControllers += "<failed to resolve DCs>"
+    }
+
+    return [pscustomobject]@{
+        Forest                  = $Domain
+        DomainControllers       = $domainControllers
+        Children                = @()
+        DomainMode              = "Unknown"
+        DomainModeLevel         = $domainModeLevel
+        Parent                  = $null
+        PdcRoleOwner            = $pdcRoleOwner
+        RidRoleOwner            = $ridRoleOwner
+        InfrastructureRoleOwner = $infraRoleOwner
+        Name                    = $Domain
+    }
+}
+
+function Get-RemoteForestInfo {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Domain,
+        [Parameter(Mandatory = $true)]
+        [string]$Server
+    )
+
+    $rootDSE = [ADSI]"LDAP://$Server/RootDSE"
+    $configNC = $rootDSE.configurationNamingContext
+    $schemaNC = $rootDSE.schemaNamingContext
+    $forestDN = ($configNC -replace "^CN=Configuration,", "")
+
+    function Get-FSMORoleOwner($dn) {
+        try {
+            $entry = [ADSI]"LDAP://$Server/$dn"
+            $owner = $entry.Properties["fSMORoleOwner"][0]
+            if ($owner -match "CN=NTDS Settings,CN=(.*?),CN=Servers") {
+                return "$($matches[1]).$Domain"
+            } else {
+                return $owner
+            }
+        } catch {
+            return "<error>"
+        }
+    }
+
+    # Get global catalogs
+    $globalCatalogs = @()
+    try {
+        $gcSearcher = New-Object DirectoryServices.DirectorySearcher([ADSI]"LDAP://$Server/CN=Sites,$configNC")
+        $gcSearcher.Filter = "(options=1)"
+        $gcSearcher.PropertiesToLoad.Add("dNSHostName") > $null
+        $gcSearcher.SearchScope = "Subtree"
+        $gcResults = $gcSearcher.FindAll()
+        foreach ($res in $gcResults) {
+            $gc = $res.Properties["dNSHostName"]
+            if ($gc -and $gc[0]) { $globalCatalogs += $gc[0] }
+        }
+    } catch {
+        $globalCatalogs += "<failed to resolve>"
+    }
+
+    # Application partitions
+    $appPartitions = @()
+    $domains = @()
+    try {
+        $partSearcher = New-Object DirectoryServices.DirectorySearcher([ADSI]"LDAP://$Server/CN=Partitions,$configNC")
+        $partSearcher.Filter = "(objectClass=crossRef)"
+        $partSearcher.PropertiesToLoad.Add("nCName") > $null
+        $partSearcher.PropertiesToLoad.Add("systemFlags") > $null
+        $partResults = $partSearcher.FindAll()
+        foreach ($res in $partResults) {
+            $nc = $res.Properties["nCName"][0]
+            $flags = $res.Properties["systemFlags"][0]
+            if ($flags -band 0x4) {
+                $appPartitions += $nc
+            } elseif ($flags -band 0x2) {
+                $domains += $nc -replace "^DC=", "" -replace ",DC=", "."
+            }
+        }
+    } catch {
+        $appPartitions += "<error>"
+    }
+
+    # Sites
+    $sites = @()
+    try {
+        $siteSearcher = New-Object DirectoryServices.DirectorySearcher([ADSI]"LDAP://$Server/CN=Sites,$configNC")
+        $siteSearcher.Filter = "(objectClass=site)"
+        $siteSearcher.PropertiesToLoad.Add("cn") > $null
+        $siteResults = $siteSearcher.FindAll()
+        foreach ($res in $siteResults) {
+            $name = $res.Properties["cn"][0]
+            if ($name) { $sites += $name }
+        }
+    } catch {
+        $sites += "<error>"
+    }
+
+    # Forest level
+    try {
+        $forestLevel = $rootDSE.Properties["forestFunctionality"][0]
+    } catch {
+        $forestLevel = "<unknown>"
+    }
+
+    return [pscustomobject]@{
+        Name                  = $Domain
+        Sites                 = $sites
+        Domains               = $domains
+        GlobalCatalogs        = $globalCatalogs
+        ApplicationPartitions = $appPartitions
+        ForestModeLevel       = $forestLevel
+        ForestMode            = "Unknown"
+        RootDomain            = $Domain
+        Schema                = $schemaNC
+        SchemaRoleOwner       = Get-FSMORoleOwner $schemaNC
+        NamingRoleOwner       = Get-FSMORoleOwner "CN=Partitions,$configNC"
+    }
+}
+
+function Get-RemoteForestGlobalCatalogInfo {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Domain,
+        [Parameter(Mandatory = $true)]
+        [string]$Server
+    )
+
+    $results = @()
+
+    try {
+        $rootDSE = [ADSI]"LDAP://$Server/RootDSE"
+        $configNC = $rootDSE.configurationNamingContext
+        $schemaNC = $rootDSE.schemaNamingContext
+        $domainNC = $rootDSE.defaultNamingContext
+
+        # Derive forest and domain names from DN
+        $forestName = [string](($configNC -replace '^CN=Configuration,','') -replace ',DC=', '.' -replace '^DC=', '')
+        $domainName = [string](($domainNC -replace '^DC=', '') -replace ',DC=', '.')
+
+        $searchRoot = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$Server/CN=Sites,$configNC")
+        $searcher = New-Object System.DirectoryServices.DirectorySearcher($searchRoot)
+        $searcher.Filter = "(&(objectClass=nTDSDSA)(options=1))"
+        $searcher.SearchScope = "Subtree"
+        $searcher.PropertiesToLoad.Add("distinguishedName") > $null
+
+        $catalogs = $searcher.FindAll()
+
+        foreach ($catalog in $catalogs) {
+            if ($catalog.Properties.Contains("distinguishedName") -and $catalog.Properties["distinguishedName"].Count -gt 0) {
+                $ntdsDN = $catalog.Properties["distinguishedName"][0]
+                if ($ntdsDN -match "CN=NTDS Settings,CN=(.*?),CN=Servers,CN=(.*?),CN=Sites") {
+                    $dcName = $matches[1]
+                    $siteName = $matches[2]
+                    $fqdn = "${dcName}.${domainName}"
+
+                    try {
+                        $dcRoot = [ADSI]"LDAP://$fqdn/RootDSE"
+
+                        # Parse current time from forest RootDSE
+                        $rawTime = $rootDSE.Properties["currentTime"][0]
+                        $parsedTime = [datetime]::ParseExact($rawTime, "yyyyMMddHHmmss.0Z", [System.Globalization.CultureInfo]::InvariantCulture)
+                        $currentTimeFormatted = $parsedTime.ToString("dd/MM/yyyy HH:mm:ss")
+
+                        $partitions = @()
+                        if ($dcRoot.Properties["namingContexts"].Count -gt 0) {
+                            $partitions += $dcRoot.Properties["namingContexts"]
+                        }
+
+                        $highestCommittedUsn = $dcRoot.Properties["highestCommittedUSN"] | Select-Object -First 1
+                        
+                        # Retrieve OSVersion from computer object in domain
+                        $osVersion = $null
+                        try {
+                            $compSearcher = New-Object System.DirectoryServices.DirectorySearcher([ADSI]"LDAP://$Server/$domainNC")
+                            $compSearcher.Filter = "(&(objectClass=computer)(dNSHostName=$fqdn))"
+                            $compSearcher.PropertiesToLoad.Add("operatingSystem") > $null
+                            $compResult = $compSearcher.FindOne()
+                            if ($compResult -and $compResult.Properties["operatingSystem"].Count -gt 0) {
+                                $osVersion = [string]$compResult.Properties["operatingSystem"][0]
+                            }
+                        } catch {
+                            $osVersion = $null
+                        }
+
+                        $ipAddress = try {
+                            ([System.Net.Dns]::GetHostAddresses($fqdn) |
+                                Where-Object { $_.AddressFamily -eq 'InterNetworkV6' -or $_.AddressFamily -eq 'InterNetwork' } |
+                                Select-Object -First 1).ToString()
+                        } catch {
+                            $null
+                        }
+
+                        # Retrieve FSMO roles via LDAP
+                        $schemaEntry = [ADSI]"LDAP://$Server/$schemaNC"
+                        $schemaOwnerDN = $schemaEntry.Properties["fSMORoleOwner"][0]
+                        $schemaOwner = if ($schemaOwnerDN -match "CN=NTDS Settings,CN=(.*?),CN=Servers") { "${matches[1]}.${domainName}" } else { $null }
+
+                        $configEntry = [ADSI]"LDAP://$Server/$configNC"
+                        $namingOwnerDN = $configEntry.Properties["fSMORoleOwner"][0]
+                        $namingOwner = if ($namingOwnerDN -match "CN=NTDS Settings,CN=(.*?),CN=Servers") { "${matches[1]}.${domainName}" } else { $null }
+
+                        $domainEntry = [ADSI]"LDAP://$Server/$domainNC"
+                        $pdcOwnerDN = $domainEntry.Properties["fPDCEmulator"][0]
+                        $pdcOwner = if ($pdcOwnerDN -match "CN=(.*?),CN=Servers") { "${matches[1]}.${domainName}" } else { $null }
+                        $ridOwnerDN = $domainEntry.Properties["rIDMaster"][0]
+                        $ridOwner = if ($ridOwnerDN -match "CN=(.*?),CN=Servers") { "${matches[1]}.${domainName}" } else { $null }
+                        $infraOwnerDN = $domainEntry.Properties["infrastructureMaster"][0]
+                        $infraOwner = if ($infraOwnerDN -match "CN=(.*?),CN=Servers") { "${matches[1]}.${domainName}" } else { $null }
+
+                        $roles = @()
+                        if ($schemaOwner -eq $fqdn) { $roles += "SchemaRole" }
+                        if ($namingOwner -eq $fqdn) { $roles += "NamingRole" }
+                        if ($pdcOwner -eq $fqdn) { $roles += "PdcRole" }
+                        if ($ridOwner -eq $fqdn) { $roles += "RidRole" }
+                        if ($infraOwner -eq $fqdn) { $roles += "InfrastructureRole" }
+
+                        $entry = [PSCustomObject]@{
+                            Forest                     = $forestName
+                            Domain                     = $domainName
+                            CurrentTime                = $currentTimeFormatted
+                            HighestCommittedUsn        = $highestCommittedUsn
+                            OSVersion                  = $osVersion
+                            Roles                      = $roles
+                            IPAddress                  = $ipAddress
+                            SiteName                   = $siteName
+                            SyncFromAllServersCallback = $null
+                            InboundConnections         = @{}
+                            OutboundConnections        = @{}
+                            Name                       = $fqdn
+                            Partitions                 = $partitions
+                        }
+
+                        $results += $entry
+                    } catch {
+                        Write-Warning "Failed to query $fqdn : $($_.Exception.Message)"
+                    }
+                }
+            } else {
+                Write-Warning "distinguishedName not found in catalog result"
+            }
+        }
+    } catch {
+        Write-Warning "Global Catalog discovery failed : $($_.Exception.Message)"
+    }
+
+    return $results
+}
+
+function Resolve-SIDViaLDAP {
+	param (
+		[string]$SID,
+		[string]$Server
+	)
+	try {
+		# Try LDAP first
+		$filter = "(objectSid=$SID)"
+		$searcher = New-Object DirectoryServices.DirectorySearcher([ADSI]"LDAP://$Server")
+		$searcher.Filter = $filter
+		$searcher.PropertiesToLoad.Add("sAMAccountName") | Out-Null
+		$searcher.PropertiesToLoad.Add("distinguishedName") | Out-Null
+		$searcher.PropertiesToLoad.Add("objectSid") | Out-Null
+		$result = $searcher.FindOne()
+		if ($result) {
+			$sam = $result.Properties["samaccountname"][0]
+			$dn = $result.Properties["distinguishedname"][0]
+			if ($dn -match "DC=([^,]+)") {
+				$domain = $matches[1]
+				return "$domain\$sam"
+			}
+			return $sam
+		}
+	} catch {}
+
+	try {
+		# Fall back to local SID translation
+		$objSID = New-Object System.Security.Principal.SecurityIdentifier($SID)
+		$account = $objSID.Translate([System.Security.Principal.NTAccount]).Value
+		return $account
+	} catch {
+		return $SID
+	}
 }
