@@ -1156,6 +1156,7 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 			try{$AllCertTemplates = Get-Content -Path c:\Users\Public\Documents\Invoke-ADEnum\CertTemplates.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load CertTemplates.json";$CatchTheError = $true}
 			try{$AllDomainTrusts = Get-Content -Path c:\Users\Public\Documents\Invoke-ADEnum\DomainTrusts.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load DomainTrusts.json";$CatchTheError = $true}
 			try{$AllSubnets = Get-Content -Path c:\Users\Public\Documents\Invoke-ADEnum\Subnets.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load Subnets.json";$CatchTheError = $true}
+			try{$AllDNSEntries = Get-Content -Path c:\Users\Public\Documents\Invoke-ADEnum\DNSEntries.json -Raw | ConvertFrom-Json}catch{Write-Output "Could not load DNSEntries.json";$CatchTheError = $true}
 			if($CatchTheError){Stop-Transcript | Out-Null;Write-Output "";break}else{$ErrorActionPreference = "SilentlyContinue"}
 		}
 		else{
@@ -1256,6 +1257,11 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 		
 				# Subnets
 				$AllSubnets = Subnets -Domain $Domain -Server $Server
+				
+				Write-Output "[*] Collecting DNS entries..."
+				
+				# DNS entries
+				$AllDNSEntries = Get-DNSRecords -Domain $Domain -Server $Server
 			}
 			
 			else{	
@@ -1392,6 +1398,13 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 				# Subnets
 				$AllSubnets = foreach($AllDomain in $AllDomains){
 					Subnets -Domain $AllDomain
+				}
+				
+				Write-Output "[*] Collecting DNS entries..."
+				
+				# DNS entries
+				$AllDNSEntries = foreach($AllDomain in $AllDomains){
+					Get-DNSRecords -Domain $AllDomain
 				}
 			}
 		}
@@ -1543,6 +1556,7 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 			$AllCertTemplates | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\CertTemplates.json
 			$AllDomainTrusts | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\DomainTrusts.json
 			$AllSubnets | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\Subnets.json
+			$AllDNSEntries | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\DNSEntries.json
 		}
 	}
 	
@@ -1553,71 +1567,65 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 	if ($PopulateHosts -and $Domain -and $Server) {
 		Write-Output "[*] Populating Hosts file..."
 
-		$hostsPath     = "$env:SystemRoot\System32\drivers\etc\hosts"
-		$currentHosts  = Get-Content $hostsPath -ErrorAction SilentlyContinue | ForEach-Object { $_.ToLower() }
-		$entriesToAdd  = [System.Collections.Concurrent.ConcurrentBag[string]]::new()
+		$hostsPath    = "$env:SystemRoot\System32\drivers\etc\hosts"
+		$currentHosts = Get-Content $hostsPath -ErrorAction SilentlyContinue | ForEach-Object { $_.ToLower() }
+		$entriesToAdd = @()
 
-		# create a runspace pool with a minimum of 1 and a maximum equal to the number of CPU cores
-		$pool = [RunspaceFactory]::CreateRunspacePool(1, [Environment]::ProcessorCount)
-		$pool.Open() | Out-Null
+		# Get domain root IPs (formerly "@")
+		$domainEntry = $AllDNSEntries | Where-Object { $_.Hostname -eq $Domain }
+		$domainIPs = @()
+		if ($domainEntry) {
+			$domainIPs = $domainEntry.'IP Address' -split ',\s*'
+		}
 
-		$runspaceJobs = @()
+		foreach ($entry in $AllDNSEntries) {
+			$hostname = $entry.Hostname.ToLower()
 
-		foreach ($EnbldSrvr in ($TotalEnabledMachines.dnshostname | Where-Object{$_})) {
-			$cleanName = $EnbldSrvr.ToLower()
+			# Skip domain root and DNS infrastructure entries
+			if ($hostname -eq $Domain.ToLower() -or $hostname -in @('domaindnszones', 'forestdnszones')) {
+				continue
+			}
 
-			# each runspace checks if the name already exists; if not, it resolves and returns the entry line
-			$ps = [PowerShell]::Create()
-			$ps.RunspacePool = $pool
+			$domain   = $entry.Domain.ToLower()
+			$fqdn     = "$hostname.$domain"
+			$ips      = $entry.'IP Address' -split ',\s*'
 
-			$script = {
-				param($name, $hostsArray, $dnsServer)
+			# Check if the FQDN already exists in hosts
+			$pattern = "(^|\s)$fqdn($|\s)"
+			$exists  = $currentHosts | Where-Object { $_ -match $pattern }
 
-				# check using regex so we catch standalone names or whitespace-delimited
-				$pattern = "(^|\s)$name($|\s)"
-				$exists = $hostsArray | Where-Object { $_ -match $pattern }
-				if (-not $exists) {
-					try {
-						$ip = (Resolve-DnsName -Name $name -Type A -Server $dnsServer -ErrorAction Stop).IPAddress
-						return "$ip`t$name`t# Added by Invoke-ADEnum"
-					} catch {
-						# ignore failures (e.g. name not found)
+			if (-not $exists -and $ips.Count -gt 0) {
+				# Sort IPs by closeness to domain IPs
+				$sortedIps = $ips | Sort-Object {
+					$ip = $_
+					$maxMatch = 0
+					foreach ($domIp in $domainIPs) {
+						$ipBytes  = $ip -split '\.' | ForEach-Object { [int]$_ }
+						$domBytes = $domIp -split '\.' | ForEach-Object { [int]$_ }
+						$match = 0
+						for ($i = 0; $i -lt 4; $i++) {
+							if ($ipBytes[$i] -eq $domBytes[$i]) { $match++ } else { break }
+						}
+						if ($match -gt $maxMatch) { $maxMatch = $match }
 					}
+					return -$maxMatch
 				}
-			}
 
-			$ps.AddScript($script).AddArgument($cleanName).AddArgument($currentHosts).AddArgument($Server) | Out-Null
-
-			$handle = $ps.BeginInvoke()
-			$runspaceJobs += [pscustomobject]@{
-				PowerShell = $ps
-				Handle     = $handle
+				foreach ($ip in $sortedIps) {
+					$line = "$ip`t$fqdn`t# Added by Invoke-ADEnum"
+					$entriesToAdd += $line
+				}
 			}
 		}
 
-		# wait for all runspaces to finish, gather results
-		foreach ($job in $runspaceJobs) {
-			$results = $job.PowerShell.EndInvoke($job.Handle)
-			foreach ($line in $results) {
-				if ($line) {
-					$entriesToAdd.Add($line)
-				}
-			}
-			$job.PowerShell.Dispose()
-		}
-
-		# tidy up the pool
-		$pool.Close() | Out-Null
-		$pool.Dispose() | Out-Null
-
-		# if there’s anything to add, append a blank line and then all entries
 		if ($entriesToAdd.Count -gt 0) {
 			Add-Content -Path $hostsPath -Value "`n"
-			foreach ($entry in $entriesToAdd) {
-				Add-Content -Path $hostsPath -Value $entry
+			foreach ($line in $entriesToAdd) {
+				Add-Content -Path $hostsPath -Value $line
 			}
 		}
 	}
+
 	
 	#############################################
     ############# Target Domains ################
@@ -11025,4 +11033,73 @@ function Resolve-SIDViaLDAP {
 	} catch {
 		return $SID
 	}
+}
+
+function Convert-DnsRecordToIP {
+    param(
+        [byte[]]$recordBytes
+    )
+
+    if ($recordBytes[2] -eq 1) { # Type A record
+        return "$($recordBytes[24]).$($recordBytes[25]).$($recordBytes[26]).$($recordBytes[27])"
+    }
+
+    return $null
+}
+
+function DNSRecords {
+    param(
+        [string]$searchBase,
+        [string]$Domain
+    )
+
+    $directoryEntry = New-Object System.DirectoryServices.DirectoryEntry($searchBase)
+    $directorySearcher = New-Object System.DirectoryServices.DirectorySearcher($directoryEntry)
+
+    $directorySearcher.Filter = "(&(objectClass=dnsNode)(!(dNSTombstoned=TRUE)))"
+    $directorySearcher.SearchScope = "Subtree"
+    $directorySearcher.PageSize = 1000
+    $directorySearcher.PropertiesToLoad.Add("dnsRecord") | Out-Null
+    $directorySearcher.PropertiesToLoad.Add("DC") | Out-Null
+
+    $results = $directorySearcher.FindAll()
+    foreach ($result in $results) {
+        $dnsRecords = $result.Properties["dnsRecord"]
+        $hostname = $result.Properties["DC"][0]
+
+        if ($dnsRecords) {
+            $ips = @()
+
+            foreach ($record in $dnsRecords) {
+                $ip = Convert-DnsRecordToIP -recordBytes $record
+                if ($ip) {
+                    $ips += $ip
+                }
+            }
+
+            if ($ips.Count -gt 0) {
+                [PSCustomObject]@{
+                    Hostname = if ($hostname -eq "@") { "$Domain" } else { $hostname }
+                    "IP Address" = ($ips -join ", ")
+                    Domain = $Domain
+                }
+            }
+        }
+    }
+}
+
+function Get-DNSRecords {
+    param(
+        [string]$Domain,
+        [string]$Server
+    )
+
+    $domainDN = "DC=" + ($Domain -replace "\.", ",DC=")
+    if ($Domain -and $Server) {
+        $domainDNSZonesDN = "LDAP://$Server/DC=DomainDnsZones,$domainDN"
+    } else {
+        $domainDNSZonesDN = "LDAP://DC=DomainDnsZones,$domainDN"
+    }
+
+    DNSRecords -searchBase $domainDNSZonesDN -Domain $Domain
 }
