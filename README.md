@@ -1,5 +1,6 @@
 # Invoke-ADEnum
-![ADEnum](https://github.com/Leo4j/Invoke-ADEnum/assets/61951374/93fe1fed-6056-4ba0-ae5b-6f3ac4c62ddc)
+![image](https://github.com/user-attachments/assets/e8e96a87-8d9c-4397-83fa-67d4b32712c7)
+
 
 ## Active Directory Auditing and Enumeration
 Invoke-ADEnum is an auditing and enumeration tool designed to automate the collection of information from an Active Directory environment.
