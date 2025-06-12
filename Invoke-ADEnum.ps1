@@ -4802,7 +4802,7 @@ Add-Type -TypeDefinition $code
 	############### SQL Instances #################
 	#############################################
 
-	if(!$NoSQL -AND !$OPSec){
+	if(!$NoSQL){
 		Write-Host ""
 		Write-Host "SQL Instances" -ForegroundColor Cyan
 		
@@ -4810,7 +4810,7 @@ Add-Type -TypeDefinition $code
 		$TempSQLServers = @()
 
 		$TempSQLServers = foreach($AllDomain in $AllDomains) {
-			<# $Results = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.servicePrincipalName -like "*SQL*"})
+			$Results = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND ($_.servicePrincipalName -like "*1433*" -OR $_.servicePrincipalName -like "*1434*")})
 			$ExtractedSQLMachines = @()
 			foreach ($Result in $Results) {
 				foreach ($SPN in $Result.servicePrincipalName) {
@@ -4825,19 +4825,24 @@ Add-Type -TypeDefinition $code
 					else{$ObjectRetrieve = @($TotalEnabledDisabledMachines | Where-Object {$_.samaccountname -eq "${ServerShort}$"})}
 					$ExtractedSQLMachines += $ObjectRetrieve
 				}
-			} #>
+			}
 			
 			#$NameExtractedSQLMachines = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -and ((($_.samaccountname -like "*SQL*" -OR $_.samaccountname -like "*DB*") -and $_.operatingsystem) -OR ($_.servicePrincipalName -like "*SQL*"))})
 			
-			$TempSQLTargets = @($TotalEnabledServers | Where-Object {$_.domain -eq $AllDomain})
+			if(!$OPSec){
 			
-			$Port1433ExtractedSQLMachines = @(CheckAliveHosts -Targets $TempSQLTargets -CheckPort 1433)
-			
-			$Port1434ExtractedSQLMachines = @(CheckAliveHosts -Targets $TempSQLTargets -CheckPort 1434)
+				$TempSQLTargets = @($TotalEnabledServers | Where-Object {$_.domain -eq $AllDomain})
+				
+				$Port1433ExtractedSQLMachines = @(CheckAliveHosts -Targets $TempSQLTargets -CheckPort 1433)
+				
+				$Port1434ExtractedSQLMachines = @(CheckAliveHosts -Targets $TempSQLTargets -CheckPort 1434)
+			}
 			
 			#$FinalExtractedSQLMachines = @($ExtractedSQLMachines + $NameExtractedSQLMachines + $Port1433ExtractedSQLMachines + $Port1434ExtractedSQLMachines)
 			
-			$FinalExtractedSQLMachines = @($Port1433ExtractedSQLMachines + $Port1434ExtractedSQLMachines)
+			#$FinalExtractedSQLMachines = @($Port1433ExtractedSQLMachines + $Port1434ExtractedSQLMachines)
+			
+			$FinalExtractedSQLMachines = @($ExtractedSQLMachines + $Port1433ExtractedSQLMachines + $Port1434ExtractedSQLMachines)
 			
 			$FinalExtractedSQLMachines = $FinalExtractedSQLMachines | Sort-Object -Unique Domain,dnshostname
 			
@@ -4894,83 +4899,72 @@ Add-Type -TypeDefinition $code
     ############### SCCM Servers ################
     #############################################
     
-	if(!$OPSec){
-		Write-Host ""
-		Write-Host "SCCM Servers" -ForegroundColor Cyan
-		
-		$TempSCCMServers = foreach($AllDomain in $AllDomains){
-			#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
-			<# $DomainEntry = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$AllDomain")
-			$SearcherArguments = @{
-				LDAPFilter = '(objectClass=mSSMSManagementPoint)'
-				Properties = 'dNSHostName'
-			}
-			$Searcher = New-Object System.DirectoryServices.DirectorySearcher($DomainEntry)
-			$Searcher.Filter = $SearcherArguments.LDAPFilter
-			$Searcher.PropertiesToLoad.Add($SearcherArguments.Properties) | Out-Null
-			$Results = $Searcher.FindAll() #>
-			
+	Write-Host ""
+	Write-Host "SCCM Servers" -ForegroundColor Cyan
+	
+	$TempSCCMServers = foreach($AllDomain in $AllDomains){
+		if(!$OPSec){
 			$TempSCCMTargets = @($TotalEnabledServers | Where-Object {$_.domain -eq $AllDomain})
 			
 			$Port8530ExtractedSCCMMachines = @(CheckAliveHosts -Targets $TempSCCMTargets -CheckPort 8530)
 			
 			$Port8531ExtractedSCCMMachines = @(CheckAliveHosts -Targets $TempSCCMTargets -CheckPort 8531)
-			
-			$FinalExtractedSCCMMachines = @($CollectSCCMServers + $Port8530ExtractedSCCMMachines + $Port8531ExtractedSCCMMachines)
-			
-			$FinalExtractedSCCMMachines = $FinalExtractedSCCMMachines | Sort-Object -Unique Domain,dnshostname
-			
-			$Results = @($FinalExtractedSCCMMachines | Where-Object {$_.domain -eq $AllDomain})
-			$ProcessedSCCMServers = @{}
-			foreach ($Result in $Results) {
-				$dNSHostName = if($Result.dnshostname){$Result.dnshostname}else{$Result.mssmsmpname}
-				if ($ProcessedSCCMServers.ContainsKey($dNSHostName)) {continue}
-				$SCCMServerShort = $dNSHostName.Split('.')[0]
-				$DomainParts = $dNSHostName.Split('.') | Select-Object -Skip 1
-				$SCCMServerDomain = $DomainParts -join '.'
-				$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $(($dNSHostName -split '\.')[0]) -AND $_.Domain -eq $(($dNSHostName -split '\.',2)[1])} | Select-Object -ExpandProperty "IP Address"
-				if(!$IPAddress -and !$OPSec -and $dNSHostName){
-					if($Domain -and $Server){$IPAddress = try{(Resolve-DnsName -Name $dNSHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
-					else{$IPAddress = try{(Resolve-DnsName -Name $dNSHostName -Type A -ErrorAction Stop).IPAddress}catch{"No-IP"}}
-					if(!$IPAddress){$IPAddress = "No-IP"}
-					$AllDNSEntries += [PSCustomObject]@{
-						Hostname = $(($dNSHostName -split '\.')[0])
-						"IP Address" = $IPAddress
-						Domain = $(($dNSHostName -split '\.',2)[1])
-					}
-				}
-				elseif(!$IPAddress -and ($OPSec -OR !$dNSHostName)){
-					$IPAddress = "No-IP"
-					$AllDNSEntries += [PSCustomObject]@{
-						Hostname = $(($dNSHostName -split '\.')[0])
-						"IP Address" = $IPAddress
-						Domain = $(($dNSHostName -split '\.',2)[1])
-					}
-				}
-				
-				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
-				#$ObjectRetrieve = $TotalAllMachines | Where-Object {$_.domain -eq $AllDomain} | Where-Object {$_.name -eq $SCCMServerShort}
-				$Enrolled = (Get-WmiObject -Class SMS_Authority -Namespace root\CCM).CurrentManagementPoint -contains $dNSHostName
-				$ObjectRetrieve = $TotalEnabledDisabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $_.dnshostname -eq $dNSHostName}
-				$ProcessedSCCMServers[$dNSHostName] = $true
-				[PSCustomObject]@{
-					Server = $SCCMServerShort
-					"Enabled" = if ($ObjectRetrieve.useraccountcontrol -band 2) { "False" } else { "True" }
-					"Active" = if(!$ObjectRetrieve.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $ObjectRetrieve.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-					Enrolled = $Enrolled
-					"IP Address" = $IPAddress
-					"Operating System" = $ObjectRetrieve.operatingsystem
-					"Account SID" = GetSID-FromBytes -sidBytes $ObjectRetrieve.objectsid
-					Domain = $SCCMServerDomain
-				}
-				$IPAddress = $null
-			}
 		}
 		
-		if($TempSCCMServers){
-			if(!$NoOutput){$TempSCCMServers | Sort-Object -Unique Domain,Server | Format-Table -AutoSize -Wrap}
-			$HTMLSCCMServers = $TempSCCMServers | Sort-Object -Unique Domain,Server | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='SCCMServers'>SCCM Servers</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='SCCMServers'>" }
+		$FinalExtractedSCCMMachines = @($CollectSCCMServers + $Port8530ExtractedSCCMMachines + $Port8531ExtractedSCCMMachines)
+		
+		$FinalExtractedSCCMMachines = $FinalExtractedSCCMMachines | Sort-Object -Unique Domain,dnshostname
+		
+		$Results = @($FinalExtractedSCCMMachines | Where-Object {$_.domain -eq $AllDomain})
+		$ProcessedSCCMServers = @{}
+		foreach ($Result in $Results) {
+			$dNSHostName = if($Result.dnshostname){$Result.dnshostname}else{$Result.mssmsmpname}
+			if ($ProcessedSCCMServers.ContainsKey($dNSHostName)) {continue}
+			$SCCMServerShort = $dNSHostName.Split('.')[0]
+			$DomainParts = $dNSHostName.Split('.') | Select-Object -Skip 1
+			$SCCMServerDomain = $DomainParts -join '.'
+			$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $(($dNSHostName -split '\.')[0]) -AND $_.Domain -eq $(($dNSHostName -split '\.',2)[1])} | Select-Object -ExpandProperty "IP Address"
+			if(!$IPAddress -and !$OPSec -and $dNSHostName){
+				if($Domain -and $Server){$IPAddress = try{(Resolve-DnsName -Name $dNSHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+				else{$IPAddress = try{(Resolve-DnsName -Name $dNSHostName -Type A -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+				if(!$IPAddress){$IPAddress = "No-IP"}
+				$AllDNSEntries += [PSCustomObject]@{
+					Hostname = $(($dNSHostName -split '\.')[0])
+					"IP Address" = $IPAddress
+					Domain = $(($dNSHostName -split '\.',2)[1])
+				}
+			}
+			elseif(!$IPAddress -and ($OPSec -OR !$dNSHostName)){
+				$IPAddress = "No-IP"
+				$AllDNSEntries += [PSCustomObject]@{
+					Hostname = $(($dNSHostName -split '\.')[0])
+					"IP Address" = $IPAddress
+					Domain = $(($dNSHostName -split '\.',2)[1])
+				}
+			}
+			
+			if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
+			#$ObjectRetrieve = $TotalAllMachines | Where-Object {$_.domain -eq $AllDomain} | Where-Object {$_.name -eq $SCCMServerShort}
+			$Enrolled = (Get-WmiObject -Class SMS_Authority -Namespace root\CCM).CurrentManagementPoint -contains $dNSHostName
+			$ObjectRetrieve = $TotalEnabledDisabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $_.dnshostname -eq $dNSHostName}
+			$ProcessedSCCMServers[$dNSHostName] = $true
+			[PSCustomObject]@{
+				Server = $SCCMServerShort
+				"Enabled" = if ($ObjectRetrieve.useraccountcontrol -band 2) { "False" } else { "True" }
+				"Active" = if(!$ObjectRetrieve.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $ObjectRetrieve.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
+				Enrolled = $Enrolled
+				"IP Address" = $IPAddress
+				"Operating System" = $ObjectRetrieve.operatingsystem
+				"Account SID" = GetSID-FromBytes -sidBytes $ObjectRetrieve.objectsid
+				Domain = $SCCMServerDomain
+			}
+			$IPAddress = $null
 		}
+	}
+	
+	if($TempSCCMServers){
+		if(!$NoOutput){$TempSCCMServers | Sort-Object -Unique Domain,Server | Format-Table -AutoSize -Wrap}
+		$HTMLSCCMServers = $TempSCCMServers | Sort-Object -Unique Domain,Server | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='SCCMServers'>SCCM Servers</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='SCCMServers'>" }
 	}
 	
 	####################################################
@@ -5161,7 +5155,7 @@ Add-Type -TypeDefinition $code
 	####################################################
     ######### Check Alive Hosts ###############
 	####################################################
-	if(-NOT ($NoSMBSigningEnum -AND $NoWebDAVEnum -AND $OPSec)){
+	if (-not $OPSec -and -not ($NoWebDAVEnum -and $NoSMBSigningEnum)) {
 		$AllAliveTargets = @()
 		$AllAliveTargets = CheckAliveHosts -Targets $TotalEnabledMachines
   	}
