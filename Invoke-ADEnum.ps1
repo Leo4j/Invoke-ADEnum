@@ -198,7 +198,11 @@ function Invoke-ADEnum {
 		
 		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
-    	$PopulateHosts
+    	$PopulateHosts,
+		
+		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Switch]
+		$OutboundTrustDCs
 	)
 	
 	$stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -320,6 +324,8 @@ function Invoke-ADEnum {
  -NoWebDAVEnum			Do not enumerate for machines where WebDAV Service is running
  
  -OPSec				Avoid enumeration that runs port-scanning, and suspicious checks
+ 
+ -OutboundTrustDCs		Lists DCs for domains with outbound trust relationships
 
  -PassNotRequired		Enumerate for Users and Computers having Password-not-required attribute set
  
@@ -2050,7 +2056,7 @@ Add-Type -TypeDefinition $code
 		}
 	}
 	
-	<# if($OutboundTrusts){
+	if($OutboundTrusts -AND $OutboundTrustDCs){
 		foreach($OutTrust in $OutboundTrusts){
 			$result = nslookup -type=all "_ldap._tcp.dc._msdcs.$OutTrust" 2>$null
 			if ($result) {
@@ -2089,7 +2095,7 @@ Add-Type -TypeDefinition $code
 				}
 			}
 		}
-	} #>
+	}
 	
 	if($TempHTMLdc){
 		$TempHTMLdc | Sort-Object -Unique Domain,"DC Name" | ft -Autosize -Wrap
