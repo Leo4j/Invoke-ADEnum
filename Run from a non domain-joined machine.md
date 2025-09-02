@@ -16,11 +16,13 @@ At the bottom, add a line like this:
 Replace `10.0.2.128` with your DC's IP and `dc01.ferrari.local` with the correct FQDN of your domain controller.
 
 ## 2. launch an elevated `runas` session
-You need to run the tool using domain credentials. Use runas with the `/netonly` flag:
+You need to run the tool using domain credentials. 
+
+From an elevated prompt, run the `runas` command with the `/netonly` flag:
 ```
 runas /user:ferrari\randomuser /netonly cmd
 ```
-Replace `ferrari\randomuser` with a valid domain user. It’ll ask for a password.
+Replace `ferrari\randomuser` with a valid domain and user. It’ll ask for a password.
 
 A new CMD window will open – all commands in this window run as if you're authenticated to the domain.
 
