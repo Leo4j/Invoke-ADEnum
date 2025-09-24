@@ -650,6 +650,7 @@ $xlsHeader = @'
 			createDownloadLinkForTable('WeakPermissions');
 			createDownloadLinkForTable('AllowedToAct');
 			createDownloadLinkForTable('UserCreatedObjects');
+			createDownloadLinkForTable('AllowedtologontoUsers');
 			createDownloadLinkForTable('PasswordSetUsers');
    			createDownloadLinkForTable('UnixPasswordSet');
 			createDownloadLinkForTable('PassNotRequired');
@@ -1198,7 +1199,7 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 				Write-Output "[*] Collecting Users..."
 				
 				# Enabled Users
-				$TotalEnabledUsers += @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Users -Enabled -Property name,objectClass,objectCategory,distinguishedName,samaccountname,objectsid,lastlogontimestamp,pwdlastset,cn,memberof,admincount,serviceprincipalname,sidHistory,description,objectGuid,samAccountType,displayname,userPassword,unixUserPassword,homedirectory,msds-allowedtodelegateto,userAccountControl)
+				$TotalEnabledUsers += @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Users -Enabled -Property name,objectClass,objectCategory,distinguishedName,samaccountname,objectsid,lastlogontimestamp,pwdlastset,cn,memberof,admincount,serviceprincipalname,sidHistory,description,objectGuid,samAccountType,displayname,userPassword,unixUserPassword,homedirectory,msds-allowedtodelegateto,userAccountControl,userWorkstations)
 
 				# Disabled Users
 				$TotalDisabledUsers += @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Users -Disabled -Property samaccountname)
@@ -1315,7 +1316,7 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 				
 				# Enabled Users
 				foreach($AllDomain in $AllDomains){
-					$TotalEnabledUsers += @(Collect-ADObjects -Domain $AllDomain -Collect Users -Enabled -Property name,objectClass,objectCategory,distinguishedName,samaccountname,objectsid,lastlogontimestamp,pwdlastset,cn,memberof,admincount,serviceprincipalname,sidHistory,description,objectGuid,samAccountType,displayname,userPassword,unixUserPassword,homedirectory,msds-allowedtodelegateto,userAccountControl)
+					$TotalEnabledUsers += @(Collect-ADObjects -Domain $AllDomain -Collect Users -Enabled -Property name,objectClass,objectCategory,distinguishedName,samaccountname,objectsid,lastlogontimestamp,pwdlastset,cn,memberof,admincount,serviceprincipalname,sidHistory,description,objectGuid,samAccountType,displayname,userPassword,unixUserPassword,homedirectory,msds-allowedtodelegateto,userAccountControl,userWorkstations)
 				}
 
 				# Disabled Users
@@ -7227,7 +7228,44 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		}
   	}
 	
-	################################################
+	#########################################################
+	########### Users Allowed to logon to ###############
+	#########################################################
+
+	Write-Host ""
+	Write-Host "Users Allowed to logon to" -ForegroundColor Cyan
+	$TempAllowedtologonto = foreach ($AllDomain in $AllDomains) {
+		$AllowedtologontoUsers = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_."userWorkstations"})
+		foreach ($AllowedtologontoUser in $AllowedtologontoUsers) {
+			[PSCustomObject]@{
+				Domain = $AllDomain
+				"Name" = $AllowedtologontoUser.Name
+				"Enabled" = if ($AllowedtologontoUser.useraccountcontrol -band 2) { "False" } else { "True" }
+				"Active" = if(!$AllowedtologontoUser.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $AllowedtologontoUser.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
+				"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $AllowedtologontoUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $AllowedtologontoUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $AllowedtologontoUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"Last Logon" = if($AllowedtologontoUser.lastlogontimestamp){Convert-LdapTimestamp -timestamp $AllowedtologontoUser.lastlogontimestamp}else{""}
+				"SID" = GetSID-FromBytes -sidBytes $AllowedtologontoUser.objectSID
+				"Allowed to logon to" = $AllowedtologontoUser."userWorkstations" -join " - "
+			}
+		}
+	}
+
+	if ($TempAllowedtologonto) {
+		if(!$NoOutput){$TempAllowedtologonto | Sort-Object Domain,Name | Format-Table -AutoSize -Wrap}
+		$HTMLAllowedtologonto = $TempAllowedtologonto | Sort-Object Domain,Name | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='AllowedtologontoUsers'>Users Allowed to logon to</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='AllowedtologontoUsers'>" }
+
+		$AllowedtologontoTable = [PSCustomObject]@{
+			"Recommendations" = "Regularly review and audit 'Allowed to logon to' users to ensure they align with the principle of least privilege. Limit logon rights to the necessary machines only."
+		}
+		
+		$HTMLAllowedtologontoTable = $AllowedtologontoTable | ConvertTo-Html -As List -Fragment
+		$HTMLAllowedtologontoTable = $HTMLAllowedtologontoTable.Replace("*", "Recommendations")
+		$HTMLAllowedtologontoTable = "<div class='report-section' style='display:none;'>$HTMLAllowedtologontoTable</div>"
+	}
+	
+	################################################ 
 		######### Security Groups ###############
 		################################################
 		
@@ -8634,7 +8672,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	if(!$HTMLCertPublishers -AND !$HTMLVulnCertTemplates -AND !$HTMLExchangeTrustedSubsystem -AND !$HTMLServiceAccounts -AND !$HTMLGMSAs -AND !$HTMLnopreauthset -AND !$HTMLGPPasswords -AND !$HTMLPasswordSetUsers -AND !$HTMLUnixPasswordSet -AND !$HTMLEmptyPasswordUsers -AND !$HTMLEmptyPasswordComputers -AND !$HTMLTotalEmptyPass -AND !$HTMLCompTotalEmptyPass -AND !$HTMLPreWin2kCompatibleAccess -AND !$HTMLWin7AndServer2008 -AND !$HTMLMachineAccountsPriv -AND !$HTMLsidHistoryUsers -AND !$HTMLRevEncUsers -AND !$HTMLUnsupportedHosts){$MisconfigurationsBanner = $null}
 	if(!$HTMLFileServers -AND !$HTMLSQLServers -AND !$HTMLSCCMServers -AND !$HTMLWSUSServers -AND !$HTMLSMBSigningDisabled -AND !$HTMLWebDAVStatusResults -AND !$HTMLVNCUnauthAccess -AND !$HTMLPrinters -AND !$HTMLSPNAccounts -AND !$HTMLSharesResultsTable -AND !$HTMLHomeDirectories -AND !$HTMLEmptyGroups){$ExtendedChecksBanner = $null}
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLAllForests $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLOtherPolicies $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLLLMNR $HTMLMachineQuota $HTMLMachineAccountQuotaTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLVulnLMCompLevelComp $HTMLDNSRecords $HTMLSubnets $AdministratorsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLAdminsProtectedUsersAndSensitive $HTMLAdminsProtectedUsersAndSensitiveTable $HTMLSecurityProtectedUsersAndSensitive $HTMLSecurityProtectedUsersAndSensitiveTable $HTMLAdmCountProtectedUsersAndSensitive $HTMLAdmCountProtectedUsersAndSensitiveTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLFindLocalAdminAccess $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLESC11Table $HTMLADCSRPCEndpointsTable $HTMLVulnCertTemplates $HTMLCertTemplatesTable $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLGPPasswords $HTMLGPPasswordsTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLEmptyPasswordComputers $HTMLEmptyPasswordComputersTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLWin7AndServer2008 $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $ExtendedChecksBanner $HTMLFileServers $HTMLSQLServers $HTMLSCCMServers $HTMLWSUSServers $HTMLSMBSigningDisabled $HTMLWebDAVStatusResults $HTMLVNCUnauthAccess $HTMLPrinters $HTMLSPNAccounts $HTMLSharesResultsTable $HTMLHomeDirectories $HTMLEmptyGroups $GroupPolicyChecksBanner $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $DelegationChecksBanner $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLUnconstrainedUsers $HTMLUnconstrainedUsersTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLAccessAllowedComputers $HTMLAccessAllowedComputersTable $HTMLWeakPermissionsObjects $HTMLWeakPermissionsTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $SecurityGroupsBanner $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDCOMUsers $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLOrganizationManagement $HTMLPerformanceLogUsers $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLRDPUsers $HTMLRemManUsers $HTMLSchemaAdmins $HTMLServerOperators $InterestingDataBanner $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLAllForests $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLOtherPolicies $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLLLMNR $HTMLMachineQuota $HTMLMachineAccountQuotaTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLVulnLMCompLevelComp $HTMLDNSRecords $HTMLSubnets $AdministratorsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLAdminsProtectedUsersAndSensitive $HTMLAdminsProtectedUsersAndSensitiveTable $HTMLSecurityProtectedUsersAndSensitive $HTMLSecurityProtectedUsersAndSensitiveTable $HTMLAdmCountProtectedUsersAndSensitive $HTMLAdmCountProtectedUsersAndSensitiveTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLFindLocalAdminAccess $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLESC11Table $HTMLADCSRPCEndpointsTable $HTMLVulnCertTemplates $HTMLCertTemplatesTable $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLGPPasswords $HTMLGPPasswordsTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLEmptyPasswordComputers $HTMLEmptyPasswordComputersTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLWin7AndServer2008 $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $ExtendedChecksBanner $HTMLFileServers $HTMLSQLServers $HTMLSCCMServers $HTMLWSUSServers $HTMLSMBSigningDisabled $HTMLWebDAVStatusResults $HTMLVNCUnauthAccess $HTMLPrinters $HTMLSPNAccounts $HTMLSharesResultsTable $HTMLHomeDirectories $HTMLEmptyGroups $GroupPolicyChecksBanner $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $DelegationChecksBanner $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLUnconstrainedUsers $HTMLUnconstrainedUsersTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLAccessAllowedComputers $HTMLAccessAllowedComputersTable $HTMLWeakPermissionsObjects $HTMLWeakPermissionsTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $HTMLAllowedtologonto $HTMLAllowedtologontoTable $SecurityGroupsBanner $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDCOMUsers $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLOrganizationManagement $HTMLPerformanceLogUsers $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLRDPUsers $HTMLRemManUsers $HTMLSchemaAdmins $HTMLServerOperators $InterestingDataBanner $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
 	
 	if($Output){
 		$Output = $Output.TrimEnd('\')
