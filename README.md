@@ -49,7 +49,7 @@ Invoke-ADEnum -Exclude "contoso.local,domain.local"
 
 ## Recommended Coverage
 
-Empty-Password Spraying, Local Admin Access, RBCD, Weak Permissions, User-Created Objects, and abusable GPOs
+Local Admin Access, RBCD, User-Created Objects, abusable GPOs, and descriptions
 
 ```
 Invoke-ADEnum -FindLocalAdminAccess -RBCD -UserCreatedObjects -GPOsRights -MoreGPOs -AllDescriptions
