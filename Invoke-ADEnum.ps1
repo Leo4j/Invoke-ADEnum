@@ -691,6 +691,7 @@ $xlsHeader = @'
 			createDownloadLinkForTable('DNSRecordsRights');
 			createDownloadLinkForTable('VulnLMCompLevelComp');
 			createDownloadLinkForTable('DomainPolicy');
+			createDownloadLinkForTable('FineGrainedPolicy');
 			createDownloadLinkForTable('OtherPolicies');
 			createDownloadLinkForTable('KerberosPolicy');
 			createDownloadLinkForTable('UserAccountAnalysis');
@@ -1185,7 +1186,10 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 				Write-Output "[*] Collecting Policies..."
 				
 				# Domain Policies
-				$DomainPolicy += @(Collect-ADObjects -Domain $Domain -Server $Server -Collect DomainPolicy -Property minPwdAge,maxPwdAge,pwdProperties,minPwdLength,pwdHistoryLength,lockoutThreshold,ms-ds-machineaccountquota)
+				$DomainPolicy += @(Collect-ADObjects -Domain $Domain -Server $Server -Collect DomainPolicy -Property minPwdAge,maxPwdAge,pwdProperties,minPwdLength,pwdHistoryLength,lockoutThreshold,ms-ds-machineaccountquota,lockoutobservationwindow,lockoutduration)
+				
+				# FineGrained Policies
+				$FineGrainedPolicy += @(Collect-ADObjects -Domain $Domain -Server $Server -Collect FineGrained -Property name,msds-passwordcomplexityenabled,msds-maximumpasswordage,msds-passwordhistorylength,msds-minimumpasswordage,msds-lockoutduration,msds-lockoutobservationwindow,msds-minimumpasswordlength,msds-lockoutthreshold,msds-psoappliesto,msds-passwordsettingsprecedence,msds-passwordreversibleencryptionenabled)
 				
 				# All Policies
 				$PolicyTargets += @(Collect-ADObjects -Domain $Domain -Server $Server -Collect OtherPolicies -Property distinguishedname)
@@ -1298,7 +1302,12 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 				
 				# Domain Policies
 				foreach($AllDomain in $AllDomains){
-					$DomainPolicy += @(Collect-ADObjects -Domain $AllDomain -Collect DomainPolicy -Property minPwdAge,maxPwdAge,pwdProperties,minPwdLength,pwdHistoryLength,lockoutThreshold,ms-ds-machineaccountquota)
+					$DomainPolicy += @(Collect-ADObjects -Domain $AllDomain -Collect DomainPolicy -Property minPwdAge,maxPwdAge,pwdProperties,minPwdLength,pwdHistoryLength,lockoutThreshold,ms-ds-machineaccountquota,lockoutobservationwindow,lockoutduration)
+				}
+				
+				# FineGrained Policies
+				foreach($AllDomain in $AllDomains){
+					$FineGrainedPolicy += @(Collect-ADObjects -Domain $AllDomain -Collect FineGrained -Property name,msds-passwordcomplexityenabled,msds-maximumpasswordage,msds-passwordhistorylength,msds-minimumpasswordage,msds-lockoutduration,msds-lockoutobservationwindow,msds-minimumpasswordlength,msds-lockoutthreshold,msds-psoappliesto,msds-passwordsettingsprecedence,msds-passwordreversibleencryptionenabled)
 				}
 				
 				# All Policies
@@ -2368,6 +2377,8 @@ Add-Type -TypeDefinition $code
 			"Max Pwd Age"			= $MaxPwdAge
 			"Password History"		= $SelectDomainPolicy.'pwdHistoryLength'
 			"Lockout Threshold"		= $SelectDomainPolicy.'lockoutThreshold'
+			"Lockout Duration"		= ([TimeSpan]::FromTicks(($SelectDomainPolicy).lockoutduration)).Duration().ToString()
+			"Observation Window"	= ([TimeSpan]::FromTicks(($SelectDomainPolicy).lockoutobservationwindow)).Duration().ToString()
 			"Reversible Encryption"	= if ($SelectDomainPolicy.'pwdProperties' -band 16) {"Enabled"} else {"Disabled"}
 		}
 	}
@@ -2375,6 +2386,45 @@ Add-Type -TypeDefinition $code
  	if ($TempDomainPolicy) {
 		if(!$NoOutput){$TempDomainPolicy | Sort-Object Domain | Format-Table -AutoSize -Wrap}
 		$HTMLDomainPolicy = $TempDomainPolicy | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DomainPolicy'>Default Domain Policy</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DomainPolicy'>" }
+	}
+	
+	################################################
+    ######### Fine-Grained Password Policy ###############
+	################################################
+		
+	if($FineGrainedPolicy){
+		Write-Host ""
+		Write-Host "Fine-Grained Policies" -ForegroundColor Cyan
+		$TempFineGrained = foreach ($AllDomain in $AllDomains) {
+			$SelectFineGrainedPolicies = $FineGrainedPolicy | Where-Object { $_.domain -eq $AllDomain }
+			foreach($SelectFineGrainedPolicy in $SelectFineGrainedPolicies){
+				$MinPwdAge = Convert-ADTimeToDays -Interval $SelectFineGrainedPolicy.'msds-minimumpasswordage'
+				if($MinPwdAge -eq "Never Expires"){}else{$MinPwdAge = "$MinPwdAge day(s)"}
+				$MaxPwdAge = Convert-ADTimeToDays -Interval $SelectFineGrainedPolicy.'msds-maximumpasswordage'
+				if($MaxPwdAge -eq "Never Expires"){}else{$MaxPwdAge = "$MaxPwdAge day(s)"}
+				$FineTargetPrincipals = ($SelectFineGrainedPolicy.'msds-psoappliesto' | ForEach-Object {($_ -split ",")[0] -replace "^CN=", ""}) -join ", "
+				[PSCustomObject]@{
+					"Domain"				= $AllDomain
+					"Name"					= $SelectFineGrainedPolicy.name
+					"Precedence"			= $SelectFineGrainedPolicy.'msds-passwordsettingsprecedence'
+					"Pwd Complexity"		= if ($SelectFineGrainedPolicy.'msds-passwordcomplexityenabled' -eq "True") {"Enabled"} else {"Disabled"}
+					"Min Pwd Length"		= $SelectFineGrainedPolicy.'msds-minimumpasswordlength'
+					"Min Pwd Age"			= $MinPwdAge
+					"Max Pwd Age"			= $MaxPwdAge
+					"Password History"		= $SelectFineGrainedPolicy.'msds-passwordhistorylength'
+					"Lockout Threshold"		= $SelectFineGrainedPolicy.'msds-lockoutthreshold'
+					"Lockout Duration"		= ([TimeSpan]::FromTicks(($SelectFineGrainedPolicy).'msds-lockoutduration')).Duration().ToString()
+					"Observation Window"	= ([TimeSpan]::FromTicks(($SelectFineGrainedPolicy).'msds-lockoutobservationwindow')).Duration().ToString()
+					"Reversible Encryption"	= if ($SelectFineGrainedPolicy.'msds-passwordreversibleencryptionenabled' -eq 'True') {"Enabled"} else {"Disabled"}
+					"Principals"					= $FineTargetPrincipals
+				}
+			}
+		}
+
+		if ($TempFineGrained) {
+			if(!$NoOutput){$TempFineGrained | Sort-Object Domain | Format-Table -AutoSize -Wrap}
+			$HTMLFineGrained = $TempFineGrained | Sort-Object Domain | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='FineGrainedPolicy'>Fine-Grained Policies</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='FineGrainedPolicy'>" }
+		}
 	}
 	
 	################################################
@@ -8667,7 +8717,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	if(!$HTMLCertPublishers -AND !$HTMLVulnCertTemplates -AND !$HTMLExchangeTrustedSubsystem -AND !$HTMLServiceAccounts -AND !$HTMLGMSAs -AND !$HTMLnopreauthset -AND !$HTMLGPPasswords -AND !$HTMLPasswordSetUsers -AND !$HTMLUnixPasswordSet -AND !$HTMLEmptyPasswordUsers -AND !$HTMLEmptyPasswordComputers -AND !$HTMLTotalEmptyPass -AND !$HTMLCompTotalEmptyPass -AND !$HTMLPreWin2kCompatibleAccess -AND !$HTMLWin7AndServer2008 -AND !$HTMLMachineAccountsPriv -AND !$HTMLsidHistoryUsers -AND !$HTMLRevEncUsers -AND !$HTMLUnsupportedHosts){$MisconfigurationsBanner = $null}
 	if(!$HTMLFileServers -AND !$HTMLSQLServers -AND !$HTMLSCCMServers -AND !$HTMLWSUSServers -AND !$HTMLWebDAVStatusResults -AND !$HTMLVNCUnauthAccess -AND !$HTMLPrinters -AND !$HTMLSPNAccounts -AND !$HTMLSharesResultsTable -AND !$HTMLHomeDirectories -AND !$HTMLEmptyGroups){$ExtendedChecksBanner = $null}
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLAllForests $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLOtherPolicies $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLLLMNR $HTMLMachineQuota $HTMLMachineAccountQuotaTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLVulnLMCompLevelComp $HTMLDNSRecords $HTMLSubnets $AdministratorsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLAdminsProtectedUsersAndSensitive $HTMLAdminsProtectedUsersAndSensitiveTable $HTMLSecurityProtectedUsersAndSensitive $HTMLSecurityProtectedUsersAndSensitiveTable $HTMLAdmCountProtectedUsersAndSensitive $HTMLAdmCountProtectedUsersAndSensitiveTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLFindLocalAdminAccess $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLESC11Table $HTMLADCSRPCEndpointsTable $HTMLVulnCertTemplates $HTMLCertTemplatesTable $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLGPPasswords $HTMLGPPasswordsTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLEmptyPasswordComputers $HTMLEmptyPasswordComputersTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLWin7AndServer2008 $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $ExtendedChecksBanner $HTMLFileServers $HTMLSQLServers $HTMLSCCMServers $HTMLWSUSServers $HTMLWebDAVStatusResults $HTMLVNCUnauthAccess $HTMLPrinters $HTMLSPNAccounts $HTMLSharesResultsTable $HTMLHomeDirectories $HTMLEmptyGroups $GroupPolicyChecksBanner $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $DelegationChecksBanner $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLUnconstrainedUsers $HTMLUnconstrainedUsersTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLAccessAllowedComputers $HTMLAccessAllowedComputersTable $HTMLWeakPermissionsObjects $HTMLWeakPermissionsTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $HTMLAllowedtologonto $HTMLAllowedtologontoTable $HTMLManagedObjects $HTMLManagedObjectsTable $SecurityGroupsBanner $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDCOMUsers $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLOrganizationManagement $HTMLPerformanceLogUsers $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLRDPUsers $HTMLRemManUsers $HTMLSchemaAdmins $HTMLServerOperators $InterestingDataBanner $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLAllForests $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLFineGrained $HTMLOtherPolicies $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLLLMNR $HTMLMachineQuota $HTMLMachineAccountQuotaTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLVulnLMCompLevelComp $HTMLDNSRecords $HTMLSubnets $AdministratorsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLAdminsProtectedUsersAndSensitive $HTMLAdminsProtectedUsersAndSensitiveTable $HTMLSecurityProtectedUsersAndSensitive $HTMLSecurityProtectedUsersAndSensitiveTable $HTMLAdmCountProtectedUsersAndSensitive $HTMLAdmCountProtectedUsersAndSensitiveTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLFindLocalAdminAccess $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLESC11Table $HTMLADCSRPCEndpointsTable $HTMLVulnCertTemplates $HTMLCertTemplatesTable $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLGPPasswords $HTMLGPPasswordsTable $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLEmptyPasswordComputers $HTMLEmptyPasswordComputersTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLWin7AndServer2008 $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $ExtendedChecksBanner $HTMLFileServers $HTMLSQLServers $HTMLSCCMServers $HTMLWSUSServers $HTMLWebDAVStatusResults $HTMLVNCUnauthAccess $HTMLPrinters $HTMLSPNAccounts $HTMLSharesResultsTable $HTMLHomeDirectories $HTMLEmptyGroups $GroupPolicyChecksBanner $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $DelegationChecksBanner $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLUnconstrainedUsers $HTMLUnconstrainedUsersTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLAccessAllowedComputers $HTMLAccessAllowedComputersTable $HTMLWeakPermissionsObjects $HTMLWeakPermissionsTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $HTMLAllowedtologonto $HTMLAllowedtologontoTable $HTMLManagedObjects $HTMLManagedObjectsTable $SecurityGroupsBanner $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDCOMUsers $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLOrganizationManagement $HTMLPerformanceLogUsers $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLRDPUsers $HTMLRemManUsers $HTMLSchemaAdmins $HTMLServerOperators $InterestingDataBanner $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
 	
 	if($Output){
 		$Output = $Output.TrimEnd('\')
@@ -9518,8 +9568,8 @@ function Collect-ADObjects {
         [string]$Server = $null,
         [int]$numOfThreads = 4,
 		[Parameter(Mandatory = $false)]
-        [ValidateSet("Users", "Computers", "Groups", "GPOs", "DomainControllers", "OUs", "Else", "Printers", "DomainPolicy", "OtherPolicies", "rIDManagers")]
-        [string[]]$Collect = @("Users", "Computers", "Groups", "GPOs", "DomainControllers", "OUs", "Else", "Printers", "DomainPolicy", "OtherPolicies", "rIDManagers"),
+        [ValidateSet("Users", "Computers", "Groups", "GPOs", "DomainControllers", "OUs", "Else", "Printers", "DomainPolicy", "FineGrained", "OtherPolicies", "rIDManagers")]
+        [string[]]$Collect = @("Users", "Computers", "Groups", "GPOs", "DomainControllers", "OUs", "Else", "Printers", "DomainPolicy", "FineGrained", "OtherPolicies", "rIDManagers"),
 		[string[]]$Property,
 		[switch]$Enabled,
         [switch]$Disabled,
@@ -9572,6 +9622,7 @@ function Collect-ADObjects {
 				"Else" { $filters += "(&(!(objectCategory=person))(!(objectCategory=computer))(!(objectCategory=group))(!(objectCategory=organizationalUnit))(!(objectClass=groupPolicyContainer)))" }
 				"Printers" { $filters += "(objectCategory=printQueue)" }
                 "DomainPolicy" { $filters += "(objectClass=domainDNS)" }
+				"FineGrained" { $filters += "(objectClass=msDS-PasswordSettings)" }
                 "OtherPolicies" { $filters += "(cn=Policies*)" }
 				"rIDManagers" { $filters += "(objectClass=rIDManager)" }
 			}
