@@ -7238,7 +7238,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $AllowedtologontoUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
 				"Last Logon" = if($AllowedtologontoUser.lastlogontimestamp){Convert-LdapTimestamp -timestamp $AllowedtologontoUser.lastlogontimestamp}else{""}
 				"SID" = GetSID-FromBytes -sidBytes $AllowedtologontoUser.objectSID
-				"Allowed to Logon to" = $AllowedtologontoUser."userWorkstations" -join " - "
+				"Allowed to Logon to" = $AllowedtologontoUser."userWorkstations" -replace ",",", "
 			}
 		}
 	}
@@ -7292,7 +7292,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $ManagedObjectsGroup.samaccountname.Contains($_) }) { "YES" } else { "NO" }
 				"Last Logon" = if($ManagedObjectsGroup.lastlogontimestamp){Convert-LdapTimestamp -timestamp $ManagedObjectsGroup.lastlogontimestamp}else{""}
 				"SID" = GetSID-FromBytes -sidBytes $ManagedObjectsGroup.objectSID
-				"Managed Objects" = ($ManagedObjectsGroup.managedobjects | ForEach-Object { ($_ -split '[=,]')[1] }) -join ","
+				"Managed Objects" = ($ManagedObjectsGroup.managedobjects | ForEach-Object { ($_ -split '[=,]')[1] }) -join ", "
 			}
 		}
 	}
