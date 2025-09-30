@@ -4157,7 +4157,7 @@ Add-Type -TypeDefinition $code
 			if($GMSA."msds-groupmsamembership"){
 				$GMSAWhoCanReadBlob = $GMSA."msds-groupmsamembership"
 				$GMSAsd = New-Object System.Security.AccessControl.RawSecurityDescriptor($GMSAWhoCanReadBlob, 0)
-				$GMSAWhoCanRead = ($GMSAsd.DiscretionaryAcl | ForEach-Object {(New-Object System.Security.Principal.SecurityIdentifier($_.SecurityIdentifier)).Translate([System.Security.Principal.NTAccount])}) -join ", "
+				$GMSAWhoCanRead = ($GMSAsd.DiscretionaryAcl | Where-Object {$_.AceQualifier -like "*AccessAllowed*"} | ForEach-Object {try{(New-Object System.Security.Principal.SecurityIdentifier($_.SecurityIdentifier)).Translate([System.Security.Principal.NTAccount])}catch{$_.SecurityIdentifier}}) -join ", "
 			}
 				
 			[PSCustomObject]@{
@@ -4170,7 +4170,7 @@ Add-Type -TypeDefinition $code
 				#"Account Type" = $GMSA.samaccounttype
 				"Pwd Interval" = $GMSA."msds-managedpasswordinterval"
 				"Pwd Last Set" = if($GMSA.pwdlastset){Convert-LdapTimestamp -timestamp $GMSA.pwdlastset}else{""}
-				"Who Can Read" = if($GMSAWhoCanRead){$GMSAWhoCanRead}else{"Not Set"}
+				"Who Can Read" = if($GMSAWhoCanRead){$GMSAWhoCanRead}else{"Not Set or Access not Allowed"}
 				#"SID" = GetSID-FromBytes -sidBytes $GMSA.objectSID
 				<# "Object GUID" = ([guid]::New(([string]::Join('', ($GMSA.objectGuid | ForEach-Object { "{0:X2}" -f $_ }))[0..7] -join '') + "-" + 
                                               ([string]::Join('', ($GMSA.objectGuid | ForEach-Object { "{0:X2}" -f $_ }))[8..11] -join '') + "-" +
