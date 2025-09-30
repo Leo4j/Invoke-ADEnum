@@ -1232,7 +1232,7 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 				$TotalDisabledWorkstations += @($TotalDisabledMachines | Where-Object { $_.operatingSystem -notlike '*Server*'})
 				
 				# GMSA
-				$CollectGMSAs += @(Collect-ADObjects -Domain $Domain -Server $Server -LDAP "objectClass=msDS-GroupManagedServiceAccount" -Property samaccountname,lastlogontimestamp,msds-managedpasswordinterval,pwdlastset,objectSID,objectGuid)
+				$CollectGMSAs += @(Collect-ADObjects -Domain $Domain -Server $Server -LDAP "objectClass=msDS-GroupManagedServiceAccount" -Property samaccountname,lastlogontimestamp,msds-managedpasswordinterval,pwdlastset,objectSID,objectGuid,msds-groupmsamembership)
 				
 				# Collect SCCM Servers
 				$CollectSCCMServers += @(Collect-ADObjects -Domain $Domain -Server $Server -LDAP "objectClass=mSSMSManagementPoint" -Property mssmsmpname,dnshostname)
@@ -1364,7 +1364,7 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 				
 				# GMSA
 				foreach($AllDomain in $AllDomains){
-					$CollectGMSAs += @(Collect-ADObjects -Domain $AllDomain -LDAP "objectClass=msDS-GroupManagedServiceAccount" -Property samaccountname,lastlogontimestamp,msds-managedpasswordinterval,pwdlastset,objectSID,objectGuid)
+					$CollectGMSAs += @(Collect-ADObjects -Domain $AllDomain -LDAP "objectClass=msDS-GroupManagedServiceAccount" -Property samaccountname,lastlogontimestamp,msds-managedpasswordinterval,pwdlastset,objectSID,objectGuid,msds-groupmsamembership)
 				}
 				
 				# Collect SCCM Servers
@@ -4151,6 +4151,15 @@ Add-Type -TypeDefinition $code
 	$TempGMSAs = foreach ($AllDomain in $AllDomains) {
 		$GMSAs = @($CollectGMSAs | Where-Object {$_.domain -eq $AllDomain})
 		foreach ($GMSA in $GMSAs) {
+			$GMSAWhoCanReadBlob = $null
+			$GMSAsd = $null
+			$GMSAWhoCanRead = $null
+			if($GMSA."msds-groupmsamembership"){
+				$GMSAWhoCanReadBlob = $GMSA."msds-groupmsamembership"
+				$GMSAsd = New-Object System.Security.AccessControl.RawSecurityDescriptor($GMSAWhoCanReadBlob, 0)
+				$GMSAWhoCanRead = ($GMSAsd.DiscretionaryAcl | ForEach-Object {(New-Object System.Security.Principal.SecurityIdentifier($_.SecurityIdentifier)).Translate([System.Security.Principal.NTAccount])}) -join ", "
+			}
+				
 			[PSCustomObject]@{
 				"Account" = $GMSA.samaccountname
 				"Enabled" = if ($GMSA.useraccountcontrol -band 2) { "False" } else { "True" }
@@ -4161,12 +4170,13 @@ Add-Type -TypeDefinition $code
 				#"Account Type" = $GMSA.samaccounttype
 				"Pwd Interval" = $GMSA."msds-managedpasswordinterval"
 				"Pwd Last Set" = if($GMSA.pwdlastset){Convert-LdapTimestamp -timestamp $GMSA.pwdlastset}else{""}
-				"SID" = GetSID-FromBytes -sidBytes $GMSA.objectSID
-				"Object GUID" = ([guid]::New(([string]::Join('', ($GMSA.objectGuid | ForEach-Object { "{0:X2}" -f $_ }))[0..7] -join '') + "-" + 
+				"Who Can Read" = if($GMSAWhoCanRead){$GMSAWhoCanRead}else{"Not Set"}
+				#"SID" = GetSID-FromBytes -sidBytes $GMSA.objectSID
+				<# "Object GUID" = ([guid]::New(([string]::Join('', ($GMSA.objectGuid | ForEach-Object { "{0:X2}" -f $_ }))[0..7] -join '') + "-" + 
                                               ([string]::Join('', ($GMSA.objectGuid | ForEach-Object { "{0:X2}" -f $_ }))[8..11] -join '') + "-" +
                                               ([string]::Join('', ($GMSA.objectGuid | ForEach-Object { "{0:X2}" -f $_ }))[12..15] -join '') + "-" +
                                               ([string]::Join('', ($GMSA.objectGuid | ForEach-Object { "{0:X2}" -f $_ }))[16..19] -join '') + "-" +
-                                              ([string]::Join('', ($GMSA.objectGuid | ForEach-Object { "{0:X2}" -f $_ }))[20..31] -join ''))).Guid
+                                              ([string]::Join('', ($GMSA.objectGuid | ForEach-Object { "{0:X2}" -f $_ }))[20..31] -join ''))).Guid #>
 				"Domain" = $AllDomain
 			}
 		}
