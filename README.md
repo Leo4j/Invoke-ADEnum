@@ -55,7 +55,13 @@ Local Admin Access, RBCD, User-Created Objects, abusable GPOs, and descriptions
 Invoke-ADEnum -FindLocalAdminAccess -RBCD -UserCreatedObjects -GPOsRights -MoreGPOs -AllDescriptions
 ```
 
+## OPSec
 
+Avoid enumeration that runs port-scanning, DNS resolution, and suspicious checks
+
+```
+Invoke-ADEnum -OPSec -RBCD -UserCreatedObjects -GPOsRights -MoreGPOs -AllDescriptions
+```
 
 ## Full Coverage
 
