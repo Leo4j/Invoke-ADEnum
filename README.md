@@ -71,10 +71,22 @@ Run all available checks that Invoke-ADEnum can perform. It can be very time-con
 Invoke-ADEnum -AllEnum -Force
 ```
 
-# Disclaimer
+## Security notes
 
-Invoke-ADEnum is intended exclusively for research, education, and authorized testing. Its purpose is to assist professionals and researchers in identifying misconfigurations and enhancing system security. 
+The script does not record, change, or interfere with anything in your environment.
 
-Users must secure explicit, mutual consent from all parties involved before utilizing this tool on any system, network, or digital environment, as unauthorized activities can lead to serious legal consequences. Users are responsible for adhering to all applicable laws and regulations related to cybersecurity and digital access.
+It does not collect or transmit any information. Nothing is sent over the internet. It runs completely offline.
+
+The only file it creates is a single HTML report, saved in the current working directory (if writable) or in C:\Users\Public\Documents.
+
+It does not need to run on a Domain Controller. You can run it from any workstation.
+
+It runs fully under a standard domain user account. It does not require elevated domain rights or local admin permissions.
+
+## Disclaimer
+
+Invoke-ADEnum is intended exclusively for research, education, and authorised testing. Its purpose is to assist professionals and researchers in identifying misconfigurations and enhancing system security. 
+
+Users must secure explicit, mutual consent from all parties involved before utilising this tool on any system, network, or digital environment, as unauthorised activities can lead to serious legal consequences. Users are responsible for adhering to all applicable laws and regulations related to cybersecurity and digital access.
 
 The creator of Invoke-ADEnum disclaims liability for any misuse or illicit use of the tool and is not responsible for any resulting damages or losses.
