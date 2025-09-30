@@ -198,7 +198,11 @@ function Invoke-ADEnum {
 		
 		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
-		$OutboundTrustDCs
+		$OutboundTrustDCs,
+		
+		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Switch]
+		$SkipDNSResolution
 	)
 	
 	$stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -328,6 +332,8 @@ function Invoke-ADEnum {
  -RBCD				Check for Resource Based Constrained Delegation (may take a long time depending on domain size)
 
  -SaveToDisk			Save collection data to disk (Location: c:\Users\Public\Documents\Invoke-ADEnum)
+ 
+ -SkipDNSResolution		Queries DNS records from the Active Directory domain only, and skips DNS resolution
  
  -TargetsOnly			Show Target Domains only (Stay in scope) - Will not create a Report
 
@@ -1639,6 +1645,26 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 	}
 	
 	#############################################
+    ############# Skip DNS Resolution ################
+	#############################################
+	
+	Write-Output "[*] Skipping DNS Resolution..."
+	if($SkipDNSResolution){
+		$AllDNSEntries += foreach($AllDomain in $AllDomains){
+			foreach($EnabledMachine in ($TotalEnabledMachines | Where-Object{$_.domain -eq $AllDomain})){
+				if(($AllDNSEntries | Where-Object{$_.domain -eq $AllDomain}).Hostname -contains $EnabledMachine.name){continue}
+				else{
+					[PSCustomObject]@{
+						Hostname = $EnabledMachine.name
+						"IP Address" = ".Skipped"
+						Domain = $AllDomain
+					}
+				}
+			}
+		}
+	}
+	
+	#############################################
     ############# Target Domains ################
 	#############################################
 	
@@ -1987,7 +2013,6 @@ Add-Type -TypeDefinition $code
 			Domain = $AllDomain
 		}
 	}
-
 
     if($TempKrbtgtAccount){
 		$TempKrbtgtAccount | Sort-Object Domain | ft -Autosize -Wrap
