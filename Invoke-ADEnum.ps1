@@ -10883,11 +10883,15 @@ function Get-DNSRecords {
     )
 
     $domainDN = "DC=" + ($Domain -replace "\.", ",DC=")
-    if ($Domain -and $Server) {
-        $domainDNSZonesDN = "LDAP://$Server/DC=DomainDnsZones,$domainDN"
-    } else {
-        $domainDNSZonesDN = "LDAP://DC=DomainDnsZones,$domainDN"
-    }
-
-    DNSRecords -searchBase $domainDNSZonesDN -Domain $Domain
+	
+	$prefix = if ($Domain -and $Server) { "LDAP://$Server/" } else { "LDAP://" }
+	
+	$searchBases = @(
+        "${prefix}DC=DomainDnsZones,$domainDN",
+        "${prefix}CN=MicrosoftDNS,CN=System,$domainDN"
+    )
+	
+    foreach ($sb in $searchBases) {
+		DNSRecords -searchBase $sb -Domain $Domain
+	}
 }
