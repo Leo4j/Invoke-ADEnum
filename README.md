@@ -79,9 +79,14 @@ It does not collect or transmit any information. Nothing is sent over the intern
 
 The only file it creates is a single HTML report, saved in the current working directory (if writable) or in C:\Users\Public\Documents.
 
-It does not need to run on a Domain Controller. You can run it from any workstation.
+It does not need to run on a Domain Controller. You can run it from any machine (like a workstation) as long as it is domain-joined.
 
 It runs fully under a standard domain user account. It does not require elevated domain rights or local admin permissions.
+
+Finally, the following two JavaScript libraries are embedded in the script so it can run offline. They’re used to generate an HTML file and an Excel spreadsheet.
+
+<img width="1570" height="307" alt="image" src="https://github.com/user-attachments/assets/70feca1d-eaff-415d-b334-72b35460c03d" />
+
 
 ## Disclaimer
 
