@@ -4367,7 +4367,7 @@ Add-Type -TypeDefinition $code
 	
 	$TempUnixPasswordSet = foreach ($AllDomain in $AllDomains) {
 		
-		$UnixPasswordSetUsers = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.unixUserPassword} | % {Add-Member -InputObject $_ NoteProperty 'Password' "$([System.Text.Encoding]::ASCII.GetString($_.unixuserPassword))" -PassThru})
+		$UnixPasswordSetUsers = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.unixUserPassword} | % {Add-Member -InputObject $_ NoteProperty 'UnixPassword' "$([System.Text.Encoding]::ASCII.GetString($_.unixuserPassword))" -PassThru})
 	
 		foreach($UnixPasswordSet in $UnixPasswordSetUsers){
 			
@@ -4378,7 +4378,7 @@ Add-Type -TypeDefinition $code
 				"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $UnixPasswordSet.samaccountname.Contains($_) }) { "YES" } else { "NO" }
 				"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $UnixPasswordSet.samaccountname.Contains($_) }) { "YES" } else { "NO" }
 				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $UnixPasswordSet.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"User Password" = $UnixPasswordSet.Password
+				"User Password" = $UnixPasswordSet.UnixPassword
 				"Raw Password" = ($UnixPasswordSet.unixuserPassword) -join ' '
 				"Last Logon" = if($UnixPasswordSet.lastlogontimestamp){Convert-LdapTimestamp -timestamp $UnixPasswordSet.lastlogontimestamp}else{""}
 				"Pwd Last Set" = if($UnixPasswordSet.pwdlastset){Convert-LdapTimestamp -timestamp $UnixPasswordSet.pwdlastset}else{""}
