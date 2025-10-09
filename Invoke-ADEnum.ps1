@@ -6192,7 +6192,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 					$splitString = ($splitString | Out-String) -split "`n"
 					$splitString = $splitString.Trim()
 					$splitString = $splitString | Where-Object { $_ -ne "" }
-					$splitString = $splitString | ForEach-Object { $_.Trim() -replace '[^A-Za-z0-9\\\s;]', '' }
+					$splitString = $splitString | ForEach-Object { $_.Trim() -replace '[^A-Za-z0-9\\.\\\s;]', '' }
 					if($splitString | Where-Object {$_ -match 'AdmPwdEnabled'}){
 						$adminAccountRow = $splitString | Where-Object {$_ -match 'AdminAccountName'}
 						if ($adminAccountRow) {
