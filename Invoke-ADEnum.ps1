@@ -6186,13 +6186,13 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			
 				foreach($LAPSGPOLoc in $LAPSGPOLocation){
 					if($Domain -and $Server){$LAPSGPOLoc = $LAPSGPOLoc -replace '(?<=^\\\\)[^\\]+', $Server}
-					$inputString = Get-Content $LAPSGPOLoc\Machine\Registry.pol
+					$inputString = try{(Get-Content $LAPSGPOLoc\Machine\Registry.pol -ErrorAction Stop) -join "`n"}catch{continue}
 					$splitString = $inputString.Substring($inputString.IndexOf('['), $inputString.LastIndexOf(']') - $inputString.IndexOf('[') + 1)
 					$splitString = ($splitString -split '\[|\]').Where{$_ -ne ''}
 					$splitString = ($splitString | Out-String) -split "`n"
 					$splitString = $splitString.Trim()
 					$splitString = $splitString | Where-Object { $_ -ne "" }
-					$splitString = $splitString | ForEach-Object {$_.Trim() -replace '[^A-Za-z0-9\s;]', ''}
+					$splitString = $splitString | ForEach-Object { $_.Trim() -replace '[^A-Za-z0-9\\\s;]', '' }
 					if($splitString | Where-Object {$_ -match 'AdmPwdEnabled'}){
 						$adminAccountRow = $splitString | Where-Object {$_ -match 'AdminAccountName'}
 						if ($adminAccountRow) {
@@ -11126,7 +11126,7 @@ function DNSRecords {
     $directorySearcher.PropertiesToLoad.Add("dnsRecord") | Out-Null
     $directorySearcher.PropertiesToLoad.Add("DC") | Out-Null
 
-    $results = $directorySearcher.FindAll()
+    try{$results = $directorySearcher.FindAll()}catch{}
     foreach ($result in $results) {
         $dnsRecords = $result.Properties["dnsRecord"]
         $hostname = $result.Properties["DC"][0]
