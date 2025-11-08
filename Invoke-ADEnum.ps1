@@ -1891,6 +1891,7 @@ Add-Type -TypeDefinition $code
 	
 	    if($TempGetDomainTrust){
      		Write-Host ""
+			Write-Host ""
 			Write-Host "Domain Trusts" -ForegroundColor Cyan
 			($TempGetDomainTrust | Format-Table -Autosize -Wrap | Out-String).TrimEnd()
 		}
@@ -1900,6 +1901,7 @@ Add-Type -TypeDefinition $code
 		############# Domain Controllers ################
 		#############################################
 		
+		Write-Host ""
 		Write-Host ""
 		Write-Host "Domain Controllers" -ForegroundColor Cyan
 		$TempHTMLdc = @()
@@ -2000,6 +2002,7 @@ Add-Type -TypeDefinition $code
 		}
 		
 		Write-Host ""
+		Write-Host ""
 		Write-Host "Accounts Analysis" -ForegroundColor Cyan
 		
 		$QuickDomainAnalysis = foreach($AllDomain in $AllDomains){
@@ -2019,6 +2022,9 @@ Add-Type -TypeDefinition $code
 		}
 		
 		($QuickDomainAnalysis | ft -Autosize -Wrap | Out-String).TrimEnd()
+		
+		Write-Host ""
+		Write-Host ""
 		
 		break
 	}
@@ -2457,9 +2463,13 @@ Add-Type -TypeDefinition $code
 		if($MinPwdAge -eq "Never Expires"){}else{$MinPwdAge = "$MinPwdAge day(s)"}
 		$MaxPwdAge = Convert-ADTimeToDays -Interval $SelectDomainPolicy.'maxPwdAge'
 		if($MaxPwdAge -eq "Never Expires"){}else{$MaxPwdAge = "$MaxPwdAge day(s)"}
+		$pwdProperty = [int]$SelectDomainPolicy.pwdProperties
+		if (($pwdProperty -band 16) -ne 0) {$reversencryption = "Enabled"} else {$reversencryption = "Disabled"}
+		if (($pwdProperty -band 1) -ne 0) {$passwcomplexity = "Enabled"} else {$passwcomplexity = "Disabled"}
+		
 		[PSCustomObject]@{
 			"Domain"				= $AllDomain
-			"Pwd Complexity"		= if ($SelectDomainPolicy.'pwdProperties' -band 1) {"Enabled"} else {"Disabled"}
+			"Pwd Complexity"		= $passwcomplexity
 			"Min Pwd Length"		= $SelectDomainPolicy.'minPwdLength'
 			"Min Pwd Age"			= $MinPwdAge
 			"Max Pwd Age"			= $MaxPwdAge
@@ -2467,7 +2477,7 @@ Add-Type -TypeDefinition $code
 			"Lockout Threshold"		= $SelectDomainPolicy.'lockoutThreshold'
 			"Lockout Duration"		= ([TimeSpan]::FromTicks(($SelectDomainPolicy).lockoutduration)).Duration().ToString()
 			"Observation Window"	= ([TimeSpan]::FromTicks(($SelectDomainPolicy).lockoutobservationwindow)).Duration().ToString()
-			"Reversible Encryption"	= if ($SelectDomainPolicy.'pwdProperties' -band 16) {"Enabled"} else {"Disabled"}
+			"Reversible Encryption"	= $reversencryption
 		}
 	}
 
