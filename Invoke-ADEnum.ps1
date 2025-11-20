@@ -4419,9 +4419,8 @@ Add-Type -TypeDefinition $code
 	$TempServiceAccounts = foreach ($AllDomain in $AllDomains) {
 		$ServiceAccounts = @($TotalEnabledUsers | Where-Object {$_.serviceprincipalname -AND $_.domain -eq $AllDomain})
 		foreach ($Account in $ServiceAccounts) {
-			$MergeSPNs = @($Account.serviceprincipalname | ForEach-Object { $_.ToString() }) -join ", "
+			#$MergeSPNs = @($Account.serviceprincipalname | ForEach-Object { $_.ToString() }) -join ", "
 			[PSCustomObject]@{
-				"Domain" = $AllDomain
 				"Account" = $Account.samaccountname
 				"Enabled" = if ($Account.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if(!$Account.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $Account.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
@@ -4430,8 +4429,9 @@ Add-Type -TypeDefinition $code
 				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $Account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
 				"Last Logon" = if($Account.lastlogontimestamp){Convert-LdapTimestamp -timestamp $Account.lastlogontimestamp}else{""}
 				"Pwd Last Set" = if($Account.pwdlastset){Convert-LdapTimestamp -timestamp $Account.pwdlastset}else{""}
-				"SPN" = $MergeSPNs
+				#"SPN" = $MergeSPNs
 				#"SID" = GetSID-FromBytes -sidBytes $Account.objectSID
+				"Domain" = $AllDomain
 			}
 		}
 	}
