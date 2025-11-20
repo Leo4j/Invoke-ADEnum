@@ -220,6 +220,7 @@ function Invoke-ADEnum {
 		$ErrorActionPreference = "SilentlyContinue"
 		$WarningPreference = "SilentlyContinue"
 	}
+	$ProgressPreference = 'SilentlyContinue'
 	
 	# Set the process priority to High
 	$currentProcess = [System.Diagnostics.Process]::GetCurrentProcess()
@@ -853,7 +854,34 @@ $toggleScript = @"
 
 $header = $Comboheader + $xlsHeader + $toggleScript
 	
-    Write-Host "Enumerating domains and forests..." -ForegroundColor Cyan
+    $domainjoined = Test-DomainJoinStatus
+	if(!$domainjoined){
+		
+		if(!$Domain -OR !$Server){
+			Write-Host ""
+			Write-Host "[!] Non-joined host detected. You must specify a target Domain and Server" -ForegroundColor Red
+			Write-Host ""
+			break
+		}
+		elseif(-not (Test-TGT)){
+			Write-Host ""
+			Write-Host "[!] Non-joined host detected. You must obtain and import a TGT first" -ForegroundColor Red
+			Write-Host ""
+			break
+		}
+		elseif(-not (Test-HostsEntry -Server $Server)){
+			Write-Host ""
+			Write-Host "[!] Non-joined host detected. You must populate the Hosts file with the DC's IP and FQDN" -ForegroundColor Red
+			Write-Host ""
+			break
+		}
+		else{
+			Write-Host "[*] Non-joined host detected" -ForegroundColor DarkGreen
+			Write-Host ""
+		}
+	}
+	
+	Write-Host "Enumerating domains and forests..." -ForegroundColor Cyan
 	
 	if($Domain){
 		if(!$Server){
@@ -1914,7 +1942,10 @@ Add-Type -TypeDefinition $code
 				$startupTime = [NativeMethods]::GetStartupTime($dc.dnshostname)
 				$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $dc.name -AND $_.Domain -eq $dc.domain} | Select-Object -ExpandProperty "IP Address"
 				if(!$IPAddress -and !$OPSec -and $dc.DnsHostName){
-					if($Domain -and $Server){$IPAddress = try{(Resolve-DnsName -Name $dc.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+					if($Domain -and $Server){
+						if(!$domainjoined){$IPAddress = try{(Resolve-DnsName -Name $dc.DnsHostName -Type A -Server $Server -ErrorAction Stop -TcpOnly).IPAddress}catch{"No-IP"}}
+						else{$IPAddress = try{(Resolve-DnsName -Name $dc.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+					}
 					else{$IPAddress = try{(Resolve-DnsName -Name $dc.DnsHostName -Type A -ErrorAction Stop).IPAddress}catch{"No-IP"}}
 					if(!$IPAddress){$IPAddress = "No-IP"}
 					$AllDNSEntries += [PSCustomObject]@{
@@ -2077,7 +2108,10 @@ Add-Type -TypeDefinition $code
 			$startupTime = [NativeMethods]::GetStartupTime($dc.dnshostname)
 			$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $dc.name -AND $_.Domain -eq $dc.domain} | Select-Object -ExpandProperty "IP Address"
 			if(!$IPAddress -and !$OPSec -and $dc.DnsHostName){
-				if($Domain -and $Server){$IPAddress = try{(Resolve-DnsName -Name $dc.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+				if($Domain -and $Server){
+					if(!$domainjoined){$IPAddress = try{(Resolve-DnsName -Name $dc.DnsHostName -Type A -Server $Server -ErrorAction Stop -TcpOnly).IPAddress}catch{"No-IP"}}
+					else{$IPAddress = try{(Resolve-DnsName -Name $dc.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+				}
 				else{$IPAddress = try{(Resolve-DnsName -Name $dc.DnsHostName -Type A -ErrorAction Stop).IPAddress}catch{"No-IP"}}
 				if(!$IPAddress){$IPAddress = "No-IP"}
 				$AllDNSEntries += [PSCustomObject]@{
@@ -2341,7 +2375,8 @@ Add-Type -TypeDefinition $code
 		$TDOSourceDomainName = $TDOSourceDomainName -replace " ", ",DC="
 		foreach($TDOTargetName in $TDOTargetNames){
 			$TDOName = "CN=$($TDOTargetName.TargetName),CN=System,$TDOSourceDomainName"
-			$TrustedDomainObjectGUIDs = @(Collect-ADObjects -Domain $AllDomain -LDAP "distinguishedname=$TDOName")
+			if($Domain -AND $Server){$TrustedDomainObjectGUIDs = @(Collect-ADObjects -Domain $Domain -Server $Server -LDAP "distinguishedname=$TDOName")}
+			else{$TrustedDomainObjectGUIDs = @(Collect-ADObjects -Domain $AllDomain -LDAP "distinguishedname=$TDOName")}
 			
 			foreach ($TrustedDomainObjectGUID in $TrustedDomainObjectGUIDs) {
 				[PSCustomObject]@{
@@ -2910,8 +2945,14 @@ Add-Type -TypeDefinition $code
 								try {
 									$tempholder = $_
 									$memberSID = New-Object System.Security.Principal.SecurityIdentifier($tempholder)
-									$memberUser = $memberSID.Translate([System.Security.Principal.NTAccount])
-									$memberUser.Value
+									if(!$domainjoined -AND $Domain -AND $Server){
+										$name = Resolve-SidViaADSI -SID $memberSID.Value -Server $Server
+										if($name){ $name } else { $tempholder }
+									}
+									else{
+										$memberUser = $memberSID.Translate([System.Security.Principal.NTAccount])
+										$memberUser.Value
+									}
 								} catch {
 									$tempholder
 								}
@@ -3148,7 +3189,10 @@ Add-Type -TypeDefinition $code
 				# Create a custom object for each OU with its members
 				$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $comp.name -AND $_.Domain -eq $comp.domain} | Select-Object -ExpandProperty "IP Address"
 				if(!$IPAddress -and !$OPSec -and $comp.DnsHostName){
-					if($Domain -and $Server){$IPAddress = try{(Resolve-DnsName -Name $comp.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+					if($Domain -and $Server){
+						if(!$domainjoined){$IPAddress = try{(Resolve-DnsName -Name $comp.DnsHostName -Type A -Server $Server -ErrorAction Stop -TcpOnly).IPAddress}catch{"No-IP"}}
+						else{$IPAddress = try{(Resolve-DnsName -Name $comp.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+					}
 					else{$IPAddress = try{(Resolve-DnsName -Name $comp.DnsHostName -Type A -ErrorAction Stop).IPAddress}catch{"No-IP"}}
 					if(!$IPAddress){$IPAddress = "No-IP"}
 					$AllDNSEntries += [PSCustomObject]@{
@@ -3751,14 +3795,35 @@ Add-Type -TypeDefinition $code
 			Write-Host "Local Admin Access" -ForegroundColor Cyan
 		}
 		$TempFindLocalAdminAccess = foreach ($AllDomain in $AllDomains) {
-			$OurFinalTargetsForAccess = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain})
+			#$OurFinalTargetsForAccess = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $_.dnshostname})
+			
+			$OurFinalTargetsForAccess = @(
+			  $TotalEnabledMachines | Where-Object {
+				$m = $_
+				if ($m.domain -ne $AllDomain -or -not $m.dnshostname) { return $false }
+
+				# exclude if this host has a cached IP of .Skipped or No-IP
+				$bad = $AllDNSEntries |
+				  Where-Object {
+					$_.Hostname -eq $m.name -and
+					$_.Domain   -eq $m.domain -and
+					$_.'IP Address' -in @('.Skipped','No-IP')
+				  } | Select-Object -First 1
+
+				-not $bad
+			  }
+			)
+			
 			$OurFinalTargetsForAccess = $OurFinalTargetsForAccess.dnshostname -join ','
 			$LocalAdminAccess = Find-LocalAdminAccess -Targets $OurFinalTargetsForAccess
 			foreach ($AdminAccess in $LocalAdminAccess) {
 				$CompObject = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $_.dnshostname -eq $AdminAccess.ComputerName})
 				$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $CompObject.name -AND $_.Domain -eq $CompObject.domain} | Select-Object -ExpandProperty "IP Address"
 				if(!$IPAddress -and !$OPSec -and $AdminAccess.ComputerName){
-					if($Domain -and $Server){$IPAddress = try{(Resolve-DnsName -Name $AdminAccess.ComputerName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+					if($Domain -and $Server){
+						if(!$domainjoined){$IPAddress = try{(Resolve-DnsName -Name $AdminAccess.ComputerName -Type A -Server $Server -ErrorAction Stop -TcpOnly).IPAddress}catch{"No-IP"}}
+						else{$IPAddress = try{(Resolve-DnsName -Name $AdminAccess.ComputerName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+					}
 					else{$IPAddress = try{(Resolve-DnsName -Name $AdminAccess.ComputerName -Type A -ErrorAction Stop).IPAddress}catch{"No-IP"}}
 					if(!$IPAddress){$IPAddress = "No-IP"}
 					$AllDNSEntries += [PSCustomObject]@{
@@ -3828,7 +3893,10 @@ Add-Type -TypeDefinition $code
 			
 			$IPAddresses = $AllDNSEntries | Where-Object {$_.Hostname -eq $CAName -AND $_.Domain -eq $CertPublisher.MemberDomain} | Select-Object -ExpandProperty "IP Address"
 			if(!$IPAddresses -and !$OPSec -and $CAFQDN){
-				if($Domain -and $Server){$IPAddresses = try{(Resolve-DnsName -Name $CAFQDN -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+				if($Domain -and $Server){
+					if(!$domainjoined){$IPAddresses = try{(Resolve-DnsName -Name $CAFQDN -Type A -Server $Server -ErrorAction Stop -TcpOnly).IPAddress}catch{"No-IP"}}
+					else{$IPAddresses = try{(Resolve-DnsName -Name $CAFQDN -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+				}
 				else{$IPAddresses = try{(Resolve-DnsName -Name $CAFQDN -Type A -ErrorAction Stop).IPAddress}catch{"No-IP"}}
 				if(!$IPAddress){$IPAddress = "No-IP"}
 				$AllDNSEntries += [PSCustomObject]@{
@@ -3849,8 +3917,14 @@ Add-Type -TypeDefinition $code
 			if($IPAddresses){
 				foreach($IPAddress in $IPAddresses){
 					$Endpoint = "$CAFQDN/certsrv/"
-					$httpuri = "http://$IPAddress/certsrv/"
-					$httpsuri = "https://$IPAddress/certsrv/"
+					if(!$domainjoined){
+						$httpuri = "http://$Endpoint"
+						$httpsuri = "https://$Endpoint"
+					}
+					else{
+						$httpuri = "http://$IPAddress/certsrv/"
+						$httpsuri = "https://$IPAddress/certsrv/"
+					}
 					
 					try{$httpresponse = Invoke-WebRequest -Uri $httpuri -UseDefaultCredentials -TimeoutSec 3 -UseBasicParsing}catch{$httperrorMessage = $_.Exception.Message}
 
@@ -4040,31 +4114,57 @@ Add-Type -TypeDefinition $code
 
 				# Collect owner information
 				if ($securityDescriptor) {
-					try {
-						$owner = $securityDescriptor.GetOwner([System.Security.Principal.NTAccount]).Value
-					} catch {
-						$getownersid = $securityDescriptor.GetOwner([System.Security.Principal.SecurityIdentifier]).Value
-						try{$owner = $TotalEnabledUsers | Where-Object {$_.ObjectSID -eq $getownersid} | Select-Object -ExpandProperty samaccountname}
-						catch{$owner = $getownersid}
+					if(!$domainjoined -AND $Domain -AND $Server){
+						try{
+							$ownerSid = $securityDescriptor.GetOwner([System.Security.Principal.SecurityIdentifier]).Value
+							$owner = Resolve-SidViaADSI -SID $ownerSid -Server $Server
+							if(-not $owner){ $owner = $ownerSid }
+						} catch { $owner = $null }
+					}
+					else{
+						try {
+							$owner = $securityDescriptor.GetOwner([System.Security.Principal.NTAccount]).Value
+						} catch {
+							$getownersid = $securityDescriptor.GetOwner([System.Security.Principal.SecurityIdentifier]).Value
+							try{$owner = $TotalEnabledUsers | Where-Object {$_.ObjectSID -eq $getownersid} | Select-Object -ExpandProperty samaccountname}
+							catch{$owner = $getownersid}
+						}
 					}
 				}
 
 				# Collect ACL information
 				$aclInfo = @()
-				$aclInfo = foreach ($ace in $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount])) {
-					if(Test-SidFormat $ace.IdentityReference.Value){
-						if(-not ($ace.IdentityReference.Value -match $sidPattern) -and $excludedSIDs -notcontains $ace.IdentityReference.Value){
-							$aceIdentityReferenceObj = $SumGroupsUsers | Where-Object {$_.domain -eq $AllDomain -AND (GetSID-FromBytes -sidBytes $_.objectsid) -eq $ace.IdentityReference.Value}
-							$aceIdentityReferenceValue = "$(($aceIdentityReferenceObj.domain -split "\.")[0])\$($aceIdentityReferenceObj.samaccountname)"
-						} else {continue}
+				if(!$domainjoined -AND $Domain -AND $Server){
+					$aclInfo = foreach ($ace in $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier])) {
+						$sid = $ace.IdentityReference.Value
+						$aceIdentityReferenceValue = Resolve-SidViaADSI -SID $sid -Server $Server
+						if(-not $aceIdentityReferenceValue){ $aceIdentityReferenceValue = $sid }
+
+						[PSCustomObject]@{
+							"Delegated Group"      = $aceIdentityReferenceValue
+							"ActiveDirectoryRights"= $ace.ActiveDirectoryRights
+							"ObjectType"           = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
+							"InheritedObjectType"  = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
+							"Domain"               = $AllDomain
+						}
 					}
-					else{$aceIdentityReferenceValue = $ace.IdentityReference.Value}
-					[PSCustomObject]@{
-						"Delegated Group" = $aceIdentityReferenceValue
-						"ActiveDirectoryRights" = $ace.ActiveDirectoryRights
-						"ObjectType" = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
-						"InheritedObjectType" = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
-						"Domain" = $AllDomain
+				}
+				else{
+					$aclInfo = foreach ($ace in $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount])) {
+						if(Test-SidFormat $ace.IdentityReference.Value){
+							if(-not ($ace.IdentityReference.Value -match $sidPattern) -and $excludedSIDs -notcontains $ace.IdentityReference.Value){
+								$aceIdentityReferenceObj = $SumGroupsUsers | Where-Object {$_.domain -eq $AllDomain -AND (GetSID-FromBytes -sidBytes $_.objectsid) -eq $ace.IdentityReference.Value}
+								$aceIdentityReferenceValue = "$(($aceIdentityReferenceObj.domain -split "\.")[0])\$($aceIdentityReferenceObj.samaccountname)"
+							} else {continue}
+						}
+						else{$aceIdentityReferenceValue = $ace.IdentityReference.Value}
+						[PSCustomObject]@{
+							"Delegated Group" = $aceIdentityReferenceValue
+							"ActiveDirectoryRights" = $ace.ActiveDirectoryRights
+							"ObjectType" = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
+							"InheritedObjectType" = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
+							"Domain" = $AllDomain
+						}
 					}
 				}
 				
@@ -4129,31 +4229,57 @@ Add-Type -TypeDefinition $code
 
 				# Collect owner information
 				if ($securityDescriptor) {
-					try {
-						$owner = $securityDescriptor.GetOwner([System.Security.Principal.NTAccount]).Value
-					} catch {
-						$getownersid = $securityDescriptor.GetOwner([System.Security.Principal.SecurityIdentifier]).Value
-						try{$owner = $TotalEnabledUsers | Where-Object {$_.ObjectSID -eq $getownersid} | Select-Object -ExpandProperty samaccountname}
-						catch{$owner = $getownersid}
+					if(!$domainjoined -AND $Domain -AND $Server){
+						try{
+							$ownerSid = $securityDescriptor.GetOwner([System.Security.Principal.SecurityIdentifier]).Value
+							$owner = Resolve-SidViaADSI -SID $ownerSid -Server $Server
+							if(-not $owner){ $owner = $ownerSid }
+						} catch { $owner = $null }
+					}
+					else{
+						try {
+							$owner = $securityDescriptor.GetOwner([System.Security.Principal.NTAccount]).Value
+						} catch {
+							$getownersid = $securityDescriptor.GetOwner([System.Security.Principal.SecurityIdentifier]).Value
+							try{$owner = $TotalEnabledUsers | Where-Object {$_.ObjectSID -eq $getownersid} | Select-Object -ExpandProperty samaccountname}
+							catch{$owner = $getownersid}
+						}
 					}
 				}
 
 				# Collect ACL information
 				$aclInfo = @()
-				$aclInfo = foreach ($ace in $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount])) {
-					if(Test-SidFormat $ace.IdentityReference.Value){
-						if(-not ($ace.IdentityReference.Value -match $sidPattern) -and $excludedSIDs -notcontains $ace.IdentityReference.Value){
-							$aceIdentityReferenceObj = $SumGroupsUsers | Where-Object {$_.domain -eq $AllDomain -AND (GetSID-FromBytes -sidBytes $_.objectsid) -eq $ace.IdentityReference.Value}
-							$aceIdentityReferenceValue = "$(($aceIdentityReferenceObj.domain -split "\.")[0])\$($aceIdentityReferenceObj.samaccountname)"
-						} else {continue}
+				if(!$domainjoined -AND $Domain -AND $Server){
+					$aclInfo = foreach ($ace in $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier])) {
+						$sid = $ace.IdentityReference.Value
+						$aceIdentityReferenceValue = Resolve-SidViaADSI -SID $sid -Server $Server
+						if(-not $aceIdentityReferenceValue){ $aceIdentityReferenceValue = $sid }
+
+						[PSCustomObject]@{
+							"Delegated Group"      = $aceIdentityReferenceValue
+							"ActiveDirectoryRights"= $ace.ActiveDirectoryRights
+							"ObjectType"           = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
+							"InheritedObjectType"  = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
+							"Domain"               = $AllDomain
+						}
 					}
-					else{$aceIdentityReferenceValue = $ace.IdentityReference.Value}
-					[PSCustomObject]@{
-						"Delegated Group" = $aceIdentityReferenceValue
-						"ActiveDirectoryRights" = $ace.ActiveDirectoryRights
-						"ObjectType" = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
-						"InheritedObjectType" = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
-						"Domain" = $AllDomain
+				}
+				else{
+					$aclInfo = foreach ($ace in $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount])) {
+						if(Test-SidFormat $ace.IdentityReference.Value){
+							if(-not ($ace.IdentityReference.Value -match $sidPattern) -and $excludedSIDs -notcontains $ace.IdentityReference.Value){
+								$aceIdentityReferenceObj = $SumGroupsUsers | Where-Object {$_.domain -eq $AllDomain -AND (GetSID-FromBytes -sidBytes $_.objectsid) -eq $ace.IdentityReference.Value}
+								$aceIdentityReferenceValue = "$(($aceIdentityReferenceObj.domain -split "\.")[0])\$($aceIdentityReferenceObj.samaccountname)"
+							} else {continue}
+						}
+						else{$aceIdentityReferenceValue = $ace.IdentityReference.Value}
+						[PSCustomObject]@{
+							"Delegated Group" = $aceIdentityReferenceValue
+							"ActiveDirectoryRights" = $ace.ActiveDirectoryRights
+							"ObjectType" = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
+							"InheritedObjectType" = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
+							"Domain" = $AllDomain
+						}
 					}
 				}
 				
@@ -4240,7 +4366,10 @@ Add-Type -TypeDefinition $code
 		foreach ($Member in $ExchangeTrustedSubsystemMembers) {
 			$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $(($Member.DnsHostName -split '\.')[0]) -AND $_.Domain -eq $(($Member.DnsHostName -split '\.',2)[1])} | Select-Object -ExpandProperty "IP Address"
 			if(!$IPAddress -and !$OPSec -and $Member.DnsHostName){
-				if($Domain -and $Server){$IPAddress = try{(Resolve-DnsName -Name $Member.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+				if($Domain -and $Server){
+					if(!$domainjoined){$IPAddress = try{(Resolve-DnsName -Name $Member.DnsHostName -Type A -Server $Server -ErrorAction Stop -TcpOnly).IPAddress}catch{"No-IP"}}
+					else{$IPAddress = try{(Resolve-DnsName -Name $Member.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+				}
 				else{$IPAddress = try{(Resolve-DnsName -Name $Member.DnsHostName -Type A -ErrorAction Stop).IPAddress}catch{"No-IP"}}
 				if(!$IPAddress){$IPAddress = "No-IP"}
 				$AllDNSEntries += [PSCustomObject]@{
@@ -4266,7 +4395,7 @@ Add-Type -TypeDefinition $code
 				"IP Address" = $IPAddress
 				"Operating System" = $Member.operatingsystem
 				"Member SID" = GetSID-FromBytes -sidBytes $Member.objectsid
-				"Object Class" = $Member.objectClass[-1]
+				#"Object Class" = $Member.objectClass[-1]
 				"Domain" = $AllDomain
 			}
 			$IPAddress = $null
@@ -4290,7 +4419,9 @@ Add-Type -TypeDefinition $code
 	$TempServiceAccounts = foreach ($AllDomain in $AllDomains) {
 		$ServiceAccounts = @($TotalEnabledUsers | Where-Object {$_.serviceprincipalname -AND $_.domain -eq $AllDomain})
 		foreach ($Account in $ServiceAccounts) {
+			$MergeSPNs = @($Account.serviceprincipalname | ForEach-Object { $_.ToString() }) -join ", "
 			[PSCustomObject]@{
+				"Domain" = $AllDomain
 				"Account" = $Account.samaccountname
 				"Enabled" = if ($Account.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if(!$Account.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $Account.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
@@ -4299,9 +4430,8 @@ Add-Type -TypeDefinition $code
 				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $Account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
 				"Last Logon" = if($Account.lastlogontimestamp){Convert-LdapTimestamp -timestamp $Account.lastlogontimestamp}else{""}
 				"Pwd Last Set" = if($Account.pwdlastset){Convert-LdapTimestamp -timestamp $Account.pwdlastset}else{""}
-				"SPN" = $Account.serviceprincipalname
+				"SPN" = $MergeSPNs
 				#"SID" = GetSID-FromBytes -sidBytes $Account.objectSID
-				"Domain" = $AllDomain
 			}
 		}
 	}
@@ -4341,8 +4471,18 @@ Add-Type -TypeDefinition $code
 			if($GMSA."msds-groupmsamembership"){
 				$GMSAWhoCanReadBlob = $GMSA."msds-groupmsamembership"
 				$GMSAsd = New-Object System.Security.AccessControl.RawSecurityDescriptor($GMSAWhoCanReadBlob, 0)
-				$GMSAWhoCanRead = ($GMSAsd.DiscretionaryAcl | Where-Object {$_.AceQualifier -like "*AccessAllowed*"} | ForEach-Object {try{(New-Object System.Security.Principal.SecurityIdentifier($_.SecurityIdentifier)).Translate([System.Security.Principal.NTAccount])}catch{$_.SecurityIdentifier}}) -join ", "
-			}
+				if(!$domainjoined -AND $Domain -AND $Server){
+					$GMSAWhoCanRead = $GMSAsd.DiscretionaryAcl |
+					  Where-Object { $_.AceQualifier -like "*AccessAllowed*" } |
+					  ForEach-Object {
+						$sid = $_.SecurityIdentifier.Value
+						$sidresolvedname = Resolve-SidViaADSI -SID $sid -Server $Server
+						if ($sidresolvedname) { $sidresolvedname } else { $sid }
+					  }
+					$GMSAWhoCanRead = $GMSAWhoCanRead -join ", "
+				}
+				else{$GMSAWhoCanRead = ($GMSAsd.DiscretionaryAcl | Where-Object {$_.AceQualifier -like "*AccessAllowed*"} | ForEach-Object {try{(New-Object System.Security.Principal.SecurityIdentifier($_.SecurityIdentifier)).Translate([System.Security.Principal.NTAccount])}catch{$_.SecurityIdentifier}}) -join ", "}
+			} 
 				
 			[PSCustomObject]@{
 				"Account" = $GMSA.samaccountname
@@ -4645,7 +4785,10 @@ Add-Type -TypeDefinition $code
 			foreach($EmptyPasswordComp in $EmptyPasswordComputers){
 				$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $EmptyPasswordComp.name -AND $_.Domain -eq $EmptyPasswordComp.domain} | Select-Object -ExpandProperty "IP Address"
 				if(!$IPAddress -and !$OPSec -and $EmptyPasswordComp.DnsHostName){
-					if($Domain -and $Server){$IPAddress = try{(Resolve-DnsName -Name $EmptyPasswordComp.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+					if($Domain -and $Server){
+						if(!$domainjoined){$IPAddress = try{(Resolve-DnsName -Name $EmptyPasswordComp.DnsHostName -Type A -Server $Server -ErrorAction Stop -TcpOnly).IPAddress}catch{"No-IP"}}
+						else{$IPAddress = try{(Resolve-DnsName -Name $EmptyPasswordComp.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+					}
 					else{$IPAddress = try{(Resolve-DnsName -Name $EmptyPasswordComp.DnsHostName -Type A -ErrorAction Stop).IPAddress}catch{"No-IP"}}
 					if(!$IPAddress){$IPAddress = "No-IP"}
 					$AllDNSEntries += [PSCustomObject]@{
@@ -4712,7 +4855,10 @@ Add-Type -TypeDefinition $code
 			
 			$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $(($Member.DnsHostName -split '\.')[0]) -AND $_.Domain -eq $(($Member.DnsHostName -split '\.',2)[1])} | Select-Object -ExpandProperty "IP Address"
 			if(!$IPAddress -and !$OPSec -and $Member.DnsHostName){
-				if($Domain -and $Server){$IPAddress = try{(Resolve-DnsName -Name $Member.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+				if($Domain -and $Server){
+					if(!$domainjoined){$IPAddress = try{(Resolve-DnsName -Name $Member.DnsHostName -Type A -Server $Server -ErrorAction Stop -TcpOnly).IPAddress}catch{"No-IP"}}
+					else{$IPAddress = try{(Resolve-DnsName -Name $Member.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+				}
 				else{$IPAddress = try{(Resolve-DnsName -Name $Member.DnsHostName -Type A -ErrorAction Stop).IPAddress}catch{"No-IP"}}
 				if(!$IPAddress){$IPAddress = "No-IP"}
 				$AllDNSEntries += [PSCustomObject]@{
@@ -4774,7 +4920,10 @@ Add-Type -TypeDefinition $code
 		foreach ($Computer in $WinRMComputers) {
 			$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $Computer.name -AND $_.Domain -eq $Computer.domain} | Select-Object -ExpandProperty "IP Address"
 			if(!$IPAddress -and !$OPSec -and $Computer.DnsHostName){
-				if($Domain -and $Server){$IPAddress = try{(Resolve-DnsName -Name $Computer.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+				if($Domain -and $Server){
+					if(!$domainjoined){$IPAddress = try{(Resolve-DnsName -Name $Computer.DnsHostName -Type A -Server $Server -ErrorAction Stop -TcpOnly).IPAddress}catch{"No-IP"}}
+					else{$IPAddress = try{(Resolve-DnsName -Name $Computer.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+				}
 				else{$IPAddress = try{(Resolve-DnsName -Name $Computer.DnsHostName -Type A -ErrorAction Stop).IPAddress}catch{"No-IP"}}
 				if(!$IPAddress){$IPAddress = "No-IP"}
 				$AllDNSEntries += [PSCustomObject]@{
@@ -4852,7 +5001,10 @@ Add-Type -TypeDefinition $code
 			#$DomainComputerGroupMember = $TotalAllMachines | Where-Object {$_.domain -eq $AllDomain} | Where-Object {$_.name -eq $GroupMember.MemberName.TrimEnd('$')}
 			$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $(($GroupMember.DnsHostName -split '\.')[0]) -AND $_.Domain -eq $(($GroupMember.DnsHostName -split '\.',2)[1])} | Select-Object -ExpandProperty "IP Address"
 			if(!$IPAddress -and !$OPSec -and $GroupMember.DnsHostName){
-				if($Domain -and $Server){$IPAddress = try{(Resolve-DnsName -Name $GroupMember.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+				if($Domain -and $Server){
+					if(!$domainjoined){$IPAddress = try{(Resolve-DnsName -Name $GroupMember.DnsHostName -Type A -Server $Server -ErrorAction Stop -TcpOnly).IPAddress}catch{"No-IP"}}
+					else{$IPAddress = try{(Resolve-DnsName -Name $GroupMember.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+				}
 				else{$IPAddress = try{(Resolve-DnsName -Name $GroupMember.DnsHostName -Type A -ErrorAction Stop).IPAddress}catch{"No-IP"}}
 				if(!$IPAddress){$IPAddress = "No-IP"}
 				$AllDNSEntries += [PSCustomObject]@{
@@ -5017,7 +5169,10 @@ Add-Type -TypeDefinition $code
 			foreach ($UnsupportedHost in $UnsupportedHosts) {
 				$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $UnsupportedHost.name -AND $_.Domain -eq $UnsupportedHost.domain} | Select-Object -ExpandProperty "IP Address"
 				if(!$IPAddress -and !$OPSec -and $UnsupportedHost.DnsHostName){
-					if($Domain -and $Server){$IPAddress = try{(Resolve-DnsName -Name $UnsupportedHost.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+					if($Domain -and $Server){
+						if(!$domainjoined){$IPAddress = try{(Resolve-DnsName -Name $UnsupportedHost.DnsHostName -Type A -Server $Server -ErrorAction Stop -TcpOnly).IPAddress}catch{"No-IP"}}
+						else{$IPAddress = try{(Resolve-DnsName -Name $UnsupportedHost.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+					}
 					else{$IPAddress = try{(Resolve-DnsName -Name $UnsupportedHost.DnsHostName -Type A -ErrorAction Stop).IPAddress}catch{"No-IP"}}
 					if(!$IPAddress){$IPAddress = "No-IP"}
 					$AllDNSEntries += [PSCustomObject]@{
@@ -5106,7 +5261,10 @@ Add-Type -TypeDefinition $code
 				$FileServerDomain = $RetrieveObjectServer.domain
 				$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $RetrieveObjectServer.name -AND $_.Domain -eq $RetrieveObjectServer.domain} | Select-Object -ExpandProperty "IP Address"
 				if(!$IPAddress -and !$OPSec -and $RetrieveObjectServer.dnshostname){
-					if($Domain -and $Server){$IPAddress = try{(Resolve-DnsName -Name $RetrieveObjectServer.dnshostname -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+					if($Domain -and $Server){
+						if(!$domainjoined){$IPAddress = try{(Resolve-DnsName -Name $RetrieveObjectServer.dnshostname -Type A -Server $Server -ErrorAction Stop -TcpOnly).IPAddress}catch{"No-IP"}}
+						else{$IPAddress = try{(Resolve-DnsName -Name $RetrieveObjectServer.dnshostname -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+					}
 					else{$IPAddress = try{(Resolve-DnsName -Name $RetrieveObjectServer.dnshostname -Type A -ErrorAction Stop).IPAddress}catch{"No-IP"}}
 					if(!$IPAddress){$IPAddress = "No-IP"}
 					$AllDNSEntries += [PSCustomObject]@{
@@ -5183,7 +5341,22 @@ Add-Type -TypeDefinition $code
 			
 			if(!$OPSec){
 			
-				$TempSQLTargets = @($TotalEnabledServers | Where-Object {$_.domain -eq $AllDomain})
+				$TempSQLTargets = @(
+				  $TotalEnabledServers | Where-Object {
+					$m = $_
+					if ($m.domain -ne $AllDomain -or -not $m.dnshostname) { return $false }
+
+					# exclude if this host has a cached IP of .Skipped or No-IP
+					$bad = $AllDNSEntries |
+					  Where-Object {
+						$_.Hostname -eq $m.name -and
+						$_.Domain   -eq $m.domain -and
+						$_.'IP Address' -in @('.Skipped','No-IP')
+					  } | Select-Object -First 1
+
+					-not $bad
+				  }
+				)
 				
 				$Port1433ExtractedSQLMachines = @(CheckAliveHosts -Targets $TempSQLTargets -CheckPort 1433)
 				
@@ -5201,7 +5374,10 @@ Add-Type -TypeDefinition $code
 			foreach($Machine in $FinalExtractedSQLMachines){
 				$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $Machine.name -AND $_.Domain -eq $Machine.domain} | Select-Object -ExpandProperty "IP Address"
 				if(!$IPAddress -and !$OPSec -and $Machine.dnshostname){
-					if($Domain -and $Server){$IPAddress = try{(Resolve-DnsName -Name $Machine.dnshostname -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+					if($Domain -and $Server){
+						if(!$domainjoined){$IPAddress = try{(Resolve-DnsName -Name $Machine.dnshostname -Type A -Server $Server -ErrorAction Stop -TcpOnly).IPAddress}catch{"No-IP"}}
+						else{$IPAddress = try{(Resolve-DnsName -Name $Machine.dnshostname -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+					}
 					else{$IPAddress = try{(Resolve-DnsName -Name $Machine.dnshostname -Type A -ErrorAction Stop).IPAddress}catch{"No-IP"}}
 					if(!$IPAddress){$IPAddress = "No-IP"}
 					$AllDNSEntries += [PSCustomObject]@{
@@ -5259,7 +5435,22 @@ Add-Type -TypeDefinition $code
 	
 	$TempSCCMServers = foreach($AllDomain in $AllDomains){
 		if(!$OPSec){
-			$TempSCCMTargets = @($TotalEnabledServers | Where-Object {$_.domain -eq $AllDomain})
+			$TempSCCMTargets = @(
+			  $TotalEnabledServers | Where-Object {
+				$m = $_
+				if ($m.domain -ne $AllDomain -or -not $m.dnshostname) { return $false }
+
+				# exclude if this host has a cached IP of .Skipped or No-IP
+				$bad = $AllDNSEntries |
+				  Where-Object {
+					$_.Hostname -eq $m.name -and
+					$_.Domain   -eq $m.domain -and
+					$_.'IP Address' -in @('.Skipped','No-IP')
+				  } | Select-Object -First 1
+
+				-not $bad
+			  }
+			)
 			
 			$Port8530ExtractedSCCMMachines = @(CheckAliveHosts -Targets $TempSCCMTargets -CheckPort 8530)
 			
@@ -5280,7 +5471,10 @@ Add-Type -TypeDefinition $code
 			$SCCMServerDomain = $DomainParts -join '.'
 			$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $(($dNSHostName -split '\.')[0]) -AND $_.Domain -eq $(($dNSHostName -split '\.',2)[1])} | Select-Object -ExpandProperty "IP Address"
 			if(!$IPAddress -and !$OPSec -and $dNSHostName){
-				if($Domain -and $Server){$IPAddress = try{(Resolve-DnsName -Name $dNSHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+				if($Domain -and $Server){
+					if(!$domainjoined){$IPAddress = try{(Resolve-DnsName -Name $dNSHostName -Type A -Server $Server -ErrorAction Stop -TcpOnly).IPAddress}catch{"No-IP"}}
+					else{$IPAddress = try{(Resolve-DnsName -Name $dNSHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+				}
 				else{$IPAddress = try{(Resolve-DnsName -Name $dNSHostName -Type A -ErrorAction Stop).IPAddress}catch{"No-IP"}}
 				if(!$IPAddress){$IPAddress = "No-IP"}
 				$AllDNSEntries += [PSCustomObject]@{
@@ -5365,7 +5559,10 @@ Add-Type -TypeDefinition $code
 			if($RetrievedWSUSServer){
 				$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $RetrievedWSUSServer.name -AND $_.Domain -eq $RetrievedWSUSServer.domain} | Select-Object -ExpandProperty "IP Address"
 				if(!$IPAddress -and !$OPSec -and $RetrievedWSUSServer.dnshostname){
-					if($Domain -and $Server){$IPAddress = try{(Resolve-DnsName -Name $RetrievedWSUSServer.dnshostname -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+					if($Domain -and $Server){
+						if(!$domainjoined){$IPAddress = try{(Resolve-DnsName -Name $RetrievedWSUSServer.dnshostname -Type A -Server $Server -ErrorAction Stop -TcpOnly).IPAddress}catch{"No-IP"}}
+						else{$IPAddress = try{(Resolve-DnsName -Name $RetrievedWSUSServer.dnshostname -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+					}
 					else{$IPAddress = try{(Resolve-DnsName -Name $RetrievedWSUSServer.dnshostname -Type A -ErrorAction Stop).IPAddress}catch{"No-IP"}}
 					if(!$IPAddress){$IPAddress = "No-IP"}
 					$AllDNSEntries += [PSCustomObject]@{
@@ -5401,7 +5598,10 @@ Add-Type -TypeDefinition $code
 				if($RetrievedWSUSServer -like "*.*"){$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $(($RetrievedWSUSServer -split '\.')[0]) -AND $_.Domain -eq $(($RetrievedWSUSServer -split '\.',2)[1])} | Select-Object -ExpandProperty "IP Address"}
 				else{$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $RetrievedWSUSServer} | Select-Object -ExpandProperty "IP Address"}
 				if(!$IPAddress -and !$OPSec){
-					if($Domain -and $Server){$IPAddress = try{(Resolve-DnsName -Name $RetrievedWSUSServer -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+					if($Domain -and $Server){
+						if(!$domainjoined){$IPAddress = try{(Resolve-DnsName -Name $RetrievedWSUSServer -Type A -Server $Server -ErrorAction Stop -TcpOnly).IPAddress}catch{"No-IP"}}
+						else{$IPAddress = try{(Resolve-DnsName -Name $RetrievedWSUSServer -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+					}
 					else{$IPAddress = try{(Resolve-DnsName -Name $RetrievedWSUSServer -Type A -ErrorAction Stop).IPAddress}catch{"No-IP"}}
 					if($IPAddress -AND $RetrievedWSUSServer -like "*.*"){
 						$AllDNSEntries += [PSCustomObject]@{
@@ -5473,7 +5673,10 @@ Add-Type -TypeDefinition $code
 			else{$RetrievedWSUSServer = @($TotalEnabledDisabledMachines | Where-Object {$_.name -eq $wserver})}
 			$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $RetrievedWSUSServer.name -AND $_.Domain -eq $RetrievedWSUSServer.domain} | Select-Object -ExpandProperty "IP Address"
 			if(!$IPAddress -and !$OPSec -and $RetrievedWSUSServer.dnshostname){
-				if($Domain -and $Server){$IPAddress = try{(Resolve-DnsName -Name $RetrievedWSUSServer.dnshostname -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+				if($Domain -and $Server){
+					if(!$domainjoined){$IPAddress = try{(Resolve-DnsName -Name $RetrievedWSUSServer.dnshostname -Type A -Server $Server -ErrorAction Stop -TcpOnly).IPAddress}catch{"No-IP"}}
+					else{$IPAddress = try{(Resolve-DnsName -Name $RetrievedWSUSServer.dnshostname -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+				}
 				else{$IPAddress = try{(Resolve-DnsName -Name $RetrievedWSUSServer.dnshostname -Type A -ErrorAction Stop).IPAddress}catch{"No-IP"}}
 				if(!$IPAddress){$IPAddress = "No-IP"}
 				$AllDNSEntries += [PSCustomObject]@{
@@ -5515,7 +5718,24 @@ Add-Type -TypeDefinition $code
 	####################################################
 	if (-not $OPSec -and -not ($NoWebDAVEnum -and $NoVNCUnauthAccess)) {
 		$AllAliveTargets = @()
-		$AllAliveTargets = CheckAliveHosts -Targets $TotalEnabledMachines
+		$TemporaryAliveTargets = @(
+		  $TotalEnabledMachines | Where-Object {
+			$m = $_
+			if (-not $m.dnshostname) { return $false }
+
+			# exclude if this host has a cached IP of .Skipped or No-IP
+			$bad = $AllDNSEntries |
+			  Where-Object {
+				$_.Hostname -eq $m.name -and
+				$_.Domain   -eq $m.domain -and
+				$_.'IP Address' -in @('.Skipped','No-IP')
+			  } | Select-Object -First 1
+
+			-not $bad
+		  }
+		)
+		
+		$AllAliveTargets = CheckAliveHosts -Targets $TemporaryAliveTargets
   	}
 	
 	####################################################
@@ -5568,7 +5788,10 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 				foreach($Target in $WebDAVStatusTargets){
 					$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $Target.name -AND $_.Domain -eq $Target.domain} | Select-Object -ExpandProperty "IP Address"
 					if(!$IPAddress -and !$OPSec -and $Target.dnshostname){
-						if($Domain -and $Server){$IPAddress = try{(Resolve-DnsName -Name $Target.dnshostname -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+						if($Domain -and $Server){
+							if(!$domainjoined){$IPAddress = try{(Resolve-DnsName -Name $Target.dnshostname -Type A -Server $Server -ErrorAction Stop -TcpOnly).IPAddress}catch{"No-IP"}}
+							else{$IPAddress = try{(Resolve-DnsName -Name $Target.dnshostname -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+						}
 						else{$IPAddress = try{(Resolve-DnsName -Name $Target.dnshostname -Type A -ErrorAction Stop).IPAddress}catch{"No-IP"}}
 						if(!$IPAddress){$IPAddress = "No-IP"}
 						$AllDNSEntries += [PSCustomObject]@{
@@ -5626,7 +5849,10 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 				foreach($Target in $VNCUnauthAccessTargets){
 					$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $Target.name -AND $_.Domain -eq $Target.domain} | Select-Object -ExpandProperty "IP Address"
 					if(!$IPAddress -and !$OPSec -and $Target.dnshostname){
-						if($Domain -and $Server){$IPAddress = try{(Resolve-DnsName -Name $Target.dnshostname -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+						if($Domain -and $Server){
+							if(!$domainjoined){$IPAddress = try{(Resolve-DnsName -Name $Target.dnshostname -Type A -Server $Server -ErrorAction Stop -TcpOnly).IPAddress}catch{"No-IP"}}
+							else{$IPAddress = try{(Resolve-DnsName -Name $Target.dnshostname -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+						}
 						else{$IPAddress = try{(Resolve-DnsName -Name $Target.dnshostname -Type A -ErrorAction Stop).IPAddress}catch{"No-IP"}}
 						if(!$IPAddress){$IPAddress = "No-IP"}
 						$AllDNSEntries += [PSCustomObject]@{
@@ -5682,7 +5908,10 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			if($printer.servername -like "*.*"){$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $(($printer.servername -split '\.')[0]) -AND $_.Domain -eq $(($printer.servername -split '\.',2)[1])} | Select-Object -ExpandProperty "IP Address"}
 			else{$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $printer.servername} | Select-Object -ExpandProperty "IP Address"}
 			if(!$IPAddress -and !$OPSec -and $printer.servername){
-				if($Domain -and $Server){$IPAddress = try{(Resolve-DnsName -Name $printer.servername -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+				if($Domain -and $Server){
+					if(!$domainjoined){$IPAddress = try{(Resolve-DnsName -Name $printer.servername -Type A -Server $Server -ErrorAction Stop -TcpOnly).IPAddress}catch{"No-IP"}}
+					else{$IPAddress = try{(Resolve-DnsName -Name $printer.servername -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+				}
 				else{$IPAddress = try{(Resolve-DnsName -Name $printer.servername -Type A -ErrorAction Stop).IPAddress}catch{"No-IP"}}
 				if(!$IPAddress){$IPAddress = "No-IP"}
 				if($printer.servername -like "*.*"){
@@ -5928,8 +6157,14 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 				if($Domain -and $Server){$ldapPath = $ldapPath -Replace "LDAP://", "LDAP://$($Server)/"}
 				$ouEntry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
 				$securityDescriptor = $ouEntry.ObjectSecurity
+				
+				if(!$domainjoined -AND $Domain -AND $Server){
+					$extractedaces = $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier])
+				} else {
+					$extractedaces = $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount])
+				}
 
-				foreach ($ace in $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount])) {
+				foreach ($ace in $extractedaces) {
 					# Resolve ObjectType and InheritedObjectType using the GUID map
 					$objectTypeName = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
 					$inheritedObjectTypeName = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
@@ -5963,13 +6198,23 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 					else{$FinalExtAccount = $GPOCreator."Delegated Groups"}
 				}
 				else{
-					try {
-						$tempholder = $GPOCreator."Delegated Groups"
-						$memberSID = New-Object System.Security.Principal.SecurityIdentifier($tempholder)
-						$memberUser = $memberSID.Translate([System.Security.Principal.NTAccount])
-						$FinalExtAccount = $memberUser.Value
-					} catch {
-						$FinalExtAccount = $GPOCreator."Delegated Groups"
+					if(!$domainjoined -AND $Domain -AND $Server){
+						try {
+							$tempholder = $GPOCreator."Delegated Groups"
+							$FinalExtAccount = Resolve-SidViaADSI -SID $tempholder -Server $Server
+						} catch {
+							$FinalExtAccount = $GPOCreator."Delegated Groups"
+						}
+					}
+					else{
+						try {
+							$tempholder = $GPOCreator."Delegated Groups"
+							$memberSID = New-Object System.Security.Principal.SecurityIdentifier($tempholder)
+							$memberUser = $memberSID.Translate([System.Security.Principal.NTAccount])
+							$FinalExtAccount = $memberUser.Value
+						} catch {
+							$FinalExtAccount = $GPOCreator."Delegated Groups"
+						}
 					}
 				}
 				
@@ -6009,8 +6254,14 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 				if($Domain -and $Server){$ldapPath = $ldapPath -Replace "LDAP://", "LDAP://$($Server)/"}
 				$ouEntry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
 				$securityDescriptor = $ouEntry.ObjectSecurity
+				
+				if(!$domainjoined -AND $Domain -AND $Server){
+					$newextractedaces = $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier])
+				} else {
+					$newextractedaces = $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount])
+				}
 
-				foreach ($ace in $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount])) {
+				foreach ($ace in $newextractedaces) {
 					# Resolve ObjectType and InheritedObjectType using the GUID map
 					$objectTypeName = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
 					$inheritedObjectTypeName = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
@@ -6026,13 +6277,24 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 						else{$FinalModGPOAccount = $ace.IdentityReference.Value}
 					}
 					else{
-						try {
-							$tempholder = $ace.IdentityReference.Value
-							$memberSID = New-Object System.Security.Principal.SecurityIdentifier($tempholder)
-							$memberUser = $memberSID.Translate([System.Security.Principal.NTAccount])
-							$FinalModGPOAccount = $memberUser.Value
-						} catch {
-							$FinalModGPOAccount = $ace.IdentityReference.Value
+						if(!$domainjoined -AND $Domain -AND $Server){
+							try {
+								$tempholder = $ace.IdentityReference.Value
+								$resolved = Resolve-SidViaADSI -SID $tempholder -Server $Server
+								$FinalModGPOAccount = if($resolved){ $resolved } else { $tempholder }
+							} catch {
+								$FinalModGPOAccount = $ace.IdentityReference.Value
+							}
+						}
+						else{
+							try {
+								$tempholder = $ace.IdentityReference.Value
+								$memberSID = New-Object System.Security.Principal.SecurityIdentifier($tempholder)
+								$memberUser = $memberSID.Translate([System.Security.Principal.NTAccount])
+								$FinalModGPOAccount = $memberUser.Value
+							} catch {
+								$FinalModGPOAccount = $ace.IdentityReference.Value
+							}
 						}
 					}
 					
@@ -6512,7 +6774,10 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 				foreach ($LapsEnabledComputer in $LapsEnabledComputers) {
 					$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $LapsEnabledComputer.name -AND $_.Domain -eq $LapsEnabledComputer.domain} | Select-Object -ExpandProperty "IP Address"
 					if(!$IPAddress -and !$OPSec -and $LapsEnabledComputer.DnsHostName){
-						if($Domain -and $Server){$IPAddress = try{(Resolve-DnsName -Name $LapsEnabledComputer.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+						if($Domain -and $Server){
+							if(!$domainjoined){$IPAddress = try{(Resolve-DnsName -Name $LapsEnabledComputer.DnsHostName -Type A -Server $Server -ErrorAction Stop -TcpOnly).IPAddress}catch{"No-IP"}}
+							else{$IPAddress = try{(Resolve-DnsName -Name $LapsEnabledComputer.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+						}
 						else{$IPAddress = try{(Resolve-DnsName -Name $LapsEnabledComputer.DnsHostName -Type A -ErrorAction Stop).IPAddress}catch{"No-IP"}}
 						if(!$IPAddress){$IPAddress = "No-IP"}
 						$AllDNSEntries += [PSCustomObject]@{
@@ -6628,9 +6893,14 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 								$userName = $null
 		
 								try {
-									$objSID = New-Object System.Security.Principal.SecurityIdentifier($sid)
-									$objUser = $objSID.Translate([System.Security.Principal.NTAccount])
-									$userName = $objUser.Value
+									if(!$domainjoined -AND $Domain -AND $Server){
+										$userName = Resolve-SidViaADSI -SID $sid -Server $Server
+									}
+									else{
+										$objSID = New-Object System.Security.Principal.SecurityIdentifier($sid)
+										$objUser = $objSID.Translate([System.Security.Principal.NTAccount])
+										$userName = $objUser.Value
+									}
 								} catch {}
 		
 								# Fallback to manually extracting the user/group name if SID translation fails
@@ -6662,9 +6932,15 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 										else{
 											try {
 												$tempholder = $_
-												$memberSID = New-Object System.Security.Principal.SecurityIdentifier($tempholder)
-												$memberUser = $memberSID.Translate([System.Security.Principal.NTAccount])
-												$memberUser.Value
+												if(!$domainjoined -AND $Domain -AND $Server){
+													$resolved = Resolve-SidViaADSI -SID $tempholder -Server $Server
+													if ($resolved) { $resolved } else { $tempholder }
+												}
+												else{
+													$memberSID = New-Object System.Security.Principal.SecurityIdentifier($tempholder)
+													$memberUser = $memberSID.Translate([System.Security.Principal.NTAccount])
+													$memberUser.Value
+												}
 											} catch {
 												$tempholder
 											}
@@ -6785,7 +7061,10 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		foreach ($Computer in $Unconstrained) {
 			$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $Computer.name -AND $_.Domain -eq $Computer.domain} | Select-Object -ExpandProperty "IP Address"
 			if(!$IPAddress -and !$OPSec -and $Computer.DnsHostName){
-				if($Domain -and $Server){$IPAddress = try{(Resolve-DnsName -Name $Computer.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+				if($Domain -and $Server){
+					if(!$domainjoined){$IPAddress = try{(Resolve-DnsName -Name $Computer.DnsHostName -Type A -Server $Server -ErrorAction Stop -TcpOnly).IPAddress}catch{"No-IP"}}
+					else{$IPAddress = try{(Resolve-DnsName -Name $Computer.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+				}
 				else{$IPAddress = try{(Resolve-DnsName -Name $Computer.DnsHostName -Type A -ErrorAction Stop).IPAddress}catch{"No-IP"}}
 				if(!$IPAddress){$IPAddress = "No-IP"}
 				$AllDNSEntries += [PSCustomObject]@{
@@ -6892,7 +7171,10 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			foreach ($ConstrainedDelegationComputer in $ConstrainedDelegationComputers) {
 				$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $ConstrainedDelegationComputer.name -AND $_.Domain -eq $ConstrainedDelegationComputer.domain} | Select-Object -ExpandProperty "IP Address"
 				if(!$IPAddress -and !$OPSec -and $ConstrainedDelegationComputer.DnsHostName){
-					if($Domain -and $Server){$IPAddress = try{(Resolve-DnsName -Name $ConstrainedDelegationComputer.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+					if($Domain -and $Server){
+						if(!$domainjoined){$IPAddress = try{(Resolve-DnsName -Name $ConstrainedDelegationComputer.DnsHostName -Type A -Server $Server -ErrorAction Stop -TcpOnly).IPAddress}catch{"No-IP"}}
+						else{$IPAddress = try{(Resolve-DnsName -Name $ConstrainedDelegationComputer.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+					}
 					else{$IPAddress = try{(Resolve-DnsName -Name $ConstrainedDelegationComputer.DnsHostName -Type A -ErrorAction Stop).IPAddress}catch{"No-IP"}}
 					if(!$IPAddress){$IPAddress = "No-IP"}
 					$AllDNSEntries += [PSCustomObject]@{
@@ -7206,8 +7488,14 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 					foreach ($ActAce in $UniqueAces) {
 						$ActSid = $ActAce.SecurityIdentifier
 						try{
-							$ActAccount = $ActSid.Translate([System.Security.Principal.NTAccount])
-							$AllowedToActIdentity = $ActAccount.Value
+							if(!$domainjoined -AND $Domain -AND $Server){
+								$AllowedToActIdentity = Resolve-SidViaADSI -SID $ActSid.Value -Server $Server
+								if($AllowedToActIdentity -eq $ActSid.Value){$AllowedToActIdentity = "Not Found"}
+							}
+							else{
+								$ActAccount = $ActSid.Translate([System.Security.Principal.NTAccount])
+								$AllowedToActIdentity = $ActAccount.Value
+							}
 						}
 						catch{
 							$WeExtract = $SumGroupsUsers | Where-Object{(GetSID-FromBytes -sidBytes $_.objectsid) -eq $ActSid.Value}
@@ -7217,7 +7505,10 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 						
 						$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $AllowedToActComputer.name -AND $_.Domain -eq $AllowedToActComputer.domain} | Select-Object -ExpandProperty "IP Address"
 						if(!$IPAddress -and !$OPSec -and $AllowedToActComputer.DnsHostName){
-							if($Domain -and $Server){$IPAddress = try{(Resolve-DnsName -Name $AllowedToActComputer.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+							if($Domain -and $Server){
+								if(!$domainjoined){$IPAddress = try{(Resolve-DnsName -Name $AllowedToActComputer.DnsHostName -Type A -Server $Server -ErrorAction Stop -TcpOnly).IPAddress}catch{"No-IP"}}
+								else{$IPAddress = try{(Resolve-DnsName -Name $AllowedToActComputer.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+							}
 							else{$IPAddress = try{(Resolve-DnsName -Name $AllowedToActComputer.DnsHostName -Type A -ErrorAction Stop).IPAddress}catch{"No-IP"}}
 							if(!$IPAddress){$IPAddress = "No-IP"}
 							$AllDNSEntries += [PSCustomObject]@{
@@ -7492,7 +7783,10 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 										
 					$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $ComputerCreated.name -AND $_.Domain -eq $ComputerCreated.domain} | Select-Object -ExpandProperty "IP Address"
 					if(!$IPAddress -and !$OPSec -and $ComputerCreated.DnsHostName){
-						if($Domain -and $Server){$IPAddress = try{(Resolve-DnsName -Name $ComputerCreated.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+						if($Domain -and $Server){
+							if(!$domainjoined){$IPAddress = try{(Resolve-DnsName -Name $ComputerCreated.DnsHostName -Type A -Server $Server -ErrorAction Stop -TcpOnly).IPAddress}catch{"No-IP"}}
+							else{$IPAddress = try{(Resolve-DnsName -Name $ComputerCreated.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+						}
 						else{$IPAddress = try{(Resolve-DnsName -Name $ComputerCreated.DnsHostName -Type A -ErrorAction Stop).IPAddress}catch{"No-IP"}}
 						if(!$IPAddress){$IPAddress = "No-IP"}
 						$AllDNSEntries += [PSCustomObject]@{
@@ -8647,7 +8941,10 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			foreach ($InterestingServer in $InterestingServers) {
 				$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $InterestingServer.name -AND $_.Domain -eq $InterestingServer.domain} | Select-Object -ExpandProperty "IP Address"
 				if(!$IPAddress -and !$OPSec -and $InterestingServer.DnsHostName){
-					if($Domain -and $Server){$IPAddress = try{(Resolve-DnsName -Name $InterestingServer.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+					if($Domain -and $Server){
+						if(!$domainjoined){$IPAddress = try{(Resolve-DnsName -Name $InterestingServer.DnsHostName -Type A -Server $Server -ErrorAction Stop -TcpOnly).IPAddress}catch{"No-IP"}}
+						else{$IPAddress = try{(Resolve-DnsName -Name $InterestingServer.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+					}
 					else{$IPAddress = try{(Resolve-DnsName -Name $InterestingServer.DnsHostName -Type A -ErrorAction Stop).IPAddress}catch{"No-IP"}}
 					if(!$IPAddress){$IPAddress = "No-IP"}
 					$AllDNSEntries += [PSCustomObject]@{
@@ -8803,7 +9100,10 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			foreach ($ComputerServer in $ComputerServers) {
 				$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $ComputerServer.name -AND $_.Domain -eq $ComputerServer.domain} | Select-Object -ExpandProperty "IP Address"
 				if(!$IPAddress -and !$OPSec -and $ComputerServer.DnsHostName){
-					if($Domain -and $Server){$IPAddress = try{(Resolve-DnsName -Name $ComputerServer.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+					if($Domain -and $Server){
+						if(!$domainjoined){$IPAddress = try{(Resolve-DnsName -Name $ComputerServer.DnsHostName -Type A -Server $Server -ErrorAction Stop -TcpOnly).IPAddress}catch{"No-IP"}}
+						else{$IPAddress = try{(Resolve-DnsName -Name $ComputerServer.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+					}
 					else{$IPAddress = try{(Resolve-DnsName -Name $ComputerServer.DnsHostName -Type A -ErrorAction Stop).IPAddress}catch{"No-IP"}}
 					if(!$IPAddress){$IPAddress = "No-IP"}
 					$AllDNSEntries += [PSCustomObject]@{
@@ -8851,12 +9151,16 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			Write-Host ""
 			Write-Host "Workstations (Enabled)" -ForegroundColor Cyan
 		}
+		
 		$TempWorkstationsEnabled = foreach ($AllDomain in $AllDomains) {
 			$AllWorkstations = @($TotalEnabledWorkstations | Where-Object {$_.domain -eq $AllDomain})
 			foreach ($Workstation in $AllWorkstations) {
 				$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $Workstation.name -AND $_.Domain -eq $Workstation.domain} | Select-Object -ExpandProperty "IP Address"
 				if(!$IPAddress -and !$OPSec -and $Workstation.DnsHostName){
-					if($Domain -and $Server){$IPAddress = try{(Resolve-DnsName -Name $Workstation.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+					if($Domain -and $Server){
+						if(!$domainjoined){$IPAddress = try{(Resolve-DnsName -Name $Workstation.DnsHostName -Type A -Server $Server -ErrorAction Stop -TcpOnly).IPAddress}catch{"No-IP"}}
+						else{$IPAddress = try{(Resolve-DnsName -Name $Workstation.DnsHostName -Type A -Server $Server -ErrorAction Stop).IPAddress}catch{"No-IP"}}
+					}
 					else{$IPAddress = try{(Resolve-DnsName -Name $Workstation.DnsHostName -Type A -ErrorAction Stop).IPAddress}catch{"No-IP"}}
 					if(!$IPAddress){$IPAddress = "No-IP"}
 					$AllDNSEntries += [PSCustomObject]@{
@@ -9201,6 +9505,11 @@ function Invoke-ShareHunter{
 		
 	)
 	
+	$domainjoined = Test-DomainJoinStatus
+	
+	if($domainjoined){$sharestimeout = 50}
+	else{$sharestimeout = 5000}
+	
 	$ErrorActionPreference = "SilentlyContinue"
 
 	# Initialize the runspace pool
@@ -9209,10 +9518,10 @@ function Invoke-ShareHunter{
 
 	# Define the script block outside the loop for better efficiency
 	$scriptBlock = {
-		param ($computer)
+		param ($computer, $sharestimeout)
 		$tcpClient = New-Object System.Net.Sockets.TcpClient
 		$asyncResult = $tcpClient.BeginConnect($computer, 445, $null, $null)
-		$wait = $asyncResult.AsyncWaitHandle.WaitOne(50)
+		$wait = $asyncResult.AsyncWaitHandle.WaitOne($sharestimeout)
 		if ($wait) {
 			try {
 				$tcpClient.EndConnect($asyncResult)
@@ -9227,7 +9536,7 @@ function Invoke-ShareHunter{
 	$runspaces = New-Object 'System.Collections.Generic.List[System.Object]'
 
 	foreach ($computer in $Computers) {
-		$powerShellInstance = [powershell]::Create().AddScript($scriptBlock).AddArgument($computer)
+		$powerShellInstance = [powershell]::Create().AddScript($scriptBlock).AddArgument($computer).AddArgument($sharestimeout)
 		$powerShellInstance.RunspacePool = $runspacePool
 		$runspaces.Add([PSCustomObject]@{
 			Instance = $powerShellInstance
@@ -9545,6 +9854,10 @@ function Find-LocalAdminAccess {
 		[string]$Domain,
 		[string]$DomainController
 	)
+	
+	$domainjoined = Test-DomainJoinStatus
+	if($domainjoined){$adminaccesstimeout = 100}
+	else{$adminaccesstimeout = 5000}
 
 	$Computers = $Targets -split ","
 	$Computers = $Computers | Sort-Object -Unique
@@ -9561,13 +9874,13 @@ function Find-LocalAdminAccess {
 	$runspaces = New-Object System.Collections.ArrayList
 
 	$scriptBlock = {
-		param ($computerName)
+		param ($computerName, $adminaccesstimeout, $domainjoined)
 
 		Function Test-Port {
-			param ($ComputerName, $Port)
+			param ($ComputerName, $Port, $adminaccesstimeout)
 			$tcpClient = New-Object System.Net.Sockets.TcpClient
 			$asyncResult = $tcpClient.BeginConnect($ComputerName, $Port, $null, $null)
-			$wait = $asyncResult.AsyncWaitHandle.WaitOne(100)
+			$wait = $asyncResult.AsyncWaitHandle.WaitOne($adminaccesstimeout)
 
 			if ($wait) {
 				try {
@@ -9584,9 +9897,9 @@ function Find-LocalAdminAccess {
 		}
 
 		# Check Ports
-		$WinRMPort = Test-Port -ComputerName $ComputerName -Port 5985
-		$WMIPort = Test-Port -ComputerName $ComputerName -Port 135
-		$SMBPort = Test-Port -ComputerName $ComputerName -Port 445
+		$WinRMPort = Test-Port -ComputerName $ComputerName -Port 5985 -adminaccesstimeout $adminaccesstimeout
+		$WMIPort = Test-Port -ComputerName $ComputerName -Port 135 -adminaccesstimeout $adminaccesstimeout
+		$SMBPort = Test-Port -ComputerName $ComputerName -Port 445 -adminaccesstimeout $adminaccesstimeout
 
 
 		# if all three fail, return and kill the runspace
@@ -9607,7 +9920,9 @@ function Find-LocalAdminAccess {
 
 		# WMI Check
 		if ($WMIPort) {
-			$Timeout = 2000
+			if($domainjoined){$Timeout = 2000}
+			else{$Timeout = 8000}
+			
 			$Result = $null
 			$Command = "Get-WmiObject -Class Win32_OperatingSystem -ComputerName '$ComputerName'"
 			$Process = New-Object System.Diagnostics.Process
@@ -9653,7 +9968,7 @@ function Find-LocalAdminAccess {
 
 		$ComputerName = "$Computer"
 		
-		$runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName)
+		$runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($adminaccesstimeout).AddArgument($domainjoined)
 		$runspace.RunspacePool = $runspacePool
 
 		[void]$runspaces.Add([PSCustomObject]@{
@@ -10540,8 +10855,11 @@ function VNCUnauthAccess
  	[Parameter (Mandatory=$False, Position = 1, ValueFromPipeline=$true)]
         [PSObject[]]
         $Targets
-
  	)
+	
+	$domainjoined = Test-DomainJoinStatus
+	if($domainjoined){$VNCUnauthAccesstimeout = 50}
+	else{$VNCUnauthAccesstimeout = 5000}
 	
 	# Initialize the runspace pool
 	$runspacePool = [runspacefactory]::CreateRunspacePool(1, 10)
@@ -10549,22 +10867,22 @@ function VNCUnauthAccess
 
 	# Define the script block outside the loop for better efficiency
 	$scriptBlock = {
-		param ($computer)
+		param ($computer, $VNCUnauthAccesstimeout)
 		
 		function VNC-NoAuth {
-			param([string]$ComputerName)
+			param([string]$ComputerName, $VNCUnauthAccesstimeout)
 			$tcpClient = $null
 			$networkStream = $null
 			try {
 				$tcpClient = New-Object System.Net.Sockets.TcpClient
 				$asyncResult = $tcpClient.BeginConnect($ComputerName, 5900, $null, $null)
-				$wait = $asyncResult.AsyncWaitHandle.WaitOne(50)
+				$wait = $asyncResult.AsyncWaitHandle.WaitOne($VNCUnauthAccesstimeout)
 				if(!$wait){return}
 				try {$tcpClient.EndConnect($asyncResult)}
 				catch {return}
 
 				$networkStream = $tcpClient.GetStream()
-				$networkStream.ReadTimeout = 50
+				$networkStream.ReadTimeout = $VNCUnauthAccesstimeout
 				
 				# Reading Version from Server
 				$buffer = New-Object byte[] 12
@@ -10597,7 +10915,7 @@ function VNCUnauthAccess
 			else {return "Not Supported"}
 		}
 		
-		$Result = VNC-NoAuth -ComputerName $computer.dnshostname
+		$Result = VNC-NoAuth -ComputerName $computer.dnshostname -VNCUnauthAccesstimeout $VNCUnauthAccesstimeout
 		if($Result -eq "Supported"){return $computer}
 		return $null
 	}
@@ -10606,7 +10924,7 @@ function VNCUnauthAccess
 	$runspaces = New-Object 'System.Collections.Generic.List[System.Object]'
 
 	foreach ($computer in $Targets) {
-		$powerShellInstance = [powershell]::Create().AddScript($scriptBlock).AddArgument($computer)
+		$powerShellInstance = [powershell]::Create().AddScript($scriptBlock).AddArgument($computer).AddArgument($VNCUnauthAccesstimeout)
 		$powerShellInstance.RunspacePool = $runspacePool
 		$runspaces.Add([PSCustomObject]@{
 			Instance = $powerShellInstance
@@ -10730,8 +11048,11 @@ function CheckAliveHosts
 		[Parameter(Mandatory=$False)]
 		[int]
 		$CheckPort = 445
-
  	)
+	
+	$domainjoined = Test-DomainJoinStatus
+	if($domainjoined){$CheckAliveHoststimeout = 50}
+	else{$CheckAliveHoststimeout = 5000}
 	
 	# Initialize the runspace pool
 	$runspacePool = [runspacefactory]::CreateRunspacePool(1, 10)
@@ -10739,10 +11060,10 @@ function CheckAliveHosts
 
 	# Define the script block outside the loop for better efficiency
 	$scriptBlock = {
-		param ($computer, $port)
+		param ($computer, $port, $CheckAliveHoststimeout)
 		$tcpClient = New-Object System.Net.Sockets.TcpClient
 		$asyncResult = $tcpClient.BeginConnect($computer.dnshostname, $port, $null, $null)
-		$wait = $asyncResult.AsyncWaitHandle.WaitOne(50)
+		$wait = $asyncResult.AsyncWaitHandle.WaitOne($CheckAliveHoststimeout)
 		if ($wait) {
 			try {
 				$tcpClient.EndConnect($asyncResult)
@@ -10757,7 +11078,7 @@ function CheckAliveHosts
 	$runspaces = New-Object 'System.Collections.Generic.List[System.Object]'
 
 	foreach ($computer in $Targets) {
-		$powerShellInstance = [powershell]::Create().AddScript($scriptBlock).AddArgument($computer).AddArgument($CheckPort)
+		$powerShellInstance = [powershell]::Create().AddScript($scriptBlock).AddArgument($computer).AddArgument($CheckPort).AddArgument($CheckAliveHoststimeout)
 		$powerShellInstance.RunspacePool = $runspacePool
 		$runspaces.Add([PSCustomObject]@{
 			Instance = $powerShellInstance
@@ -11301,4 +11622,98 @@ function Get-DNSRecords {
     foreach ($sb in $searchBases) {
 		DNSRecords -searchBase $sb -Domain $Domain
 	}
+}
+
+function Test-DomainJoinStatus {
+
+	try {
+		return (Get-WmiObject Win32_ComputerSystem).PartOfDomain
+	}
+	catch {
+		try {
+			$domainName = ([System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain()).Name
+			return ($domainName -and ($domainName -ne $env:COMPUTERNAME))
+		}
+		catch {
+			return $false
+		}
+	}
+}
+
+function Test-TGT {
+    
+    try {
+        $raw = & klist 2>$null | Out-String
+        if (-not $raw) { return $false }
+
+        # Look for a krbtgt ticket for the given realm
+        if ($raw -match "Server\s*:\s*krbtgt") {
+            return $true
+        }
+
+        return $false
+    }
+    catch {
+        return $false
+    }
+}
+
+function Test-HostsEntry {
+    param([Parameter(Mandatory=$true)][string]$Server)
+
+    $path = Join-Path $env:SystemRoot 'System32\drivers\etc\hosts'
+    if (-not (Test-Path $path)) { return $false }
+
+    $name = [regex]::Escape($Server.Trim().TrimEnd('.'))
+
+    # Find non-comment lines where $Server appears as a whole alias token
+    $pattern = "(?im)^(?!\s*#)\s*\S+\s+.*(?<!\S)$name(?!\S)"
+    return Select-String -Path $path -Pattern $pattern -Quiet
+}
+
+function Resolve-SidViaADSI {
+    param (
+        [string]$SID,
+        [string]$Server
+    )
+    try {
+        # Search from the DC's default naming context to avoid odd roots
+        $root   = [ADSI]"LDAP://$Server/RootDSE"
+        $baseDN = $root.defaultNamingContext
+        $searcher = New-Object DirectoryServices.DirectorySearcher([ADSI]"LDAP://$Server/$baseDN")
+        $searcher.Filter = "(objectSid=$SID)"
+        $null = $searcher.PropertiesToLoad.Add("sAMAccountName")
+        $null = $searcher.PropertiesToLoad.Add("name")
+        $null = $searcher.PropertiesToLoad.Add("cn")
+        $null = $searcher.PropertiesToLoad.Add("distinguishedName")
+        $searcher.PageSize = 1000
+        $result = $searcher.FindOne()
+
+        if ($result) {
+            # prefer sAMAccountName, then name, then cn
+            $sam = $result.Properties["samaccountname"] | Select-Object -First 1
+            if (-not $sam) { $sam = $result.Properties["name"] | Select-Object -First 1 }
+            if (-not $sam) { $sam = $result.Properties["cn"]   | Select-Object -First 1 }
+			
+			$SidLike = '^(?i)S-\d(-\d+)+$'
+			if ($sam -and ($sam -match $SidLike)) { $sam = $null }  # treat as unresolved
+
+            if ($sam) {
+                $dn = $result.Properties["distinguishedname"] | Select-Object -First 1
+                if ($dn -and ($dn -match "(?i)DC=([^,]+)")) {
+                    return "$($matches[1])\$sam"
+                } else {
+                    return $sam
+                }
+            }
+        }
+    } catch { }
+
+    try {
+        # Fallback covers well-known SIDs and any odd cases
+        $objSID = New-Object System.Security.Principal.SecurityIdentifier($SID)
+        return $objSID.Translate([System.Security.Principal.NTAccount]).Value
+    } catch {
+        return $SID
+    }
 }
