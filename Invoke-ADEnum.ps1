@@ -3916,6 +3916,8 @@ Add-Type -TypeDefinition $code
 			}
 
 			if($IPAddresses){
+				$ADCSInformation = Invoke-ADCSInformer -Target $CAFQDN
+				
 				foreach($IPAddress in $IPAddresses){
 					$Endpoint = "$CAFQDN/certsrv/"
 					if(!$domainjoined){
@@ -3942,7 +3944,9 @@ Add-Type -TypeDefinition $code
 						"Group Name" = $CertPublisher.GroupName
 						"Endpoint" = $Endpoint
 						"HTTP" = $HTTPMessage
+						"HTTP Auth" = $ADCSInformation.HttpsIsWindowsAuth
 						"HTTPS" = $HTTPSMessage
+						"HTTPS Auth" = $ADCSInformation.HttpsIsWindowsAuth
 						"Domain" = $CertPublisher.GroupDomain
 					}
 				}
@@ -11688,7 +11692,6 @@ function Test-TGT {
         $raw = & klist 2>$null | Out-String
         if (-not $raw) { return $false }
 
-        # Look for a krbtgt ticket for the given realm
         if ($raw -match "Server\s*:\s*krbtgt") {
             return $true
         }
@@ -11708,7 +11711,6 @@ function Test-HostsEntry {
 
     $name = [regex]::Escape($Server.Trim().TrimEnd('.'))
 
-    # Find non-comment lines where $Server appears as a whole alias token
     $pattern = "(?im)^(?!\s*#)\s*\S+\s+.*(?<!\S)$name(?!\S)"
     return Select-String -Path $path -Pattern $pattern -Quiet
 }
@@ -11719,7 +11721,6 @@ function Resolve-SidViaADSI {
         [string]$Server
     )
     try {
-        # Search from the DC's default naming context to avoid odd roots
         $root   = [ADSI]"LDAP://$Server/RootDSE"
         $baseDN = $root.defaultNamingContext
         $searcher = New-Object DirectoryServices.DirectorySearcher([ADSI]"LDAP://$Server/$baseDN")
@@ -11732,7 +11733,6 @@ function Resolve-SidViaADSI {
         $result = $searcher.FindOne()
 
         if ($result) {
-            # prefer sAMAccountName, then name, then cn
             $sam = $result.Properties["samaccountname"] | Select-Object -First 1
             if (-not $sam) { $sam = $result.Properties["name"] | Select-Object -First 1 }
             if (-not $sam) { $sam = $result.Properties["cn"]   | Select-Object -First 1 }
@@ -11752,10 +11752,231 @@ function Resolve-SidViaADSI {
     } catch { }
 
     try {
-        # Fallback covers well-known SIDs and any odd cases
         $objSID = New-Object System.Security.Principal.SecurityIdentifier($SID)
         return $objSID.Translate([System.Security.Principal.NTAccount]).Value
     } catch {
         return $SID
     }
+}
+
+function Invoke-HttpInformerRequest {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Url
+    )
+
+    $isHttps = $Url.ToLower().StartsWith("https://")
+
+    $prevCallback = $null
+    if ($isHttps) {
+        $prevCallback = [System.Net.ServicePointManager]::ServerCertificateValidationCallback
+        [System.Net.ServicePointManager]::ServerCertificateValidationCallback = {
+            param($sender, $cert, $chain, $errors) $true
+        }
+    }
+
+    try {
+        $req = [System.Net.WebRequest]::Create($Url)
+        $req.AllowAutoRedirect = $false
+        $req.Credentials       = [System.Net.CredentialCache]::DefaultCredentials
+
+        $res     = $req.GetResponse()
+        $httpRes = [System.Net.HttpWebResponse]$res
+        $status  = [int]$httpRes.StatusCode
+
+        $headers = @{}
+        foreach ($name in $httpRes.Headers.AllKeys) {
+            $headers[$name] = $httpRes.Headers.GetValues($name)
+        }
+
+        $obj = [pscustomobject]@{
+            Url        = $Url
+            StatusCode = $status
+            IsSuccess  = ($httpRes.StatusCode -eq 200)
+            Headers    = $headers
+            Error      = $null
+            IsError    = $false
+        }
+
+        $httpRes.Close()
+        return $obj
+    }
+    catch [System.Net.WebException] {
+        $ex       = $_.Exception
+        $response = $ex.Response
+
+        if ($response -ne $null) {
+            $httpRes = [System.Net.HttpWebResponse]$response
+            $status  = [int]$httpRes.StatusCode
+
+            $headers = @{}
+            foreach ($name in $httpRes.Headers.AllKeys) {
+                $headers[$name] = $httpRes.Headers.GetValues($name)
+            }
+
+            $obj = [pscustomobject]@{
+                Url        = $Url
+                StatusCode = $status
+                IsSuccess  = $false
+                Headers    = $headers
+                Error      = $ex.Message
+                IsError    = $false
+            }
+
+            $httpRes.Close()
+            return $obj
+        }
+        else {
+            return [pscustomobject]@{
+                Url        = $Url
+                StatusCode = $null
+                IsSuccess  = $false
+                Headers    = @{}
+                Error      = $ex.Message
+                IsError    = $true
+            }
+        }
+    }
+    catch {
+        return [pscustomobject]@{
+            Url        = $Url
+            StatusCode = $null
+            IsSuccess  = $false
+            Headers    = @{}
+            Error      = $_.Exception.ToString()
+            IsError    = $true
+        }
+    }
+    finally {
+        if ($isHttps) {
+            [System.Net.ServicePointManager]::ServerCertificateValidationCallback = $prevCallback
+        }
+    }
+}
+
+function Invoke-HttpInformerFollowRedirects {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Url,
+
+        [int]$MaxHops = 5
+    )
+
+    $current = Invoke-HttpInformerRequest -Url $Url
+    $hops    = 0
+
+    while (
+        -not $current.IsError -and
+        $current.StatusCode -ne $null -and
+        $current.StatusCode -ge 300 -and
+        $current.StatusCode -lt 400 -and
+        $current.Headers.ContainsKey("Location") -and
+        $hops -lt $MaxHops
+    ) {
+        $loc = $current.Headers["Location"][0]
+
+        if (-not [System.Uri]::IsWellFormedUriString($loc, [System.UriKind]::Absolute)) {
+            $base    = New-Object System.Uri($current.Url)
+            $nextUri = New-Object System.Uri($base, $loc)
+            $loc     = $nextUri.AbsoluteUri
+        }
+
+        $current = Invoke-HttpInformerRequest -Url $loc
+        $hops++
+    }
+
+    return $current
+}
+
+function Test-HttpInformerWindowsAuth {
+    param(
+        [Parameter(Mandatory)]
+        [pscustomobject]$Result
+    )
+
+    if (-not $Result -or -not $Result.Headers) {
+        return $false
+    }
+
+    if ($Result.Headers.ContainsKey("WWW-Authenticate")) {
+        $schemes = ($Result.Headers["WWW-Authenticate"] -join " ")
+        if ($schemes -match "Negotiate" -or $schemes -match "NTLM") {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+function HttpInformer {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Url
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Url)) {
+        throw "URL must be non-empty"
+    }
+
+    $trimmed = $Url.Trim()
+    if (-not $trimmed.ToLower().StartsWith("https://")) {
+        throw "URL must start with https://"
+    }
+
+    $httpsUrl = $trimmed
+
+    $httpUrl           = $null
+    $hasHttpAlternative = $false
+
+    try {
+        $uri     = New-Object System.Uri($httpsUrl)
+        $builder = New-Object System.UriBuilder($uri)
+        $builder.Scheme = "http"
+
+        if ($builder.Port -eq 443) {
+            $builder.Port = 80
+        }
+
+        $httpUrl            = $builder.Uri.AbsoluteUri.TrimEnd('/')
+        $hasHttpAlternative = $true
+    }
+    catch {
+        $httpUrl            = $null
+        $hasHttpAlternative = $false
+    }
+
+    $httpsResult = Invoke-HttpInformerFollowRedirects -Url $httpsUrl -MaxHops 5
+
+    $httpResult = $null
+    if ($hasHttpAlternative) {
+        $httpResult = Invoke-HttpInformerFollowRedirects -Url $httpUrl -MaxHops 5
+    }
+
+    $httpsIsWinAuth = Test-HttpInformerWindowsAuth -Result $httpsResult
+    $httpIsWinAuth  = if ($httpResult) { Test-HttpInformerWindowsAuth -Result $httpResult } else { $false }
+
+    return [pscustomobject]@{
+        HttpsUrl           = $httpsUrl
+        HttpUrl            = $httpUrl
+        HasHttpAlternative = $hasHttpAlternative
+
+        HttpsStatusCode    = $httpsResult.StatusCode
+        HttpStatusCode     = if ($httpResult) { $httpResult.StatusCode } else { $null }
+
+        HttpsIsWindowsAuth = $httpsIsWinAuth
+        HttpIsWindowsAuth  = $httpIsWinAuth
+
+        HttpsError         = $httpsResult.Error
+        HttpError          = if ($httpResult) { $httpResult.Error } else { $null }
+    }
+}
+
+function Invoke-ADCSInformer {
+    param(
+        [string]$Url,
+        [string]$Target
+    )
+    if($Target){HttpInformer -Url "https://$Target/certsrv"}
+    elseif($Url){HttpInformer -Url $Url}
 }
