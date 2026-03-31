@@ -167,6 +167,10 @@ function Invoke-ADEnum {
         [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
         $EmptyGroups,
+		
+		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Switch]
+        $SkipChecks,
 
         [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
@@ -353,6 +357,8 @@ function Invoke-ADEnum {
  -RBCD				Check for Resource Based Constrained Delegation (may take a long time depending on domain size)
 
  -SaveToDisk			Save collection data to disk (Location: c:\Users\Public\Documents\Invoke-ADEnum)
+ 
+ -SkipChecks			Disregards checks that determine if the machine is domain joined
  
  -SkipDNSResolution		Queries DNS records from the Active Directory domain only, and skips DNS resolution
  
@@ -868,13 +874,21 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 			Write-Host ""
 			Write-Host "[!] Non-joined host detected. You must obtain and import a TGT first" -ForegroundColor Red
 			Write-Host ""
-			break
+			if(!$SkipChecks){
+				Write-Host "If you already have a TGT in your session and still get this error use the -SkipChecks flag to get past this"
+				Write-Host ""
+				break
+			}
 		}
 		elseif(-not (Test-HostsEntry -Server $Server)){
 			Write-Host ""
 			Write-Host "[!] Non-joined host detected. You must populate the Hosts file with the DC's IP and FQDN" -ForegroundColor Red
 			Write-Host ""
-			break
+			if(!$SkipChecks){
+				Write-Host "If you have already populated the Hosts file and still get this error use the -SkipChecks flag to get past this"
+				Write-Host ""
+				break
+			}
 		}
 		else{
 			Write-Host "[*] Non-joined host detected" -ForegroundColor DarkGreen
