@@ -11703,13 +11703,13 @@ function Test-DomainJoinStatus {
 
 function Test-TGT {
     try {
-        $raw = & klist tgt 2>$null | Out-String
+        $raw = & klist 2>$null | Out-String
 
         if ([string]::IsNullOrWhiteSpace($raw) -or $LASTEXITCODE -ne 0) {
             return $false
         }
 
-        return ($raw -match '(?i)(?:^|\s)krbtgt(?:\s|$)')
+        return ($raw -match '(?i)Server:\s+krbtgt/')
     }
     catch {
         return $false
