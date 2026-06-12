@@ -3070,6 +3070,7 @@ Add-Type -TypeDefinition $code
 		ForEach-Object {
 			$settingValue = $null
 			$policySetting = $null
+			$gpoSetting = $null
 			$gpoPath = $_.gpcfilesyspath.TrimStart("[").TrimEnd("]")
 			if($Domain -and $Server){$gpoPath = $gpoPath -replace '(?<=^\\\\)[^\\]+', $Server}
 			$gpoDisplayName = $_.displayname
