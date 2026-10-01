@@ -6030,9 +6030,10 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	$Excluded = 'kadmin/changepw'
 	$TempSPNAccounts = @()
 	
-	foreach ($AllDomain in $AllDomains) {
+	foreach ($Forest in ($TempTargetDomains | Group-Object Forest)) {
+		$ForestDomains = $Forest.Group.Domain
 		$SPNCache = [ordered] @{}
-		$SPNAccounts = @($SumGroupsUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.serviceprincipalname -AND $_.samaccountname -ne "krbtgt"})
+		$SPNAccounts = @($SumGroupsUsers | Where-Object {$_.domain -in $ForestDomains -AND $_.serviceprincipalname -AND $_.samaccountname -ne "krbtgt"})
 		#$SPNAccounts = $SPNAccounts | Sort-Object -Unique samaccountname
 		foreach ($Account in $SPNAccounts) {
 			foreach ($SPN in $Account.ServicePrincipalName) {
@@ -6043,7 +6044,6 @@ Add-Type -TypeDefinition $efssource -Language CSharp
                         Count     = 0
                         Excluded  = $false
                         List   = [System.Collections.Generic.List[Object]]::new()
-						Domain    = $AllDomain
                     }
                 }
                 if ($SPN -in $Excluded) {
@@ -6063,7 +6063,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 				$FinalAccounts = $SPN.List | ForEach-Object { $_.samaccountname }
 				
 				$TempSPNAccounts += [PSCustomObject] @{
-					Domain    = $SPN.Domain
+					Domain    = ($SPN.List | Select-Object -ExpandProperty domain -Unique) -join ", "
 					"Duplicate SPN" = $SPN.Name
 					Count     = $SPN.Count
 					"Affected Accounts"  = $FinalAccounts -join ", "
