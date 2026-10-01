@@ -3931,38 +3931,49 @@ Add-Type -TypeDefinition $code
 			}
 
 			if($IPAddresses){
-				$ADCSInformation = Invoke-ADCSInformer -Target $CAFQDN
-				
-				foreach($IPAddress in $IPAddresses){
-					$Endpoint = "$CAFQDN/certsrv/"
-					if(!$domainjoined){
-						$httpuri = "http://$Endpoint"
-						$httpsuri = "https://$Endpoint"
-					}
-					else{
-						$httpuri = "http://$IPAddress/certsrv/"
-						$httpsuri = "https://$IPAddress/certsrv/"
-					}
-					
-					try{$httpresponse = Invoke-WebRequest -Uri $httpuri -UseDefaultCredentials -TimeoutSec 3 -UseBasicParsing}catch{$httperrorMessage = $_.Exception.Message}
+				$EndpointPaths = @(
+					"certsrv/"
+					"${CAName}_CES_Kerberos/service.svc/CES"
+					"${CAName}_CES_NTLM/service.svc/CES"
+				)
 
-					try{$httpsresponse = Invoke-WebRequest -Uri $httpsuri -UseDefaultCredentials -TimeoutSec 3 -UseBasicParsing}catch{$httpserrorMessage = $_.Exception.Message}
-					
-					if ($httpresponse.statuscode -eq 200) {$HTTPMessage = "True"} elseif ($httperrorMessage.ToString() -like "*Could not establish trust relationship for the SSL/TLS secure channel*") {$HTTPMessage = "Possible"} elseif ($httperrorMessage.ToString() -like "*The remote server returned an error: (401) Unauthorized*") {$HTTPMessage = "Possible"} else {$HTTPMessage = "False"}
-					
-					if ($httpsresponse.statuscode -eq 200) {$HTTPSMessage = "True"} elseif ($httpserrorMessage.ToString() -like "*Could not establish trust relationship for the SSL/TLS secure channel*") {$HTTPSMessage = "Possible"} elseif ($httpserrorMessage.ToString() -like "*The remote server returned an error: (401) Unauthorized*") {$HTTPSMessage = "Possible"} else {$HTTPSMessage = "False"}
-					
-					[PSCustomObject]@{
-						"Name" = $CertPublisher.MemberName
-						"IP Address" = $IPAddress
-						"Member SID" = $CertPublisher.MemberSID
-						"Group Name" = $CertPublisher.GroupName
-						"Endpoint" = $Endpoint
-						"HTTP" = $HTTPMessage
-						"HTTP Auth" = $ADCSInformation.HttpsIsWindowsAuth
-						"HTTPS" = $HTTPSMessage
-						"HTTPS Auth" = $ADCSInformation.HttpsIsWindowsAuth
-						"Domain" = $CertPublisher.GroupDomain
+				foreach($IPAddress in $IPAddresses){
+					foreach($EndpointPath in $EndpointPaths){
+						$Endpoint = "$CAFQDN/$EndpointPath"
+						$ADCSInformation = Invoke-ADCSInformer -Url "https://$Endpoint"
+						if(!$domainjoined){
+							$httpuri = "http://$Endpoint"
+							$httpsuri = "https://$Endpoint"
+						}
+						else{
+							$httpuri = "http://$IPAddress/$EndpointPath"
+							$httpsuri = "https://$IPAddress/$EndpointPath"
+						}
+
+						$httpresponse = $null
+						$httpsresponse = $null
+						$httperrorMessage = $null
+						$httpserrorMessage = $null
+						try{$httpresponse = Invoke-WebRequest -Uri $httpuri -UseDefaultCredentials -TimeoutSec 3 -UseBasicParsing}catch{$httperrorMessage = $_.Exception.Message}
+
+						try{$httpsresponse = Invoke-WebRequest -Uri $httpsuri -UseDefaultCredentials -TimeoutSec 3 -UseBasicParsing}catch{$httpserrorMessage = $_.Exception.Message}
+
+						if ($httpresponse.statuscode -eq 200) {$HTTPMessage = "True"} elseif ($httperrorMessage.ToString() -like "*Could not establish trust relationship for the SSL/TLS secure channel*") {$HTTPMessage = "Possible"} elseif ($httperrorMessage.ToString() -like "*The remote server returned an error: (401) Unauthorized*") {$HTTPMessage = "Possible"} else {$HTTPMessage = "False"}
+
+						if ($httpsresponse.statuscode -eq 200) {$HTTPSMessage = "True"} elseif ($httpserrorMessage.ToString() -like "*Could not establish trust relationship for the SSL/TLS secure channel*") {$HTTPSMessage = "Possible"} elseif ($httpserrorMessage.ToString() -like "*The remote server returned an error: (401) Unauthorized*") {$HTTPSMessage = "Possible"} else {$HTTPSMessage = "False"}
+
+						[PSCustomObject]@{
+							"Name" = $CertPublisher.MemberName
+							"IP Address" = $IPAddress
+							"Member SID" = $CertPublisher.MemberSID
+							"Group Name" = $CertPublisher.GroupName
+							"Endpoint" = $Endpoint
+							"HTTP" = $HTTPMessage
+							"HTTP Auth" = $ADCSInformation.HttpIsWindowsAuth
+							"HTTPS" = $HTTPSMessage
+							"HTTPS Auth" = $ADCSInformation.HttpsIsWindowsAuth
+							"Domain" = $CertPublisher.GroupDomain
+						}
 					}
 				}
 			}
@@ -3999,7 +4010,7 @@ Add-Type -TypeDefinition $code
 			
 			$HTMLADCSEndpointsTable = "<div class='report-section' style='display:none;'>$HTMLADCSEndpointsTable</div>"
 			
-			$CollectedCertPublishers = $TempCertPublishers | Sort-Object Domain,"Name"
+			$CollectedCertPublishers = $TempCertPublishers | Sort-Object Domain,"Name" -Unique
 		}
 	}
 	
