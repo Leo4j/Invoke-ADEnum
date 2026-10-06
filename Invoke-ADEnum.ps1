@@ -26,6 +26,10 @@ function Invoke-ADEnum {
 
         [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [String]
+        $ServerIP,
+		
+		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [String]
         $Output,
 
         [Parameter (Mandatory=$False, ValueFromPipeline=$true)]
@@ -198,10 +202,6 @@ function Invoke-ADEnum {
 		
 		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
-    	$PopulateHosts,
-		
-		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
-        [Switch]
 		$OutboundTrustDCs,
 		
 		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
@@ -276,6 +276,8 @@ function Invoke-ADEnum {
  -Output <path-on-disk>		Specify the tool output location (default: pwd)
 
  -Server <DC FQDN or IP>	The DC to bind to (requires you to specify a Domain)
+ 
+ -ServerIP <DC IP>		The DC to bind to (requires you to specify a Domain)
 
 "
 		Write-Host " [SWITCHES]" -ForegroundColor Yellow
@@ -287,6 +289,8 @@ function Invoke-ADEnum {
  -AllGroups			Enumerate for All Domain Groups
  
  -AllGPOs			List all domain GPOs
+ 
+ -CompatibilityMode		Use this flag if output is not showing correctly
  
  -Debugging			Will print errors on screen
  
@@ -352,8 +356,6 @@ function Invoke-ADEnum {
 
  -PassNotRequired		Enumerate for Users and Computers having Password-not-required attribute set
  
- -PopulateHosts			Populates the hosts file | Needs admin | Useful from non-joined machines
-
  -RBCD				Check for Resource Based Constrained Delegation (may take a long time depending on domain size)
 
  -SaveToDisk			Save collection data to disk (Location: c:\Users\Public\Documents\Invoke-ADEnum)
@@ -384,6 +386,8 @@ function Invoke-ADEnum {
  Invoke-ADEnum -Exclude `"contoso.local,domain.local`" -NoVulnCertTemplates
 
  Invoke-ADEnum -AllEnum -Force
+ 
+ Invoke-ADEnum -Domain ferrari.local -Server dc01.ferrari.local -ServerIP 10.0.2.128 -SetRealm -RunAsUser Administrator -RunAsPass P@ssw0rd!
 
 "
 		Write-Host " [Recommended Coverage]" -ForegroundColor Yellow
@@ -863,37 +867,81 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 	
     $domainjoined = Test-DomainJoinStatus
 	if(!$domainjoined){
-		
-		if(!$Domain -OR !$Server){
+
+		$ChecksFailed = @()
+
+		$currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+
+		if(!$currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){
+			$ChecksFailed += "Run from an elevated prompt"
+		}
+
+		if(!$Domain -OR !$Server -OR !$ServerIP){
+			$ChecksFailed += "You must specify a target Domain, Server and ServerIP"
+		}
+
+		if(-not (Test-TGT) -AND !$SkipChecks){
+			$ChecksFailed += "You must obtain and import a TGT first"
+		}
+
+		if($ChecksFailed){
 			Write-Host ""
-			Write-Host "[!] Non-joined host detected. You must specify a target Domain and Server" -ForegroundColor Red
+			Write-Host "[!] Non-joined host detected. The following is required:" -ForegroundColor Red
+
+			foreach($CheckFailed in $ChecksFailed){
+				Write-Host "    - $CheckFailed" -ForegroundColor Red
+			}
+
+			if($ChecksFailed -contains "You must obtain and import a TGT first"){
+				Write-Host ""
+				Write-Host "If you already have a TGT in your session and still get this error use the -SkipChecks flag to get past this"
+			}
+
 			Write-Host ""
 			break
 		}
-		elseif(-not (Test-TGT)){
+
+		Write-Host "[!]" -ForegroundColor Yellow -NoNewline
+		Write-Host " Non-joined host detected"
+		Write-Host ""
+		$SRV_RECORD = "_kerberos._tcp.dc._msdcs.$Domain"
+		$SRV_RES    = $false
+		
+		# Prevent duplicate entries from being added.
+		$Existing_SRV = Get-DnsClientNrptRule | Where-Object { $_.Namespace -contains ".$Domain" }
+
+		if (-not $Existing_SRV) {
+			Add-DnsClientNrptRule -Namespace ".$Domain" -NameServers $ServerIP
+			Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+			Write-Host "Namespace resolution configured"
 			Write-Host ""
-			Write-Host "[!] Non-joined host detected. You must obtain and import a TGT first" -ForegroundColor Red
-			Write-Host ""
-			if(!$SkipChecks){
-				Write-Host "If you already have a TGT in your session and still get this error use the -SkipChecks flag to get past this"
-				Write-Host ""
-				break
-			}
+			Clear-DnsClientCache
+			Start-Sleep -Seconds 2
 		}
-		elseif(-not (Test-HostsEntry -Server $Server)){
+		
+		"y" | ksetup /setrealm $Domain.ToUpper() > $null
+		ksetup /addkdc $Domain.ToUpper() $ServerIP > $null
+		ksetup /setrealmflags $Domain.ToUpper() 0x0F > $null
+		Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+		Write-Host "Kerberos realm configured"
+		Write-Host ""
+
+		try {
+			$null = Resolve-DnsName -Name $SRV_RECORD -Type SRV -TcpOnly -ErrorAction Stop
+
+			Write-Host "[*] " -ForegroundColor "Green" -NoNewline
+			Write-Host "Target domain is reachable"
 			Write-Host ""
-			Write-Host "[!] Non-joined host detected. You must populate the Hosts file with the DC's IP and FQDN" -ForegroundColor Red
-			Write-Host ""
-			if(!$SkipChecks){
-				Write-Host "If you have already populated the Hosts file and still get this error use the -SkipChecks flag to get past this"
-				Write-Host ""
-				break
-			}
+
+			$SRV_RES = $true
 		}
-		else{
-			Write-Host "[*] Non-joined host detected" -ForegroundColor DarkGreen
+		catch {
+
+			Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+			Write-Host "Cannot contact the domain"
 			Write-Host ""
 		}
+		
 	}
 	
 	Write-Host "Enumerating domains and forests..." -ForegroundColor Cyan
@@ -1634,72 +1682,6 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 			$AllDomainTrusts | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\DomainTrusts.json
 			$AllSubnets | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\Subnets.json
 			$AllDNSEntries | ConvertTo-Json | Out-File -FilePath c:\Users\Public\Documents\Invoke-ADEnum\DNSEntries.json
-		}
-	}
-	
-	#############################################
-    ############# Hosts File ################
-	#############################################
-	
-	if ($PopulateHosts -and $Domain -and $Server) {
-		Write-Host "[*] Populating Hosts file..."
-
-		$hostsPath    = "$env:SystemRoot\System32\drivers\etc\hosts"
-		$currentHosts = Get-Content $hostsPath -ErrorAction SilentlyContinue | ForEach-Object { $_.ToLower() }
-		$entriesToAdd = @()
-
-		# Get domain root IPs (formerly "@")
-		$domainEntry = $AllDNSEntries | Where-Object { $_.Hostname -eq $Domain }
-		$domainIPs = @()
-		if ($domainEntry) {
-			$domainIPs = $domainEntry.'IP Address' -split ',\s*'
-		}
-
-		foreach ($entry in $AllDNSEntries) {
-			$hostname = $entry.Hostname.ToLower()
-
-			# Skip domain root and DNS infrastructure entries
-			if ($hostname -eq $Domain.ToLower() -or $hostname -in @('domaindnszones', 'forestdnszones')) {
-				continue
-			}
-
-			$domain   = $entry.Domain.ToLower()
-			$fqdn     = "$hostname.$domain"
-			$ips      = $entry.'IP Address' -split ',\s*'
-
-			# Check if the FQDN already exists in hosts
-			$pattern = "(^|\s)$fqdn($|\s)"
-			$exists  = $currentHosts | Where-Object { $_ -match $pattern }
-
-			if (-not $exists -and $ips.Count -gt 0) {
-				# Sort IPs by closeness to domain IPs
-				$sortedIps = $ips | Sort-Object {
-					$ip = $_
-					$maxMatch = 0
-					foreach ($domIp in $domainIPs) {
-						$ipBytes  = $ip -split '\.' | ForEach-Object { [int]$_ }
-						$domBytes = $domIp -split '\.' | ForEach-Object { [int]$_ }
-						$match = 0
-						for ($i = 0; $i -lt 4; $i++) {
-							if ($ipBytes[$i] -eq $domBytes[$i]) { $match++ } else { break }
-						}
-						if ($match -gt $maxMatch) { $maxMatch = $match }
-					}
-					return -$maxMatch
-				}
-
-				foreach ($ip in $sortedIps) {
-					$line = "$ip`t$fqdn`t# Added by Invoke-ADEnum"
-					$entriesToAdd += $line
-				}
-			}
-		}
-
-		if ($entriesToAdd.Count -gt 0) {
-			Add-Content -Path $hostsPath -Value "`n"
-			foreach ($line in $entriesToAdd) {
-				Add-Content -Path $hostsPath -Value $line
-			}
 		}
 	}
 	
@@ -11714,18 +11696,6 @@ function Test-TGT {
     catch {
         return $false
     }
-}
-
-function Test-HostsEntry {
-    param([Parameter(Mandatory=$true)][string]$Server)
-
-    $path = Join-Path $env:SystemRoot 'System32\drivers\etc\hosts'
-    if (-not (Test-Path $path)) { return $false }
-
-    $name = [regex]::Escape($Server.Trim().TrimEnd('.'))
-
-    $pattern = "(?im)^(?!\s*#)\s*\S+\s+.*(?<!\S)$name(?!\S)"
-    return Select-String -Path $path -Pattern $pattern -Quiet
 }
 
 function Resolve-SidViaADSI {
