@@ -595,7 +595,7 @@ $xlsHeader = @'
 				
 				else if (ws) { // If there's no title and we have a current worksheet
 					// Append the current table's rows to the existing worksheet
-					var currWs = XLSX.utils.table_to_sheet(this);
+					var currWs = XLSX.utils.table_to_sheet(this, { raw: true });
 					var wsRange = XLSX.utils.decode_range(ws["!ref"]);
 					var currRange = XLSX.utils.decode_range(currWs["!ref"]);
 
@@ -670,6 +670,7 @@ $xlsHeader = @'
 			createDownloadLinkForTable('SchemaAdmins');
 			createDownloadLinkForTable('ServerOperators');
 			createDownloadLinkForTable('ADCSEndpoints');
+			createDownloadLinkForTable('CESEndpoints');
 			createDownloadLinkForTable('ADCSRPCEndpoints');
 			createDownloadLinkForTable('CertTemplates');
 			createDownloadLinkForTable('UnconstrainedComputers');
@@ -3973,7 +3974,7 @@ Add-Type -TypeDefinition $code
       		$ADCSEndpointsTable = [PSCustomObject]@{
 				#"Risk Rating" = "Critical - Needs Immediate Attention"
 				"Description" = "These endpoints could be exploited through NTLM relay attacks to issue unauthorized certificates for targeted domain computers, leading to domain compromise."
-				"Remediation" = "Disable HTTP and HTTPS access to the certificate enrolment interface (if enabled) for quick resolution."
+				"Remediation" = "Disable AD CS Web Enrollment if not required; otherwise enable EPA (Required), Require SSL, and disable NTLM where possible."
 			}
 			
 			$HTMLADCSEndpointsTable = $ADCSEndpointsTable | ConvertTo-Html -As List -Fragment
@@ -3986,6 +3987,192 @@ Add-Type -TypeDefinition $code
 	}
 	
 	###############################################
+	########### ADCS CES Endpoints ################
+	###############################################
+	if($NoADCSCESEndpoints){}
+	else{
+		if(!$NoOutput){
+			Write-Host ""
+			Write-Host ""
+			Write-Host "ADCS CES Endpoints" -ForegroundColor Cyan
+		}
+
+		$CESEndpoints = @()
+
+		$CESEndpoints += foreach($ForestInfo in $TempAllForests){
+
+			$ForestName = [string]$ForestInfo.Name
+			$NamingRoleOwner = $ForestInfo."Naming Role Owner"
+
+			# Local forest enumeration returns a DomainController object.
+			# Get-RemoteForestInfo returns a string.
+			if($NamingRoleOwner -is [System.DirectoryServices.ActiveDirectory.DomainController]){$ForestDC = [string]$NamingRoleOwner.Name}
+			else{$ForestDC = [string]$NamingRoleOwner}
+
+			if($ForestName -and $ForestDC){Collect-ADCSEnrollmentServices -Forest $ForestName -Server $ForestDC}
+		}
+
+		# Prevent the same published endpoint being processed twice.
+		if($CESEndpoints){
+			$CESEndpoints = @(
+				$CESEndpoints |
+				Sort-Object Forest,"CA Name",Endpoint -Unique
+			)
+		}
+
+		$TempCESEndpoints = foreach($CESEndpoint in $CESEndpoints){
+
+			$Endpoint = [string]$CESEndpoint.Endpoint
+
+			try{
+				$CESUri = [System.Uri]$Endpoint
+				$CESHost = $CESUri.Host
+			}
+			catch{continue}
+
+			$CESName = $CESHost.Split('.')[0]
+
+			if($CESHost.Contains(".")){$CESDomain = $CESHost.Substring($CESName.Length + 1)}
+			else{$CESDomain = $CESEndpoint.Forest}
+
+			$CESForestDC = [string]$CESEndpoint."Forest DC"
+
+			$IPAddresses = @($AllDNSEntries | Where-Object {($_.Hostname -eq $CESName -AND $_.Domain -eq $CESDomain) -OR $_.Hostname -eq $CESHost} | Select-Object -ExpandProperty "IP Address")
+
+			if(!$IPAddresses -and !$OPSec -and $CESHost){
+
+				if($Domain -and $Server){
+
+					if(!$domainjoined){
+						$IPAddresses = @(
+							try{
+								(Resolve-DnsName `
+									-Name $CESHost `
+									-Type A `
+									-Server $CESForestDC `
+									-ErrorAction Stop `
+									-TcpOnly).IPAddress
+							}
+							catch{
+								"No-IP"
+							}
+						)
+					}
+					else{
+						$IPAddresses = @(
+							try{
+								(Resolve-DnsName `
+									-Name $CESHost `
+									-Type A `
+									-Server $CESForestDC `
+									-ErrorAction Stop).IPAddress
+							}
+							catch{
+								"No-IP"
+							}
+						)
+					}
+				}
+				else{
+					$IPAddresses = @(
+						try{
+							(Resolve-DnsName `
+								-Name $CESHost `
+								-Type A `
+								-ErrorAction Stop).IPAddress
+						}
+						catch{
+							"No-IP"
+						}
+					)
+				}
+
+				if(!$IPAddresses){$IPAddresses = @("No-IP")}
+
+				$AllDNSEntries += [PSCustomObject]@{
+					Hostname = $CESName
+					"IP Address" = $IPAddresses
+					Domain = $CESDomain
+				}
+			}
+			elseif(!$IPAddresses -and ($OPSec -OR !$CESHost)){
+
+				$IPAddresses = @("No-IP")
+
+				$AllDNSEntries += [PSCustomObject]@{
+					Hostname = $CESName
+					"IP Address" = $IPAddresses
+					Domain = $CESDomain
+				}
+			}
+
+			if($IPAddresses -and $IPAddresses -notcontains "No-IP"){
+
+				$CESInformation = Invoke-ADCSCESInformer -Target $Endpoint
+
+				foreach($IPAddress in $IPAddresses){
+
+					[PSCustomObject]@{
+						"CA Name" = $CESEndpoint."CA Name"
+						"CA Host" = $CESEndpoint."CA Host"
+						"CES Host" = $CESHost
+						"IP Address" = $IPAddress
+						"Endpoint" = $Endpoint
+						"CES" = $CESInformation.Available
+						"CES Auth" = $CESInformation.Auth
+						"Forest" = $CESEndpoint.Forest
+					}
+				}
+			}
+			else{
+				[PSCustomObject]@{
+					"CA Name" = $CESEndpoint."CA Name"
+					"CA Host" = $CESEndpoint."CA Host"
+					"CES Host" = $CESHost
+					"IP Address" = "No-IP"
+					"Endpoint" = $Endpoint
+					"CES" = "No-IP"
+					"CES Auth" = "No-IP"
+					"Forest" = $CESEndpoint.Forest
+				}
+			}
+
+			$IPAddresses = $null
+			$CESInformation = $null
+		}
+
+		if($TempCESEndpoints){
+
+			if(!$NoOutput){
+				(
+					$TempCESEndpoints |
+					Sort-Object Forest,"CA Name","CES Host" |
+					Format-Table -AutoSize -Wrap |
+					Out-String
+				).TrimEnd()
+			}
+
+			$HTMLCESEndpoints = $TempCESEndpoints | Sort-Object Forest,"CA Name","CES Host" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='CESEndpoints'>ADCS CES Endpoints</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='CESEndpoints'>" }
+
+			$CESEndpointsTable = [PSCustomObject]@{
+				"Description" = "Certificate Enrollment Web Service endpoints using Windows Authentication can be exposed to NTLM relay attacks through Negotiate authentication."
+				"Remediation" = "Disable CES if not required; otherwise enable EPA (Required), Require SSL, and set extendedProtectionPolicy to Always."
+			}
+
+			$HTMLCESEndpointsTable = $CESEndpointsTable | ConvertTo-Html -As List -Fragment
+
+			$HTMLCESEndpointsTable = $HTMLCESEndpointsTable.Replace(
+				"Remediation",
+				'<a href="https://support.microsoft.com/en-gb/topic/kb5005413-mitigating-ntlm-relay-attacks-on-active-directory-certificate-services-ad-cs-3612b773-4043-4aa9-b23d-b87910cd3429" target="_blank">Remediation</a>'
+			)
+
+			$HTMLCESEndpointsTable = "<div class='report-section' style='display:none;'>$HTMLCESEndpointsTable</div>"
+
+			$CollectedCESEndpoints = $TempCESEndpoints | Sort-Object Forest,"CA Name","CES Host"
+		}
+	}
+	
+	############################################### $HTMLCESEndpoints $HTMLCESEndpointsTable
     ########### ADCS ESC11 ###############
 	###############################################
 	
@@ -4053,7 +4240,7 @@ Add-Type -TypeDefinition $code
 			$ADCSRPCEndpointsTable = [PSCustomObject]@{
 				#"Risk Rating" = "Critical - Needs Immediate Attention"
 				"Description" = "These endpoints could be exploited through NTLM relay attacks to issue unauthorized certificates for targeted domain computers, leading to domain compromise."
-				"Remediation" = "System administrators can use certutil to set the IF_ENFORCEENCRYPTICERTREQUEST flag manually: certutil -setreg CA\InterfaceFlags +IF_ENFORCEENCRYPTICERTREQUEST"
+				"Remediation" = "Enable IF_ENFORCEENCRYPTICERTREQUEST and restart the Certificate Services service: certutil -setreg CA\InterfaceFlags +IF_ENFORCEENCRYPTICERTREQUEST"
 			}
 			
 			$HTMLADCSRPCEndpointsTable = $ADCSRPCEndpointsTable | ConvertTo-Html -As List -Fragment
@@ -9486,7 +9673,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	if(!$HTMLCertPublishers -AND !$HTMLESC11Table -AND !$HTMLVulnCertTemplates -AND !$HTMLExchangeTrustedSubsystem -AND !$HTMLServiceAccounts -AND !$HTMLGMSAs -AND !$HTMLnopreauthset -AND !$HTMLGPPasswords -AND !$HTMLHardcodedcreds -AND !$HTMLPasswordSetUsers -AND !$HTMLUnixPasswordSet -AND !$HTMLEmptyPasswordUsers -AND !$HTMLEmptyPasswordComputers -AND !$HTMLTotalEmptyPass -AND !$HTMLCompTotalEmptyPass -AND !$HTMLPreWin2kCompatibleAccess -AND !$HTMLWin7AndServer2008 -AND !$HTMLMachineAccountsPriv -AND !$HTMLsidHistoryUsers -AND !$HTMLRevEncUsers -AND !$HTMLUnsupportedHosts){$MisconfigurationsBanner = $null}
 	if(!$HTMLFileServers -AND !$HTMLSQLServers -AND !$HTMLSCCMServers -AND !$HTMLWSUSServers -AND !$HTMLWebDAVStatusResults -AND !$HTMLVNCUnauthAccess -AND !$HTMLPrinters -AND !$HTMLSPNAccounts -AND !$HTMLSharesResultsTable -AND !$HTMLHomeDirectories -AND !$HTMLEmptyGroups){$ExtendedChecksBanner = $null}
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLAllForests $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLFineGrained $HTMLOtherPolicies $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLLLMNR $HTMLMachineQuota $HTMLMachineAccountQuotaTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLVulnLMCompLevelComp $HTMLDNSRecords $HTMLSubnets $AdministratorsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLAdminsProtectedUsersAndSensitive $HTMLAdminsProtectedUsersAndSensitiveTable $HTMLSecurityProtectedUsersAndSensitive $HTMLSecurityProtectedUsersAndSensitiveTable $HTMLAdmCountProtectedUsersAndSensitive $HTMLAdmCountProtectedUsersAndSensitiveTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLFindLocalAdminAccess $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLESC11Table $HTMLADCSRPCEndpointsTable $HTMLVulnCertTemplates $HTMLCertTemplatesTable $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLGPPasswords $HTMLGPPasswordsTable $HTMLHardcodedcreds $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLEmptyPasswordComputers $HTMLEmptyPasswordComputersTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLWin7AndServer2008 $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $ExtendedChecksBanner $HTMLFileServers $HTMLSQLServers $HTMLSCCMServers $HTMLWSUSServers $HTMLWebDAVStatusResults $HTMLVNCUnauthAccess $HTMLPrinters $HTMLSPNAccounts $HTMLSharesResultsTable $HTMLHomeDirectories $HTMLEmptyGroups $GroupPolicyChecksBanner $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $DelegationChecksBanner $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLUnconstrainedUsers $HTMLUnconstrainedUsersTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLAccessAllowedComputers $HTMLAccessAllowedComputersTable $HTMLWeakPermissionsObjects $HTMLWeakPermissionsTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $HTMLAllowedtologonto $HTMLAllowedtologontoTable $HTMLManagedObjects $HTMLManagedObjectsTable $SecurityGroupsBanner $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDCOMUsers $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLOrganizationManagement $HTMLPerformanceLogUsers $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLRDPUsers $HTMLRemManUsers $HTMLSchemaAdmins $HTMLServerOperators $InterestingDataBanner $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLAllForests $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLFineGrained $HTMLOtherPolicies $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLLLMNR $HTMLMachineQuota $HTMLMachineAccountQuotaTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLVulnLMCompLevelComp $HTMLDNSRecords $HTMLSubnets $AdministratorsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLAdminsProtectedUsersAndSensitive $HTMLAdminsProtectedUsersAndSensitiveTable $HTMLSecurityProtectedUsersAndSensitive $HTMLSecurityProtectedUsersAndSensitiveTable $HTMLAdmCountProtectedUsersAndSensitive $HTMLAdmCountProtectedUsersAndSensitiveTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLFindLocalAdminAccess $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLCESEndpoints $HTMLCESEndpointsTable $HTMLESC11Table $HTMLADCSRPCEndpointsTable $HTMLVulnCertTemplates $HTMLCertTemplatesTable $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLGPPasswords $HTMLGPPasswordsTable $HTMLHardcodedcreds $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLEmptyPasswordComputers $HTMLEmptyPasswordComputersTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLWin7AndServer2008 $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $ExtendedChecksBanner $HTMLFileServers $HTMLSQLServers $HTMLSCCMServers $HTMLWSUSServers $HTMLWebDAVStatusResults $HTMLVNCUnauthAccess $HTMLPrinters $HTMLSPNAccounts $HTMLSharesResultsTable $HTMLHomeDirectories $HTMLEmptyGroups $GroupPolicyChecksBanner $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $DelegationChecksBanner $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLUnconstrainedUsers $HTMLUnconstrainedUsersTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLAccessAllowedComputers $HTMLAccessAllowedComputersTable $HTMLWeakPermissionsObjects $HTMLWeakPermissionsTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $HTMLAllowedtologonto $HTMLAllowedtologontoTable $HTMLManagedObjects $HTMLManagedObjectsTable $SecurityGroupsBanner $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDCOMUsers $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLOrganizationManagement $HTMLPerformanceLogUsers $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLRDPUsers $HTMLRemManUsers $HTMLSchemaAdmins $HTMLServerOperators $InterestingDataBanner $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
 	
 	if($Output){
 		$Output = $Output.TrimEnd('\')
@@ -11761,6 +11948,7 @@ function Invoke-HttpInformerRequest {
     try {
         $req = [System.Net.WebRequest]::Create($Url)
         $req.AllowAutoRedirect = $false
+		$req.KeepAlive = $false
         $req.Credentials       = [System.Net.CredentialCache]::DefaultCredentials
 
         $res     = $req.GetResponse()
@@ -11962,4 +12150,216 @@ function Invoke-ADCSInformer {
     )
     if($Target){HttpInformer -Url "https://$Target/certsrv"}
     elseif($Url){HttpInformer -Url $Url}
+}
+
+function Collect-ADCSEnrollmentServices {
+	[CmdletBinding()]
+	param (
+		[Parameter(Mandatory = $true)]
+		[string]$Forest,
+
+		[Parameter(Mandatory = $true)]
+		[string]$Server
+	)
+
+	$RootDSE = $null
+	$DirectoryEntry = $null
+	$Searcher = $null
+	$Results = $null
+
+	try {
+		$RootDSE = [ADSI]"LDAP://$Server/RootDSE"
+
+		$ConfigurationNamingContext = [string]$RootDSE.Properties["configurationNamingContext"][0]
+
+		if(!$ConfigurationNamingContext){
+			return
+		}
+
+		$EnrollmentServicesDN = "CN=Enrollment Services,CN=Public Key Services,CN=Services,$ConfigurationNamingContext"
+		$LDAPPath = "LDAP://$Server/$EnrollmentServicesDN"
+
+		$DirectoryEntry = New-Object System.DirectoryServices.DirectoryEntry($LDAPPath)
+		$Searcher = New-Object System.DirectoryServices.DirectorySearcher($DirectoryEntry)
+
+		$Searcher.Filter = "(&(objectClass=pKIEnrollmentService)(msPKI-Enrollment-Servers=*))"
+		$Searcher.SearchScope = [System.DirectoryServices.SearchScope]::Subtree
+		$Searcher.PageSize = 1000
+
+		$null = $Searcher.PropertiesToLoad.Add("name")
+		$null = $Searcher.PropertiesToLoad.Add("dNSHostName")
+		$null = $Searcher.PropertiesToLoad.Add("msPKI-Enrollment-Servers")
+
+		$Results = $Searcher.FindAll()
+
+		foreach($Result in $Results){
+
+			$CAName = [string]$Result.Properties["name"][0]
+			$CAHost = [string]$Result.Properties["dnshostname"][0]
+
+			foreach($EnrollmentServer in $Result.Properties["mspki-enrollment-servers"]){
+
+				$EnrollmentServer = [string]$EnrollmentServer
+
+				$URLMatch = [regex]::Match(
+					$EnrollmentServer,
+					'https?://[^\r\n]+',
+					[System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+				)
+
+				if($URLMatch.Success){
+
+					[PSCustomObject]@{
+						"CA Name" = $CAName
+						"CA Host" = $CAHost
+						"Endpoint" = $URLMatch.Value.Trim()
+						"Forest" = $Forest
+						"Forest DC" = $Server
+					}
+				}
+			}
+		}
+	}
+	catch{
+		Write-Verbose "Collect-ADCSEnrollmentServices failed for $Forest using $Server : $($_.Exception.Message)"
+	}
+	finally{
+		if($Results){
+			$Results.Dispose()
+		}
+
+		if($Searcher){
+			$Searcher.Dispose()
+		}
+
+		if($DirectoryEntry){
+			$DirectoryEntry.Dispose()
+		}
+
+		if($RootDSE){
+			$RootDSE.Dispose()
+		}
+	}
+}
+
+function Invoke-ADCSCESInformer {
+	[CmdletBinding()]
+	param (
+		[Parameter(Mandatory = $true)]
+		[string]$Target
+	)
+
+	$CESResponse = $null
+	$CESErrorMessage = $null
+	$CESStatusCode = $null
+	$CESAuthHeader = $null
+	$CESMessage = "False"
+	$CESAuth = "None"
+
+	$isHttps = $Target.ToLower().StartsWith("https://")
+
+	$prevCallback = $null
+
+	if($isHttps){
+		$prevCallback = [System.Net.ServicePointManager]::ServerCertificateValidationCallback
+
+		[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {
+			param($sender, $cert, $chain, $errors)
+			$true
+		}
+	}
+
+	try{
+		$Request = [System.Net.HttpWebRequest]::Create($Target)
+
+		$Request.Method = "GET"
+		$Request.Timeout = 3000
+		$Request.ReadWriteTimeout = 3000
+		$Request.AllowAutoRedirect = $false
+		$Request.KeepAlive = $false
+
+		# Do not authenticate.
+		# We want to inspect the initial authentication challenge.
+		$Request.Credentials = $null
+
+		try{
+			$CESResponse = [System.Net.HttpWebResponse]$Request.GetResponse()
+		}
+		catch [System.Net.WebException]{
+			$CESErrorMessage = $_.Exception.Message
+
+			if($_.Exception.Response){
+				$CESResponse = [System.Net.HttpWebResponse]$_.Exception.Response
+			}
+		}
+
+		if($CESResponse){
+
+			$CESStatusCode = [int]$CESResponse.StatusCode
+
+			if($CESResponse.Headers["WWW-Authenticate"]){
+				$CESAuthHeader = @(
+					$CESResponse.Headers.GetValues("WWW-Authenticate")
+				) -join ", "
+			}
+
+			# A response from the service confirms the endpoint exists.
+			# 401 is expected for CES using Windows Authentication.
+			if(
+				$CESStatusCode -eq 200 -OR
+				$CESStatusCode -eq 400 -OR
+				$CESStatusCode -eq 401 -OR
+				$CESStatusCode -eq 403 -OR
+				$CESStatusCode -eq 405
+			){
+				$CESMessage = "True"
+			}
+
+			# Record the authentication mechanism advertised by IIS.
+			if(
+				$CESAuthHeader -match "(?i)Negotiate" -AND
+				$CESAuthHeader -match "(?i)NTLM"
+			){
+				$CESAuth = "Negotiate, NTLM"
+			}
+			elseif($CESAuthHeader -match "(?i)Negotiate"){
+				$CESAuth = "Negotiate"
+			}
+			elseif($CESAuthHeader -match "(?i)NTLM"){
+				$CESAuth = "NTLM"
+			}
+			elseif($CESAuthHeader -match "(?i)Basic"){
+				$CESAuth = "Basic"
+			}
+			elseif($CESAuthHeader){
+				$CESAuth = $CESAuthHeader
+			}
+		}
+		elseif($CESErrorMessage -like "*Could not establish trust relationship for the SSL/TLS secure channel*"){
+			$CESMessage = "Possible"
+			$CESAuth = "Possible"
+		}
+	}
+	catch{
+		$CESErrorMessage = $_.Exception.Message
+
+		if($CESErrorMessage -like "*Could not establish trust relationship for the SSL/TLS secure channel*"){
+			$CESMessage = "Possible"
+			$CESAuth = "Possible"
+		}
+	}
+	finally{
+		if($CESResponse){
+			$CESResponse.Close()
+		}
+
+		if($isHttps){
+			[System.Net.ServicePointManager]::ServerCertificateValidationCallback = $prevCallback
+		}
+	}
+
+	[PSCustomObject]@{
+		"Available" = $CESMessage
+		"Auth" = $CESAuth
+	}
 }
