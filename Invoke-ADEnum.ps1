@@ -920,13 +920,6 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 			Start-Sleep -Seconds 2
 		}
 		
-		"y" | ksetup /setrealm $Domain.ToUpper() > $null
-		ksetup /addkdc $Domain.ToUpper() $ServerIP > $null
-		ksetup /setrealmflags $Domain.ToUpper() 0x0F > $null
-		Write-Host "[+] " -ForegroundColor "Green" -NoNewline
-		Write-Host "Kerberos realm configured"
-		Write-Host ""
-
 		try {
 			$null = Resolve-DnsName -Name $SRV_RECORD -Type SRV -TcpOnly -ErrorAction Stop
 
@@ -940,6 +933,26 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 
 			Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
 			Write-Host "Cannot contact the domain"
+			Write-Host ""
+		}
+		
+		#"y" | ksetup /setrealm $Domain.ToUpper() > $null
+		#ksetup /addkdc $Domain.ToUpper() $ServerIP > $null
+		#ksetup /setrealmflags $Domain.ToUpper() 0x0F > $null
+		#Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+		#Write-Host "Kerberos realm configured"
+		#Write-Host ""
+		
+		klist add_bind $Domain $Server > $null 2>&1
+
+		if ($LASTEXITCODE -eq 0) {
+			Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+			Write-Host "Successfully bound to the DC"
+			Write-Host ""
+		}
+		else {
+			Write-Host "[!] " -ForegroundColor Red -NoNewline
+			Write-Host "Failed to bind to the DC"
 			Write-Host ""
 		}
 		
