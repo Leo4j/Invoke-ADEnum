@@ -6212,10 +6212,21 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	$Excluded = 'kadmin/changepw'
 	$TempSPNAccounts = @()
 	
-	foreach ($AllDomain in $AllDomains) {
+	$SPNForests = foreach($SPNTargetDomain in $TempTargetDomains){
+
+		if($SPNTargetDomain.Forest -is [string]){$SPNForestName = $SPNTargetDomain.Forest}
+		else{$SPNForestName = $SPNTargetDomain.Forest.Name}
+
+		[PSCustomObject]@{
+			Domain = $SPNTargetDomain.Domain
+			Forest = $SPNForestName
+		}
+	}
+	
+	foreach($SPNForest in ($SPNForests | Group-Object Forest)){
+		$SPNForestDomains = @($SPNForest.Group.Domain)
 		$SPNCache = [ordered] @{}
-		$SPNAccounts = @($SumGroupsUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.serviceprincipalname -AND $_.samaccountname -ne "krbtgt"})
-		#$SPNAccounts = $SPNAccounts | Sort-Object -Unique samaccountname
+		$SPNAccounts = @($SumGroupsUsers | Where-Object {$_.domain -in $SPNForestDomains -AND $_.serviceprincipalname -AND $_.samaccountname -ne "krbtgt"})
 		foreach ($Account in $SPNAccounts) {
 			foreach ($SPN in $Account.ServicePrincipalName) {
                 if (-not $SPNCache[$SPN]) {
@@ -6225,39 +6236,31 @@ Add-Type -TypeDefinition $efssource -Language CSharp
                         Count     = 0
                         Excluded  = $false
                         List   = [System.Collections.Generic.List[Object]]::new()
-						Domain    = $AllDomain
                     }
                 }
-                if ($SPN -in $Excluded) {
-                    $SPNCache[$SPN].Excluded = $true
-                }
+                if ($SPN -in $Excluded) {$SPNCache[$SPN].Excluded = $true}
 				$SPNCache[$SPN].List.Add($Account)
                 $SPNCache[$SPN].Count++
             }
 		}
 		
 		foreach ($SPN in $SPNCache.Values) {
-			if ($SPN.Count -gt 1 -and $SPN.Excluded -ne $true) {
-				$SPN.Duplicate = $true
-			}
+			if ($SPN.Count -gt 1 -and $SPN.Excluded -ne $true) {$SPN.Duplicate = $true}
 			if ($SPN.Duplicate) {
-				
-				$FinalAccounts = $SPN.List | ForEach-Object { $_.samaccountname }
-				
+				$FinalAccounts = $SPN.List | ForEach-Object {"$($_.domain)\$($_.samaccountname)"}
 				$TempSPNAccounts += [PSCustomObject] @{
-					Domain    = $SPN.Domain
+					Forest    = $SPNForest.Name
 					"Duplicate SPN" = $SPN.Name
 					Count     = $SPN.Count
 					"Affected Accounts"  = $FinalAccounts -join ", "
 				}
 			}
-			
 		}
 	}
 
  	if ($TempSPNAccounts) {
-		if(!$NoOutput){($TempSPNAccounts | Sort-Object Domain,"Duplicate SPN" | Format-Table -AutoSize -Wrap | Out-String).TrimEnd()}
-		$HTMLSPNAccounts = $TempSPNAccounts | Sort-Object Domain,"Duplicate SPN" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DuplicateSPNs'>Duplicate SPNs</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DuplicateSPNs'>" }
+		if(!$NoOutput){($TempSPNAccounts | Sort-Object Forest,"Duplicate SPN" | Format-Table -AutoSize -Wrap | Out-String).TrimEnd()}
+		$HTMLSPNAccounts = $TempSPNAccounts | Sort-Object Forest,"Duplicate SPN" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DuplicateSPNs'>Duplicate SPNs</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DuplicateSPNs'>" }
 	}
 
 	####################################################
