@@ -3955,7 +3955,7 @@ Add-Type -TypeDefinition $code
 						"Group Name" = $CertPublisher.GroupName
 						"Endpoint" = $Endpoint
 						"HTTP" = $HTTPMessage
-						"HTTP Auth" = $ADCSInformation.HttpsIsWindowsAuth
+						"HTTP Auth" = $ADCSInformation.HttpIsWindowsAuth
 						"HTTPS" = $HTTPSMessage
 						"HTTPS Auth" = $ADCSInformation.HttpsIsWindowsAuth
 						"Domain" = $CertPublisher.GroupDomain
