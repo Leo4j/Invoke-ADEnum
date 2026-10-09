@@ -4002,7 +4002,7 @@ Add-Type -TypeDefinition $code
 	###############################################
 	########### ADCS CES Endpoints ################
 	###############################################
-	if($NoADCSCESEndpoints){}
+	if($NoADCSHTTPEndpoints){}
 	else{
 		if(!$NoOutput){
 			Write-Host ""
@@ -4856,35 +4856,56 @@ Add-Type -TypeDefinition $code
 		$HTMLHardcodedcreds = $TempHardcodedcreds | Sort-Object -Unique Domain,Path,Content | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='Hardcodedcreds'>Hard-coded credentials in scripts</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='Hardcodedcreds'>" }
 	}
 	
-	###############################################################
+		###############################################################
     ########### Check if any user passwords are set ###############
 	###############################################################
-	
+
 	if(!$NoOutput){
 		Write-Host ""
 		Write-Host ""
 		Write-Host "Check if any User Passwords are set" -ForegroundColor Cyan
 	}
-	
+
 	$TempPasswordSetUsers = foreach ($AllDomain in $AllDomains) {
-		
-		$PasswordSetUsers = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.userPassword} | % {Add-Member -InputObject $_ NoteProperty 'Password' "$([System.Text.Encoding]::ASCII.GetString($_.userPassword))" -PassThru})
-	
+
+		$PasswordSetUsers = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.userPassword})
+
 		foreach($PasswordSetUser in $PasswordSetUsers){
-			
-			[PSCustomObject]@{
-				"User Name" = $PasswordSetUser.samaccountname
-				"Enabled" = if ($PasswordSetUser.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if(!$PasswordSetUser.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $PasswordSetUser.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $PasswordSetUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $PasswordSetUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $PasswordSetUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"User Password" = $PasswordSetUser.Password
-				"Raw Password" = ($PasswordSetUser.userPassword) -join ' '
-				"Last Logon" = if($PasswordSetUser.lastlogontimestamp){Convert-LdapTimestamp -timestamp $PasswordSetUser.lastlogontimestamp}else{""}
-				"Pwd Last Set" = if($PasswordSetUser.pwdlastset){Convert-LdapTimestamp -timestamp $PasswordSetUser.pwdlastset}else{""}
-				"SID" = GetSID-FromBytes -sidBytes $PasswordSetUser.objectSID
-				"Domain" = $AllDomain
+
+			$PasswordValues = [System.Collections.Generic.List[object]]::new()
+
+			if($PasswordSetUser.userPassword -is [byte[]] -OR $PasswordSetUser.userPassword -is [string]){$PasswordValues.Add($PasswordSetUser.userPassword)}
+			else{foreach($PasswordAttributeValue in $PasswordSetUser.userPassword){$PasswordValues.Add($PasswordAttributeValue)}}
+
+			foreach($PasswordValue in $PasswordValues){
+
+				if($PasswordValue -is [byte[]]){
+					$UserPasswordValue = [System.Text.Encoding]::ASCII.GetString($PasswordValue)
+					$UserPasswordRawValue = $PasswordValue -join ' '
+				}
+				elseif($PasswordValue -is [string]){
+					$UserPasswordValue = $PasswordValue
+					$UserPasswordRawValue = $PasswordValue
+				}
+				else{
+					$UserPasswordValue = "Unsupported"
+					$UserPasswordRawValue = "Unsupported"
+				}
+
+				[PSCustomObject]@{
+					"User Name" = $PasswordSetUser.samaccountname
+					"Enabled" = if ($PasswordSetUser.useraccountcontrol -band 2) { "False" } else { "True" }
+					"Active" = if(!$PasswordSetUser.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $PasswordSetUser.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
+					"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $PasswordSetUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $PasswordSetUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $PasswordSetUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"User Password" = $UserPasswordValue
+					"Raw Password" = $UserPasswordRawValue
+					"Last Logon" = if($PasswordSetUser.lastlogontimestamp){Convert-LdapTimestamp -timestamp $PasswordSetUser.lastlogontimestamp}else{""}
+					"Pwd Last Set" = if($PasswordSetUser.pwdlastset){Convert-LdapTimestamp -timestamp $PasswordSetUser.pwdlastset}else{""}
+					"SID" = GetSID-FromBytes -sidBytes $PasswordSetUser.objectSID
+					"Domain" = $AllDomain
+				}
 			}
 		}
 	}
@@ -4907,7 +4928,7 @@ Add-Type -TypeDefinition $code
 		$HTMLUserPasswordsSetTable = "<div class='report-section' style='display:none;'>$HTMLUserPasswordsSetTable</div>"
 	}
 
- 	###############################################################
+ 		###############################################################
     ########### Check if any unix passwords are set ###############
 	###############################################################
 	
@@ -4919,25 +4940,45 @@ Add-Type -TypeDefinition $code
 	
 	$TempUnixPasswordSet = foreach ($AllDomain in $AllDomains) {
 		
-		$UnixPasswordSetUsers = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.unixUserPassword} | % {Add-Member -InputObject $_ NoteProperty 'UnixPassword' "$([System.Text.Encoding]::ASCII.GetString($_.unixuserPassword))" -PassThru})
+		$UnixPasswordSetUsers = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.unixUserPassword})
 	
 		foreach($UnixPasswordSet in $UnixPasswordSetUsers){
-			
-			[PSCustomObject]@{
-				"User Name" = $UnixPasswordSet.samaccountname
-				"Enabled" = if ($UnixPasswordSet.useraccountcontrol -band 2) { "False" } else { "True" }
-				"Active" = if(!$UnixPasswordSet.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $UnixPasswordSet.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $UnixPasswordSet.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $UnixPasswordSet.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $UnixPasswordSet.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"User Password" = $UnixPasswordSet.UnixPassword
-				"Raw Password" = ($UnixPasswordSet.unixuserPassword) -join ' '
-				"Last Logon" = if($UnixPasswordSet.lastlogontimestamp){Convert-LdapTimestamp -timestamp $UnixPasswordSet.lastlogontimestamp}else{""}
-				"Pwd Last Set" = if($UnixPasswordSet.pwdlastset){Convert-LdapTimestamp -timestamp $UnixPasswordSet.pwdlastset}else{""}
-				"SID" = GetSID-FromBytes -sidBytes $UnixPasswordSet.objectSID
-				"Domain" = $AllDomain
+
+			$UnixPasswordValues = [System.Collections.Generic.List[object]]::new()
+
+			if($UnixPasswordSet.unixUserPassword -is [byte[]] -OR $UnixPasswordSet.unixUserPassword -is [string]){$UnixPasswordValues.Add($UnixPasswordSet.unixUserPassword)}
+			else{foreach($UnixPasswordAttributeValue in $UnixPasswordSet.unixUserPassword){$UnixPasswordValues.Add($UnixPasswordAttributeValue)}}
+
+			foreach($UnixPasswordValue in $UnixPasswordValues){
+
+				if($UnixPasswordValue -is [byte[]]){
+					$UnixUserPasswordValue = [System.Text.Encoding]::ASCII.GetString($UnixPasswordValue)
+					$UnixUserPasswordRawValue = $UnixPasswordValue -join ' '
+				}
+				elseif($UnixPasswordValue -is [string]){
+					$UnixUserPasswordValue = $UnixPasswordValue
+					$UnixUserPasswordRawValue = $UnixPasswordValue
+				}
+				else{
+					$UnixUserPasswordValue = "Unsupported"
+					$UnixUserPasswordRawValue = "Unsupported"
+				}
+
+				[PSCustomObject]@{
+					"User Name" = $UnixPasswordSet.samaccountname
+					"Enabled" = if ($UnixPasswordSet.useraccountcontrol -band 2) { "False" } else { "True" }
+					"Active" = if(!$UnixPasswordSet.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $UnixPasswordSet.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
+					"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $UnixPasswordSet.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $UnixPasswordSet.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $UnixPasswordSet.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"User Password" = $UnixUserPasswordValue
+					"Raw Password" = $UnixUserPasswordRawValue
+					"Last Logon" = if($UnixPasswordSet.lastlogontimestamp){Convert-LdapTimestamp -timestamp $UnixPasswordSet.lastlogontimestamp}else{""}
+					"Pwd Last Set" = if($UnixPasswordSet.pwdlastset){Convert-LdapTimestamp -timestamp $UnixPasswordSet.pwdlastset}else{""}
+					"SID" = GetSID-FromBytes -sidBytes $UnixPasswordSet.objectSID
+					"Domain" = $AllDomain
+				}
 			}
-			
 		}
 	}
 
