@@ -3349,7 +3349,7 @@ Add-Type -TypeDefinition $code
 		$HTMLDNSRecords = $TempDNSRecords | Sort-Object Domain,Zone -Unique | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DNSRecordsRights'>DNS Records Rights</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DNSRecordsRights'>" }
 	}
 	
-    ###############################################################
+	###############################################################
     ########### DNS Unsecure Dynamic Updates ######################
 	###############################################################
 	
