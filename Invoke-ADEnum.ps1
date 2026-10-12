@@ -3349,7 +3349,76 @@ Add-Type -TypeDefinition $code
 		$HTMLDNSRecords = $TempDNSRecords | Sort-Object Domain,Zone -Unique | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DNSRecordsRights'>DNS Records Rights</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DNSRecordsRights'>" }
 	}
 	
+    ###############################################################
+    ########### DNS Unsecure Dynamic Updates ######################
+	###############################################################
 	
+	if(!$NoOutput){
+		Write-Host ""
+		Write-Host ""
+		Write-Host "DNS Unsecure Dynamic Updates" -ForegroundColor Cyan
+	}
+	
+	$TempDNSUnsecureUpdates = foreach($DNSUpdateRoot in $DNSZoneSearchRoots){
+		
+		try{
+			if($Domain -and $Server){
+				$DNSUpdateEntry = New-Object DirectoryServices.DirectoryEntry("LDAP://$Server/$($DNSUpdateRoot.Path)")
+			}
+			else{
+				$DNSUpdateEntry = New-Object DirectoryServices.DirectoryEntry("LDAP://$($DNSUpdateRoot.Path)")
+			}
+			
+			$DNSUpdateSearcher = New-Object DirectoryServices.DirectorySearcher($DNSUpdateEntry)
+			$DNSUpdateSearcher.Filter = "(objectClass=dnsZone)"
+			$DNSUpdateSearcher.PageSize = 1000
+			$DNSUpdateSearcher.PropertiesToLoad.Add("name") > $null
+			$DNSUpdateSearcher.PropertiesToLoad.Add("dnsProperty") > $null
+			
+			$DNSUpdateZones = $DNSUpdateSearcher.FindAll()
+			
+			foreach($DNSUpdateZoneResult in $DNSUpdateZones){
+				
+				$DNSUpdateZoneName = $DNSUpdateZoneResult.Properties["name"][0]
+				$DNSUpdateProperties = $DNSUpdateZoneResult.Properties["dnsproperty"]
+				
+				foreach($DNSUpdateProperty in $DNSUpdateProperties){
+					
+					if($DNSUpdateProperty -isnot [byte[]]){continue}
+					if($DNSUpdateProperty.Length -lt 21){continue}
+					
+					$DNSUpdatePropertyLength = [BitConverter]::ToUInt32($DNSUpdateProperty,0)
+					$DNSUpdatePropertyID = [BitConverter]::ToUInt32($DNSUpdateProperty,16)
+					
+					if($DNSUpdatePropertyID -ne 2){continue}
+					if($DNSUpdatePropertyLength -lt 1){continue}
+					if($DNSUpdateProperty.Length -lt (20 + $DNSUpdatePropertyLength)){continue}
+					
+					if($DNSUpdatePropertyLength -ge 4){
+						$DNSUpdateValue = [BitConverter]::ToUInt32($DNSUpdateProperty,20)
+					}
+					else{
+						$DNSUpdateValue = $DNSUpdateProperty[20]
+					}
+					
+					if($DNSUpdateValue -eq 1){
+						[PSCustomObject]@{
+							Domain = $DNSUpdateRoot.Domain
+							Partition = $DNSUpdateRoot.Partition
+							Zone = $DNSUpdateZoneName
+							AllowUpdate = "ZONE_UPDATE_UNSECURE"
+						}
+					}
+				}
+			}
+			
+		}catch{continue}
+	}
+	
+	if($TempDNSUnsecureUpdates){
+		if(!$NoOutput){($TempDNSUnsecureUpdates | Sort-Object Domain,Partition,Zone -Unique | Format-Table -AutoSize | Out-String).TrimEnd()}
+		$HTMLDNSUnsecureUpdates = $TempDNSUnsecureUpdates | Sort-Object Domain,Partition,Zone -Unique | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DNSUnsecureUpdates'>DNS Unsecure Dynamic Updates</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DNSUnsecureUpdates'>" }
+	}
 	
 	#################################################
     ########### Subnets ###############
