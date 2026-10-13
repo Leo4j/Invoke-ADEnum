@@ -3251,14 +3251,23 @@ Add-Type -TypeDefinition $code
 	
 	# DNS search roots
 	$DNSZoneSearchRoots = @()
+	$DNSAddedForestRoots = @()
 
 	foreach($DNSDomainInfo in $TempTargetDomains){
 
 		$DNSDomainName = $DNSDomainInfo.Domain
 		$DNSDomainDN = "DC=" + ($DNSDomainName -replace "\.", ",DC=")
 
-		if($DNSDomainInfo.Forest -is [string]){$DNSForestName = $DNSDomainInfo.Forest}
-		else{$DNSForestName = $DNSDomainInfo.Forest.Name}
+		if($Domain -and $Server){
+			$DNSRootDSE = [ADSI]"LDAP://$Server/RootDSE"
+			$DNSForestDN = [string]$DNSRootDSE.rootDomainNamingContext
+		}
+		else{
+			if($DNSDomainInfo.Forest -is [string]){$DNSForestName = $DNSDomainInfo.Forest}
+			else{$DNSForestName = $DNSDomainInfo.Forest.Name}
+
+			$DNSForestDN = "DC=" + ($DNSForestName -replace "\.", ",DC=")
+		}
 
 		$DNSZoneSearchRoots += [PSCustomObject]@{
 			Domain = $DNSDomainName
@@ -3269,15 +3278,17 @@ Add-Type -TypeDefinition $code
 		$DNSZoneSearchRoots += [PSCustomObject]@{
 			Domain = $DNSDomainName
 			Partition = "DomainDnsZones"
-			Path = "CN=MicrosoftDNS,DC=DomainDnsZones,$DNSDomainDN"
+			Path = "DC=DomainDnsZones,$DNSDomainDN"
 		}
 
-		if($DNSForestName -eq $DNSDomainName){
+		if($DNSForestDN -AND $DNSForestDN -notin $DNSAddedForestRoots){
 			$DNSZoneSearchRoots += [PSCustomObject]@{
 				Domain = $DNSDomainName
 				Partition = "ForestDnsZones"
-				Path = "CN=MicrosoftDNS,DC=ForestDnsZones,$DNSDomainDN"
+				Path = "DC=ForestDnsZones,$DNSForestDN"
 			}
+
+			$DNSAddedForestRoots += $DNSForestDN
 		}
 	}
 	
@@ -3300,11 +3311,17 @@ Add-Type -TypeDefinition $code
 		$DNSRiskyRights = @("CreateChild", "GenericWrite", "GenericAll", "WriteProperty")
 
 		try{
+			$DNSRightsSearchPath = $DNSRightsRoot.Path
+
+			if($DNSRightsRoot.Partition -eq "System"){
+				$DNSRightsSearchPath = $DNSRightsRoot.Path -replace '^CN=MicrosoftDNS,',''
+			}
+
 			if($Domain -and $Server){
-				$DNSRightsEntry = New-Object DirectoryServices.DirectoryEntry("LDAP://$Server/$($DNSRightsRoot.Path)")
+				$DNSRightsEntry = New-Object DirectoryServices.DirectoryEntry("LDAP://$Server/$DNSRightsSearchPath")
 			}
 			else{
-				$DNSRightsEntry = New-Object DirectoryServices.DirectoryEntry("LDAP://$($DNSRightsRoot.Path)")
+				$DNSRightsEntry = New-Object DirectoryServices.DirectoryEntry("LDAP://$DNSRightsSearchPath")
 			}
 
 			$DNSRightsSearcher = New-Object DirectoryServices.DirectorySearcher($DNSRightsEntry)
@@ -3345,7 +3362,7 @@ Add-Type -TypeDefinition $code
 	}
 
 	if($TempDNSRecords){
-		if(!$NoOutput){($TempDNSRecords | Sort-Object Domain,Zone -Unique | Format-Table -AutoSize | Out-String).TrimEnd()}
+		if(!$NoOutput){($TempDNSRecords | Sort-Object Domain,Zone,Identity,Rights -Unique | Format-Table -AutoSize | Out-String).TrimEnd()}
 		$HTMLDNSRecords = $TempDNSRecords | Sort-Object Domain,Zone -Unique | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DNSRecordsRights'>DNS Records Rights</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DNSRecordsRights'>" }
 	}
 	
@@ -3362,15 +3379,24 @@ Add-Type -TypeDefinition $code
 	$TempDNSUnsecureUpdates = foreach($DNSUpdateRoot in $DNSZoneSearchRoots){
 		
 		try{
+			$DNSUpdateSearchPath = $DNSUpdateRoot.Path
+			$DNSUpdatePartition = $DNSUpdateRoot.Partition
+
+			if($DNSUpdateRoot.Partition -eq "System"){
+				$DNSUpdateSearchPath = $DNSUpdateRoot.Path -replace '^CN=MicrosoftDNS,',''
+				$DNSUpdatePartition = "Legacy"
+			}
+
 			if($Domain -and $Server){
-				$DNSUpdateEntry = New-Object DirectoryServices.DirectoryEntry("LDAP://$Server/$($DNSUpdateRoot.Path)")
+				$DNSUpdateEntry = New-Object DirectoryServices.DirectoryEntry("LDAP://$Server/$DNSUpdateSearchPath")
 			}
 			else{
-				$DNSUpdateEntry = New-Object DirectoryServices.DirectoryEntry("LDAP://$($DNSUpdateRoot.Path)")
+				$DNSUpdateEntry = New-Object DirectoryServices.DirectoryEntry("LDAP://$DNSUpdateSearchPath")
 			}
 			
 			$DNSUpdateSearcher = New-Object DirectoryServices.DirectorySearcher($DNSUpdateEntry)
-			$DNSUpdateSearcher.Filter = "(objectClass=dnsZone)"
+			$DNSUpdateSearcher.Filter = "(objectCategory=dnsZone)"
+			$DNSUpdateSearcher.SearchScope = "Subtree"
 			$DNSUpdateSearcher.PageSize = 1000
 			$DNSUpdateSearcher.PropertiesToLoad.Add("name") > $null
 			$DNSUpdateSearcher.PropertiesToLoad.Add("dnsProperty") > $null
@@ -3404,7 +3430,7 @@ Add-Type -TypeDefinition $code
 					if($DNSUpdateValue -eq 1){
 						[PSCustomObject]@{
 							Domain = $DNSUpdateRoot.Domain
-							Partition = $DNSUpdateRoot.Partition
+							Partition = $DNSUpdatePartition
 							Zone = $DNSUpdateZoneName
 							AllowUpdate = "ZONE_UPDATE_UNSECURE"
 						}
