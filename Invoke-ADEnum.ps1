@@ -844,7 +844,12 @@ $xlsHeader = @'
 	$DateFormat = Get-Date -Format "dd.MM.yy-HH.mm"
 
 	if($Domain){$xlsHeader = $xlsHeader -Replace "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","$($DateFormat)_AD-Audit_$Domain"}
-	else{$OutDomain=($env:userdnsdomain).ToLower();$xlsHeader = $xlsHeader -Replace "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","$($DateFormat)_AD-Audit_$OutDomain"}
+	else{
+		$OutDomain = $env:userdnsdomain
+		if(!$OutDomain){try{$OutDomain = ([System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain()).Name}catch{}}
+		if($OutDomain){$OutDomain = $OutDomain.ToLower()}else{$OutDomain = "domain"}
+		$xlsHeader = $xlsHeader -Replace "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","$($DateFormat)_AD-Audit_$OutDomain"
+	}
 
 $toggleScript = @"
 <script>
@@ -1164,16 +1169,17 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 		
 		$ActiveDirectoryObjects = @()
 		$TargetsOnlyCollection = @()
-  
+		$AllDNSEntries = @()
+
 		if ($Domain -and $Server) {
-			$ActiveDirectoryObjects += Collect-ADObjects -Domain $Domain -Server $Server -Collect DomainControllers
+			$ActiveDirectoryObjects += Collect-ADObjects -Domain $Domain -Server $Server -Collect DomainControllers,DomainPolicy
 			$TargetsOnlyCollection += Collect-ADObjects -Domain $Domain -Server $Server -Collect Users -Property samaccounttype,userAccountControl,samaccountname
 			$TargetsOnlyCollection += Collect-ADObjects -Domain $Domain -Server $Server -Collect Computers -Property samaccounttype,userAccountControl,samaccountname,operatingSystem
 		}
-		
+
 		else{
 			foreach($AllDomain in $AllDomains){
-				$ActiveDirectoryObjects += Collect-ADObjects -Domain $AllDomain -Collect DomainControllers
+				$ActiveDirectoryObjects += Collect-ADObjects -Domain $AllDomain -Collect DomainControllers,DomainPolicy
 				$TargetsOnlyCollection += Collect-ADObjects -Domain $AllDomain -Collect Users -Property samaccounttype,userAccountControl,samaccountname
 				$TargetsOnlyCollection += Collect-ADObjects -Domain $AllDomain -Collect Computers -Property samaccounttype,userAccountControl,samaccountname,operatingSystem
 			}
@@ -1756,7 +1762,9 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 			$TargetDomain = Get-RemoteDomainInfo -Domain $AllDomain -Server $Server
 			$domainFunctionalLevel = $TargetDomain.DomainModeLevel
 			$domainFunctionalLevelName = $functionalLevelMapping[[int]$domainFunctionalLevel]
-			$DomainSid = GetSID-FromBytes -sidBytes ($TotalGroups | Where-Object {$_.name -eq "Domain Admins" -AND $_.domain -eq $AllDomain}).objectsid
+			$DAGroupSidBytes = ($TotalGroups | Where-Object {$_.name -eq "Domain Admins" -AND $_.domain -eq $AllDomain}).objectsid
+			if($DAGroupSidBytes){$DomainSid = GetSID-FromBytes -sidBytes $DAGroupSidBytes}
+			else{$DomainSid = GetSID-FromBytes -sidBytes ($DomainPolicy | Where-Object {$_.objectClass -contains 'domainDNS' -AND $_.domain -eq $AllDomain}).objectsid}
 		}
 		else{
 			$DomainContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Domain', $AllDomain)
@@ -1764,14 +1772,16 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 			$domainRootDSE = [ADSI]("LDAP://" + $TargetDomain + "/RootDSE")
 			$domainFunctionalLevel = $domainRootDSE.Get("domainFunctionality")
 			$domainFunctionalLevelName = $functionalLevelMapping[[int]$domainFunctionalLevel]
-			$DomainSid = GetSID-FromBytes -sidBytes ($TotalGroups | Where-Object {$_.name -eq "Domain Admins" -AND $_.domain -eq $AllDomain}).objectsid
+			$DAGroupSidBytes = ($TotalGroups | Where-Object {$_.name -eq "Domain Admins" -AND $_.domain -eq $AllDomain}).objectsid
+			if($DAGroupSidBytes){$DomainSid = GetSID-FromBytes -sidBytes $DAGroupSidBytes}
+			else{$DomainSid = GetSID-FromBytes -sidBytes ($DomainPolicy | Where-Object {$_.objectClass -contains 'domainDNS' -AND $_.domain -eq $AllDomain}).objectsid}
 		}
 		
 		[PSCustomObject]@{
 			Domain = $TargetDomain.Name
 			"NetBIOS" = ($AllDomain -split "\.")[0]
 			"Domain SID" = $DomainSid
-			"Domain Functional Level" = "$domainFunctionalLevelName ($MSDSBehaviorVersion)"
+			"Domain Functional Level" = "$domainFunctionalLevelName ($domainFunctionalLevel)"
 			Forest = $TargetDomain.Forest
 			Parent = $TargetDomain.Parent
 			Children = $TargetDomain.Children -join ' - '
@@ -1984,12 +1994,49 @@ Add-Type -TypeDefinition $code
 					$UptimeString = "$($uptime.Days) days"
 				}
 				
-				$CompiledDomainName = $AllDomain -replace "\.",",dc="
-				$ntdsSettingsPath = "LDAP://cn=NTDS Settings,cn=$($dc.Name),cn=Servers,cn=Default-First-Site-Name,cn=Sites,cn=Configuration,dc=$CompiledDomainName"
-				$ntdsSettings = [ADSI]$ntdsSettingsPath
-				$dcBehaviorVersion = $ntdsSettings.get("msDS-Behavior-Version")
-				$TextFuncLevel = $functionalLevelMapping[[int]$dcBehaviorVersion]
-				$MaxFunctionalLevel = "$TextFuncLevel ($dcBehaviorVersion)"
+				# Retrieve the DC functional level
+				$MaxFunctionalLevel = "Unknown"
+				$DCBehaviorVersion = $null
+
+				try{
+					if($Domain -and $Server){$DCSettingsServer = $Server}
+					else{$DCSettingsServer = $dc.dnshostname}
+
+					if(!$DCSettingsServer -or !$dc.dnshostname){throw "DC hostname unavailable"}
+
+					$DCSettingsRootDSE = [ADSI]"LDAP://$DCSettingsServer/RootDSE"
+					$DCConfigurationDN = $DCSettingsRootDSE.Properties["configurationNamingContext"][0]
+
+					if(!$DCConfigurationDN){throw "Configuration naming context not found"}
+
+					$DCServerSearchRoot = New-Object DirectoryServices.DirectoryEntry("LDAP://$DCSettingsServer/CN=Sites,$DCConfigurationDN")
+					$DCServerSearcher = New-Object DirectoryServices.DirectorySearcher($DCServerSearchRoot)
+
+					$DCServerSearcher.Filter = "(&(objectClass=server)(dNSHostName=$($dc.dnshostname)))"
+					$DCServerSearcher.SearchScope = "Subtree"
+					$DCServerSearcher.PropertiesToLoad.Add("distinguishedName") > $null
+
+					$DCServerResult = $DCServerSearcher.FindOne()
+
+					if($DCServerResult){
+
+						$DCServerDN = $DCServerResult.Properties["distinguishedname"][0]
+						$DCNTDSPath = "LDAP://$DCSettingsServer/CN=NTDS Settings,$DCServerDN"
+						$DCNTDSEntry = New-Object DirectoryServices.DirectoryEntry($DCNTDSPath)
+
+						$DCBehaviorVersion = $DCNTDSEntry.Properties["msDS-Behavior-Version"].Value
+
+						if($null -ne $DCBehaviorVersion){
+							$TextFuncLevel = $functionalLevelMapping[[int]$DCBehaviorVersion]
+
+							if($TextFuncLevel){$MaxFunctionalLevel = "$TextFuncLevel ($DCBehaviorVersion)"}
+							else{$MaxFunctionalLevel = "Unknown ($DCBehaviorVersion)"}
+						}
+					}
+				}
+				catch{
+					$MaxFunctionalLevel = "Unknown"
+				}
 				
 				$TempHTMLdc += [PSCustomObject]@{
 					"DC Name" = $dc.Name
@@ -2150,13 +2197,49 @@ Add-Type -TypeDefinition $code
 				$UptimeString = "$($uptime.Days) days"
 			}
 			
-			$CompiledDomainName = $AllDomain -replace "\.",",dc="
-			if($Domain -and $Server){$ntdsSettingsPath = "LDAP://$Server/cn=NTDS Settings,cn=$($dc.Name),cn=Servers,cn=Default-First-Site-Name,cn=Sites,cn=Configuration,dc=$CompiledDomainName"}
-			else{$ntdsSettingsPath = "LDAP://cn=NTDS Settings,cn=$($dc.Name),cn=Servers,cn=Default-First-Site-Name,cn=Sites,cn=Configuration,dc=$CompiledDomainName"}
-			$ntdsSettings = [ADSI]$ntdsSettingsPath
-			$dcBehaviorVersion = $ntdsSettings.get("msDS-Behavior-Version")
-			$TextFuncLevel = $functionalLevelMapping[[int]$dcBehaviorVersion]
-			$MaxFunctionalLevel = "$TextFuncLevel ($dcBehaviorVersion)"
+			# Retrieve the DC functional level
+			$MaxFunctionalLevel = "Unknown"
+			$DCBehaviorVersion = $null
+
+			try{
+				if($Domain -and $Server){$DCSettingsServer = $Server}
+				else{$DCSettingsServer = $dc.dnshostname}
+
+				if(!$DCSettingsServer -or !$dc.dnshostname){throw "DC hostname unavailable"}
+
+				$DCSettingsRootDSE = [ADSI]"LDAP://$DCSettingsServer/RootDSE"
+				$DCConfigurationDN = $DCSettingsRootDSE.Properties["configurationNamingContext"][0]
+
+				if(!$DCConfigurationDN){throw "Configuration naming context not found"}
+
+				$DCServerSearchRoot = New-Object DirectoryServices.DirectoryEntry("LDAP://$DCSettingsServer/CN=Sites,$DCConfigurationDN")
+				$DCServerSearcher = New-Object DirectoryServices.DirectorySearcher($DCServerSearchRoot)
+
+				$DCServerSearcher.Filter = "(&(objectClass=server)(dNSHostName=$($dc.dnshostname)))"
+				$DCServerSearcher.SearchScope = "Subtree"
+				$DCServerSearcher.PropertiesToLoad.Add("distinguishedName") > $null
+
+				$DCServerResult = $DCServerSearcher.FindOne()
+
+				if($DCServerResult){
+
+					$DCServerDN = $DCServerResult.Properties["distinguishedname"][0]
+					$DCNTDSPath = "LDAP://$DCSettingsServer/CN=NTDS Settings,$DCServerDN"
+					$DCNTDSEntry = New-Object DirectoryServices.DirectoryEntry($DCNTDSPath)
+
+					$DCBehaviorVersion = $DCNTDSEntry.Properties["msDS-Behavior-Version"].Value
+
+					if($null -ne $DCBehaviorVersion){
+						$TextFuncLevel = $functionalLevelMapping[[int]$DCBehaviorVersion]
+
+						if($TextFuncLevel){$MaxFunctionalLevel = "$TextFuncLevel ($DCBehaviorVersion)"}
+						else{$MaxFunctionalLevel = "Unknown ($DCBehaviorVersion)"}
+					}
+				}
+			}
+			catch{
+				$MaxFunctionalLevel = "Unknown"
+			}
 			
 			$TempHTMLdc += [PSCustomObject]@{
 				"DC Name" = $dc.Name
@@ -4020,7 +4103,18 @@ Add-Type -TypeDefinition $code
 		$CertPublishers += foreach ($AllDomain in $AllDomains) {
 			RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Domain $AllDomain -Identity "Cert Publishers" | Where-Object {$_.MemberObjectClass -eq "computer"}
 		}
-		
+
+		# Pre-check which CA web enrollment endpoints are reachable (ports 80/443) so dead hosts don't block on web request timeouts
+		$ADCSHttpAliveSet = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+		if(!$OPSec){
+			$ADCSHttpAliveTargets = @($CertPublishers | ForEach-Object { [PSCustomObject]@{ dnshostname = ($_.MemberName.TrimEnd('$') + "." + $_.MemberDomain) } } | Sort-Object -Unique dnshostname)
+			if($ADCSHttpAliveTargets){
+				foreach($AliveCA in @(@(CheckAliveHosts -Targets $ADCSHttpAliveTargets -CheckPort 80) + @(CheckAliveHosts -Targets $ADCSHttpAliveTargets -CheckPort 443))){
+					if($AliveCA.dnshostname){[void]$ADCSHttpAliveSet.Add($AliveCA.dnshostname)}
+				}
+			}
+		}
+
 		$TempCertPublishers = foreach ($CertPublisher in $CertPublishers) {
 				
 			$CAName = $CertPublisher.MemberName.TrimEnd('$')
@@ -4050,8 +4144,25 @@ Add-Type -TypeDefinition $code
 			}
 
 			if($IPAddresses){
+				if(!$OPSec -and -not $ADCSHttpAliveSet.Contains($CAFQDN)){
+					foreach($IPAddress in $IPAddresses){
+						[PSCustomObject]@{
+							"Name" = $CertPublisher.MemberName
+							"IP Address" = $IPAddress
+							"Member SID" = $CertPublisher.MemberSID
+							"Group Name" = $CertPublisher.GroupName
+							"Endpoint" = "$CAFQDN/certsrv/"
+							"HTTP" = "Unreachable"
+							"HTTP Auth" = "Unreachable"
+							"HTTPS" = "Unreachable"
+							"HTTPS Auth" = "Unreachable"
+							"Domain" = $CertPublisher.GroupDomain
+						}
+					}
+				}
+				else{
 				$ADCSInformation = Invoke-ADCSInformer -Target $CAFQDN
-				
+
 				foreach($IPAddress in $IPAddresses){
 					$Endpoint = "$CAFQDN/certsrv/"
 					if(!$domainjoined){
@@ -4062,15 +4173,15 @@ Add-Type -TypeDefinition $code
 						$httpuri = "http://$IPAddress/certsrv/"
 						$httpsuri = "https://$IPAddress/certsrv/"
 					}
-					
+
 					try{$httpresponse = Invoke-WebRequest -Uri $httpuri -UseDefaultCredentials -TimeoutSec 3 -UseBasicParsing}catch{$httperrorMessage = $_.Exception.Message}
 
 					try{$httpsresponse = Invoke-WebRequest -Uri $httpsuri -UseDefaultCredentials -TimeoutSec 3 -UseBasicParsing}catch{$httpserrorMessage = $_.Exception.Message}
-					
+
 					if ($httpresponse.statuscode -eq 200) {$HTTPMessage = "True"} elseif ($httperrorMessage.ToString() -like "*Could not establish trust relationship for the SSL/TLS secure channel*") {$HTTPMessage = "Possible"} elseif ($httperrorMessage.ToString() -like "*The remote server returned an error: (401) Unauthorized*") {$HTTPMessage = "Possible"} else {$HTTPMessage = "False"}
-					
+
 					if ($httpsresponse.statuscode -eq 200) {$HTTPSMessage = "True"} elseif ($httpserrorMessage.ToString() -like "*Could not establish trust relationship for the SSL/TLS secure channel*") {$HTTPSMessage = "Possible"} elseif ($httpserrorMessage.ToString() -like "*The remote server returned an error: (401) Unauthorized*") {$HTTPSMessage = "Possible"} else {$HTTPSMessage = "False"}
-					
+
 					[PSCustomObject]@{
 						"Name" = $CertPublisher.MemberName
 						"IP Address" = $IPAddress
@@ -4083,6 +4194,7 @@ Add-Type -TypeDefinition $code
 						"HTTPS Auth" = $ADCSInformation.HttpsIsWindowsAuth
 						"Domain" = $CertPublisher.GroupDomain
 					}
+				}
 				}
 			}
 			
@@ -4322,10 +4434,31 @@ Add-Type -TypeDefinition $code
 		}
 		
 		$ESC11Table = @()
-		
+
+		# Pre-check CA reachability for remote registry (port 445) so dead hosts don't block on RPC timeouts
+		$ADCSRpcAliveSet = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+		if(!$OPSec){
+			$ADCSRpcAliveTargets = @($CollectedCertPublishers | ForEach-Object { [PSCustomObject]@{ dnshostname = (($_.Name -Replace '\$','') + "." + $_.Domain) } } | Sort-Object -Unique dnshostname)
+			if($ADCSRpcAliveTargets){
+				foreach($AliveCA in @(CheckAliveHosts -Targets $ADCSRpcAliveTargets -CheckPort 445)){
+					if($AliveCA.dnshostname){[void]$ADCSRpcAliveSet.Add($AliveCA.dnshostname)}
+				}
+			}
+		}
+
 		foreach($CollectedCA in $CollectedCertPublishers){
 			$TempCAName = $CollectedCA.Name -Replace "\$",""
 			$CAServer = $TempCAName + "." + $CollectedCA.Domain
+			if(!$OPSec -and -not $ADCSRpcAliveSet.Contains($CAServer)){
+				$ESC11Table += [PSCustomObject]@{
+					"Server" = $CollectedCA.Name
+					"Instance" = "Unreachable"
+					"IP Address" = $CollectedCA."IP Address"
+					"Status" = "Unreachable"
+					"Domain" = $CollectedCA.Domain
+				}
+				continue
+			}
 			$CAInstances = try {
 					$reg = [Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey('LocalMachine', $CAServer)
 					$configKey = $reg.OpenSubKey("SYSTEM\CurrentControlSet\Services\CertSvc\Configuration")
@@ -5774,8 +5907,16 @@ Add-Type -TypeDefinition $code
 			
 			#$FinalExtractedSQLMachines = @($Port1433ExtractedSQLMachines + $Port1434ExtractedSQLMachines)
 			
-			$FinalExtractedSQLMachines = @($ExtractedSQLMachines + $Port1433ExtractedSQLMachines + $Port1434ExtractedSQLMachines)
-			
+			if(!$OPSec){
+				# Only keep SPN-derived SQL hosts that are actually listening on 1433/1434 so dead hosts aren't queried
+				$ExtractedSQLMachinesTargets = @($ExtractedSQLMachines | Where-Object {$_.dnshostname})
+				$ExtractedSQLMachinesAlive = @(@(CheckAliveHosts -Targets $ExtractedSQLMachinesTargets -CheckPort 1433) + @(CheckAliveHosts -Targets $ExtractedSQLMachinesTargets -CheckPort 1434))
+				$FinalExtractedSQLMachines = @($ExtractedSQLMachinesAlive + $Port1433ExtractedSQLMachines + $Port1434ExtractedSQLMachines)
+			}
+			else{
+				$FinalExtractedSQLMachines = @($ExtractedSQLMachines + $Port1433ExtractedSQLMachines + $Port1434ExtractedSQLMachines)
+			}
+
 			$FinalExtractedSQLMachines = $FinalExtractedSQLMachines | Sort-Object -Unique Domain,dnshostname
 			
 			foreach($Machine in $FinalExtractedSQLMachines){
@@ -9861,7 +10002,9 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			$HTMLOutputFilePath = "$Output\$($DateFormat)_AD-Audit_$Domain.html"
 		}
 		else{
-			$OutDomain=($env:userdnsdomain).ToLower()
+			$OutDomain = $env:userdnsdomain
+			if(!$OutDomain){try{$OutDomain = ([System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain()).Name}catch{}}
+			if($OutDomain){$OutDomain = $OutDomain.ToLower()}else{$OutDomain = "domain"}
 			$HTMLOutputFilePath = "$Output\$($DateFormat)_AD-Audit_$OutDomain.html"
 		}
 	}
@@ -9870,7 +10013,9 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			$HTMLOutputFilePath = "$pwd\$($DateFormat)_AD-Audit_$Domain.html"
 		}
 		else{
-			$OutDomain=($env:userdnsdomain).ToLower()
+			$OutDomain = $env:userdnsdomain
+			if(!$OutDomain){try{$OutDomain = ([System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain()).Name}catch{}}
+			if($OutDomain){$OutDomain = $OutDomain.ToLower()}else{$OutDomain = "domain"}
 			$HTMLOutputFilePath = "$pwd\$($DateFormat)_AD-Audit_$OutDomain.html"
 		}
 	}
@@ -10432,10 +10577,14 @@ function GetSID-FromBytes {
 	param (
         [byte[]]$sidBytes
     )
-	
-	$sid = New-Object System.Security.Principal.SecurityIdentifier($sidBytes, 0)
-	$stringSid = $sid.Value
-	return $stringSid
+
+	if(!$sidBytes){return $null}
+	try{
+		$sid = New-Object System.Security.Principal.SecurityIdentifier($sidBytes, 0)
+		$stringSid = $sid.Value
+		return $stringSid
+	}
+	catch{return $null}
 }
 
 function Convert-ADTimeToDays {
@@ -11435,7 +11584,7 @@ function Find-GPPasswords {
     try {
         if($Domain -and $Server){$XMLFiles = Get-ChildItem -Path "\\$Server\SYSVOL\*\Policies" -Recurse -Include 'Groups.xml', 'Services.xml', 'Scheduledtasks.xml', 'DataSources.xml' -ErrorAction SilentlyContinue}
 		else{$XMLFiles = Get-ChildItem -Path "\\$Domain\SYSVOL\*\Policies" -Recurse -Include 'Groups.xml', 'Services.xml', 'Scheduledtasks.xml', 'DataSources.xml' -ErrorAction SilentlyContinue}
-        if (-not $XMLFiles) { throw "No GPP XML files found in domain SYSVOL." }
+        if (-not $XMLFiles) { return }
 
         ForEach ($File in $XMLFiles) {
             Parse-CredentialFields -FilePath $File.FullName
