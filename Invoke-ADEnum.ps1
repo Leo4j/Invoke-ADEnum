@@ -464,6 +464,7 @@ $xlsHeader = @'
 				'Resource Based Constrained Delegation': 'Resource Based C.D.',
 				'Computer Objects created by regular users': 'User Created Computers',
 				'Allowed To Act On Behalf Of Other Identity': 'Allowed To Act',
+				'ADCS HTTP Proxy Endpoints': 'ADCS HTTP Proxy',
 				'Check if any User Passwords are set': 'User Passwords Set',
 				'Check if any Unix User Passwords are set': 'Unix Passwords Set',
 				'Users with Password-not-required attribute set': 'Users Pass Not-Req',
@@ -670,6 +671,7 @@ $xlsHeader = @'
 			createDownloadLinkForTable('SchemaAdmins');
 			createDownloadLinkForTable('ServerOperators');
 			createDownloadLinkForTable('ADCSEndpoints');
+			createDownloadLinkForTable('ADCSWebEnrollmentProxyEndpoints');
 			createDownloadLinkForTable('CESEndpoints');
 			createDownloadLinkForTable('ADCSRPCEndpoints');
 			createDownloadLinkForTable('CertTemplates');
@@ -1601,7 +1603,13 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 		
 		# All Groups, Users and Computers
 		$SumGroupsUsers = @($TotalGroups + $TotalEnabledUsers + $TotalEnabledMachines + $AllForeignSecurityPrincipals)
-		
+
+		# Reusable delegation collections (consumed by AD CS Web Enrollment Proxy discovery; the existing Constrained Delegation and RBCD sections are left untouched and keep their own filters)
+		$AllConstrainedDelegationComputers = @($TotalEnabledMachines | Where-Object {$_."msds-allowedtodelegateto"})
+		$AllConstrainedDelegationUsers = @($TotalEnabledUsers | Where-Object {$_."msds-allowedtodelegateto"})
+		$AllConstrainedDelegationObjects = @($AllConstrainedDelegationComputers) + @($AllConstrainedDelegationUsers)
+		$AllRBCDComputers = @($TotalEnabledMachines | Where-Object {$_."msDS-AllowedToActOnBehalfOfOtherIdentity"})
+
 		# Protected users
 		$ProtectedUsers = @(RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Identity "Protected Users")
 		
@@ -4233,7 +4241,151 @@ Add-Type -TypeDefinition $code
 			$CollectedCertPublishers = $TempCertPublishers | Sort-Object Domain,"Name"
 		}
 	}
-	
+
+	#########################################################
+	########### ADCS HTTP Proxy Endpoints #########
+	#########################################################
+	if($NoADCSHTTPEndpoints){}
+	else{
+		if(!$NoOutput){
+			Write-Host ""
+			Write-Host ""
+			Write-Host "ADCS HTTP Proxy Endpoints" -ForegroundColor Cyan
+		}
+
+		# Known CA hosts, derived independently of the ADCS HTTP section variable (from Cert Publishers, using in-memory data only)
+		$ADCSProxyCertPublishers = @()
+		$ADCSProxyCertPublishers += foreach($AllDomain in $AllDomains){
+			RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Domain $AllDomain -Identity "Cert Publishers" | Where-Object {$_.MemberObjectClass -eq "computer"}
+		}
+		$KnownCAHosts = @(
+			$ADCSProxyCertPublishers | ForEach-Object {
+				if($_.MemberName -AND $_.MemberDomain){"$($_.MemberName.TrimEnd('$')).$($_.MemberDomain)"}
+			} | Sort-Object -Unique
+		)
+
+		# CA computer objects that have RBCD configured (reuse the shared reusable collection)
+		$KnownCARBCDObjects = @($AllRBCDComputers | Where-Object {$_.dnshostname -AND ($KnownCAHosts -contains ([string]$_.dnshostname).ToLower())})
+
+		$ADCSWebEnrollmentProxyCandidates = @(
+			Get-ADCSWebEnrollmentProxyCandidates -DelegationObjects $AllConstrainedDelegationObjects -CAObjects $KnownCARBCDObjects -CAHosts $KnownCAHosts -ResolveObjects $SumGroupsUsers
+		)
+
+		# Pre-check which candidate web hosts are reachable (ports 80/443) so dead hosts don't block on web request timeouts
+		$ADCSProxyAliveSet = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+		if(!$OPSec){
+			$ADCSProxyAliveTargets = @($ADCSWebEnrollmentProxyCandidates | ForEach-Object { [PSCustomObject]@{ dnshostname = $_."Web Host" } } | Sort-Object -Unique dnshostname)
+			if($ADCSProxyAliveTargets){
+				foreach($ADCSProxyAlive in @(@(CheckAliveHosts -Targets $ADCSProxyAliveTargets -CheckPort 80) + @(CheckAliveHosts -Targets $ADCSProxyAliveTargets -CheckPort 443))){
+					if($ADCSProxyAlive.dnshostname){[void]$ADCSProxyAliveSet.Add($ADCSProxyAlive.dnshostname)}
+				}
+			}
+		}
+
+		$TempADCSWebEnrollmentProxyEndpoints = foreach($ADCSProxyCandidate in $ADCSWebEnrollmentProxyCandidates){
+
+			$ADCSProxyHost = $ADCSProxyCandidate."Web Host"
+
+			# Restrict active checks to hosts within the domains in scope
+			$ADCSProxyInScope = $false
+			foreach($ADCSProxyScopeDomain in $AllDomains){
+				if($ADCSProxyHost -eq $ADCSProxyScopeDomain -OR $ADCSProxyHost.EndsWith(".$ADCSProxyScopeDomain")){
+					$ADCSProxyInScope = $true
+					break
+				}
+			}
+			if(!$ADCSProxyInScope){continue}
+
+			$ADCSProxyHostName = $ADCSProxyHost.Split('.')[0]
+			$ADCSProxyHostDomain = if($ADCSProxyHost.Length -gt $ADCSProxyHostName.Length){$ADCSProxyHost.Substring($ADCSProxyHostName.Length + 1)}else{$ADCSProxyHost}
+
+			$ADCSProxyIPAddresses = @(
+				$AllDNSEntries | Where-Object {
+					($_.Hostname -eq $ADCSProxyHostName -AND $_.Domain -eq $ADCSProxyHostDomain) -OR $_.Hostname -eq $ADCSProxyHost
+				} | Select-Object -ExpandProperty "IP Address"
+			)
+
+			if(!$ADCSProxyIPAddresses -AND !$OPSec){
+				try{
+					if($Domain -and $Server){
+						if(!$domainjoined){$ADCSProxyIPAddresses = @((Resolve-DnsName -Name $ADCSProxyHost -Type A -Server $Server -ErrorAction Stop -TcpOnly).IPAddress)}
+						else{$ADCSProxyIPAddresses = @((Resolve-DnsName -Name $ADCSProxyHost -Type A -Server $Server -ErrorAction Stop).IPAddress)}
+					}
+					else{$ADCSProxyIPAddresses = @((Resolve-DnsName -Name $ADCSProxyHost -Type A -ErrorAction Stop).IPAddress)}
+				}
+				catch{$ADCSProxyIPAddresses = @()}
+				if($ADCSProxyIPAddresses){
+					$AllDNSEntries += [PSCustomObject]@{
+						Hostname = $ADCSProxyHostName
+						"IP Address" = ($ADCSProxyIPAddresses -join ", ")
+						Domain = $ADCSProxyHostDomain
+					}
+				}
+			}
+
+			if($ADCSProxyIPAddresses){$ADCSProxyIPAddress = $ADCSProxyIPAddresses -join ", "}
+			else{$ADCSProxyIPAddress = "No-IP"}
+
+			$ADCSProxyHTTPMsg = "Unreachable"
+			$ADCSProxyHTTPAuth = "Unreachable"
+			$ADCSProxyHTTPSMsg = "Unreachable"
+			$ADCSProxyHTTPSAuth = "Unreachable"
+
+			if($OPSec){
+				$ADCSProxyHTTPMsg = "Skipped (OPSec)"
+				$ADCSProxyHTTPAuth = "Skipped (OPSec)"
+				$ADCSProxyHTTPSMsg = "Skipped (OPSec)"
+				$ADCSProxyHTTPSAuth = "Skipped (OPSec)"
+			}
+			elseif($ADCSProxyIPAddress -ne "No-IP" -AND $ADCSProxyAliveSet.Contains($ADCSProxyHost)){
+				try{
+					$ADCSProxyInformation = Invoke-ADCSInformer -Target $ADCSProxyHost
+
+					if($ADCSProxyInformation.HttpsStatusCode -eq 200){$ADCSProxyHTTPSMsg = "True"}
+					elseif($ADCSProxyInformation.HttpsStatusCode -eq 401){$ADCSProxyHTTPSMsg = "Possible"}
+					elseif("$($ADCSProxyInformation.HttpsError)" -like "*Could not establish trust relationship for the SSL/TLS secure channel*" -OR "$($ADCSProxyInformation.HttpsError)" -like "*The remote server returned an error: (401) Unauthorized*"){$ADCSProxyHTTPSMsg = "Possible"}
+					else{$ADCSProxyHTTPSMsg = "False"}
+
+					if($ADCSProxyInformation.HttpStatusCode -eq 200){$ADCSProxyHTTPMsg = "True"}
+					elseif($ADCSProxyInformation.HttpStatusCode -eq 401){$ADCSProxyHTTPMsg = "Possible"}
+					elseif("$($ADCSProxyInformation.HttpError)" -like "*Could not establish trust relationship for the SSL/TLS secure channel*" -OR "$($ADCSProxyInformation.HttpError)" -like "*The remote server returned an error: (401) Unauthorized*"){$ADCSProxyHTTPMsg = "Possible"}
+					else{$ADCSProxyHTTPMsg = "False"}
+
+					$ADCSProxyHTTPSAuth = $ADCSProxyInformation.HttpsIsWindowsAuth
+					$ADCSProxyHTTPAuth = $ADCSProxyInformation.HttpIsWindowsAuth
+				}
+				catch{}
+			}
+
+			[PSCustomObject]@{
+				"Web Host" = $ADCSProxyHost
+				"IP Address" = $ADCSProxyIPAddress
+				"Endpoint" = "https://$ADCSProxyHost/certsrv/"
+				"Delegating Account" = $ADCSProxyCandidate."Delegating Account"
+				"Delegated CA" = $ADCSProxyCandidate."Delegated CA"
+				"Source" = $ADCSProxyCandidate."Source"
+				"HTTP" = $ADCSProxyHTTPMsg
+				"HTTP Auth" = $ADCSProxyHTTPAuth
+				"HTTPS" = $ADCSProxyHTTPSMsg
+				"HTTPS Auth" = $ADCSProxyHTTPSAuth
+				"Domain" = $ADCSProxyCandidate."Account Domain"
+			}
+		}
+
+		if($TempADCSWebEnrollmentProxyEndpoints){
+			if(!$NoOutput){($TempADCSWebEnrollmentProxyEndpoints | Sort-Object Domain,"Web Host" | Format-Table -AutoSize -Wrap | Out-String).TrimEnd()}
+			$HTMLADCSWebEnrollmentProxyEndpoints = $TempADCSWebEnrollmentProxyEndpoints | Sort-Object Domain,"Web Host" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ADCSWebEnrollmentProxyEndpoints'>ADCS HTTP Proxy Endpoints</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ADCSWebEnrollmentProxyEndpoints'>" }
+
+			$ADCSWebEnrollmentProxyEndpointsTable = [PSCustomObject]@{
+				"Description" = "Potential AD CS Web Enrollment endpoints identified on servers other than known Certificate Authorities."
+				"Remediation" = "Disable AD CS Web Enrollment if not required; otherwise enable EPA (Required), Require SSL, and disable NTLM where possible."
+			}
+			$HTMLADCSWebEnrollmentProxyEndpointsTable = $ADCSWebEnrollmentProxyEndpointsTable | ConvertTo-Html -As List -Fragment
+			$HTMLADCSWebEnrollmentProxyEndpointsTable = $HTMLADCSWebEnrollmentProxyEndpointsTable.Replace("Remediation", '<a href="https://support.microsoft.com/en-gb/topic/kb5005413-mitigating-ntlm-relay-attacks-on-active-directory-certificate-services-ad-cs-3612b773-4043-4aa9-b23d-b87910cd3429" target="_blank">Remediation</a>')
+			$HTMLADCSWebEnrollmentProxyEndpointsTable = "<div class='report-section' style='display:none;'>$HTMLADCSWebEnrollmentProxyEndpointsTable</div>"
+		}
+	}
+
 	###############################################
 	########### ADCS CES Endpoints ################
 	###############################################
@@ -7635,13 +7787,13 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			
 			if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 			[PSCustomObject]@{
+				"Domain" = $AllDomain
 				"Name" = $Computer.samaccountname
 				"Enabled" = if ($Computer.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if(!$Computer.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $Computer.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
 				"IP Address" = $IPAddress
 				"Operating System" = $Computer.operatingsystem
 				"Account SID" = GetSID-FromBytes -sidBytes $Computer.objectsid
-				"Domain" = $AllDomain
 			}
 			$ipAddress = $null
 		}
@@ -7675,6 +7827,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		$UnconstrainedUsers = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.userAccountControl -band 524288 })
 		foreach ($User in $UnconstrainedUsers) {
 			[PSCustomObject]@{
+				"Domain" = $AllDomain
 				"Name" = $User.samaccountname
 				"Enabled" = if ($User.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if(!$User.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $User.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
@@ -7684,7 +7837,6 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 				"Last Logon" = if($User.lastlogontimestamp){Convert-LdapTimestamp -timestamp $User.lastlogontimestamp}else{""}
 				"Pwd Last Set" = if($User.pwdlastset){Convert-LdapTimestamp -timestamp $User.pwdlastset}else{""}
 				"Object SID" = GetSID-FromBytes -sidBytes $User.objectsid
-				"Domain" = $AllDomain
 			}
 			$ipAddress = $null
 		}
@@ -8082,13 +8234,13 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 						}
 						
 						[PSCustomObject]@{
+							Domain            = $AllDomain
 							Machine           = $AllowedToActComputer.samaccountname
 							"IP Address"      = $IPAddress
 							"Operating System"= $AllowedToActComputer.operatingsystem
 							"Machine SID"     = GetSID-FromBytes -sidBytes $AllowedToActComputer.objectsid
 							Identity          = $AllowedToActIdentity
 							"Identity SID"    = $ActSid.Value
-							Domain            = $AllDomain
 						}
 						$IPAddress = $null
 					}
@@ -9994,7 +10146,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	if(!$HTMLCertPublishers -AND !$HTMLESC11Table -AND !$HTMLVulnCertTemplates -AND !$HTMLExchangeTrustedSubsystem -AND !$HTMLServiceAccounts -AND !$HTMLGMSAs -AND !$HTMLnopreauthset -AND !$HTMLGPPasswords -AND !$HTMLHardcodedcreds -AND !$HTMLPasswordSetUsers -AND !$HTMLUnixPasswordSet -AND !$HTMLEmptyPasswordUsers -AND !$HTMLEmptyPasswordComputers -AND !$HTMLTotalEmptyPass -AND !$HTMLCompTotalEmptyPass -AND !$HTMLPreWin2kCompatibleAccess -AND !$HTMLWin7AndServer2008 -AND !$HTMLMachineAccountsPriv -AND !$HTMLsidHistoryUsers -AND !$HTMLRevEncUsers -AND !$HTMLUnsupportedHosts){$MisconfigurationsBanner = $null}
 	if(!$HTMLFileServers -AND !$HTMLSQLServers -AND !$HTMLSCCMServers -AND !$HTMLWSUSServers -AND !$HTMLWebDAVStatusResults -AND !$HTMLVNCUnauthAccess -AND !$HTMLPrinters -AND !$HTMLSPNAccounts -AND !$HTMLSharesResultsTable -AND !$HTMLHomeDirectories -AND !$HTMLEmptyGroups){$ExtendedChecksBanner = $null}
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLAllForests $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLFineGrained $HTMLOtherPolicies $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLLLMNR $HTMLMachineQuota $HTMLMachineAccountQuotaTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLVulnLMCompLevelComp $HTMLDNSRecords $HTMLDNSUnsecureUpdates $HTMLSubnets $AdministratorsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLAdminsProtectedUsersAndSensitive $HTMLAdminsProtectedUsersAndSensitiveTable $HTMLSecurityProtectedUsersAndSensitive $HTMLSecurityProtectedUsersAndSensitiveTable $HTMLAdmCountProtectedUsersAndSensitive $HTMLAdmCountProtectedUsersAndSensitiveTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLFindLocalAdminAccess $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLCESEndpoints $HTMLCESEndpointsTable $HTMLESC11Table $HTMLADCSRPCEndpointsTable $HTMLVulnCertTemplates $HTMLCertTemplatesTable $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLGPPasswords $HTMLGPPasswordsTable $HTMLHardcodedcreds $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLEmptyPasswordComputers $HTMLEmptyPasswordComputersTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLWin7AndServer2008 $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $ExtendedChecksBanner $HTMLFileServers $HTMLSQLServers $HTMLSCCMServers $HTMLWSUSServers $HTMLWebDAVStatusResults $HTMLVNCUnauthAccess $HTMLPrinters $HTMLSPNAccounts $HTMLSharesResultsTable $HTMLHomeDirectories $HTMLEmptyGroups $GroupPolicyChecksBanner $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $DelegationChecksBanner $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLUnconstrainedUsers $HTMLUnconstrainedUsersTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLAccessAllowedComputers $HTMLAccessAllowedComputersTable $HTMLWeakPermissionsObjects $HTMLWeakPermissionsTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $HTMLAllowedtologonto $HTMLAllowedtologontoTable $HTMLManagedObjects $HTMLManagedObjectsTable $SecurityGroupsBanner $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDCOMUsers $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLOrganizationManagement $HTMLPerformanceLogUsers $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLRDPUsers $HTMLRemManUsers $HTMLSchemaAdmins $HTMLServerOperators $InterestingDataBanner $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLAllForests $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLFineGrained $HTMLOtherPolicies $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLLLMNR $HTMLMachineQuota $HTMLMachineAccountQuotaTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLVulnLMCompLevelComp $HTMLDNSRecords $HTMLDNSUnsecureUpdates $HTMLSubnets $AdministratorsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLAdminsProtectedUsersAndSensitive $HTMLAdminsProtectedUsersAndSensitiveTable $HTMLSecurityProtectedUsersAndSensitive $HTMLSecurityProtectedUsersAndSensitiveTable $HTMLAdmCountProtectedUsersAndSensitive $HTMLAdmCountProtectedUsersAndSensitiveTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLFindLocalAdminAccess $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLADCSWebEnrollmentProxyEndpoints $HTMLADCSWebEnrollmentProxyEndpointsTable $HTMLCESEndpoints $HTMLCESEndpointsTable $HTMLESC11Table $HTMLADCSRPCEndpointsTable $HTMLVulnCertTemplates $HTMLCertTemplatesTable $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLGPPasswords $HTMLGPPasswordsTable $HTMLHardcodedcreds $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLEmptyPasswordComputers $HTMLEmptyPasswordComputersTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLWin7AndServer2008 $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $ExtendedChecksBanner $HTMLFileServers $HTMLSQLServers $HTMLSCCMServers $HTMLWSUSServers $HTMLWebDAVStatusResults $HTMLVNCUnauthAccess $HTMLPrinters $HTMLSPNAccounts $HTMLSharesResultsTable $HTMLHomeDirectories $HTMLEmptyGroups $GroupPolicyChecksBanner $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $DelegationChecksBanner $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLUnconstrainedUsers $HTMLUnconstrainedUsersTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLAccessAllowedComputers $HTMLAccessAllowedComputersTable $HTMLWeakPermissionsObjects $HTMLWeakPermissionsTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $HTMLAllowedtologonto $HTMLAllowedtologontoTable $HTMLManagedObjects $HTMLManagedObjectsTable $SecurityGroupsBanner $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDCOMUsers $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLOrganizationManagement $HTMLPerformanceLogUsers $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLRDPUsers $HTMLRemManUsers $HTMLSchemaAdmins $HTMLServerOperators $InterestingDataBanner $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
 	
 	if($Output){
 		$Output = $Output.TrimEnd('\')
@@ -12479,6 +12631,115 @@ function Invoke-ADCSInformer {
     )
     if($Target){HttpInformer -Url "https://$Target/certsrv"}
     elseif($Url){HttpInformer -Url $Url}
+}
+
+function Get-ADCSWebEnrollmentProxyCandidates {
+	param(
+		[PSObject[]]$DelegationObjects,
+		[PSObject[]]$CAObjects,
+		[string[]]$CAHosts,
+		[PSObject[]]$ResolveObjects
+	)
+
+	# Normalise known CA hosts for comparison
+	$ADCSKnownCAHosts = @($CAHosts | Where-Object {$_} | ForEach-Object {([string]$_).ToLower()} | Sort-Object -Unique)
+	if(!$ADCSKnownCAHosts){return}
+
+	# Helper: derive candidate web hostnames from an account (dNSHostName + HTTP SPNs)
+	function Get-ADCSProxyWebHostsFromObject {
+		param($ADCSWebObject)
+		$ADCSWebHosts = @()
+		foreach($ADCSWebSPN in @($ADCSWebObject.serviceprincipalname)){
+			if($ADCSWebSPN -match '^HTTP/([^/:]+)'){
+				$ADCSWebSPNHost = $Matches[1].TrimEnd('.')
+				if($ADCSWebSPNHost -notmatch '\.' -AND $ADCSWebObject.domain){
+					$ADCSWebSPNHost = "$ADCSWebSPNHost.$($ADCSWebObject.domain)"
+				}
+				$ADCSWebHosts += $ADCSWebSPNHost
+			}
+		}
+		if($ADCSWebObject.dnshostname){$ADCSWebHosts += [string]$ADCSWebObject.dnshostname}
+		@($ADCSWebHosts | Where-Object {$_} | Sort-Object -Unique)
+	}
+
+	$ADCSProxyCandidates = @()
+
+	# Signal 1: Constrained delegation (web host -> HOST/RPCSS on a known CA)
+	foreach($ADCSProxyObject in $DelegationObjects){
+
+		$ADCSProxyDelegationTargets = @($ADCSProxyObject."msds-allowedtodelegateto")
+		if(!$ADCSProxyDelegationTargets){continue}
+
+		$ADCSProxyTargetCAs = foreach($ADCSProxyDelegationTarget in $ADCSProxyDelegationTargets){
+			if($ADCSProxyDelegationTarget -match '^(HOST|RPCSS)/([^/:]+)'){
+				$ADCSProxyDelegatedHost = $Matches[2].TrimEnd('.').ToLower()
+				$ADCSProxyDelegatedShort = $ADCSProxyDelegatedHost.Split('.')[0]
+				foreach($ADCSKnownCA in $ADCSKnownCAHosts){
+					$ADCSKnownCAName = $ADCSKnownCA.Split('.')[0]
+					if($ADCSProxyDelegatedHost -eq $ADCSKnownCA -OR $ADCSProxyDelegatedShort -eq $ADCSKnownCAName){
+						$ADCSKnownCA
+					}
+				}
+			}
+		}
+		$ADCSProxyTargetCAs = @($ADCSProxyTargetCAs | Sort-Object -Unique)
+		if(!$ADCSProxyTargetCAs){continue}
+
+		$ADCSProxyWebHosts = Get-ADCSProxyWebHostsFromObject -ADCSWebObject $ADCSProxyObject
+		if(!$ADCSProxyWebHosts){continue}
+
+		foreach($ADCSProxyWebHost in $ADCSProxyWebHosts){
+			foreach($ADCSProxyTargetCA in $ADCSProxyTargetCAs){
+				$ADCSProxyCandidates += [PSCustomObject]@{
+					"Web Host" = $ADCSProxyWebHost
+					"Delegating Account" = $ADCSProxyObject.samaccountname
+					"Account Domain" = $ADCSProxyObject.domain
+					"Account Type" = if($ADCSProxyObject.dnshostname){"Computer"}else{"User"}
+					"Delegated CA" = $ADCSProxyTargetCA
+					"Source" = "Constrained Delegation"
+				}
+			}
+		}
+	}
+
+	# Signal 2: Resource-based constrained delegation (known CA allows a web host to act on its behalf)
+	foreach($ADCSRBCDCA in $CAObjects){
+
+		$ADCSRBCDBytes = $ADCSRBCDCA."msDS-AllowedToActOnBehalfOfOtherIdentity"
+		if(!$ADCSRBCDBytes){continue}
+
+		$ADCSRBCDCAHost = $null
+		if($ADCSRBCDCA.dnshostname){$ADCSRBCDCAHost = ([string]$ADCSRBCDCA.dnshostname).ToLower()}
+		if(!$ADCSRBCDCAHost -OR ($ADCSKnownCAHosts -notcontains $ADCSRBCDCAHost)){continue}
+
+		try{$ADCSRBCDDescriptor = New-Object System.Security.AccessControl.RawSecurityDescriptor($ADCSRBCDBytes, 0)}catch{continue}
+		$ADCSRBCDAces = @($ADCSRBCDDescriptor.DiscretionaryAcl | Where-Object {$_.AceQualifier -eq "AccessAllowed"} | Sort-Object SecurityIdentifier -Unique)
+
+		foreach($ADCSRBCDAce in $ADCSRBCDAces){
+			$ADCSRBCDSid = $ADCSRBCDAce.SecurityIdentifier.Value
+			$ADCSRBCDAccount = @($ResolveObjects | Where-Object {(GetSID-FromBytes -sidBytes $_.objectsid) -eq $ADCSRBCDSid}) | Select-Object -First 1
+			if(!$ADCSRBCDAccount){continue}
+
+			$ADCSRBCDWebHosts = Get-ADCSProxyWebHostsFromObject -ADCSWebObject $ADCSRBCDAccount
+			if(!$ADCSRBCDWebHosts){continue}
+
+			foreach($ADCSRBCDWebHost in $ADCSRBCDWebHosts){
+				$ADCSProxyCandidates += [PSCustomObject]@{
+					"Web Host" = $ADCSRBCDWebHost
+					"Delegating Account" = $ADCSRBCDAccount.samaccountname
+					"Account Domain" = $ADCSRBCDAccount.domain
+					"Account Type" = if($ADCSRBCDAccount.dnshostname){"Computer"}else{"User"}
+					"Delegated CA" = $ADCSRBCDCAHost
+					"Source" = "RBCD"
+				}
+			}
+		}
+	}
+
+	# Exclude web hosts that are themselves known CAs (already covered by ADCS HTTP Endpoints)
+	$ADCSProxyCandidates = @($ADCSProxyCandidates | Where-Object {$ADCSKnownCAHosts -notcontains ([string]$_."Web Host").ToLower()})
+
+	$ADCSProxyCandidates | Sort-Object "Web Host","Delegating Account","Delegated CA" -Unique
 }
 
 function Collect-ADCSEnrollmentServices {
