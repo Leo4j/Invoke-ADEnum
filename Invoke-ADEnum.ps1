@@ -4722,7 +4722,277 @@ Add-Type -TypeDefinition $code
 		}
 	}
 
-	
+	###############################################################
+	########### ADCS CA + Template escalation data ################
+	###############################################################
+	# Shared AD CS data for the CA Escalations and Certificate Templates sections (collected once, reused by both)
+	$AllEnrollmentServices = @()
+	$AllOIDData = @()
+	if(!$NoVulnCertTemplates){
+		foreach($AllDomain in $AllDomains){
+			if($Domain -and $Server){
+				$AllEnrollmentServices += @(Collect-ADCSEnrollmentServicesFull -Domain $AllDomain -Server $Server)
+				$AllOIDData += @(Collect-ADCSOIDGroupLinks -Domain $AllDomain -Server $Server)
+			}
+			else{
+				$AllEnrollmentServices += @(Collect-ADCSEnrollmentServicesFull -Domain $AllDomain)
+				$AllOIDData += @(Collect-ADCSOIDGroupLinks -Domain $AllDomain)
+			}
+		}
+	}
+
+	###############################################################
+	########### ADCS CA Escalations ###############################
+	###############################################################
+	if($NoVulnCertTemplates){}
+	else{
+		if(!$NoOutput){
+			Write-Host ""
+			Write-Host ""
+			Write-Host "ADCS CA Escalations" -ForegroundColor Cyan
+		}
+
+		$TempADCSCAEsc = foreach($AllDomain in $AllDomains){
+
+			$domainCAs = @($AllEnrollmentServices | Where-Object {$_.Domain -eq $AllDomain -AND $_.'CA Host'})
+			if(!$domainCAs){continue}
+
+			# CA computer accounts to skip when scanning PKI object DACLs (ESC5)
+			$caSams = @($domainCAs | ForEach-Object { ($_.'CA Host' -split '\.')[0] + '$' } | Sort-Object -Unique)
+
+			# ESC5 is forest/domain-wide: compute once per domain, resolve + filter to non-privileged principals
+			if($Domain -and $Server){$esc5Raw = @(Get-ADCSCAESC5 -Domain $AllDomain -Server $Server -ExcludeSamAccounts $caSams)}
+			else{$esc5Raw = @(Get-ADCSCAESC5 -Domain $AllDomain -ExcludeSamAccounts $caSams)}
+
+			$esc5Principals = @()
+			foreach($e in $esc5Raw){
+				$nm = $null
+				if($Domain -and $Server -and !$domainjoined){$nm = Resolve-SidViaADSI -SID $e.SID -Server $Server}
+				if(-not $nm){
+					$obj = $SumGroupsUsers | Where-Object {(GetSID-FromBytes -sidBytes $_.objectsid) -eq $e.SID} | Select-Object -First 1
+					if($obj){$nm = "$(($obj.domain -split '\.')[0])\$($obj.samaccountname)"}
+				}
+				if(-not $nm){try{$nm = (New-Object System.Security.Principal.SecurityIdentifier($e.SID)).Translate([System.Security.Principal.NTAccount]).Value}catch{}}
+				if(-not $nm){$nm = $e.SID}
+				if($nm -match "Domain Admins|Enterprise Admins|Administrators|Local System|Certificate Publishers|Administrator|Domain Controllers|Key Admins|Enterprise Key Admins|SYSTEM"){continue}
+				$esc5Principals += $nm
+			}
+			$esc5Principals = @($esc5Principals | Sort-Object -Unique)
+
+			foreach($ca in $domainCAs){
+				$caHost = $ca.'CA Host'
+				$caName = $ca.'CA Name'
+				$caShort = ($caHost -split '\.')[0]
+
+				# ---- ESC6 / ESC7 / ESC16 : live remote registry (alive-gated, OPSec-skipped) ----
+				# (ESC8 and ESC11 are intentionally omitted here - they have their own dedicated sections above)
+				$esc6 = "Unknown"; $esc7Principals = @(); $esc16 = "Unknown"
+				$caAlive = $false; $caRegOk = $false
+				if(!$OPSec){ $caAlive = @(CheckAliveHosts -Targets @([PSCustomObject]@{dnshostname=$caHost}) -CheckPort 445).Count -gt 0 }
+				if($caAlive){
+					$regEsc = Get-ADCSCARegistryEsc -CAHost $caHost -CAName $caName -TimeoutMs 5000
+					if($regEsc){
+						$caRegOk = $true
+						$esc6 = $regEsc.ESC6
+						$esc16 = $regEsc.ESC16
+						if($regEsc.ESC7Bytes){try{$esc7Principals = @(Get-ADCSCAESC7Principals -SecurityBytes $regEsc.ESC7Bytes)}catch{}}
+					}
+				}
+
+				# Resolve ESC7 principals (non-privileged ManageCA / ManageCertificates)
+				$esc7Named = @()
+				foreach($p in $esc7Principals){
+					$nm = $null
+					if($Domain -and $Server -and !$domainjoined){$nm = Resolve-SidViaADSI -SID $p.SID -Server $Server}
+					if(-not $nm){ $obj = $SumGroupsUsers | Where-Object {(GetSID-FromBytes -sidBytes $_.objectsid) -eq $p.SID} | Select-Object -First 1; if($obj){$nm = "$(($obj.domain -split '\.')[0])\$($obj.samaccountname)"} }
+					if(-not $nm){try{$nm = (New-Object System.Security.Principal.SecurityIdentifier($p.SID)).Translate([System.Security.Principal.NTAccount]).Value}catch{}}
+					if(-not $nm){$nm = $p.SID}
+					if($nm -match "Domain Admins|Enterprise Admins|Administrators|Local System|Certificate Publishers|Administrator|Domain Controllers|Key Admins|Enterprise Key Admins|SYSTEM"){continue}
+					$esc7Named += "$nm ($($p.Right))"
+				}
+				$esc7Named = @($esc7Named | Sort-Object -Unique)
+
+				# ---- Emit one row per ESC for this CA (ESC8 -> ADCS HTTP Endpoints, ESC11 -> ADCS RPC Endpoints) ----
+				$esc5Status = if($esc5Principals.Count -gt 0){"Vulnerable"}else{"OK"}
+				$esc5Detail = if($esc5Principals.Count -gt 0){"$($esc5Principals.Count) non-default principal(s) control PKI objects: $($esc5Principals -join ', ')"}else{"No non-default control of PKI objects"}
+
+				[PSCustomObject]@{ Domain=$AllDomain; CA="$caHost\$caName"; ESC="ESC5";  Status=$esc5Status; Detail=$esc5Detail }
+				[PSCustomObject]@{ Domain=$AllDomain; CA="$caHost\$caName"; ESC="ESC6";  Status=$esc6; Detail=$(if($esc6 -eq "Vulnerable"){"EDITF_ATTRIBUTESUBJECTALTNAME2 is set (enrollee can supply SAN)"}elseif($esc6 -eq "OK"){"EDITF_ATTRIBUTESUBJECTALTNAME2 is not set"}else{"CA registry unreachable"}) }
+				[PSCustomObject]@{ Domain=$AllDomain; CA="$caHost\$caName"; ESC="ESC7";  Status=$(if($esc7Named.Count -gt 0){"Vulnerable"}elseif($caRegOk){"OK"}else{"Unknown"}); Detail=$(if($esc7Named.Count -gt 0){$esc7Named -join ', '}elseif($caRegOk){"No non-default CA managers / officers"}else{"CA registry unreachable"}) }
+				[PSCustomObject]@{ Domain=$AllDomain; CA="$caHost\$caName"; ESC="ESC16"; Status=$esc16; Detail=$(if($esc16 -eq "Vulnerable"){"Security extension is disabled"}elseif($esc16 -eq "OK"){"Security extension is enabled"}else{"CA registry unreachable"}) }
+			}
+		}
+
+		if($TempADCSCAEsc){
+			if(!$NoOutput){($TempADCSCAEsc | Sort-Object Domain,CA,ESC | Format-Table -AutoSize -Wrap | Out-String).TrimEnd()}
+			$HTMLADCSCAEsc = $TempADCSCAEsc | Sort-Object Domain,CA,ESC | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ADCSCAEscalations'>ADCS CA Escalations</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ADCSCAEscalations'>" }
+
+			$ADCSCAEscTable = [PSCustomObject]@{
+				"Description" = "Certificate Authority host-level escalation checks (ESC5/6/7/8/11/16). ESC6/7/16 require live access to the CA; 'Unknown' means the CA could not be reached."
+				"Remediation" = "Review PKI object ACLs (ESC5) and CA role assignments (ESC7); disable EDITF_ATTRIBUTESUBJECTALTNAME2 (ESC6); enable EPA/SSL and IF_ENFORCEENCRYPTICERTREQUEST (ESC8/ESC11); keep the SID security extension enabled (ESC16)."
+			}
+			$HTMLADCSCAEscTable = $ADCSCAEscTable | ConvertTo-Html -As List -Fragment
+			$HTMLADCSCAEscTable = "<div class='report-section' style='display:none;'>$HTMLADCSCAEscTable</div>"
+		}
+	}
+
+	###############################################################
+    ########### Misconfigured Certificate Templates ###############
+	###############################################################
+	if($NoVulnCertTemplates){}
+	else{
+		if(!$NoOutput){
+			Write-Host ""
+			Write-Host ""
+			Write-Host "Certificate Templates" -ForegroundColor Cyan
+		}
+		
+		$excludedSIDs = @(
+			"S-1-5-32-544",   # Administrators
+			"S-1-5-32-549",   # Enterprise Admins
+			"S-1-5-32-548",   # Account Operators
+			"S-1-5-9",        # Enterprise Domain Controllers
+			"S-1-5-18",       # Local System
+			"S-1-5-32-580",   # Key Admins
+			"S-1-5-32-581"    # Enterprise Key Admins
+		)
+		
+		$sidPattern = "^S-\d-\d+(-\d+)+-(512|500|519|520)$"
+
+		$VulnCertTemplatesFlags = foreach ($AllDomain in $AllDomains) {
+
+			$CertTemplatesObjects = @($AllCertTemplates | Where-Object {$_.domain -eq $AllDomain -AND $_.objectclass -like "*pkicertificatetemplate*"})
+			if(!$CertTemplatesObjects){continue}
+
+			# Enterprise CAs for this domain (enabled templates + publishing CA)
+			$domainCAs = @($AllEnrollmentServices | Where-Object {$_.Domain -eq $AllDomain})
+			$enabledTemplateNames = @($domainCAs.Templates | Where-Object {$_} | Sort-Object -Unique)
+
+			# Issuance-policy group links (ESC13)
+			$oidLinks = @($AllOIDData | Where-Object {$_.Domain -eq $AllDomain})
+
+			# Enroll / AutoEnroll extended-right GUIDs
+			$enrollGuids = @([Guid]"0e10c968-78fb-11d2-90d4-00c04f79dc55",[Guid]"a05b8cc2-17bc-4802-a710-e7c15ab866a2")
+
+			foreach($Certificate in $CertTemplatesObjects){
+
+				# Only evaluate enabled (published) templates when CA data is available
+				if($enabledTemplateNames.Count -gt 0 -and ($enabledTemplateNames -notcontains $Certificate.name)){continue}
+
+				# ----- Parse the template ACL (prefer collected SD bytes; fall back to a live fetch) -----
+				$securityDescriptor = $null
+				if($Certificate.ntsecuritydescriptor){
+					try{
+						$securityDescriptor = New-Object System.DirectoryServices.ActiveDirectorySecurity
+						$securityDescriptor.SetSecurityDescriptorBinaryForm([byte[]]$Certificate.ntsecuritydescriptor,[System.Security.AccessControl.AccessControlSections]::Access)
+					}catch{$securityDescriptor = $null}
+				}
+				if(-not $securityDescriptor){
+					if($Domain -and $Server){$ldapPath = "LDAP://$($Server)/$($Certificate.distinguishedname)"}
+					else{$ldapPath = "LDAP://$($Certificate.distinguishedname)"}
+					try{$securityDescriptor = (New-Object System.DirectoryServices.DirectoryEntry($ldapPath)).ObjectSecurity}catch{$securityDescriptor = $null}
+				}
+				if(-not $securityDescriptor){continue}
+
+				if(!$domainjoined -AND $Domain -AND $Server){$aces = $securityDescriptor.GetAccessRules($true,$true,[System.Security.Principal.SecurityIdentifier])}
+				else{$aces = $securityDescriptor.GetAccessRules($true,$true,[System.Security.Principal.NTAccount])}
+
+				$Enrollers = @()
+				$Controllers = @{}
+
+				foreach($ace in $aces){
+					if($ace.AccessControlType -ne "Allow"){continue}
+
+					$idVal = $ace.IdentityReference.Value
+					$sidVal = $null
+					$principalName = $null
+					if(Test-SidFormat $idVal){
+						$sidVal = $idVal
+						if(!$domainjoined -AND $Domain -AND $Server){
+							$principalName = Resolve-SidViaADSI -SID $idVal -Server $Server
+							if(-not $principalName){try{$principalName = (New-Object System.Security.Principal.SecurityIdentifier($idVal)).Translate([System.Security.Principal.NTAccount]).Value}catch{}}
+							if(-not $principalName){$principalName = $idVal}
+						}
+						else{
+							$obj = $SumGroupsUsers | Where-Object {$_.domain -eq $AllDomain -AND (GetSID-FromBytes -sidBytes $_.objectsid) -eq $idVal} | Select-Object -First 1
+							if($obj){$principalName = "$(($obj.domain -split '\.')[0])\$($obj.samaccountname)"}else{$principalName = $idVal}
+						}
+					}
+					else{
+						$principalName = $idVal
+						try{$sidVal = (New-Object System.Security.Principal.NTAccount($idVal)).Translate([System.Security.Principal.SecurityIdentifier]).Value}catch{$sidVal = $null}
+					}
+
+					# Exclude-privileged model: drop well-known privileged principals, keep everything else
+					if($sidVal -and ($excludedSIDs -contains $sidVal -or $sidVal -match $sidPattern)){continue}
+					if($principalName -match "Domain Admins|Enterprise Admins|Administrators|Local System|Certificate Publishers|Administrator|Domain Controllers|Key Admins|Enterprise Key Admins|SYSTEM"){continue}
+
+					$adr = $ace.ActiveDirectoryRights
+
+					if(($adr -band [System.DirectoryServices.ActiveDirectoryRights]::ExtendedRight) -and ($ace.ObjectType -eq [System.Guid]::Empty -or $enrollGuids -contains $ace.ObjectType)){
+						$Enrollers += $principalName
+					}
+
+					$rights = @()
+					if($adr.HasFlag([System.DirectoryServices.ActiveDirectoryRights]::GenericAll)){$rights += "FullControl"}
+					if($adr.HasFlag([System.DirectoryServices.ActiveDirectoryRights]::WriteDacl)){$rights += "WriteDacl"}
+					if($adr.HasFlag([System.DirectoryServices.ActiveDirectoryRights]::WriteOwner)){$rights += "WriteOwner"}
+					if(($adr.HasFlag([System.DirectoryServices.ActiveDirectoryRights]::WriteProperty)) -and $ace.ObjectType -eq [System.Guid]::Empty){$rights += "WriteProperty"}
+					if($rights.Count -gt 0){
+						if(-not $Controllers.ContainsKey($principalName)){$Controllers[$principalName] = @()}
+						$Controllers[$principalName] += $rights
+					}
+				}
+
+				$Enrollers = @($Enrollers | Sort-Object -Unique)
+
+				# ----- Template attributes -----
+				$nameFlag = 0; if($null -ne $Certificate.'msPKI-Certificate-Name-Flag'){try{$nameFlag = [int]$Certificate.'msPKI-Certificate-Name-Flag'}catch{$nameFlag = 0}}
+				$enrFlag = 0;  if($null -ne $Certificate.'msPKI-Enrollment-Flag'){try{$enrFlag = [int]$Certificate.'msPKI-Enrollment-Flag'}catch{$enrFlag = 0}}
+				$raSig = $Certificate.'msPKI-RA-Signature'
+				$schema = 0;   if($null -ne $Certificate.'msPKI-Template-Schema-Version'){try{$schema = [int]$Certificate.'msPKI-Template-Schema-Version'}catch{$schema = 0}}
+				$ekus = @($Certificate.pkiExtendedKeyUsage | ForEach-Object { [string]$_ })
+
+				# ESC13 group link: any issuance policy OID that maps to a group-linked OID object
+				$issuancePolicies = @($Certificate.'msPKI-Certificate-Policy' | ForEach-Object { [string]$_ })
+				$hasGroupLink = $false
+				foreach($ip in $issuancePolicies){ if(@($oidLinks | Where-Object {$_.TemplateOID -eq $ip}).Count -gt 0){$hasGroupLink = $true; break} }
+
+				$escHits = Get-ADCSTemplateESCVulns -NameFlag $nameFlag -EnrollmentFlag $enrFlag -RASignature $raSig -SchemaVersion $schema -EKUs $ekus -Enrollers $Enrollers -Controllers $Controllers -HasGroupLink $hasGroupLink
+				if(-not $escHits){continue}
+
+				$publishedOn = (@($domainCAs | Where-Object {$_.Templates -contains $Certificate.name} | ForEach-Object {"$($_.'CA Host')\$($_.'CA Name')"} | Sort-Object -Unique) -join ", ")
+				if(-not $publishedOn){$publishedOn = "Unknown"}
+
+				foreach($hit in $escHits){
+					# One row per principal in Via
+					foreach($viaPrincipal in @($hit.Via -split ', ' | Where-Object {$_})){
+						[PSCustomObject]@{
+							"Template" = $Certificate.name
+							"ESC" = $hit.ESC
+							"Via" = $viaPrincipal
+							"CA" = $publishedOn
+							"Domain" = $AllDomain
+						}
+					}
+				}
+			}
+		}
+						
+		if ($VulnCertTemplatesFlags) {
+			if(!$NoOutput){($VulnCertTemplatesFlags | Sort-Object Domain,Template,ESC | Format-Table -AutoSize -Wrap | Out-String).TrimEnd()}
+			$HTMLVulnCertTemplates = $VulnCertTemplatesFlags | Sort-Object Domain,Template,ESC | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='CertTemplates'>Certificate Templates</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='CertTemplates'>" }
+
+			$CertTemplatesTable = [PSCustomObject]@{
+				#"Risk Rating" = "Critical - Needs Immediate Attention"
+				"Description" = "Misconfigured certificate templates (ESC1/2/3/4/9/13/15/17) can let a non-privileged principal obtain a certificate to authenticate as a privileged user, or impersonate a server (ESC17). 'Via' shows the non-privileged principal(s) granting the path."
+				"Remediation" = "Restrict enrollment and object-control permissions to privileged principals; require manager approval or authorized signatures; remove ENROLLEE_SUPPLIES_SUBJECT and unnecessary EKUs."
+			}
+			
+			$HTMLCertTemplatesTable = $CertTemplatesTable | ConvertTo-Html -As List -Fragment
+			$HTMLCertTemplatesTable = "<div class='report-section' style='display:none;'>$HTMLCertTemplatesTable</div>"
+		}
+	}
 
 	###########################################################
     ######### Exchange Trusted Subsystem group ###############
