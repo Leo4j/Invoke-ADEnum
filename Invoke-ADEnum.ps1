@@ -210,7 +210,11 @@ function Invoke-ADEnum {
 		
 		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
         [Switch]
-		$CompatibilityMode
+		$CompatibilityMode,
+		
+		[Parameter (Mandatory=$False, ValueFromPipeline=$true)]
+        [Switch]
+		$ForceBind
 	)
 	
 	$stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -303,6 +307,8 @@ function Invoke-ADEnum {
  -FindLocalAdminAccess		Enumerate for Machines where the Current User is Local Admin
  
  -Force				Full Coverage when used in combination with -AllEnum flag (may take a long time depending on domain size)
+ 
+ -ForceBind			Force binding to a domain | treats machine as domain un-joined
 
  -GPOsRights			Enumerate GPOs Rights | Who can Create/Modify/Link GPOs
  
@@ -387,7 +393,7 @@ function Invoke-ADEnum {
 
  Invoke-ADEnum -AllEnum -Force
  
- Invoke-ADEnum -Domain ferrari.local -Server dc01.ferrari.local -ServerIP 10.0.2.128 -SetRealm -RunAsUser Administrator -RunAsPass P@ssw0rd!
+ Invoke-ADEnum -Domain ferrari.local -Server dc01.ferrari.local -ServerIP 10.0.2.128 -ForceBind
 
 "
 		Write-Host " [Recommended Coverage]" -ForegroundColor Yellow
@@ -429,6 +435,36 @@ $xlsHeader = @'
 			});
 			return csv.join('\n');
 		}
+
+		// Build a GitHub-flavored Markdown table from the same rendered table (for reporting / AI analysis)
+		function tableToMarkdown($table, title) {
+			var lines = [];
+
+			// Add title as a heading if provided
+			if (title) {
+				lines.push('# ' + title);
+				lines.push('');
+			}
+
+			var headerDone = false;
+			$table.find('tr').each(function() {
+				var cells = [];
+				$(this).find('td, th').each(function() {
+					// Escape pipes and flatten newlines so a value can't break the table layout
+					var t = $(this).text().replace(/\|/g, '\\|').replace(/\r?\n/g, ' ').trim();
+					cells.push(t);
+				});
+				if (cells.length === 0) { return; }
+				lines.push('| ' + cells.join(' | ') + ' |');
+				if (!headerDone) {
+					var sep = [];
+					for (var i = 0; i < cells.length; i++) { sep.push('---'); }
+					lines.push('| ' + sep.join(' | ') + ' |');
+					headerDone = true;
+				}
+			});
+			return lines.join('\n');
+		}
 		</script>
 		
 		<script>
@@ -447,7 +483,24 @@ $xlsHeader = @'
 			var titleElement = $("h2[data-linked-table='" + tableID + "']");
 			var originalTitleText = titleElement.text();
 			titleElement.html('<a href="' + csvDataURI + '" class="download-link" download="' + tableID + '.csv">' + originalTitleText + '</a>');
+			// Clicking the title downloads the CSV (native anchor) AND the Markdown (handler below); no preventDefault, so both fire from one click.
+			titleElement.find('a.download-link').on('click', function() { downloadTableMarkdown(tableID); });
 			console.log("Link created for tableID:", tableID);
+		}
+
+		// Download the same table as a Markdown (.md) file, alongside the CSV
+		function downloadTableMarkdown(tableID) {
+			var title = $("h2[data-linked-table='" + tableID + "']").text();
+			var md = tableToMarkdown($('#' + tableID), title);
+			var blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+			var url = URL.createObjectURL(blob);
+			var a = document.createElement('a');
+			a.href = url;
+			a.download = tableID + '.md';
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
 		}
 		
 		function tablesToExcel() {
@@ -674,6 +727,7 @@ $xlsHeader = @'
 			createDownloadLinkForTable('ADCSWebEnrollmentProxyEndpoints');
 			createDownloadLinkForTable('CESEndpoints');
 			createDownloadLinkForTable('ADCSRPCEndpoints');
+			createDownloadLinkForTable('ADCSCAEscalations');
 			createDownloadLinkForTable('CertTemplates');
 			createDownloadLinkForTable('UnconstrainedComputers');
 			createDownloadLinkForTable('UnconstrainedUsers');
@@ -875,7 +929,7 @@ $toggleScript = @"
 $header = $Comboheader + $xlsHeader + $toggleScript
 	
     $domainjoined = Test-DomainJoinStatus
-	if(!$domainjoined){
+	if(!$domainjoined -OR $ForceBind){
 
 		$ChecksFailed = @()
 
@@ -4182,13 +4236,10 @@ Add-Type -TypeDefinition $code
 						$httpsuri = "https://$IPAddress/certsrv/"
 					}
 
-					try{$httpresponse = Invoke-WebRequest -Uri $httpuri -UseDefaultCredentials -TimeoutSec 3 -UseBasicParsing}catch{$httperrorMessage = $_.Exception.Message}
+					# Derive HTTP/HTTPS status from the single Invoke-ADCSInformer result above (no extra per-CA web requests)
+					if ($ADCSInformation.HttpStatusCode -eq 200) {$HTTPMessage = "True"} elseif ($ADCSInformation.HttpStatusCode -eq 401) {$HTTPMessage = "Possible"} elseif ("$($ADCSInformation.HttpError)" -like "*The remote server returned an error: (401) Unauthorized*") {$HTTPMessage = "Possible"} else {$HTTPMessage = "False"}
 
-					try{$httpsresponse = Invoke-WebRequest -Uri $httpsuri -UseDefaultCredentials -TimeoutSec 3 -UseBasicParsing}catch{$httpserrorMessage = $_.Exception.Message}
-
-					if ($httpresponse.statuscode -eq 200) {$HTTPMessage = "True"} elseif ($httperrorMessage.ToString() -like "*Could not establish trust relationship for the SSL/TLS secure channel*") {$HTTPMessage = "Possible"} elseif ($httperrorMessage.ToString() -like "*The remote server returned an error: (401) Unauthorized*") {$HTTPMessage = "Possible"} else {$HTTPMessage = "False"}
-
-					if ($httpsresponse.statuscode -eq 200) {$HTTPSMessage = "True"} elseif ($httpserrorMessage.ToString() -like "*Could not establish trust relationship for the SSL/TLS secure channel*") {$HTTPSMessage = "Possible"} elseif ($httpserrorMessage.ToString() -like "*The remote server returned an error: (401) Unauthorized*") {$HTTPSMessage = "Possible"} else {$HTTPSMessage = "False"}
+					if ($ADCSInformation.HttpsStatusCode -eq 200) {$HTTPSMessage = "True"} elseif ($ADCSInformation.HttpsStatusCode -eq 401) {$HTTPSMessage = "Possible"} elseif ("$($ADCSInformation.HttpsError)" -like "*The remote server returned an error: (401) Unauthorized*") {$HTTPSMessage = "Possible"} else {$HTTPSMessage = "False"}
 
 					[PSCustomObject]@{
 						"Name" = $CertPublisher.MemberName
@@ -4670,296 +4721,8 @@ Add-Type -TypeDefinition $code
 			$HTMLADCSRPCEndpointsTable = "<div class='report-section' style='display:none;'>$HTMLADCSRPCEndpointsTable</div>"
 		}
 	}
+
 	
-	###############################################################
-    ########### Misconfigured Certificate Templates ###############
-	###############################################################
-	if($NoVulnCertTemplates){}
-	else{
-		if(!$NoOutput){
-			Write-Host ""
-			Write-Host ""
-			Write-Host "Certificate Templates" -ForegroundColor Cyan
-		}
-		
-		$excludedSIDs = @(
-			"S-1-5-32-544",   # Administrators
-			"S-1-5-32-549",   # Enterprise Admins
-			"S-1-5-32-548",   # Account Operators
-			"S-1-5-9",        # Enterprise Domain Controllers
-			"S-1-5-18",       # Local System
-			"S-1-5-32-580",   # Key Admins
-			"S-1-5-32-581"    # Enterprise Key Admins
-		)
-		
-		$sidPattern = "^S-\d-\d+(-\d+)+-(512|500|519|520)$"
-
-		$VulnCertTemplatesFlags = foreach ($AllDomain in $AllDomains) {
-			
-			# Retrieve the GUID to Name mapping
-			$guidMap = $null
-			$guidMap = $AllGUIDMappings["$AllDomain"]
-			
-			$CertTemplatesObjects = @($AllCertTemplates | Where-Object {$_.domain -eq $AllDomain -AND $_.objectclass -like "*pkicertificatetemplate*"})
-			
-			$CertTemplatesACLs = @()
-			
-			$CertTemplatesACLs = @()
-			$MoreCertTemplatesACLs = @()
-			$MisconfiguredTemplates = @()
-			$RemainingTemplates = @()
-
-			$MisconfiguredTemplates = $CertTemplatesObjects | Where-Object {
-					 ($_.pkiExtendedKeyUsage -contains "1.3.6.1.5.5.7.3.2") -and
-					 ($_.'msPKI-Certificate-Name-Flag' -eq 1) -and
-					 !($_.'msPKI-Enrollment-Flag' -band 2) -and
-					 ( ($_.'msPKI-RA-Signature' -eq 0) -or ($null -eq $_.'msPKI-RA-Signature') )
-				}
-
-			foreach ($Certificate in $MisconfiguredTemplates) {
-				if($Domain -and $Server){$ldapPath = "LDAP://$($Server)/$($Certificate.distinguishedname)"}
-				else{$ldapPath = "LDAP://$($Certificate.distinguishedname)"}
-				$ouEntry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
-				$securityDescriptor = $ouEntry.ObjectSecurity
-
-				# Collect owner information
-				if ($securityDescriptor) {
-					if(!$domainjoined -AND $Domain -AND $Server){
-						try{
-							$ownerSid = $securityDescriptor.GetOwner([System.Security.Principal.SecurityIdentifier]).Value
-							$owner = Resolve-SidViaADSI -SID $ownerSid -Server $Server
-							if(-not $owner){ $owner = $ownerSid }
-						} catch { $owner = $null }
-					}
-					else{
-						try {
-							$owner = $securityDescriptor.GetOwner([System.Security.Principal.NTAccount]).Value
-						} catch {
-							$getownersid = $securityDescriptor.GetOwner([System.Security.Principal.SecurityIdentifier]).Value
-							try{$owner = $TotalEnabledUsers | Where-Object {$_.ObjectSID -eq $getownersid} | Select-Object -ExpandProperty samaccountname}
-							catch{$owner = $getownersid}
-						}
-					}
-				}
-
-				# Collect ACL information
-				$aclInfo = @()
-				if(!$domainjoined -AND $Domain -AND $Server){
-					$aclInfo = foreach ($ace in $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier])) {
-						$sid = $ace.IdentityReference.Value
-						$aceIdentityReferenceValue = Resolve-SidViaADSI -SID $sid -Server $Server
-						if(-not $aceIdentityReferenceValue){ $aceIdentityReferenceValue = $sid }
-
-						[PSCustomObject]@{
-							"Delegated Group"      = $aceIdentityReferenceValue
-							"ActiveDirectoryRights"= $ace.ActiveDirectoryRights
-							"ObjectType"           = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
-							"InheritedObjectType"  = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
-							"Domain"               = $AllDomain
-						}
-					}
-				}
-				else{
-					$aclInfo = foreach ($ace in $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount])) {
-						if(Test-SidFormat $ace.IdentityReference.Value){
-							if(-not ($ace.IdentityReference.Value -match $sidPattern) -and $excludedSIDs -notcontains $ace.IdentityReference.Value){
-								$aceIdentityReferenceObj = $SumGroupsUsers | Where-Object {$_.domain -eq $AllDomain -AND (GetSID-FromBytes -sidBytes $_.objectsid) -eq $ace.IdentityReference.Value}
-								$aceIdentityReferenceValue = "$(($aceIdentityReferenceObj.domain -split "\.")[0])\$($aceIdentityReferenceObj.samaccountname)"
-							} else {continue}
-						}
-						else{$aceIdentityReferenceValue = $ace.IdentityReference.Value}
-						[PSCustomObject]@{
-							"Delegated Group" = $aceIdentityReferenceValue
-							"ActiveDirectoryRights" = $ace.ActiveDirectoryRights
-							"ObjectType" = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
-							"InheritedObjectType" = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
-							"Domain" = $AllDomain
-						}
-					}
-				}
-				
-				$aclInfo = $aclInfo | Where-Object {$_."Delegated Group"}
-
-				# Filter for specific rights
-				$writeOwnerPrincipals = $aclInfo | Where-Object { $_.ActiveDirectoryRights -band [System.DirectoryServices.ActiveDirectoryRights]::WriteOwner } | Select-Object -ExpandProperty "Delegated Group" -Unique
-				$writeOwnerPrincipals = $writeOwnerPrincipals | Where-Object {$_ -notmatch "Domain Admins|Enterprise Admins|Administrators|Local System|Certificate Publishers|Administrator|Domain Controllers|Key Admins|Enterprise Key Admins|NT Authority"}
-				
-				$writeDaclPrincipals = $aclInfo | Where-Object { $_.ActiveDirectoryRights -band [System.DirectoryServices.ActiveDirectoryRights]::WriteDacl } | Select-Object -ExpandProperty "Delegated Group" -Unique
-				$writeDaclPrincipals = $writeDaclPrincipals | Where-Object {$_ -notmatch "Domain Admins|Enterprise Admins|Administrators|Local System|Certificate Publishers|Administrator|Domain Controllers|Key Admins|Enterprise Key Admins|NT Authority"}
-				
-				#$writePropertyPrincipals = $aclInfo | Where-Object { $_.ActiveDirectoryRights -band [System.DirectoryServices.ActiveDirectoryRights]::WriteProperty } | Select-Object -ExpandProperty "Delegated Group" -Unique
-				#$writePropertyPrincipals = $writePropertyPrincipals | Where-Object {$_ -notmatch "Domain Admins|Enterprise Admins|Administrators|Local System|Certificate Publishers|Administrator|Domain Controllers|Key Admins|Enterprise Key Admins|NT Authority"}
-				
-				$EnrollmentRights = $aclInfo."Delegated Group"
-				$EnrollmentRights = $EnrollmentRights | Where-Object {$_ -notmatch "Domain Admins|Enterprise Admins|Administrators|Local System|Certificate Publishers|Administrator|Domain Controllers|Key Admins|Enterprise Key Admins|NT Authority"} | Sort-Object -Unique
-				
-				# Add to ACLs list
-				$CertTemplatesACLs += [PSCustomObject]@{
-					"CertificateDN" = $Certificate.distinguishedname
-					"Enrollment" = $EnrollmentRights -join ", "
-					"Owner" = $owner
-					"WriteOwner" = $writeOwnerPrincipals -join ", "
-					"WriteDacl" = $writeDaclPrincipals -join ", "
-					#"WriteProperty" = $writePropertyPrincipals -join ", "
-				}
-			}
-
-			$CertTemplateInfo = @()
-
-			foreach ($CertTemplate in $MisconfiguredTemplates) {
-				# Fetch corresponding ACL entry
-				$aclEntry = $CertTemplatesACLs | Where-Object { $_.CertificateDN -eq $CertTemplate.distinguishedname }
-				$certName = $CertTemplate.name
-
-				$CertTemplateInfo += [PSCustomObject]@{
-					"Cert Name"                = $certName
-					"Client Auth"              = "True"
-					"ENROLLEE_SUPPLIES_SUBJECT"= "True"
-					"Approval"                 = "False"
-					"Enrollment Rights"        = $aclEntry."Enrollment"
-					"Owner"                    = $aclEntry.Owner
-					"WriteOwner"               = $aclEntry."WriteOwner"
-					"WriteDacl"                = $aclEntry."WriteDacl"
-					#"WriteProperty"            = $aclEntry."WriteProperty"
-					"Domain"                   = $AllDomain
-				}
-			}
-
-			$CertTemplateInfo = @($CertTemplateInfo | Where-Object {$_."Enrollment Rights"})
-
-			$RemainingTemplates = $CertTemplatesObjects | Where-Object {
-				$_ -notin $MisconfiguredTemplates
-			}
-
-			foreach ($Certificate in $RemainingTemplates) {
-				if($Domain -and $Server){$ldapPath = "LDAP://$($Server)/$($Certificate.distinguishedname)"}
-				else{$ldapPath = "LDAP://$($Certificate.distinguishedname)"}
-				$ouEntry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
-				$securityDescriptor = $ouEntry.ObjectSecurity
-
-				# Collect owner information
-				if ($securityDescriptor) {
-					if(!$domainjoined -AND $Domain -AND $Server){
-						try{
-							$ownerSid = $securityDescriptor.GetOwner([System.Security.Principal.SecurityIdentifier]).Value
-							$owner = Resolve-SidViaADSI -SID $ownerSid -Server $Server
-							if(-not $owner){ $owner = $ownerSid }
-						} catch { $owner = $null }
-					}
-					else{
-						try {
-							$owner = $securityDescriptor.GetOwner([System.Security.Principal.NTAccount]).Value
-						} catch {
-							$getownersid = $securityDescriptor.GetOwner([System.Security.Principal.SecurityIdentifier]).Value
-							try{$owner = $TotalEnabledUsers | Where-Object {$_.ObjectSID -eq $getownersid} | Select-Object -ExpandProperty samaccountname}
-							catch{$owner = $getownersid}
-						}
-					}
-				}
-
-				# Collect ACL information
-				$aclInfo = @()
-				if(!$domainjoined -AND $Domain -AND $Server){
-					$aclInfo = foreach ($ace in $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier])) {
-						$sid = $ace.IdentityReference.Value
-						$aceIdentityReferenceValue = Resolve-SidViaADSI -SID $sid -Server $Server
-						if(-not $aceIdentityReferenceValue){ $aceIdentityReferenceValue = $sid }
-
-						[PSCustomObject]@{
-							"Delegated Group"      = $aceIdentityReferenceValue
-							"ActiveDirectoryRights"= $ace.ActiveDirectoryRights
-							"ObjectType"           = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
-							"InheritedObjectType"  = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
-							"Domain"               = $AllDomain
-						}
-					}
-				}
-				else{
-					$aclInfo = foreach ($ace in $securityDescriptor.GetAccessRules($true, $true, [System.Security.Principal.NTAccount])) {
-						if(Test-SidFormat $ace.IdentityReference.Value){
-							if(-not ($ace.IdentityReference.Value -match $sidPattern) -and $excludedSIDs -notcontains $ace.IdentityReference.Value){
-								$aceIdentityReferenceObj = $SumGroupsUsers | Where-Object {$_.domain -eq $AllDomain -AND (GetSID-FromBytes -sidBytes $_.objectsid) -eq $ace.IdentityReference.Value}
-								$aceIdentityReferenceValue = "$(($aceIdentityReferenceObj.domain -split "\.")[0])\$($aceIdentityReferenceObj.samaccountname)"
-							} else {continue}
-						}
-						else{$aceIdentityReferenceValue = $ace.IdentityReference.Value}
-						[PSCustomObject]@{
-							"Delegated Group" = $aceIdentityReferenceValue
-							"ActiveDirectoryRights" = $ace.ActiveDirectoryRights
-							"ObjectType" = if ($ace.ObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.ObjectType] } else { "Any" }
-							"InheritedObjectType" = if ($ace.InheritedObjectType -ne [System.Guid]::Empty) { $guidMap[$ace.InheritedObjectType] } else { "Any" }
-							"Domain" = $AllDomain
-						}
-					}
-				}
-				
-				$aclInfo = $aclInfo | Where-Object {$_."Delegated Group" -AND $_.ActiveDirectoryRights -match "GenericAll|WriteDacl|WriteOwner"}
-
-				if($aclInfo){
-					# Filter for specific rights
-					$writeOwnerPrincipals = $aclInfo | Where-Object { $_.ActiveDirectoryRights -band [System.DirectoryServices.ActiveDirectoryRights]::WriteOwner } | Select-Object -ExpandProperty "Delegated Group" -Unique
-					$writeOwnerPrincipals = $writeOwnerPrincipals | Where-Object {$_ -notmatch "Domain Admins|Enterprise Admins|Administrators|Local System|Certificate Publishers|Administrator|Domain Controllers|Key Admins|Enterprise Key Admins|NT Authority"}
-					
-					$writeDaclPrincipals = $aclInfo | Where-Object { $_.ActiveDirectoryRights -band [System.DirectoryServices.ActiveDirectoryRights]::WriteDacl } | Select-Object -ExpandProperty "Delegated Group" -Unique
-					$writeDaclPrincipals = $writeDaclPrincipals | Where-Object {$_ -notmatch "Domain Admins|Enterprise Admins|Administrators|Local System|Certificate Publishers|Administrator|Domain Controllers|Key Admins|Enterprise Key Admins|NT Authority"}
-					
-					#$writePropertyPrincipals = $aclInfo | Where-Object { $_.ActiveDirectoryRights -band [System.DirectoryServices.ActiveDirectoryRights]::WriteProperty } | Select-Object -ExpandProperty "Delegated Group" -Unique
-					#$writePropertyPrincipals = $writePropertyPrincipals | Where-Object {$_ -notmatch "Domain Admins|Enterprise Admins|Administrators|Local System|Certificate Publishers|Administrator|Domain Controllers|Key Admins|Enterprise Key Admins|NT Authority"}
-					
-					$EnrollmentRights = $aclInfo."Delegated Group"
-					$EnrollmentRights = $EnrollmentRights | Where-Object {$_ -notmatch "Domain Admins|Enterprise Admins|Administrators|Local System|Certificate Publishers|Administrator|Domain Controllers|Key Admins|Enterprise Key Admins|NT Authority"} | Sort-Object -Unique
-					
-					# Add to ACLs list
-					$MoreCertTemplatesACLs += [PSCustomObject]@{
-						"CertificateDN" = $Certificate.distinguishedname
-						"Enrollment" = $EnrollmentRights -join ", "
-						"Owner" = $owner
-						"WriteOwner" = $writeOwnerPrincipals -join ", "
-						"WriteDacl" = $writeDaclPrincipals -join ", "
-						#"WriteProperty" = $writePropertyPrincipals -join ", "
-					}
-				}
-			}
-
-			foreach ($CertTemplate in $RemainingTemplates) {
-				# Fetch corresponding ACL entry
-				$aclEntry = $MoreCertTemplatesACLs | Where-Object { $_.CertificateDN -eq $CertTemplate.distinguishedname }
-				$certName = $CertTemplate.name
-				$clientAuth = $CertTemplate.pkiExtendedKeyUsage -contains "1.3.6.1.5.5.7.3.2"
-				$enrolleeSuppliesSubject = $CertTemplate.'msPKI-Certificate-Name-Flag' -eq 1
-				$approvalRequired = ($CertTemplate.'msPKI-Enrollment-Flag' -band 2) -ne 0
-
-				$CertTemplateInfo += [PSCustomObject]@{
-					"Cert Name"                = $certName
-					"Client Auth"              = $clientAuth
-					"ENROLLEE_SUPPLIES_SUBJECT"= $enrolleeSuppliesSubject
-					"Approval"                 = $approvalRequired
-					"Enrollment Rights"        = $aclEntry."Enrollment"
-					"Owner"                    = $aclEntry.Owner
-					"WriteOwner"               = $aclEntry."WriteOwner"
-					"WriteDacl"                = $aclEntry."WriteDacl"
-					#"WriteProperty"            = $aclEntry."WriteProperty"
-					"Domain"                   = $AllDomain
-				}
-			}
-			
-			$CertTemplateInfo | Where-Object { $_."Enrollment Rights" -or $_."WriteOwner" -or $_."WriteDacl" }
-		}
-						
-		if ($VulnCertTemplatesFlags) {
-			if(!$NoOutput){($VulnCertTemplatesFlags | Sort-Object Domain,"Cert Name" | Format-Table -AutoSize -Wrap | Out-String).TrimEnd()}
-			$HTMLVulnCertTemplates = $VulnCertTemplatesFlags | Sort-Object Domain,"Cert Name" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='CertTemplates'>Certificate Templates</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='CertTemplates'>" }
-			
-			$CertTemplatesTable = [PSCustomObject]@{
-				#"Risk Rating" = "Critical - Needs Immediate Attention"
-				"Description" = "Misconfigurations on Cert Templates may allow for a certificate to be requested on behalf of any domain user (including a Domain Admin), and use it to authenticate to the domain."
-				"Remediation" = "Review Domain Users and Computers' Object Control and Enrollment Permissions, and Certificate Flags (ENROLLEE_SUPPLIES_SUBJECT)."
-			}
-			
-			$HTMLCertTemplatesTable = $CertTemplatesTable | ConvertTo-Html -As List -Fragment
-			$HTMLCertTemplatesTable = "<div class='report-section' style='display:none;'>$HTMLCertTemplatesTable</div>"
-		}
-	}
 
 	###########################################################
     ######### Exchange Trusted Subsystem group ###############
@@ -9858,6 +9621,8 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		$TempWorkstationsEnabled = foreach ($AllDomain in $AllDomains) {
 			$AllWorkstations = @($TotalEnabledWorkstations | Where-Object {$_.domain -eq $AllDomain})
 			foreach ($Workstation in $AllWorkstations) {
+				# IP resolution disabled for Workstations (Enabled) for performance - workstation IPs can be resolved manually if needed.
+				<#
 				$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $Workstation.name -AND $_.Domain -eq $Workstation.domain} | Select-Object -ExpandProperty "IP Address"
 				if(!$IPAddress -and !$OPSec -and $Workstation.DnsHostName){
 					if($Domain -and $Server){
@@ -9880,18 +9645,19 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 						Domain = $Workstation.domain
 					}
 				}
-				
+
 				if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
+				#>
 				[PSCustomObject]@{
 					"Name" = $Workstation.samaccountname
 					"Enabled" = if ($Workstation.useraccountcontrol -band 2) { "False" } else { "True" }
 					"Active" = if(!$Workstation.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $Workstation.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-					"IP Address" = $IPAddress
+					#"IP Address" = $IPAddress
 					"Operating System" = $Workstation.operatingsystem
 					"Account SID" = GetSID-FromBytes -sidBytes $Workstation.objectsid
 					"Domain" = $AllDomain
 				}
-				$IPAddress = $null
+				#$IPAddress = $null
 			}
 		}
 
@@ -10146,7 +9912,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	if(!$HTMLCertPublishers -AND !$HTMLESC11Table -AND !$HTMLVulnCertTemplates -AND !$HTMLExchangeTrustedSubsystem -AND !$HTMLServiceAccounts -AND !$HTMLGMSAs -AND !$HTMLnopreauthset -AND !$HTMLGPPasswords -AND !$HTMLHardcodedcreds -AND !$HTMLPasswordSetUsers -AND !$HTMLUnixPasswordSet -AND !$HTMLEmptyPasswordUsers -AND !$HTMLEmptyPasswordComputers -AND !$HTMLTotalEmptyPass -AND !$HTMLCompTotalEmptyPass -AND !$HTMLPreWin2kCompatibleAccess -AND !$HTMLWin7AndServer2008 -AND !$HTMLMachineAccountsPriv -AND !$HTMLsidHistoryUsers -AND !$HTMLRevEncUsers -AND !$HTMLUnsupportedHosts){$MisconfigurationsBanner = $null}
 	if(!$HTMLFileServers -AND !$HTMLSQLServers -AND !$HTMLSCCMServers -AND !$HTMLWSUSServers -AND !$HTMLWebDAVStatusResults -AND !$HTMLVNCUnauthAccess -AND !$HTMLPrinters -AND !$HTMLSPNAccounts -AND !$HTMLSharesResultsTable -AND !$HTMLHomeDirectories -AND !$HTMLEmptyGroups){$ExtendedChecksBanner = $null}
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLAllForests $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLFineGrained $HTMLOtherPolicies $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLLLMNR $HTMLMachineQuota $HTMLMachineAccountQuotaTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLVulnLMCompLevelComp $HTMLDNSRecords $HTMLDNSUnsecureUpdates $HTMLSubnets $AdministratorsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLAdminsProtectedUsersAndSensitive $HTMLAdminsProtectedUsersAndSensitiveTable $HTMLSecurityProtectedUsersAndSensitive $HTMLSecurityProtectedUsersAndSensitiveTable $HTMLAdmCountProtectedUsersAndSensitive $HTMLAdmCountProtectedUsersAndSensitiveTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLFindLocalAdminAccess $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLADCSWebEnrollmentProxyEndpoints $HTMLADCSWebEnrollmentProxyEndpointsTable $HTMLCESEndpoints $HTMLCESEndpointsTable $HTMLESC11Table $HTMLADCSRPCEndpointsTable $HTMLVulnCertTemplates $HTMLCertTemplatesTable $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLGPPasswords $HTMLGPPasswordsTable $HTMLHardcodedcreds $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLEmptyPasswordComputers $HTMLEmptyPasswordComputersTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLWin7AndServer2008 $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $ExtendedChecksBanner $HTMLFileServers $HTMLSQLServers $HTMLSCCMServers $HTMLWSUSServers $HTMLWebDAVStatusResults $HTMLVNCUnauthAccess $HTMLPrinters $HTMLSPNAccounts $HTMLSharesResultsTable $HTMLHomeDirectories $HTMLEmptyGroups $GroupPolicyChecksBanner $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $DelegationChecksBanner $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLUnconstrainedUsers $HTMLUnconstrainedUsersTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLAccessAllowedComputers $HTMLAccessAllowedComputersTable $HTMLWeakPermissionsObjects $HTMLWeakPermissionsTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $HTMLAllowedtologonto $HTMLAllowedtologontoTable $HTMLManagedObjects $HTMLManagedObjectsTable $SecurityGroupsBanner $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDCOMUsers $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLOrganizationManagement $HTMLPerformanceLogUsers $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLRDPUsers $HTMLRemManUsers $HTMLSchemaAdmins $HTMLServerOperators $InterestingDataBanner $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLAllForests $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLFineGrained $HTMLOtherPolicies $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLLLMNR $HTMLMachineQuota $HTMLMachineAccountQuotaTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLVulnLMCompLevelComp $HTMLDNSRecords $HTMLDNSUnsecureUpdates $HTMLSubnets $AdministratorsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLAdminsProtectedUsersAndSensitive $HTMLAdminsProtectedUsersAndSensitiveTable $HTMLSecurityProtectedUsersAndSensitive $HTMLSecurityProtectedUsersAndSensitiveTable $HTMLAdmCountProtectedUsersAndSensitive $HTMLAdmCountProtectedUsersAndSensitiveTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLFindLocalAdminAccess $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLADCSWebEnrollmentProxyEndpoints $HTMLADCSWebEnrollmentProxyEndpointsTable $HTMLCESEndpoints $HTMLCESEndpointsTable $HTMLESC11Table $HTMLADCSRPCEndpointsTable $HTMLADCSCAEsc $HTMLADCSCAEscTable $HTMLVulnCertTemplates $HTMLCertTemplatesTable $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLGPPasswords $HTMLGPPasswordsTable $HTMLHardcodedcreds $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLEmptyPasswordComputers $HTMLEmptyPasswordComputersTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLWin7AndServer2008 $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $ExtendedChecksBanner $HTMLFileServers $HTMLSQLServers $HTMLSCCMServers $HTMLWSUSServers $HTMLWebDAVStatusResults $HTMLVNCUnauthAccess $HTMLPrinters $HTMLSPNAccounts $HTMLSharesResultsTable $HTMLHomeDirectories $HTMLEmptyGroups $GroupPolicyChecksBanner $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $DelegationChecksBanner $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLUnconstrainedUsers $HTMLUnconstrainedUsersTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLAccessAllowedComputers $HTMLAccessAllowedComputersTable $HTMLWeakPermissionsObjects $HTMLWeakPermissionsTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $HTMLAllowedtologonto $HTMLAllowedtologontoTable $HTMLManagedObjects $HTMLManagedObjectsTable $SecurityGroupsBanner $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDCOMUsers $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLOrganizationManagement $HTMLPerformanceLogUsers $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLRDPUsers $HTMLRemManUsers $HTMLSchemaAdmins $HTMLServerOperators $InterestingDataBanner $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
 	
 	if($Output){
 		$Output = $Output.TrimEnd('\')
@@ -10218,6 +9984,17 @@ function Invoke-ShareHunter{
 	else{$sharestimeout = 5000}
 	
 	$ErrorActionPreference = "SilentlyContinue"
+
+	# Native CreateFile for passive read/write detection: open a directory handle requesting access rights.
+	# The OS performs the full effective-access check (share ACL n NTFS DACL) and returns a handle if allowed - no file is ever created.
+	if(-not ('ADEnumShares.Native' -as [type])){
+		Add-Type -Namespace ADEnumShares -Name Native -MemberDefinition @'
+[DllImport("kernel32.dll", SetLastError=true, CharSet=CharSet.Unicode)]
+public static extern System.IntPtr CreateFileW(string n, uint access, uint share, System.IntPtr sa, uint disp, uint flags, System.IntPtr tmpl);
+[DllImport("kernel32.dll", SetLastError=true)]
+public static extern bool CloseHandle(System.IntPtr h);
+'@
+	}
 
 	# Initialize the runspace pool
 	$runspacePool = [runspacefactory]::CreateRunspacePool(1, 10)
@@ -10351,11 +10128,13 @@ function Invoke-ShareHunter{
 	foreach ($obj in $functiontable) {
 		$scriptBlock = {
 			param($obj)
-
-			$Error.clear()
-			ls $obj.FullShareName > $null
-			if (!$error[0]) {
-   				$obj.Readable = "YES"
+			# IPC$ is the named-pipe share, not a filesystem directory - a handle opens on it even though it is not a real readable/writable file share. Skip it (matches the old behaviour).
+			if ($obj.Share -eq 'IPC$') { return $null }
+			# Readable = can open the share directory requesting FILE_LIST_DIRECTORY (0x1). No file created.
+			$h = [ADEnumShares.Native]::CreateFileW($obj.FullShareName, 0x1, 7, [IntPtr]::Zero, 3, 0x02000000, [IntPtr]::Zero)
+			if ($h -ne [IntPtr](-1)) {
+				[void][ADEnumShares.Native]::CloseHandle($h)
+				$obj.Readable = "YES"
 				return $obj.FullShareName
 			} else {
 				return $null
@@ -10400,35 +10179,13 @@ function Invoke-ShareHunter{
 				[string]$Share
 			)
 			
-			function Test-Write {
-				[CmdletBinding()]
-				param (
-					[parameter()]
-					[string] $Path
-				)
-				try {
-					$testPath = Join-Path $Path ([IO.Path]::GetRandomFileName())
-					$fileStream = [IO.File]::Create($testPath, 1, 'DeleteOnClose')
-					$fileStream.Close()
-					return "$Path"
-				} finally {
-					Remove-Item $testPath -ErrorAction SilentlyContinue
-				}
-			}
-			
-			try {
-				$result = Test-Write -Path $Share
-				return @{
-					Share = $Share
-					Result = $result
-					Error = $null
-				}
-			} catch {
-				return @{
-					Share = $Share
-					Result = $null
-					Error = $_.Exception.Message
-				}
+			# Writable = can open the share directory requesting FILE_ADD_FILE (0x2). No file created.
+			$h = [ADEnumShares.Native]::CreateFileW($Share, 0x2, 7, [IntPtr]::Zero, 3, 0x02000000, [IntPtr]::Zero)
+			if ($h -ne [IntPtr](-1)) {
+				[void][ADEnumShares.Native]::CloseHandle($h)
+				return @{ Share = $Share; Result = $Share; Error = $null }
+			} else {
+				return @{ Share = $Share; Result = $null; Error = "no-write-access" }
 			}
 		}
 
@@ -10629,7 +10386,7 @@ function Find-LocalAdminAccess {
 		if ($WMIPort) {
 			if($domainjoined){$Timeout = 2000}
 			else{$Timeout = 8000}
-			
+
 			$Result = $null
 			$Command = "Get-WmiObject -Class Win32_OperatingSystem -ComputerName '$ComputerName'"
 			$Process = New-Object System.Diagnostics.Process
@@ -11246,6 +11003,7 @@ function Collect-ADCertificateTemplates {
 		$searcher.Filter = "(objectClass=pKICertificateTemplate)"
 		$searcher.SearchScope = "Subtree"
 		$searcher.PageSize = 1000
+		$searcher.SecurityMasks = [System.DirectoryServices.SecurityMasks]::Dacl
 		$searcher.PropertiesToLoad.Add("*") | Out-Null
 		
         $results = $searcher.FindAll()
@@ -12431,6 +12189,8 @@ function Invoke-HttpInformerRequest {
         $req.AllowAutoRedirect = $false
 		$req.KeepAlive = $false
         $req.Credentials       = [System.Net.CredentialCache]::DefaultCredentials
+        $req.Timeout           = 3000
+        $req.ReadWriteTimeout  = 3000
 
         $res     = $req.GetResponse()
         $httpRes = [System.Net.HttpWebResponse]$res
@@ -12830,6 +12590,247 @@ function Collect-ADCSEnrollmentServices {
 			$RootDSE.Dispose()
 		}
 	}
+}
+
+function Get-ADCSConfigNamingContext {
+	param([Parameter(Mandatory)][string]$Domain,[string]$Server)
+	try{
+		$rootPath = "LDAP://"
+		if($Server){$rootPath += "$Server/"}else{$rootPath += "$Domain/"}
+		$rootPath += "RootDSE"
+		$cnc = [string]([ADSI]$rootPath).Properties["configurationNamingContext"][0]
+		if($cnc){return $cnc}
+	}catch{}
+	# Fallback: derive from the domain name (works for a forest-root domain)
+	return "CN=Configuration,DC=" + ($Domain -replace "\.",",DC=")
+}
+
+# Full enterprise CA inventory (name, host, published templates) from the forest Configuration partition
+function Collect-ADCSEnrollmentServicesFull {
+	param([Parameter(Mandatory)][string]$Domain,[string]$Server)
+	$out = @()
+	$searcher = $null; $entry = $null
+	try{
+		$configNC = Get-ADCSConfigNamingContext -Domain $Domain -Server $Server
+		$base = "LDAP://"
+		if($Server){$base += "$Server/"}
+		$base += "CN=Enrollment Services,CN=Public Key Services,CN=Services,$configNC"
+		$entry = New-Object System.DirectoryServices.DirectoryEntry($base)
+		$searcher = New-Object System.DirectoryServices.DirectorySearcher($entry)
+		$searcher.Filter = "(objectCategory=pKIEnrollmentService)"
+		$searcher.PageSize = 1000
+		$searcher.SearchScope = "Subtree"
+		foreach($p in @("name","dnshostname","certificatetemplates")){$null = $searcher.PropertiesToLoad.Add($p)}
+		foreach($r in $searcher.FindAll()){
+			$out += [PSCustomObject]@{
+				"CA Name"   = [string]$r.Properties["name"][0]
+				"CA Host"   = [string]$r.Properties["dnshostname"][0]
+				"Templates" = @($r.Properties["certificatetemplates"] | ForEach-Object { [string]$_ })
+				"Domain"    = $Domain
+			}
+		}
+	}catch{}
+	finally{ if($searcher){$searcher.Dispose()}; if($entry){$entry.Dispose()} }
+	return $out
+}
+
+# OID container -> issuance policies linked to a group (ESC13)
+function Collect-ADCSOIDGroupLinks {
+	param([Parameter(Mandatory)][string]$Domain,[string]$Server)
+	$out = @()
+	$searcher = $null; $entry = $null
+	try{
+		$configNC = Get-ADCSConfigNamingContext -Domain $Domain -Server $Server
+		$base = "LDAP://"
+		if($Server){$base += "$Server/"}
+		$base += "CN=OID,CN=Public Key Services,CN=Services,$configNC"
+		$entry = New-Object System.DirectoryServices.DirectoryEntry($base)
+		$searcher = New-Object System.DirectoryServices.DirectorySearcher($entry)
+		$searcher.Filter = "(objectClass=msPKI-Enterprise-Oid)"
+		$searcher.PageSize = 1000
+		$searcher.SearchScope = "Subtree"
+		foreach($p in @("displayName","msPKI-Cert-Template-OID","msDS-OIDToGroupLink")){$null = $searcher.PropertiesToLoad.Add($p)}
+		foreach($r in $searcher.FindAll()){
+			$grpLink = [string]$r.Properties["msds-oidtogrouplink"][0]
+			if(!$grpLink){continue}
+			$out += [PSCustomObject]@{
+				"DisplayName" = [string]$r.Properties["displayname"][0]
+				"TemplateOID" = [string]$r.Properties["mspki-cert-template-oid"][0]
+				"GroupLink"   = $grpLink
+				"Domain"      = $Domain
+			}
+		}
+	}catch{}
+	finally{ if($searcher){$searcher.Dispose()}; if($entry){$entry.Dispose()} }
+	return $out
+}
+
+# ESC5: dangerous control of PKI objects in AD by non-privileged principals. Returns {SID,Rights,DN} entries.
+function Get-ADCSCAESC5 {
+	param([Parameter(Mandatory)][string]$Domain,[string]$Server,[string[]]$ExcludeSamAccounts)
+	$entries = @()
+	$searcher = $null; $entry = $null
+	try{
+		$configNC = Get-ADCSConfigNamingContext -Domain $Domain -Server $Server
+		$base = "LDAP://"
+		if($Server){$base += "$Server/"}
+		$base += "CN=Public Key Services,CN=Services,$configNC"
+		$entry = New-Object System.DirectoryServices.DirectoryEntry($base)
+		$searcher = New-Object System.DirectoryServices.DirectorySearcher($entry)
+		$searcher.PageSize = 1000
+		$searcher.SearchScope = "Subtree"
+		$searcher.SecurityMasks = [System.DirectoryServices.SecurityMasks]::Dacl
+		# Template object-control is already reported as ESC4 in the Certificate Templates section, so templates are excluded here (smaller scan, no duplicate findings)
+		$searcher.Filter = "(|(objectClass=pKIEnrollmentService)(objectClass=certificationAuthority)(objectClass=cRLDistributionPoint)(objectClass=msPKI-Private-Key-Recovery-Agent)(objectClass=msPKI-Key-Recovery-Agent)(cn=NTAuthCertificates))"
+		foreach($p in @("distinguishedname","ntsecuritydescriptor","cn")){$null = $searcher.PropertiesToLoad.Add($p)}
+		foreach($r in $searcher.FindAll()){
+			$dn = [string]$r.Properties["distinguishedname"][0]
+			$sdBytes = $r.Properties["ntsecuritydescriptor"][0]
+			if(!$sdBytes){continue}
+			try{
+				$sd = New-Object System.DirectoryServices.ActiveDirectorySecurity
+				$sd.SetSecurityDescriptorBinaryForm($sdBytes,[System.Security.AccessControl.AccessControlSections]::Access)
+				$aces = $sd.GetAccessRules($true,$true,[System.Security.Principal.SecurityIdentifier])
+			}catch{continue}
+			foreach($ace in $aces){
+				if($ace.AccessControlType -ne "Allow"){continue}
+				$sid = $ace.IdentityReference.Value
+				if($sid -match "-(512|519|544|517)$"){continue}
+				if($sid -eq "S-1-5-18"){continue}
+				$rights = @()
+				if($ace.ActiveDirectoryRights.HasFlag([DirectoryServices.ActiveDirectoryRights]::GenericAll))   {$rights += "GenericAll"}
+				if($ace.ActiveDirectoryRights.HasFlag([DirectoryServices.ActiveDirectoryRights]::GenericWrite)) {$rights += "GenericWrite"}
+				if($ace.ActiveDirectoryRights.HasFlag([DirectoryServices.ActiveDirectoryRights]::WriteDacl))    {$rights += "WriteDacl"}
+				if($ace.ActiveDirectoryRights.HasFlag([DirectoryServices.ActiveDirectoryRights]::WriteOwner))   {$rights += "WriteOwner"}
+				if($ace.ActiveDirectoryRights.HasFlag([DirectoryServices.ActiveDirectoryRights]::CreateChild))  {$rights += "CreateChild"}
+				if($ace.ActiveDirectoryRights.HasFlag([DirectoryServices.ActiveDirectoryRights]::DeleteChild))  {$rights += "DeleteChild"}
+				if($ace.ActiveDirectoryRights.HasFlag([DirectoryServices.ActiveDirectoryRights]::WriteProperty) -and $ace.ObjectType -eq [Guid]::Empty){$rights += "WriteProperty"}
+				if(-not $rights){continue}
+				$entries += [PSCustomObject]@{ SID = $sid; Rights = $rights; DN = $dn }
+			}
+		}
+	}catch{}
+	finally{ if($searcher){$searcher.Dispose()}; if($entry){$entry.Dispose()} }
+	return $entries
+}
+
+# ESC7: non-privileged ManageCA / ManageCertificates on the CA security descriptor (binary from remote registry "Security")
+function Get-ADCSCAESC7Principals {
+	param([byte[]]$SecurityBytes)
+	$results = @()
+	if(!$SecurityBytes){return $results}
+	try{
+		$sd = New-Object System.DirectoryServices.ActiveDirectorySecurity
+		$sd.SetSecurityDescriptorBinaryForm($SecurityBytes,[System.Security.AccessControl.AccessControlSections]::All)
+		$aces = $sd.GetAccessRules($true,$true,[System.Security.Principal.SecurityIdentifier])
+	}catch{return $results}
+	foreach($ace in $aces){
+		$sid = $ace.IdentityReference.Value
+		if($sid -match "-(512|519|544)$"){continue}
+		$mask = [int]$ace.ActiveDirectoryRights
+		if($mask -band 0x2){$results += [PSCustomObject]@{ SID = $sid; Right = "ManageCA" }}
+		if($mask -band 0x1){$results += [PSCustomObject]@{ SID = $sid; Right = "ManageCertificates" }}
+	}
+	return $results
+}
+
+# ESC6/ESC7/ESC16 via the CA's remote registry, executed in a runspace with a hard timeout so a CA that accepts 445
+# but stalls the WinReg RPC cannot hang the whole run. Returns @{ ESC6; ESC16; ESC7Bytes } or $null on timeout/failure.
+function Get-ADCSCARegistryEsc {
+	param([string]$CAHost,[string]$CAName,[int]$TimeoutMs = 5000)
+	$sb = {
+		param($CAHost,$CAName)
+		$out = @{ ESC6 = "Unknown"; ESC16 = "Unknown"; ESC7Bytes = $null }
+		try{
+			$reg = [Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine,$CAHost)
+			$cfgKey = $reg.OpenSubKey("SYSTEM\CurrentControlSet\Services\CertSvc\Configuration\$CAName")
+			if($cfgKey){
+				try{$out.ESC7Bytes = $cfgKey.GetValue("Security")}catch{}
+				try{
+					$polKey = $cfgKey.OpenSubKey("PolicyModules\CertificateAuthority_MicrosoftDefault.Policy")
+					if($polKey){
+						try{$ef = [uint32]($polKey.GetValue("EditFlags")); $out.ESC6 = if(($ef -band 0x40000) -ne 0){"Vulnerable"}else{"OK"}}catch{}
+						try{$dl = @($polKey.GetValue("DisableExtensionList")); $out.ESC16 = if($dl -contains "1.3.6.1.4.1.311.25.2"){"Vulnerable"}else{"OK"}}catch{}
+					}
+				}catch{}
+			}
+		}catch{}
+		return $out
+	}
+	$ps = [powershell]::Create().AddScript($sb).AddArgument($CAHost).AddArgument($CAName)
+	$async = $ps.BeginInvoke()
+	if($async.AsyncWaitHandle.WaitOne($TimeoutMs)){
+		try{$res = $ps.EndInvoke($async)}catch{$res = $null}
+		$ps.Dispose()
+		return $res
+	}
+	else{
+		try{$ps.Stop()}catch{}
+		$ps.Dispose()
+		return $null
+	}
+}
+
+# Template ESC decision logic (ESC1/2/3/4/9/13/15/17). Inputs are already exclude-privilege filtered.
+function Get-ADCSTemplateESCVulns {
+	param(
+		[int]$NameFlag,
+		[int]$EnrollmentFlag,
+		$RASignature,
+		[int]$SchemaVersion,
+		[string[]]$EKUs,
+		[string[]]$Enrollers,
+		[hashtable]$Controllers,
+		[bool]$HasGroupLink
+	)
+
+	$hits = @()
+
+	$ess    = ($NameFlag -band 0x1) -ne 0
+	$pend   = ($EnrollmentFlag -band 0x2) -ne 0
+	$noSec  = ($EnrollmentFlag -band 0x80000) -ne 0
+	$sanUpn = ($NameFlag -band 0x2000000) -ne 0
+	$sanSpn = ($NameFlag -band 0x800000) -ne 0
+	$sanDns = ($NameFlag -band 0x400000) -ne 0
+	$raOk   = ($null -eq $RASignature) -or ([int]$RASignature -eq 0)
+	$schema1 = $SchemaVersion -eq 1
+
+	$ekus   = @($EKUs | Where-Object { $_ })
+	$hasEku = $ekus.Count -gt 0
+
+	$clientAuthOids = @('1.3.6.1.5.5.7.3.2','1.3.6.1.5.2.3.4','1.3.6.1.4.1.311.20.2.2','2.5.29.37.0')
+	$anyPurpose = '2.5.29.37.0'
+	$craOid     = '1.3.6.1.4.1.311.20.2.1'
+	$serverAuth = '1.3.6.1.5.5.7.3.1'
+
+	$clientAuthCapable = (-not $hasEku) -or (@($ekus | Where-Object { $clientAuthOids -contains $_ }).Count -gt 0)
+	$esc2Eku           = (-not $hasEku) -or ($ekus -contains $anyPurpose)
+	$esc3Eku           = ($ekus -contains $craOid) -or ($ekus -contains $anyPurpose)
+	$serverAuthCapable = ($ekus -contains $serverAuth)
+
+	$lowEnroll = @($Enrollers).Count -gt 0
+	$enrollVia = (@($Enrollers) | Sort-Object -Unique) -join ", "
+
+	if ($lowEnroll -and $raOk -and -not $pend) {
+		if ($ess -and $clientAuthCapable)                                          { $hits += [PSCustomObject]@{ ESC = "ESC1";  Via = $enrollVia } }
+		if ($esc2Eku)                                                              { $hits += [PSCustomObject]@{ ESC = "ESC2";  Via = $enrollVia } }
+		if ($esc3Eku)                                                              { $hits += [PSCustomObject]@{ ESC = "ESC3";  Via = $enrollVia } }
+		if ($noSec -and ($sanUpn -or $sanSpn -or $sanDns) -and $clientAuthCapable) { $hits += [PSCustomObject]@{ ESC = "ESC9";  Via = $enrollVia } }
+		if ($HasGroupLink -and $clientAuthCapable)                                 { $hits += [PSCustomObject]@{ ESC = "ESC13"; Via = $enrollVia } }
+		if ($ess -and $schema1)                                                    { $hits += [PSCustomObject]@{ ESC = "ESC15"; Via = $enrollVia } }
+		if ($ess -and $serverAuthCapable)                                          { $hits += [PSCustomObject]@{ ESC = "ESC17"; Via = $enrollVia } }
+	}
+
+	$esc4Via = @()
+	foreach ($p in $Controllers.Keys) {
+		$r = $Controllers[$p]
+		if ($r -contains "FullControl" -or $r -contains "WriteDacl" -or $r -contains "WriteOwner" -or $r -contains "WriteProperty") {
+			$esc4Via += $p
+		}
+	}
+	if ($esc4Via.Count -gt 0) { $hits += [PSCustomObject]@{ ESC = "ESC4"; Via = (($esc4Via | Sort-Object -Unique) -join ", ") } }
+
+	return $hits
 }
 
 function Invoke-ADCSCESInformer {
