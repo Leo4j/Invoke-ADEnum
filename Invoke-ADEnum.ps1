@@ -436,11 +436,9 @@ $xlsHeader = @'
 			return csv.join('\n');
 		}
 
-		// Build a GitHub-flavored Markdown table from the same rendered table (for reporting / AI analysis)
 		function tableToMarkdown($table, title) {
 			var lines = [];
 
-			// Add title as a heading if provided
 			if (title) {
 				lines.push('# ' + title);
 				lines.push('');
@@ -450,7 +448,6 @@ $xlsHeader = @'
 			$table.find('tr').each(function() {
 				var cells = [];
 				$(this).find('td, th').each(function() {
-					// Escape pipes and flatten newlines so a value can't break the table layout
 					var t = $(this).text().replace(/\|/g, '\\|').replace(/\r?\n/g, ' ').trim();
 					cells.push(t);
 				});
@@ -483,12 +480,10 @@ $xlsHeader = @'
 			var titleElement = $("h2[data-linked-table='" + tableID + "']");
 			var originalTitleText = titleElement.text();
 			titleElement.html('<a href="' + csvDataURI + '" class="download-link" download="' + tableID + '.csv">' + originalTitleText + '</a>');
-			// Clicking the title downloads the CSV (native anchor) AND the Markdown (handler below); no preventDefault, so both fire from one click.
 			titleElement.find('a.download-link').on('click', function() { downloadTableMarkdown(tableID); });
 			console.log("Link created for tableID:", tableID);
 		}
 
-		// Download the same table as a Markdown (.md) file, alongside the CSV
 		function downloadTableMarkdown(tableID) {
 			var title = $("h2[data-linked-table='" + tableID + "']").text();
 			var md = tableToMarkdown($('#' + tableID), title);
@@ -520,6 +515,7 @@ $xlsHeader = @'
 				'ADCS HTTP Proxy Endpoints': 'ADCS HTTP Proxy',
 				'Check if any User Passwords are set': 'User Passwords Set',
 				'Check if any Unix User Passwords are set': 'Unix Passwords Set',
+				'Additional LDAP Password Attributes': 'LDAP Password Attrs',
 				'Users with Password-not-required attribute set': 'Users Pass Not-Req',
 				'Computers with Password-not-required attribute set': 'Comp Pass Not-Req',
 				'Members of Pre-Windows 2000 Compatible Access group': 'Pre-Win2k',
@@ -741,6 +737,7 @@ $xlsHeader = @'
 			createDownloadLinkForTable('ManagedObjects');
 			createDownloadLinkForTable('PasswordSetUsers');
    			createDownloadLinkForTable('UnixPasswordSet');
+			createDownloadLinkForTable('LDAPPasswordAttributes');
 			createDownloadLinkForTable('PassNotRequired');
 			createDownloadLinkForTable('CompPassNotRequired');
 			createDownloadLinkForTable('EmptyPasswordUsers');
@@ -1865,6 +1862,9 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 		Write-Host ""
 		Write-Host "Forests" -ForegroundColor Cyan
 	}
+	$PasswordScanAttributes = @("adminPassword","msSFUPassword","msSFU30Password","os400Password")
+	$PasswordScanSchemaCache = @{}
+
 	$TempAllForests = @()
 	if($Domain -and $Server){$DefineAllForests = @($TempTargetDomains.Forest | Sort-Object -Unique)}
 	else{$DefineAllForests = @($TempTargetDomains.Forest.Name | Sort-Object -Unique)}
@@ -1914,7 +1914,11 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 				}
 			}
 		}
-		
+
+		$ForestSchemaDN = "CN=Schema,CN=Configuration,DC=" + ($Forest -replace '\.',',DC=')
+		$ForestSchemaTarget = if($Domain -and $Server){$Server}else{$Forest}
+		$ForestLegacyPwdAttrs = @(Get-LDAPPasswordSchemaAttributes -Target $ForestSchemaTarget -SchemaDN $ForestSchemaDN -Candidates $PasswordScanAttributes -Cache $PasswordScanSchemaCache)
+
 		[PSCustomObject]@{
 			"Name" = $TargetForest.Name
 			"Forest Functional Level" = "$ForestModeLevel ($MSDSBehaviorVersion)"
@@ -1923,6 +1927,7 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 			"Schema Role Owner" = $TargetForest.SchemaRoleOwner
 			"Naming Role Owner" = $TargetForest.NamingRoleOwner
 			"Sites" = $SitesNames
+			"Legacy Pwd Attrs (schema)" = if($ForestLegacyPwdAttrs){$ForestLegacyPwdAttrs -join ', '}else{'None'}
 		}
 		
 	}
@@ -2023,7 +2028,7 @@ Add-Type -TypeDefinition $code
 				#$TestingLDAP = Test-LDAPConnectivity -ComputerName $dc.dnshostname
 				#$isPrimaryDC = $RIDRoleDCs.dnshostname -contains $dc.dnshostname
 				#$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
-				$startupTime = [NativeMethods]::GetStartupTime($dc.dnshostname)
+				$startupTime = if($OPSec){ [DateTime]::MinValue } else { Invoke-WithTimeout -TimeoutMs 3000 -Default ([DateTime]::MinValue) -ArgumentList @($dc.dnshostname) -ScriptBlock { param($c) [NativeMethods]::GetStartupTime($c) } }
 				$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $dc.name -AND $_.Domain -eq $dc.domain} | Select-Object -ExpandProperty "IP Address"
 				if(!$IPAddress -and !$OPSec -and $dc.DnsHostName){
 					if($Domain -and $Server){
@@ -2226,7 +2231,7 @@ Add-Type -TypeDefinition $code
 			#$TestingLDAP = Test-LDAPConnectivity -ComputerName $dc.dnshostname
 			#$isPrimaryDC = $RIDRoleDCs.dnshostname -contains $dc.dnshostname
 			#$primaryDC = if($isPrimaryDC) {"YES"} else {"NO"}
-			$startupTime = [NativeMethods]::GetStartupTime($dc.dnshostname)
+			$startupTime = if($OPSec){ [DateTime]::MinValue } else { Invoke-WithTimeout -TimeoutMs 3000 -Default ([DateTime]::MinValue) -ArgumentList @($dc.dnshostname) -ScriptBlock { param($c) [NativeMethods]::GetStartupTime($c) } }
 			$IPAddress = $AllDNSEntries | Where-Object {$_.Hostname -eq $dc.name -AND $_.Domain -eq $dc.domain} | Select-Object -ExpandProperty "IP Address"
 			if(!$IPAddress -and !$OPSec -and $dc.DnsHostName){
 				if($Domain -and $Server){
@@ -5440,7 +5445,124 @@ Add-Type -TypeDefinition $code
 		$HTMLUnixPasswordSetTable = $UnixPasswordSetTable | ConvertTo-Html -As List -Fragment
 		$HTMLUnixPasswordSetTable = "<div class='report-section' style='display:none;'>$HTMLUnixPasswordSetTable</div>"
 	}
-	
+
+		###############################################################
+    ########### Additional LDAP Password Attributes ###############
+		###############################################################
+
+	if(!$NoOutput){
+		Write-Host ""
+		Write-Host ""
+		Write-Host "Additional LDAP Password Attributes" -ForegroundColor Cyan
+	}
+
+	$PasswordScanUTF8 = New-Object System.Text.UTF8Encoding($false,$true)
+
+	$TempLDAPPasswordAttributes = foreach($PasswordScanDomain in $AllDomains){
+
+		$PasswordScanRootDSE = $null
+		$PasswordScanEntry = $null
+		$PasswordScanSearcher = $null
+		$PasswordScanResults = $null
+
+		try{
+			if($Domain -and $Server -and ($PasswordScanDomain -eq $Domain)){$PasswordScanTarget = $Server}
+			else{$PasswordScanTarget = $PasswordScanDomain}
+
+			$PasswordScanRootDSE = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$PasswordScanTarget/RootDSE")
+			$PasswordScanDomainDN = [string]$PasswordScanRootDSE.Properties["defaultNamingContext"][0]
+			$PasswordScanSchemaDN = [string]$PasswordScanRootDSE.Properties["schemaNamingContext"][0]
+
+			if(!$PasswordScanDomainDN -OR !$PasswordScanSchemaDN){continue}
+
+			$PasswordScanAvailableAttributes = @(Get-LDAPPasswordSchemaAttributes -Target $PasswordScanTarget -SchemaDN $PasswordScanSchemaDN -Candidates $PasswordScanAttributes -Cache $PasswordScanSchemaCache)
+			if(!$PasswordScanAvailableAttributes){continue}
+
+			$PasswordScanEntry = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$PasswordScanTarget/$PasswordScanDomainDN")
+			$PasswordScanSearcher = New-Object System.DirectoryServices.DirectorySearcher($PasswordScanEntry)
+			$PasswordScanSearcher.Filter = "(|" + (($PasswordScanAvailableAttributes | ForEach-Object {"($_=*)"}) -join '') + ")"
+			$PasswordScanSearcher.SearchScope = "Subtree"
+			$PasswordScanSearcher.PageSize = 1000
+			foreach($PasswordScanProp in @("distinguishedName","samAccountName","objectClass")){$null = $PasswordScanSearcher.PropertiesToLoad.Add($PasswordScanProp)}
+			foreach($PasswordScanAttribute in $PasswordScanAvailableAttributes){$null = $PasswordScanSearcher.PropertiesToLoad.Add($PasswordScanAttribute)}
+
+			$PasswordScanResults = $PasswordScanSearcher.FindAll()
+
+			foreach($PasswordScanResult in $PasswordScanResults){
+
+				$PasswordScanDN = [string]$PasswordScanResult.Properties["distinguishedname"][0]
+				$PasswordScanAccount = if($PasswordScanResult.Properties["samaccountname"].Count -gt 0){[string]$PasswordScanResult.Properties["samaccountname"][0]}else{""}
+				$PasswordScanObjectClass = if($PasswordScanResult.Properties["objectclass"].Count -gt 0){[string]@($PasswordScanResult.Properties["objectclass"])[-1]}else{""}
+
+				foreach($PasswordScanAttribute in $PasswordScanAvailableAttributes){
+
+					$PasswordScanValues = $PasswordScanResult.Properties[$PasswordScanAttribute]
+					if(!$PasswordScanValues -OR $PasswordScanValues.Count -eq 0){continue}
+
+					foreach($PasswordScanValue in $PasswordScanValues){
+
+						if($PasswordScanValue -is [byte[]]){
+							$PasswordScanRawValue = [Convert]::ToBase64String($PasswordScanValue)
+							try{
+								$PasswordScanDecodedValue = $PasswordScanUTF8.GetString($PasswordScanValue)
+								if($PasswordScanDecodedValue -match '[\x00-\x08\x0B\x0C\x0E-\x1F]'){
+									$PasswordScanDecodedValue = "Binary"
+									$PasswordScanValueType = "Binary"
+								}
+								else{$PasswordScanValueType = "UTF8"}
+							}
+							catch{
+								$PasswordScanDecodedValue = "Binary"
+								$PasswordScanValueType = "Binary"
+							}
+						}
+						elseif($PasswordScanValue -is [string]){
+							$PasswordScanDecodedValue = $PasswordScanValue
+							$PasswordScanRawValue = $PasswordScanValue
+							$PasswordScanValueType = "String"
+						}
+						else{
+							$PasswordScanDecodedValue = "Unsupported"
+							$PasswordScanRawValue = "Unsupported"
+							$PasswordScanValueType = "Unsupported"
+						}
+
+						[PSCustomObject]@{
+							"Account Name" = $PasswordScanAccount
+							"Object Class" = $PasswordScanObjectClass
+							"Distinguished Name" = $PasswordScanDN
+							"Attribute" = $PasswordScanAttribute
+							"Value Type" = $PasswordScanValueType
+							"Value" = $PasswordScanDecodedValue
+							"Raw Value" = $PasswordScanRawValue
+							"Domain" = $PasswordScanDomain
+						}
+					}
+				}
+			}
+		}
+		catch{}
+		finally{
+			if($PasswordScanResults){$PasswordScanResults.Dispose()}
+			if($PasswordScanSearcher){$PasswordScanSearcher.Dispose()}
+			if($PasswordScanEntry){$PasswordScanEntry.Dispose()}
+			if($PasswordScanRootDSE){$PasswordScanRootDSE.Dispose()}
+		}
+	}
+
+	if($TempLDAPPasswordAttributes){
+		if(!$NoOutput){($TempLDAPPasswordAttributes | Sort-Object Domain,"Account Name",Attribute | Format-Table -AutoSize -Wrap | Out-String).TrimEnd()}
+		$HTMLLDAPPasswordAttributes = $TempLDAPPasswordAttributes | Sort-Object Domain,"Account Name",Attribute | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='LDAPPasswordAttributes'>Additional LDAP Password Attributes</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='LDAPPasswordAttributes'>" }
+
+		$LDAPPasswordAttributesInfoTable = [PSCustomObject]@{
+			"Risk Rating" = "High - Needs Immediate Attention"
+			"Description" = "Enumerates additional LDAP attributes that may hold password or authentication material (adminPassword, msSFUPassword, msSFU30Password, os400Password), reporting only values readable by the current security context. A value may be plaintext, a hash, encoded, or binary - review it before classifying it as a credential."
+			"Remediation" = "Remove password material stored in these attributes where it is not required, and restrict read access (mark the attribute confidential) where it must remain."
+		}
+		$HTMLLDAPPasswordAttributesTable = $LDAPPasswordAttributesInfoTable | ConvertTo-Html -As List -Fragment
+		$HTMLLDAPPasswordAttributesTable = "<div class='report-section' style='display:none;'>$HTMLLDAPPasswordAttributesTable</div>"
+	}
+
 	#################################################################################################
     ########### Users with Password-not-required attribute set ###############
 	#################################################################################################
@@ -10179,10 +10301,10 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 
 	if(!$HTMLGPOCreators -AND !$HTMLGPOsWhocanmodify -AND !$HTMLGpoLinkResults -AND !$HTMLLAPSGPOs -AND !$HTMLLAPSAdminGPOs -AND !$HTMLLAPSCanRead -AND !$HTMLLAPSExtended -AND !$HTMLLapsEnabledComputers -AND !$HTMLAppLockerGPOs -AND !$HTMLGPOLocalGroupsMembership){$GroupPolicyChecksBanner = $null}
 	if(!$HTMLUnconstrained -AND !$HTMLUnconstrainedUsers -AND !$HTMLConstrainedDelegationComputers -AND !$HTMLConstrainedDelegationUsers -AND !$HTMLRBACDObjects -AND !$HTMLAccessAllowedComputers -AND !$HTMLWeakPermissionsObjects -AND !$HTMLADComputersCreated -AND !$HTMLAllowedtologonto -AND !$HTMLManagedObjects){$DelegationChecksBanner = $null}
-	if(!$HTMLCertPublishers -AND !$HTMLESC11Table -AND !$HTMLVulnCertTemplates -AND !$HTMLExchangeTrustedSubsystem -AND !$HTMLServiceAccounts -AND !$HTMLGMSAs -AND !$HTMLnopreauthset -AND !$HTMLGPPasswords -AND !$HTMLHardcodedcreds -AND !$HTMLPasswordSetUsers -AND !$HTMLUnixPasswordSet -AND !$HTMLEmptyPasswordUsers -AND !$HTMLEmptyPasswordComputers -AND !$HTMLTotalEmptyPass -AND !$HTMLCompTotalEmptyPass -AND !$HTMLPreWin2kCompatibleAccess -AND !$HTMLWin7AndServer2008 -AND !$HTMLMachineAccountsPriv -AND !$HTMLsidHistoryUsers -AND !$HTMLRevEncUsers -AND !$HTMLUnsupportedHosts){$MisconfigurationsBanner = $null}
+	if(!$HTMLCertPublishers -AND !$HTMLESC11Table -AND !$HTMLVulnCertTemplates -AND !$HTMLExchangeTrustedSubsystem -AND !$HTMLServiceAccounts -AND !$HTMLGMSAs -AND !$HTMLnopreauthset -AND !$HTMLGPPasswords -AND !$HTMLHardcodedcreds -AND !$HTMLPasswordSetUsers -AND !$HTMLUnixPasswordSet -AND !$HTMLLDAPPasswordAttributes -AND !$HTMLEmptyPasswordUsers -AND !$HTMLEmptyPasswordComputers -AND !$HTMLTotalEmptyPass -AND !$HTMLCompTotalEmptyPass -AND !$HTMLPreWin2kCompatibleAccess -AND !$HTMLWin7AndServer2008 -AND !$HTMLMachineAccountsPriv -AND !$HTMLsidHistoryUsers -AND !$HTMLRevEncUsers -AND !$HTMLUnsupportedHosts){$MisconfigurationsBanner = $null}
 	if(!$HTMLFileServers -AND !$HTMLSQLServers -AND !$HTMLSCCMServers -AND !$HTMLWSUSServers -AND !$HTMLWebDAVStatusResults -AND !$HTMLVNCUnauthAccess -AND !$HTMLPrinters -AND !$HTMLSPNAccounts -AND !$HTMLSharesResultsTable -AND !$HTMLHomeDirectories -AND !$HTMLEmptyGroups){$ExtendedChecksBanner = $null}
 	
-	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLAllForests $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLFineGrained $HTMLOtherPolicies $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLLLMNR $HTMLMachineQuota $HTMLMachineAccountQuotaTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLVulnLMCompLevelComp $HTMLDNSRecords $HTMLDNSUnsecureUpdates $HTMLSubnets $AdministratorsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLAdminsProtectedUsersAndSensitive $HTMLAdminsProtectedUsersAndSensitiveTable $HTMLSecurityProtectedUsersAndSensitive $HTMLSecurityProtectedUsersAndSensitiveTable $HTMLAdmCountProtectedUsersAndSensitive $HTMLAdmCountProtectedUsersAndSensitiveTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLFindLocalAdminAccess $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLADCSWebEnrollmentProxyEndpoints $HTMLADCSWebEnrollmentProxyEndpointsTable $HTMLCESEndpoints $HTMLCESEndpointsTable $HTMLESC11Table $HTMLADCSRPCEndpointsTable $HTMLADCSCAEsc $HTMLADCSCAEscTable $HTMLVulnCertTemplates $HTMLCertTemplatesTable $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLGPPasswords $HTMLGPPasswordsTable $HTMLHardcodedcreds $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLEmptyPasswordComputers $HTMLEmptyPasswordComputersTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLWin7AndServer2008 $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $ExtendedChecksBanner $HTMLFileServers $HTMLSQLServers $HTMLSCCMServers $HTMLWSUSServers $HTMLWebDAVStatusResults $HTMLVNCUnauthAccess $HTMLPrinters $HTMLSPNAccounts $HTMLSharesResultsTable $HTMLHomeDirectories $HTMLEmptyGroups $GroupPolicyChecksBanner $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $DelegationChecksBanner $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLUnconstrainedUsers $HTMLUnconstrainedUsersTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLAccessAllowedComputers $HTMLAccessAllowedComputersTable $HTMLWeakPermissionsObjects $HTMLWeakPermissionsTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $HTMLAllowedtologonto $HTMLAllowedtologontoTable $HTMLManagedObjects $HTMLManagedObjectsTable $SecurityGroupsBanner $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDCOMUsers $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLOrganizationManagement $HTMLPerformanceLogUsers $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLRDPUsers $HTMLRemManUsers $HTMLSchemaAdmins $HTMLServerOperators $InterestingDataBanner $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
+	$Report = ConvertTo-HTML -Body "$TopLevelBanner $HTMLEnvironmentTable $HTMLTargetDomain $HTMLAllForests $HTMLKrbtgtAccount $HTMLdc $HTMLParentandChildDomains $HTMLDomainSIDsTable $HTMLForestDomain $HTMLForestGlobalCatalog $HTMLGetDomainTrust $HTMLTrustAccounts $HTMLTrustedDomainObjectGUIDs $HTMLGetDomainForeignGroupMember $AnalysisBanner $HTMLDomainPolicy $HTMLFineGrained $HTMLOtherPolicies $HTMLKerberosPolicy $HTMLUserAccountAnalysis $HTMLUserAccountAnalysisTable $HTMLComputerAccountAnalysis $HTMLComputerAccountAnalysisTable $HTMLOperatingSystemsAnalysis $HTMLLLMNR $HTMLMachineQuota $HTMLMachineAccountQuotaTable $HTMLLMCompatibilityLevel $HTMLLMCompatibilityLevelTable $HTMLVulnLMCompLevelComp $HTMLDNSRecords $HTMLDNSUnsecureUpdates $HTMLSubnets $AdministratorsBanner $HTMLBuiltInAdministrators $HTMLEnterpriseAdmins $HTMLDomainAdmins $HTMLReplicationUsers $HTMLDCsyncPrincipalsTable $HTMLAdminsProtectedUsersAndSensitive $HTMLAdminsProtectedUsersAndSensitiveTable $HTMLSecurityProtectedUsersAndSensitive $HTMLSecurityProtectedUsersAndSensitiveTable $HTMLAdmCountProtectedUsersAndSensitive $HTMLAdmCountProtectedUsersAndSensitiveTable $HTMLGroupsAdminCount $HTMLAdminCountGroupsTable $HTMLFindLocalAdminAccess $MisconfigurationsBanner $HTMLCertPublishers $HTMLADCSEndpointsTable $HTMLADCSWebEnrollmentProxyEndpoints $HTMLADCSWebEnrollmentProxyEndpointsTable $HTMLCESEndpoints $HTMLCESEndpointsTable $HTMLESC11Table $HTMLADCSRPCEndpointsTable $HTMLADCSCAEsc $HTMLADCSCAEscTable $HTMLVulnCertTemplates $HTMLCertTemplatesTable $HTMLExchangeTrustedSubsystem $HTMLServiceAccounts $HTMLServiceAccountsTable $HTMLGMSAs $HTMLGMSAServiceAccountsTable $HTMLnopreauthset $HTMLNoPreauthenticationTable $HTMLGPPasswords $HTMLGPPasswordsTable $HTMLHardcodedcreds $HTMLPasswordSetUsers $HTMLUserPasswordsSetTable $HTMLUnixPasswordSet $HTMLUnixPasswordSetTable $HTMLLDAPPasswordAttributes $HTMLLDAPPasswordAttributesTable $HTMLEmptyPasswordUsers $HTMLEmptyPasswordsTable $HTMLEmptyPasswordComputers $HTMLEmptyPasswordComputersTable $HTMLPreWin2kCompatibleAccess $HTMLPreWindows2000Table $HTMLWin7AndServer2008 $HTMLMachineAccountsPriv $HTMLMachineAccountsPrivilegedGroupsTable $HTMLsidHistoryUsers $HTMLSDIHistorysetTable $HTMLRevEncUsers $HTMLReversibleEncryptionTable $HTMLUnsupportedHosts $HTMLUnsupportedOSTable $ExtendedChecksBanner $HTMLFileServers $HTMLSQLServers $HTMLSCCMServers $HTMLWSUSServers $HTMLWebDAVStatusResults $HTMLVNCUnauthAccess $HTMLPrinters $HTMLSPNAccounts $HTMLSharesResultsTable $HTMLHomeDirectories $HTMLEmptyGroups $GroupPolicyChecksBanner $HTMLGPOCreators $HTMLGPOsWhocanmodify $HTMLGpoLinkResults $HTMLLAPSGPOs $HTMLLAPSCanRead $HTMLLAPSExtended $HTMLLapsEnabledComputers $HTMLAppLockerGPOs $HTMLGPOLocalGroupsMembership $DelegationChecksBanner $HTMLUnconstrained $HTMLUnconstrainedTable $HTMLUnconstrainedUsers $HTMLUnconstrainedUsersTable $HTMLConstrainedDelegationComputers $HTMLConstrainedDelegationComputersTable $HTMLConstrainedDelegationUsers $HTMLConstrainedDelegationUsersTable $HTMLRBACDObjects $HTMLRBCDTable $HTMLAccessAllowedComputers $HTMLAccessAllowedComputersTable $HTMLWeakPermissionsObjects $HTMLWeakPermissionsTable $HTMLADComputersCreated $HTMLADComputersCreatedTable $HTMLAllowedtologonto $HTMLAllowedtologontoTable $HTMLManagedObjects $HTMLManagedObjectsTable $SecurityGroupsBanner $HTMLAccountOperators $HTMLBackupOperators $HTMLCertPublishersGroup $HTMLDCOMUsers $HTMLDNSAdmins $HTMLEnterpriseKeyAdmins $HTMLEnterpriseRODCs $HTMLGPCreatorOwners $HTMLKeyAdmins $HTMLOrganizationManagement $HTMLPerformanceLogUsers $HTMLPrintOperators $HTMLProtectedUsers $HTMLRODCs $HTMLRDPUsers $HTMLRemManUsers $HTMLSchemaAdmins $HTMLServerOperators $InterestingDataBanner $HTMLInterestingServersEnabled $HTMLKeywordDomainGPOs $HTMLGroupsByKeyword $HTMLDomainOUsByKeyword $DomainObjectsInsightsBanner $HTMLServersEnabled $HTMLServersDisabled $HTMLWorkstationsEnabled $HTMLWorkstationsDisabled $HTMLEnabledUsers $HTMLDisabledUsers $HTMLOtherGroups $HTMLDomainGPOs $HTMLAllDomainOUs $HTMLAllDescriptions" -Title "Active Directory Audit" -Head $header
 	
 	if($Output){
 		$Output = $Output.TrimEnd('\')
@@ -10255,8 +10377,6 @@ function Invoke-ShareHunter{
 	
 	$ErrorActionPreference = "SilentlyContinue"
 
-	# Native CreateFile for passive read/write detection: open a directory handle requesting access rights.
-	# The OS performs the full effective-access check (share ACL n NTFS DACL) and returns a handle if allowed - no file is ever created.
 	if(-not ('ADEnumShares.Native' -as [type])){
 		Add-Type -Namespace ADEnumShares -Name Native -MemberDefinition @'
 [DllImport("kernel32.dll", SetLastError=true, CharSet=CharSet.Unicode)]
@@ -10398,9 +10518,7 @@ public static extern bool CloseHandle(System.IntPtr h);
 	foreach ($obj in $functiontable) {
 		$scriptBlock = {
 			param($obj)
-			# IPC$ is the named-pipe share, not a filesystem directory - a handle opens on it even though it is not a real readable/writable file share. Skip it (matches the old behaviour).
 			if ($obj.Share -eq 'IPC$') { return $null }
-			# Readable = can open the share directory requesting FILE_LIST_DIRECTORY (0x1). No file created.
 			$h = [ADEnumShares.Native]::CreateFileW($obj.FullShareName, 0x1, 7, [IntPtr]::Zero, 3, 0x02000000, [IntPtr]::Zero)
 			if ($h -ne [IntPtr](-1)) {
 				[void][ADEnumShares.Native]::CloseHandle($h)
@@ -10449,7 +10567,6 @@ public static extern bool CloseHandle(System.IntPtr h);
 				[string]$Share
 			)
 			
-			# Writable = can open the share directory requesting FILE_ADD_FILE (0x2). No file created.
 			$h = [ADEnumShares.Native]::CreateFileW($Share, 0x2, 7, [IntPtr]::Zero, 3, 0x02000000, [IntPtr]::Zero)
 			if ($h -ne [IntPtr](-1)) {
 				[void][ADEnumShares.Native]::CloseHandle($h)
@@ -11032,6 +11149,75 @@ namespace DataCollector
 "@
 
 # Function to retrieve all AD objects and their properties
+function Invoke-WithTimeout {
+	param(
+		[Parameter(Mandatory=$true)][scriptblock]$ScriptBlock,
+		[object[]]$ArgumentList = @(),
+		[int]$TimeoutMs = 3000,
+		$Default = $null
+	)
+
+	$ps = [powershell]::Create()
+	$null = $ps.AddScript($ScriptBlock)
+	foreach($arg in $ArgumentList){ $null = $ps.AddArgument($arg) }
+
+	$handle = $ps.BeginInvoke()
+
+	if($handle.AsyncWaitHandle.WaitOne($TimeoutMs)){
+		$value = $Default
+		try{
+			$out = $ps.EndInvoke($handle)
+			if($out -and $out.Count -ge 1){ $value = $out[0] }
+		}catch{}
+		try{ $ps.Dispose() }catch{}
+		return $value
+	}
+	else{
+		return $Default
+	}
+}
+
+function Get-LDAPPasswordSchemaAttributes {
+	param(
+		[string]$Target,
+		[string]$SchemaDN,
+		[string[]]$Candidates,
+		[hashtable]$Cache
+	)
+
+	if(!$Target -or !$SchemaDN -or !$Candidates){return @()}
+	if($Cache -and $Cache.ContainsKey($SchemaDN)){return @($Cache[$SchemaDN])}
+
+	$existing = @(Invoke-WithTimeout -TimeoutMs 5000 -Default @() -ArgumentList @($Target,$SchemaDN,$Candidates) -ScriptBlock {
+		param($Target,$SchemaDN,$Candidates)
+		$out = @()
+		$schemaEntry = $null; $schemaSearcher = $null; $schemaResults = $null
+		try{
+			$schemaEntry = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$Target/$SchemaDN")
+			$schemaSearcher = New-Object System.DirectoryServices.DirectorySearcher($schemaEntry)
+			$schemaSearcher.Filter = "(&(objectClass=attributeSchema)(|" + (($Candidates | ForEach-Object {"(lDAPDisplayName=$_)"}) -join '') + "))"
+			$schemaSearcher.SearchScope = "Subtree"
+			$schemaSearcher.PageSize = 1000
+			$schemaSearcher.ClientTimeout = [TimeSpan]::FromSeconds(5)
+			$null = $schemaSearcher.PropertiesToLoad.Add("lDAPDisplayName")
+			$schemaResults = $schemaSearcher.FindAll()
+			$found = @($schemaResults | ForEach-Object { [string]$_.Properties["ldapdisplayname"][0] } | Where-Object {$_})
+			$foundLower = @($found | ForEach-Object { $_.ToLower() })
+			$out = @($Candidates | Where-Object { $foundLower -contains $_.ToLower() })
+		}
+		catch{}
+		finally{
+			if($schemaResults){$schemaResults.Dispose()}
+			if($schemaSearcher){$schemaSearcher.Dispose()}
+			if($schemaEntry){$schemaEntry.Dispose()}
+		}
+		,$out
+	})
+
+	if($Cache){$Cache[$SchemaDN] = $existing}
+	return @($existing)
+}
+
 function Collect-ADObjects {
     param (
         [string]$Domain = [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain().Name,
@@ -11762,8 +11948,8 @@ function Find-GPPasswords {
     }
 
     try {
-        if($Domain -and $Server){$XMLFiles = Get-ChildItem -Path "\\$Server\SYSVOL\*\Policies" -Recurse -Include 'Groups.xml', 'Services.xml', 'Scheduledtasks.xml', 'DataSources.xml' -ErrorAction SilentlyContinue}
-		else{$XMLFiles = Get-ChildItem -Path "\\$Domain\SYSVOL\*\Policies" -Recurse -Include 'Groups.xml', 'Services.xml', 'Scheduledtasks.xml', 'DataSources.xml' -ErrorAction SilentlyContinue}
+        if($Domain -and $Server){$XMLFiles = Get-ChildItem -Path "\\$Server\SYSVOL\*\Policies" -Recurse -Include 'Groups.xml', 'Services.xml', 'Scheduledtasks.xml', 'DataSources.xml', 'Printers.xml', 'Drives.xml' -ErrorAction SilentlyContinue}
+		else{$XMLFiles = Get-ChildItem -Path "\\$Domain\SYSVOL\*\Policies" -Recurse -Include 'Groups.xml', 'Services.xml', 'Scheduledtasks.xml', 'DataSources.xml', 'Printers.xml', 'Drives.xml' -ErrorAction SilentlyContinue}
         if (-not $XMLFiles) { return }
 
         ForEach ($File in $XMLFiles) {
