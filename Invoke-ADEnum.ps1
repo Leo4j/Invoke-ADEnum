@@ -236,10 +236,15 @@ function Invoke-ADEnum {
 	
 	Set-Variable MaximumHistoryCount 32767
 	
+	$originalBufferSize = $null
 	if($TargetsOnly -OR $Help -OR $NoOutput){}
 	else{
- 		$originalBufferSize = $host.UI.RawUI.BufferSize
- 		$host.UI.RawUI.BufferSize = New-Object Management.Automation.Host.Size(4096, $Host.UI.RawUI.BufferSize.Height)
+		try{
+			$originalBufferSize = $host.UI.RawUI.BufferSize
+			if($null -ne $originalBufferSize){
+				$host.UI.RawUI.BufferSize = New-Object System.Management.Automation.Host.Size(4096, $originalBufferSize.Height)
+			}
+		}catch{ $originalBufferSize = $null }
 	}
 	
 	if($CompatibilityMode){
@@ -1458,9 +1463,14 @@ $header = $Comboheader + $xlsHeader + $toggleScript
 				$AllDNSEntries += Get-DNSRecords -Domain $Domain -Server $Server
 			}
 			
-			else{	
+			else{
+				$AllDomains = @($AllDomains | Where-Object {
+					if(Test-DomainLDAPReachable -Domain $_ -Server $Server){ $true }
+					else{ Write-Host "[!] Skipping unreachable domain (LDAP bind timed out): $_" -ForegroundColor Yellow; $false }
+				})
+
 				Write-Host "[*] Collecting Krbtgt..."
-				
+
 				# krbtgt
 				foreach($AllDomain in $AllDomains){
 					$AllkrbtgtAccounts += @(Collect-ADObjects -Domain $AllDomain -Identity krbtgt -Property samaccountname,objectsid,whencreated,pwdlastset,serviceprincipalname)
@@ -1798,11 +1808,12 @@ $header = $Comboheader + $xlsHeader + $toggleScript
     ############# Target Domains ################
 	#############################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if($NoOutput){ Write-Host "[>] Phase 1/11 Domain & Forest Enumeration" }
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Target Domains" -ForegroundColor Cyan
-	}
+		}
 
     $functionalLevelMapping = @{
 	    0 = 'Windows 2000 Native'
@@ -1857,11 +1868,11 @@ $header = $Comboheader + $xlsHeader + $toggleScript
     ########### Forests ###########
 	#############################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Forests" -ForegroundColor Cyan
-	}
+		}
 	$PasswordScanAttributes = @("adminPassword","msSFUPassword","msSFU30Password","os400Password")
 	$PasswordScanSchemaCache = @{}
 
@@ -2191,11 +2202,11 @@ Add-Type -TypeDefinition $code
     ############ Krbtgt Accounts ################
 	#############################################
 	
-    if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+    		Write-Host ""
 		Write-Host ""
 		Write-Host "Krbtgt Accounts" -ForegroundColor Cyan
-	}
+		}
     	
 	$TempKrbtgtAccount = foreach($AllDomain in $AllDomains){
 		$KrbtgtAccount = @($AllkrbtgtAccounts | Where-Object {$_.domain -eq $AllDomain})
@@ -2219,11 +2230,11 @@ Add-Type -TypeDefinition $code
     ########## Domain Controllers ###############
 	#############################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Domain Controllers" -ForegroundColor Cyan
-	}
+		}
 	$TempHTMLdc = @()
     foreach($AllDomain in $AllDomains){
 		$domainControllers = $TotalDomainControllers | Where-Object {$_.domain -eq $AllDomain}
@@ -2373,11 +2384,11 @@ Add-Type -TypeDefinition $code
     ###### Domains for the current forest #######
 	#############################################
     
-    if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+    		Write-Host ""
 		Write-Host ""
 		Write-Host "Domains for the current forest" -ForegroundColor Cyan
-	}
+		}
 	
 	if($Domain -and $Server){
 		$ForestObject = Get-RemoteForestInfo -Domain $Domain -Server $Server
@@ -2413,11 +2424,11 @@ Add-Type -TypeDefinition $code
     ########### Forest Global Catalog ###########
 	#############################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Forest Global Catalog" -ForegroundColor Cyan
-	}
+		}
 	$TempForestGlobalCatalog = @()
 	if($Domain -and $Server){
 		$DefineAllForests = @($TempTargetDomains.Forest | Sort-Object -Unique)
@@ -2450,11 +2461,11 @@ Add-Type -TypeDefinition $code
     ############### Domain Trusts ###############
 	#############################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Domain Trusts" -ForegroundColor Cyan
-	}
+		}
 	
     $TempGetDomainTrust = foreach($AllDomain in $AllDomains){
 		$GetDomainTrusts = @($AllDomainTrusts | Where-Object {$_.SourceName -eq $AllDomain})
@@ -2483,11 +2494,11 @@ Add-Type -TypeDefinition $code
     ############## Trust Accounts ###############
 	#############################################
     
-    if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+    		Write-Host ""
 		Write-Host ""
 		Write-Host "Trust Accounts" -ForegroundColor Cyan
-	}
+		}
     $TempTrustAccounts = foreach($AllDomain in $AllDomains){
 		$TrustAccounts = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND ([int]$_.userAccountControl -band 2048) -ne 0})
 		
@@ -2525,11 +2536,11 @@ Add-Type -TypeDefinition $code
     ####### Trusted Domain Object GUIDs #########
 	#############################################
 
-    if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+    		Write-Host ""
 		Write-Host ""
 		Write-Host "Trusted Domain Object GUIDs" -ForegroundColor Cyan
-	}
+		}
     $TDOTargetNames = @(foreach($AllDomain in $AllDomains){$AllDomainTrusts | Where-Object { $_.SourceName -eq $AllDomain}})
 	
 	$TempTrustedDomainObjectGUIDs = foreach($AllDomain in $AllDomains){
@@ -2565,11 +2576,11 @@ Add-Type -TypeDefinition $code
 		################ Outsiders ##################
 		#############################################
 			
-		if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+					Write-Host ""
 			Write-Host ""
 			Write-Host "Foreign Domain Members" -ForegroundColor Cyan
-		}
+			}
 		
 		$ExcludeGroups = @('Users', 'Domain Users', 'Guests')
 		
@@ -2649,11 +2660,12 @@ Add-Type -TypeDefinition $code
     ######### Domain Password Policy ###############
 	################################################
 		
-	if(!$NoOutput){
-		Write-Host ""
+		if($NoOutput){ Write-Host "[>] Phase 2/11 Policies & Account Analysis" }
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Default Domain Policy" -ForegroundColor Cyan
-	}
+		}
 	$TempDomainPolicy = foreach ($AllDomain in $AllDomains) {
 		$SelectDomainPolicy = $DomainPolicy | Where-Object { $_.domain -eq $AllDomain }
 		$MinPwdAge = Convert-ADTimeToDays -Interval $SelectDomainPolicy.'minPwdAge'
@@ -2688,11 +2700,11 @@ Add-Type -TypeDefinition $code
 	################################################
 		
 	if($FineGrainedPolicy){
-		if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+					Write-Host ""
 			Write-Host ""
 			Write-Host "Fine-Grained Policies" -ForegroundColor Cyan
-		}
+			}
 		$TempFineGrained = foreach ($AllDomain in $AllDomains) {
 			$SelectFineGrainedPolicies = $FineGrainedPolicy | Where-Object { $_.domain -eq $AllDomain }
 			foreach($SelectFineGrainedPolicy in $SelectFineGrainedPolicies){
@@ -2729,11 +2741,11 @@ Add-Type -TypeDefinition $code
     ######### Other Password Policies ###############
 	################################################
 		
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Other Password Policies" -ForegroundColor Cyan
-	}
+		}
 	
 	$TempOtherPolicies = @()
 	$TempOtherPolicies += foreach ($AllDomain in $AllDomains) {
@@ -2796,11 +2808,11 @@ Add-Type -TypeDefinition $code
     ######### Kerberos Policy ###############
 	#########################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Kerberos Password Policy" -ForegroundColor Cyan
-	}
+		}
 	$TempKerberosPolicy = foreach ($AllDomain in $AllDomains) {
 		$RelevantGpoPolicies = $AllCollectedGPOs | Where-Object {
 			$_.domain -eq $AllDomain -AND
@@ -2846,11 +2858,11 @@ Add-Type -TypeDefinition $code
     ########### User Accounts Analysis ###############
 	##################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "User Accounts Analysis" -ForegroundColor Cyan
-	}
+		}
 
 	$TempUserAccountAnalysis = foreach ($AllDomain in $AllDomains) {
 		$UserAccountAnalysis = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain})
@@ -2888,11 +2900,11 @@ Add-Type -TypeDefinition $code
     ########### Computer Accounts Analysis ###############
 	######################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Computer Account Analysis" -ForegroundColor Cyan
-	}
+		}
 
 	$TempComputerAccountAnalysis = foreach ($AllDomain in $AllDomains) {
 		$ComputerAccountAnalysis = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain})
@@ -2928,11 +2940,11 @@ Add-Type -TypeDefinition $code
     ########### Operating Systems Insights ###############
 	######################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Operating Systems Insights" -ForegroundColor Cyan
-	}
+		}
 
 	$TempOperatingSystemsAnalysis = foreach ($AllDomain in $AllDomains) {
 		$AllSystems = @($TotalEnabledDisabledMachines | Where-Object {$_.domain -eq $AllDomain})
@@ -2961,11 +2973,11 @@ Add-Type -TypeDefinition $code
     ######### LLMNR Status ###############
 	####################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "LLMNR Status" -ForegroundColor Cyan
-	}
+		}
 	
 	$TempLLMNR = @()
 	$TempLLMNR += foreach ($AllDomain in $AllDomains) {
@@ -3144,11 +3156,11 @@ Add-Type -TypeDefinition $code
     ########### Machine Account Quota ###############
 	#################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Machine Account Quota" -ForegroundColor Cyan
-	}
+		}
 
 	$TempMachineQuota = foreach ($AllDomain in $AllDomains) {
 		$InfoQuota = @()
@@ -3195,11 +3207,11 @@ Add-Type -TypeDefinition $code
     ########### LM Compatibility Level ###############
 	##################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "LM Compatibility Level" -ForegroundColor Cyan
-	}
+		}
 
 	$policySettings = @{
 		"0" = "Send LM & NTLM responses"
@@ -3331,11 +3343,11 @@ Add-Type -TypeDefinition $code
     ########### Vulnerable LM Comp Level OUs ###############
 	#################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "LM Comp Level Affected Machines" -ForegroundColor Cyan
-	}
+		}
 	if($AllOUsToCollect){
 		$VulnerableLMCompLevelComp = @()
 		foreach($OUCollected in $AllOUsToCollect){
@@ -3442,11 +3454,11 @@ Add-Type -TypeDefinition $code
 		}
 	}
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "DNS Records Rights" -ForegroundColor Cyan
-	}
+		}
 
 	$TempDNSRecords = foreach($DNSRightsRoot in $DNSZoneSearchRoots){
 
@@ -3520,11 +3532,11 @@ Add-Type -TypeDefinition $code
     ########### DNS Unsecure Dynamic Updates ######################
 	###############################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "DNS Unsecure Dynamic Updates" -ForegroundColor Cyan
-	}
+		}
 	
 	$TempDNSUnsecureUpdates = foreach($DNSUpdateRoot in $DNSZoneSearchRoots){
 		
@@ -3600,11 +3612,11 @@ Add-Type -TypeDefinition $code
     ########### Subnets ###############
 	#################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Subnets" -ForegroundColor Cyan
-	}
+		}
 	
 	if($AllSubnets | Where-Object {$_}){
 		if(!$NoOutput){($AllSubnets | Sort-Object -Unique Domain,Site,Subnet | ft -Autosize -Wrap | Out-String).TrimEnd()}
@@ -3627,11 +3639,12 @@ Add-Type -TypeDefinition $code
     ########### Built-In Administrators ################
 	####################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if($NoOutput){ Write-Host "[>] Phase 3/11 Privileged Access & Administrators" }
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Built-In Administrators" -ForegroundColor Cyan
-	}
+		}
 	$TempBuiltInAdministrators = foreach ($AllDomain in $AllDomains) {
 		$BuiltInAdministrators = @()
 		$BuiltInAdministrators = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Administrators"
@@ -3677,11 +3690,11 @@ Add-Type -TypeDefinition $code
     ########### Enterprise Administrators ################
 	######################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Enterprise Administrators" -ForegroundColor Cyan
-	}
+		}
 	$TempEnterpriseAdmins = foreach ($AllDomain in $AllDomains) {
 		$EnterpriseAdmins = @()
 		$EnterpriseAdmins = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Enterprise Admins"
@@ -3726,11 +3739,11 @@ Add-Type -TypeDefinition $code
     ########### Domain Administrators ################
 	##################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Domain Administrators" -ForegroundColor Cyan
-	}
+		}
     $TempDomainAdmins = foreach ($AllDomain in $AllDomains) {
 		$DomainAdmins = @()
 		$DomainAdmins = RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $AllDomain -Identity "Domain Admins"
@@ -3771,15 +3784,28 @@ Add-Type -TypeDefinition $code
 		$HTMLDomainAdmins = $TempDomainAdmins | Sort-Object -Unique "Group Domain","Member Name","Member SID" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='DomainAdmins'>Domain Administrators</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='DomainAdmins'>" }
 	}
 	
+	$AdmSIDsByDomain = @{}
+	$DASIDsByDomain = @{}
+	$EASIDsByDomain = @{}
+	$ProtectedSIDsByDomain = @{}
+	$SensitiveSIDsByDomain = @{}
+	foreach($AdmFlagDomain in $AllDomains){
+		$AdmSIDsByDomain[$AdmFlagDomain] = @(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AdmFlagDomain -AND $_."Member SID"})."Member SID")
+		$DASIDsByDomain[$AdmFlagDomain] = @(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AdmFlagDomain -AND $_."Member SID"})."Member SID")
+		$EASIDsByDomain[$AdmFlagDomain] = @(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AdmFlagDomain -AND $_."Member SID"})."Member SID")
+		$ProtectedSIDsByDomain[$AdmFlagDomain] = @($ProtectedUsers | Where-Object {$_.domain -eq $AdmFlagDomain} | ForEach-Object { GetSID-FromBytes -sidBytes $_.objectsid } | Where-Object {$_})
+		$SensitiveSIDsByDomain[$AdmFlagDomain] = @($SensitiveUsers | Where-Object {$_.domain -eq $AdmFlagDomain} | ForEach-Object { GetSID-FromBytes -sidBytes $_.objectsid } | Where-Object {$_})
+	}
+
 	##################################
     ########### DCSync ###############
 	##################################
 
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Principals with DCSync permissions" -ForegroundColor Cyan
-	}
+		}
 	$TempReplicationUsers = @()
 	$TempReplicationUsers = foreach ($AllDomain in $AllDomains) {
 		
@@ -3878,11 +3904,11 @@ Add-Type -TypeDefinition $code
     ########### Administrators, Protected Users and Sensitive Flags ###############
 	###################################################################################################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Protected and 'Sensitive and Not Allowed for Delegation' status (Administrators)" -ForegroundColor Cyan
-	}
+		}
 	$TempHTMLAdminsProtectedUsersAndSensitive = foreach ($AllDomain in $AllDomains) {
 		$TargetDAEABA = @($DAEABA | Where-Object {$_.domain -eq $AllDomain -AND $_.samaccountname})
 		$TargetProtected = @($ProtectedUsers | Where-Object {$_.domain -eq $AllDomain})
@@ -3892,11 +3918,11 @@ Add-Type -TypeDefinition $code
 				"Account" = $account.samaccountname
 				"Enabled" = if ($account.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if(!$account.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $account.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"Protected" = if($TargetProtected.samaccountname | Where-Object { $account.samaccountname.Contains($_) }) { "True" } else { "False" }
-				"Sensitive" = if($TargetSensitive.samaccountname | Where-Object { $account.samaccountname.Contains($_) }) { "True" } else { "False" }
+				"Adm" = if($AdmSIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $account.objectsid)) { "YES" } else { "NO" }
+				"DA" = if($DASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $account.objectsid)) { "YES" } else { "NO" }
+				"EA" = if($EASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $account.objectsid)) { "YES" } else { "NO" }
+				"Protected" = if($ProtectedSIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $account.objectsid)) { "True" } else { "False" }
+				"Sensitive" = if($SensitiveSIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $account.objectsid)) { "True" } else { "False" }
 				"Last Logon" = if($account.lastlogontimestamp){Convert-LdapTimestamp -timestamp $account.lastlogontimestamp}else{""}
 				"Pwd Last Set" = if($account.pwdlastset){Convert-LdapTimestamp -timestamp $account.pwdlastset}else{""}
 				"SID" = GetSID-FromBytes -sidBytes $account.objectSID
@@ -3922,11 +3948,11 @@ Add-Type -TypeDefinition $code
     ########### Security Groups, Protected Users and Sensitive Flags ###############
 	###################################################################################################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Protected and 'Sensitive and Not Allowed for Delegation' status (Security Groups)" -ForegroundColor Cyan
-	}
+		}
 	$TempHTMLSecurityProtectedUsersAndSensitive = foreach ($AllDomain in $AllDomains) {
 		$TargetDAEABA = @($DAEABA | Where-Object {$_.domain -eq $AllDomain -AND $_.samaccountname})
 		$TargetSecurity = @($AllSecurityUsers | Where-Object {$_.domain -eq $AllDomain})
@@ -3938,11 +3964,11 @@ Add-Type -TypeDefinition $code
 				"Account" = $account.samaccountname
 				"Enabled" = if ($account.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if(!$account.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $account.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"Protected" = if($TargetProtected.samaccountname | Where-Object { $account.samaccountname.Contains($_) }) { "True" } else { "False" }
-				"Sensitive" = if($TargetSensitive.samaccountname | Where-Object { $account.samaccountname.Contains($_) }) { "True" } else { "False" }
+				"Adm" = if($AdmSIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $account.objectsid)) { "YES" } else { "NO" }
+				"DA" = if($DASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $account.objectsid)) { "YES" } else { "NO" }
+				"EA" = if($EASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $account.objectsid)) { "YES" } else { "NO" }
+				"Protected" = if($ProtectedSIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $account.objectsid)) { "True" } else { "False" }
+				"Sensitive" = if($SensitiveSIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $account.objectsid)) { "True" } else { "False" }
 				"Last Logon" = if($account.lastlogontimestamp){Convert-LdapTimestamp -timestamp $account.lastlogontimestamp}else{""}
 				"Pwd Last Set" = if($account.pwdlastset){Convert-LdapTimestamp -timestamp $account.pwdlastset}else{""}
 				"SID" = GetSID-FromBytes -sidBytes $account.objectSID
@@ -3968,11 +3994,11 @@ Add-Type -TypeDefinition $code
     ########### AdminCount, Protected Users and Sensitive Flags ###############
 	###################################################################################################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Protected and 'Sensitive and Not Allowed for Delegation' status (Admin Count)" -ForegroundColor Cyan
-	}
+		}
 	$TempHTMLAdmCountProtectedUsersAndSensitive = foreach ($AllDomain in $AllDomains) {
 		#$UniqueToAdminCountNotInDAEABAOrSecurity = $null
 		$TargetDAEABA = @($DAEABA | Where-Object {$_.domain -eq $AllDomain -AND $_.samaccountname})
@@ -3988,11 +4014,11 @@ Add-Type -TypeDefinition $code
 				"Account" = $account.samaccountname
 				"Enabled" = if ($account.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if(!$account.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $account.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"Protected" = if($TargetProtected.samaccountname | Where-Object { $account.samaccountname.Contains($_) }) { "True" } else { "False" }
-				"Sensitive" = if($TargetSensitive.samaccountname | Where-Object { $account.samaccountname.Contains($_) }) { "True" } else { "False" }
+				"Adm" = if($AdmSIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $account.objectsid)) { "YES" } else { "NO" }
+				"DA" = if($DASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $account.objectsid)) { "YES" } else { "NO" }
+				"EA" = if($EASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $account.objectsid)) { "YES" } else { "NO" }
+				"Protected" = if($ProtectedSIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $account.objectsid)) { "True" } else { "False" }
+				"Sensitive" = if($SensitiveSIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $account.objectsid)) { "True" } else { "False" }
 				"Last Logon" = if($account.lastlogontimestamp){Convert-LdapTimestamp -timestamp $account.lastlogontimestamp}else{""}
 				"Pwd Last Set" = if($account.pwdlastset){Convert-LdapTimestamp -timestamp $account.pwdlastset}else{""}
 				"SID" = GetSID-FromBytes -sidBytes $account.objectSID
@@ -4018,11 +4044,11 @@ Add-Type -TypeDefinition $code
     ########### Admin Count (Groups) #################
 	##################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Groups with AdminCount set to 1 (non-defaults)" -ForegroundColor Cyan
-	}
+		}
 	
 	$excludedGroups = @(
 		'Administrators',
@@ -4074,11 +4100,11 @@ Add-Type -TypeDefinition $code
 	#################################################
 	
 	if(($FindLocalAdminAccess -OR $AllEnum) -AND !$OPSec){
-        if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+        			Write-Host ""
 			Write-Host ""
 			Write-Host "Local Admin Access" -ForegroundColor Cyan
-		}
+			}
 		$TempFindLocalAdminAccess = foreach ($AllDomain in $AllDomains) {
 			#$OurFinalTargetsForAccess = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $_.dnshostname})
 			
@@ -4159,11 +4185,12 @@ Add-Type -TypeDefinition $code
 	###############################################
 	if($NoADCSHTTPEndpoints){}
 	else{
-		if(!$NoOutput){
-			Write-Host ""
+			if($NoOutput){ Write-Host "[>] Phase 4/11 Certificate Services (ADCS)" }
+			if(!$NoOutput){
+					Write-Host ""
 			Write-Host ""
 			Write-Host "ADCS HTTP Endpoints" -ForegroundColor Cyan
-		}
+			}
 
 		$CertPublishers = @()
 		
@@ -4303,11 +4330,11 @@ Add-Type -TypeDefinition $code
 	#########################################################
 	if($NoADCSHTTPEndpoints){}
 	else{
-		if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+					Write-Host ""
 			Write-Host ""
 			Write-Host "ADCS HTTP Proxy Endpoints" -ForegroundColor Cyan
-		}
+			}
 
 		# Known CA hosts, derived independently of the ADCS HTTP section variable (from Cert Publishers, using in-memory data only)
 		$ADCSProxyCertPublishers = @()
@@ -4447,11 +4474,11 @@ Add-Type -TypeDefinition $code
 	###############################################
 	if($NoADCSHTTPEndpoints){}
 	else{
-		if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+					Write-Host ""
 			Write-Host ""
 			Write-Host "ADCS CES Endpoints" -ForegroundColor Cyan
-		}
+			}
 
 		$CESEndpoints = @()
 
@@ -4474,6 +4501,45 @@ Add-Type -TypeDefinition $code
 				$CESEndpoints |
 				Sort-Object Forest,"CA Name",Endpoint -Unique
 			)
+		}
+
+		$CESAliveSet = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+		if(!$OPSec -and $CESEndpoints){
+			$CESAliveTargets = @{}
+			foreach($CESAliveEndpoint in $CESEndpoints){
+				try{ $CESAliveUri = [System.Uri]$CESAliveEndpoint.Endpoint }catch{ continue }
+				$CESAliveTargets["$($CESAliveUri.Host)|$($CESAliveUri.Port)"] = [PSCustomObject]@{ CESAliveHost = $CESAliveUri.Host; CESAlivePort = $CESAliveUri.Port }
+			}
+			if($CESAliveTargets.Count -gt 0){
+				$CESAlivePool = [runspacefactory]::CreateRunspacePool(1, (Get-RunspaceThrottle))
+				$CESAlivePool.Open()
+				$CESAliveRunspaces = @()
+				$CESAliveScript = {
+					param($CESAliveHost, $CESAlivePort, $CESAliveKey)
+					$CESAliveTcp = New-Object System.Net.Sockets.TcpClient
+					try{
+						$CESAliveAsync = $CESAliveTcp.BeginConnect($CESAliveHost, $CESAlivePort, $null, $null)
+						if($CESAliveAsync.AsyncWaitHandle.WaitOne(3000)){
+							try{ $CESAliveTcp.EndConnect($CESAliveAsync); return $CESAliveKey }catch{ return $null }
+						}
+						return $null
+					}
+					finally{ $CESAliveTcp.Close() }
+				}
+				foreach($CESAliveKey in $CESAliveTargets.Keys){
+					$CESAliveEntry = $CESAliveTargets[$CESAliveKey]
+					$CESAliveInstance = [powershell]::Create().AddScript($CESAliveScript).AddArgument($CESAliveEntry.CESAliveHost).AddArgument($CESAliveEntry.CESAlivePort).AddArgument($CESAliveKey)
+					$CESAliveInstance.RunspacePool = $CESAlivePool
+					$CESAliveRunspaces += [PSCustomObject]@{ Instance = $CESAliveInstance; Status = $CESAliveInstance.BeginInvoke() }
+				}
+				foreach($CESAliveRunspace in $CESAliveRunspaces){
+					$CESAliveResult = $CESAliveRunspace.Instance.EndInvoke($CESAliveRunspace.Status)
+					if($CESAliveResult){ [void]$CESAliveSet.Add($CESAliveResult) }
+					$CESAliveRunspace.Instance.Dispose()
+				}
+				$CESAlivePool.Close()
+				$CESAlivePool.Dispose()
+			}
 		}
 
 		$TempCESEndpoints = foreach($CESEndpoint in $CESEndpoints){
@@ -4564,7 +4630,13 @@ Add-Type -TypeDefinition $code
 
 			if($IPAddresses -and $IPAddresses -notcontains "No-IP"){
 
-				$CESInformation = Invoke-ADCSCESInformer -Target $Endpoint
+				$CESEndpointPort = try{ ([System.Uri]$Endpoint).Port }catch{ -1 }
+				if($OPSec -or $CESAliveSet.Contains("$CESHost|$CESEndpointPort")){
+					$CESInformation = Invoke-ADCSCESInformer -Target $Endpoint
+				}
+				else{
+					$CESInformation = [PSCustomObject]@{ "Available" = "False"; "Auth" = "None" }
+				}
 
 				foreach($IPAddress in $IPAddresses){
 
@@ -4635,11 +4707,11 @@ Add-Type -TypeDefinition $code
 	if($NoADCSHTTPEndpoints -OR !$CollectedCertPublishers){}
 	else{
 		
-		if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+					Write-Host ""
 			Write-Host ""
 			Write-Host "ADCS RPC Endpoints" -ForegroundColor Cyan
-		}
+			}
 		
 		$ESC11Table = @()
 
@@ -4667,46 +4739,16 @@ Add-Type -TypeDefinition $code
 				}
 				continue
 			}
-			$CAInstances = try {
-					$reg = [Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey('LocalMachine', $CAServer)
-					$configKey = $reg.OpenSubKey("SYSTEM\CurrentControlSet\Services\CertSvc\Configuration")
-					if ($configKey -eq $null) {}
-					else {
-						$caNames = $configKey.GetSubKeyNames()
-						$caNames | ForEach-Object { Write-Output $_ }
-					}
+			$ESC11Instances = Get-ADCSESC11InstanceStatus -CAHost $CAServer -TimeoutMs 5000
+
+			$ESC11Table += foreach($ESC11Instance in $ESC11Instances){
+				[PSCustomObject]@{
+					"Server" = $CollectedCA.Name
+					"Instance" = $ESC11Instance.Instance
+					"IP Address" = $CollectedCA."IP Address"
+					"Status" = $ESC11Instance.Status
+					"Domain" = $CollectedCA.Domain
 				}
-				catch {}
-			
-			$ESC11Table += foreach($CAInstance in $CAInstances){
-				try {
-					# Connect to the remote registry's LocalMachine hive
-					$reg = [Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey('LocalMachine', $CAServer)
-					$key = $reg.OpenSubKey("SYSTEM\CurrentControlSet\Services\CertSvc\Configuration\$CAInstance")
-					
-					if ($key -eq $null) {}
-					else {
-						$interfaceFlags = $key.GetValue("InterfaceFlags")
-						
-						# Check if the IF_ENFORCEENCRYPTICERTREQUEST flag (0x200 or 512) is set
-						if (($interfaceFlags -band 0x200) -eq 0x200) {
-							$InstanceResult =  "The instance is not vulnerable to ESC11."
-							# $InstanceResult =  "IF_ENFORCEENCRYPTICERTREQUEST is enabled. The instance is not vulnerable to ESC11."
-						}
-						else {
-							$InstanceResult = "The instance is vulnerable to ESC11."
-							# $InstanceResult = "IF_ENFORCEENCRYPTICERTREQUEST is not enabled. The instance is vulnerable to ESC11."
-						}
-					}
-					[PSCustomObject]@{
-						"Server" = $CollectedCA.Name
-						"Instance" = $CAInstance
-						"IP Address" = $CollectedCA."IP Address"
-						"Status" = $InstanceResult
-						"Domain" = $CollectedCA.Domain
-					}
-				}
-				catch {}
 			}
 		}
 		
@@ -4751,11 +4793,11 @@ Add-Type -TypeDefinition $code
 	###############################################################
 	if($NoVulnCertTemplates){}
 	else{
-		if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+					Write-Host ""
 			Write-Host ""
 			Write-Host "ADCS CA Escalations" -ForegroundColor Cyan
-		}
+			}
 
 		$TempADCSCAEsc = foreach($AllDomain in $AllDomains){
 
@@ -4829,8 +4871,8 @@ Add-Type -TypeDefinition $code
 		}
 
 		if($TempADCSCAEsc){
-			if(!$NoOutput){($TempADCSCAEsc | Sort-Object Domain,CA,ESC | Format-Table -AutoSize -Wrap | Out-String).TrimEnd()}
-			$HTMLADCSCAEsc = $TempADCSCAEsc | Sort-Object Domain,CA,ESC | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ADCSCAEscalations'>ADCS CA Escalations</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ADCSCAEscalations'>" }
+			if(!$NoOutput){($TempADCSCAEsc | Sort-Object Domain,@{Expression={[int]($_.ESC -replace '\D','')}},CA | Format-Table -AutoSize -Wrap | Out-String).TrimEnd()}
+			$HTMLADCSCAEsc = $TempADCSCAEsc | Sort-Object Domain,@{Expression={[int]($_.ESC -replace '\D','')}},CA | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='ADCSCAEscalations'>ADCS CA Escalations</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='ADCSCAEscalations'>" }
 
 			$ADCSCAEscTable = [PSCustomObject]@{
 				"Description" = "Certificate Authority host-level escalation checks (ESC5/6/7/8/11/16). ESC6/7/16 require live access to the CA; 'Unknown' means the CA could not be reached."
@@ -4846,11 +4888,11 @@ Add-Type -TypeDefinition $code
 	###############################################################
 	if($NoVulnCertTemplates){}
 	else{
-		if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+					Write-Host ""
 			Write-Host ""
 			Write-Host "Certificate Templates" -ForegroundColor Cyan
-		}
+			}
 		
 		$excludedSIDs = @(
 			"S-1-5-32-544",   # Administrators
@@ -4985,8 +5027,8 @@ Add-Type -TypeDefinition $code
 		}
 						
 		if ($VulnCertTemplatesFlags) {
-			if(!$NoOutput){($VulnCertTemplatesFlags | Sort-Object Domain,Template,ESC | Format-Table -AutoSize -Wrap | Out-String).TrimEnd()}
-			$HTMLVulnCertTemplates = $VulnCertTemplatesFlags | Sort-Object Domain,Template,ESC | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='CertTemplates'>Certificate Templates</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='CertTemplates'>" }
+			if(!$NoOutput){($VulnCertTemplatesFlags | Sort-Object Domain,@{Expression={[int]($_.ESC -replace '\D','')}},Template | Format-Table -AutoSize -Wrap | Out-String).TrimEnd()}
+			$HTMLVulnCertTemplates = $VulnCertTemplatesFlags | Sort-Object Domain,@{Expression={[int]($_.ESC -replace '\D','')}},Template | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='CertTemplates'>Certificate Templates</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='CertTemplates'>" }
 
 			$CertTemplatesTable = [PSCustomObject]@{
 				#"Risk Rating" = "Critical - Needs Immediate Attention"
@@ -5003,11 +5045,12 @@ Add-Type -TypeDefinition $code
     ######### Exchange Trusted Subsystem group ###############
 	###########################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if($NoOutput){ Write-Host "[>] Phase 5/11 Credentials & Secrets" }
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Members of Exchange Trusted Subsystem group" -ForegroundColor Cyan
-	}
+		}
 	$TempExchangeTrustedSubsystem = foreach ($AllDomain in $AllDomains) {
 		#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 		$ExchangeTrustedSubsystemMembers = @(RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Domain $AllDomain -Raw -Identity "Exchange Trusted Subsystem")
@@ -5059,11 +5102,11 @@ Add-Type -TypeDefinition $code
     ########### Service Accounts ###############
 	############################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Service Accounts (Kerberoastable)" -ForegroundColor Cyan
-	}
+		}
 	$TempServiceAccounts = foreach ($AllDomain in $AllDomains) {
 		$ServiceAccounts = @($TotalEnabledUsers | Where-Object {$_.serviceprincipalname -AND $_.domain -eq $AllDomain})
 		foreach ($Account in $ServiceAccounts) {
@@ -5072,9 +5115,9 @@ Add-Type -TypeDefinition $code
 				"Account" = $Account.samaccountname
 				"Enabled" = if ($Account.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if(!$Account.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $Account.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $Account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $Account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $Account.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"Adm" = if($AdmSIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $Account.objectsid)) { "YES" } else { "NO" }
+				"DA" = if($DASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $Account.objectsid)) { "YES" } else { "NO" }
+				"EA" = if($EASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $Account.objectsid)) { "YES" } else { "NO" }
 				"Last Logon" = if($Account.lastlogontimestamp){Convert-LdapTimestamp -timestamp $Account.lastlogontimestamp}else{""}
 				"Pwd Last Set" = if($Account.pwdlastset){Convert-LdapTimestamp -timestamp $Account.pwdlastset}else{""}
 				#"SPN" = $MergeSPNs
@@ -5105,11 +5148,11 @@ Add-Type -TypeDefinition $code
     ########### Group Managed Service Accounts ###############
 	##########################################################
     
-    if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+    		Write-Host ""
 		Write-Host ""
 		Write-Host "Group Managed Service Accounts (GMSA)" -ForegroundColor Cyan
-	}
+		}
 	$TempGMSAs = foreach ($AllDomain in $AllDomains) {
 		$GMSAs = @($CollectGMSAs | Where-Object {$_.domain -eq $AllDomain})
 		foreach ($GMSA in $GMSAs) {
@@ -5136,9 +5179,9 @@ Add-Type -TypeDefinition $code
 				"Account" = $GMSA.samaccountname
 				"Enabled" = if ($GMSA.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if(!$GMSA.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $GMSA.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $GMSA.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $GMSA.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $GMSA.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"Adm" = if($AdmSIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $GMSA.objectsid)) { "YES" } else { "NO" }
+				"DA" = if($DASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $GMSA.objectsid)) { "YES" } else { "NO" }
+				"EA" = if($EASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $GMSA.objectsid)) { "YES" } else { "NO" }
 				#"Account Type" = $GMSA.samaccounttype
 				"Pwd Interval" = $GMSA."msds-managedpasswordinterval"
 				"Pwd Last Set" = if($GMSA.pwdlastset){Convert-LdapTimestamp -timestamp $GMSA.pwdlastset}else{""}
@@ -5175,11 +5218,11 @@ Add-Type -TypeDefinition $code
     ########### No preauthentication ###############
 	################################################
     
-    if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+    		Write-Host ""
 		Write-Host ""
 		Write-Host "Users without kerberos preauthentication set (AS-REProastable)" -ForegroundColor Cyan
-	}
+		}
 	$Tempnopreauthset = foreach ($AllDomain in $AllDomains) {
 		$nopreauthsetUsers = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.userAccountControl -band 0x00400000})
 		foreach ($User in $nopreauthsetUsers) {
@@ -5187,9 +5230,9 @@ Add-Type -TypeDefinition $code
 				"User Name" = $User.samaccountname
 				"Enabled" = if ($User.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if(!$User.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $User.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $User.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $User.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $User.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"Adm" = if($AdmSIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $User.objectsid)) { "YES" } else { "NO" }
+				"DA" = if($DASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $User.objectsid)) { "YES" } else { "NO" }
+				"EA" = if($EASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $User.objectsid)) { "YES" } else { "NO" }
 				"Last Logon" = if($User.lastlogontimestamp){Convert-LdapTimestamp -timestamp $User.lastlogontimestamp}else{""}
 				"Pwd Last Set" = if($User.pwdlastset){Convert-LdapTimestamp -timestamp $User.pwdlastset}else{""}
 				"SID" = GetSID-FromBytes -sidBytes $User.objectSID
@@ -5219,11 +5262,11 @@ Add-Type -TypeDefinition $code
     ########### Group Policy Passwords ###############
 	#################################################################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Group Policy Passwords" -ForegroundColor Cyan
-	}
+		}
 	
 	$TempGPPasswords = foreach ($AllDomain in $AllDomains) {
 		
@@ -5265,11 +5308,11 @@ Add-Type -TypeDefinition $code
     ########### Hard-coded credentials in scripts ###############
 	########################################################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Hard-coded credentials in scripts" -ForegroundColor Cyan
-	}
+		}
 	
 	$TempHardcodedcreds = foreach ($AllDomain in $AllDomains) {
 		if($Server){$ScriptsDirectory = "\\$Server\sysvol\$AllDomain\scripts"}
@@ -5306,11 +5349,11 @@ Add-Type -TypeDefinition $code
     ########### Check if any user passwords are set ###############
 	###############################################################
 
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Check if any User Passwords are set" -ForegroundColor Cyan
-	}
+		}
 
 	$TempPasswordSetUsers = foreach ($AllDomain in $AllDomains) {
 
@@ -5342,9 +5385,9 @@ Add-Type -TypeDefinition $code
 					"User Name" = $PasswordSetUser.samaccountname
 					"Enabled" = if ($PasswordSetUser.useraccountcontrol -band 2) { "False" } else { "True" }
 					"Active" = if(!$PasswordSetUser.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $PasswordSetUser.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-					"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $PasswordSetUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-					"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $PasswordSetUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-					"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $PasswordSetUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"Adm" = if($AdmSIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $PasswordSetUser.objectsid)) { "YES" } else { "NO" }
+					"DA" = if($DASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $PasswordSetUser.objectsid)) { "YES" } else { "NO" }
+					"EA" = if($EASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $PasswordSetUser.objectsid)) { "YES" } else { "NO" }
 					"User Password" = $UserPasswordValue
 					"Raw Password" = $UserPasswordRawValue
 					"Last Logon" = if($PasswordSetUser.lastlogontimestamp){Convert-LdapTimestamp -timestamp $PasswordSetUser.lastlogontimestamp}else{""}
@@ -5378,11 +5421,11 @@ Add-Type -TypeDefinition $code
     ########### Check if any unix passwords are set ###############
 	###############################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Check if any Unix User Passwords are set" -ForegroundColor Cyan
-	}
+		}
 	
 	$TempUnixPasswordSet = foreach ($AllDomain in $AllDomains) {
 		
@@ -5414,9 +5457,9 @@ Add-Type -TypeDefinition $code
 					"User Name" = $UnixPasswordSet.samaccountname
 					"Enabled" = if ($UnixPasswordSet.useraccountcontrol -band 2) { "False" } else { "True" }
 					"Active" = if(!$UnixPasswordSet.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $UnixPasswordSet.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-					"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $UnixPasswordSet.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-					"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $UnixPasswordSet.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-					"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $UnixPasswordSet.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"Adm" = if($AdmSIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $UnixPasswordSet.objectsid)) { "YES" } else { "NO" }
+					"DA" = if($DASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $UnixPasswordSet.objectsid)) { "YES" } else { "NO" }
+					"EA" = if($EASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $UnixPasswordSet.objectsid)) { "YES" } else { "NO" }
 					"User Password" = $UnixUserPasswordValue
 					"Raw Password" = $UnixUserPasswordRawValue
 					"Last Logon" = if($UnixPasswordSet.lastlogontimestamp){Convert-LdapTimestamp -timestamp $UnixPasswordSet.lastlogontimestamp}else{""}
@@ -5450,11 +5493,11 @@ Add-Type -TypeDefinition $code
     ########### Additional LDAP Password Attributes ###############
 		###############################################################
 
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Additional LDAP Password Attributes" -ForegroundColor Cyan
-	}
+		}
 
 	$PasswordScanUTF8 = New-Object System.Text.UTF8Encoding($false,$true)
 
@@ -5567,11 +5610,11 @@ Add-Type -TypeDefinition $code
     ########### Users with Password-not-required attribute set ###############
 	#################################################################################################
 	if($PassNotRequired -OR $AllEnum){
-		if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+					Write-Host ""
 			Write-Host ""
 			Write-Host "Users with Password-not-required attribute set" -ForegroundColor Cyan
-		}
+			}
 		
 		$TempEmptyPasswordUsers = foreach ($AllDomain in $AllDomains) {
 			
@@ -5583,9 +5626,9 @@ Add-Type -TypeDefinition $code
 					"User Name" = $EmptyPasswordUser.samaccountname
 					"Enabled" = if ($EmptyPasswordUser.useraccountcontrol -band 2) { "False" } else { "True" }
 					"Active" = if(!$EmptyPasswordUser.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $EmptyPasswordUser.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-					"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-					"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-					"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $EmptyPasswordUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"Adm" = if($AdmSIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $EmptyPasswordUser.objectsid)) { "YES" } else { "NO" }
+					"DA" = if($DASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $EmptyPasswordUser.objectsid)) { "YES" } else { "NO" }
+					"EA" = if($EASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $EmptyPasswordUser.objectsid)) { "YES" } else { "NO" }
 					"Last Logon" = if($EmptyPasswordUser.lastlogontimestamp){Convert-LdapTimestamp -timestamp $EmptyPasswordUser.lastlogontimestamp}else{""}
 					"Pwd Last Set" = if($EmptyPasswordUser.pwdlastset){Convert-LdapTimestamp -timestamp $EmptyPasswordUser.pwdlastset}else{""}
 					"SID" = GetSID-FromBytes -sidBytes $EmptyPasswordUser.objectSID
@@ -5618,11 +5661,11 @@ Add-Type -TypeDefinition $code
 	#################################################################################################
 
  	if($PassNotRequired -OR $AllEnum){
-		if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+					Write-Host ""
 			Write-Host ""
 			Write-Host "Computers with Password-not-required attribute set" -ForegroundColor Cyan
-		}
+			}
 		
 		$TempEmptyPasswordComputers = foreach ($AllDomain in $AllDomains) {
 			#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
@@ -5689,11 +5732,11 @@ Add-Type -TypeDefinition $code
     ########### Pre-Windows 2000 ###############
 	############################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Members of Pre-Windows 2000 Compatible Access group" -ForegroundColor Cyan
-	}
+		}
 	$TempPreWin2kCompatibleAccess = foreach ($AllDomain in $AllDomains) {
 		#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 		
@@ -5755,11 +5798,11 @@ Add-Type -TypeDefinition $code
     ########### Windows 7 and Server 2008 Machines (Windows Remoting Enabled) ###############
 	########################################################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Windows 7 and Server 2008 Machines (Windows Remoting Enabled)" -ForegroundColor Cyan
-	}
+		}
 	
 	$TempWin7AndServer2008 = foreach ($AllDomain in $AllDomains) {
 		#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
@@ -5811,11 +5854,11 @@ Add-Type -TypeDefinition $code
     ########### Machine Accounts in Privileged Groups ##################
 	####################################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Machine accounts in privileged groups" -ForegroundColor Cyan
-    }
+		}
 	
 	$TempMachineAccountsPriv = foreach ($AllDomain in $AllDomains) {
 		#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
@@ -5906,11 +5949,11 @@ Add-Type -TypeDefinition $code
     ########### sidHistory set ###############
 	##########################################
 
-    if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+    		Write-Host ""
 		Write-Host ""
 		Write-Host "Users with sidHistory set" -ForegroundColor Cyan
-	}
+		}
 	
 	$TempsidHistoryUsers = foreach ($AllDomain in $AllDomains) {
 		
@@ -5920,9 +5963,9 @@ Add-Type -TypeDefinition $code
 				"User Name" = $sidHistoryUser.samaccountname
 				"Enabled" = if ($sidHistoryUser.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if(!$sidHistoryUser.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $sidHistoryUser.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $sidHistoryUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $sidHistoryUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $sidHistoryUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"Adm" = if($AdmSIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $sidHistoryUser.objectsid)) { "YES" } else { "NO" }
+				"DA" = if($DASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $sidHistoryUser.objectsid)) { "YES" } else { "NO" }
+				"EA" = if($EASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $sidHistoryUser.objectsid)) { "YES" } else { "NO" }
 				"Last Logon" = if($sidHistoryUser.lastlogontimestamp){Convert-LdapTimestamp -timestamp $sidHistoryUser.lastlogontimestamp}else{""}
 				"Pwd Last Set" = if($sidHistoryUser.pwdlastset){Convert-LdapTimestamp -timestamp $sidHistoryUser.pwdlastset}else{""}
 				"SID" = GetSID-FromBytes -sidBytes $sidHistoryUser.objectSID
@@ -5948,11 +5991,11 @@ Add-Type -TypeDefinition $code
     ########### Reversible Encryption ################
 	##################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Users with Reversible Encryption" -ForegroundColor Cyan
-	}
+		}
 
 	$TempRevEncUsers = foreach ($AllDomain in $AllDomains) {
 		$RevEncUsers = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain} | Where-Object {if ($null -ne $_.userAccountControl) {$uacValue = [int]$_.userAccountControl;$binaryUAC = [convert]::ToString($uacValue, 2).PadLeft(32, '0');$binaryUAC[-8] -eq '1'}})
@@ -5961,9 +6004,9 @@ Add-Type -TypeDefinition $code
 				"Name" = $RevEncUser.samaccountname
 				"Enabled" = if ($RevEncUser.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if(!$RevEncUser.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $RevEncUser.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $RevEncUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $RevEncUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $RevEncUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"Adm" = if($AdmSIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $RevEncUser.objectsid)) { "YES" } else { "NO" }
+				"DA" = if($DASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $RevEncUser.objectsid)) { "YES" } else { "NO" }
+				"EA" = if($EASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $RevEncUser.objectsid)) { "YES" } else { "NO" }
 				"Last Logon" = if($RevEncUser.lastlogontimestamp){Convert-LdapTimestamp -timestamp $RevEncUser.lastlogontimestamp}else{""}
 				"Pwd Last Set" = if($RevEncUser.pwdlastset){Convert-LdapTimestamp -timestamp $RevEncUser.pwdlastset}else{""}
 				"Object SID" = GetSID-FromBytes -sidBytes $RevEncUser.objectsid
@@ -5991,11 +6034,11 @@ Add-Type -TypeDefinition $code
 	
     if($NoUnsupportedOS){}
     else{
-        if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+        			Write-Host ""
 			Write-Host ""
 			Write-Host "Hosts running Unsupported OS" -ForegroundColor Cyan
-		}
+			}
 		$TempUnsupportedHosts = foreach ($AllDomain in $AllDomains) {
 			$UnsupportedHosts = $TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain} | Where-Object {
 				($_.OperatingSystem -like "Windows Me*") -or
@@ -6085,11 +6128,12 @@ Add-Type -TypeDefinition $code
     ############### File Servers ###############
 	#############################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if($NoOutput){ Write-Host "[>] Phase 6/11 Infrastructure & Services" }
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "File Servers" -ForegroundColor Cyan
-	}
+		}
 	
     $TempFileServers = foreach($AllDomain in $AllDomains){
 		$Results = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.homedirectory})
@@ -6157,11 +6201,11 @@ Add-Type -TypeDefinition $code
 	#############################################
 
 	if(!$NoSQL){
-		if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+					Write-Host ""
 			Write-Host ""
 			Write-Host "SQL Instances" -ForegroundColor Cyan
-		}
+			}
 		
 		$ProcessedSPNs = @{}
 		$TempSQLServers = @()
@@ -6282,12 +6326,14 @@ Add-Type -TypeDefinition $code
     ############### SCCM Servers ################
     #############################################
     
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "SCCM Servers" -ForegroundColor Cyan
-	}
-	
+		}
+
+	$SCCMCurrentManagementPoints = (Get-WmiObject -Class SMS_Authority -Namespace root\CCM -ErrorAction SilentlyContinue).CurrentManagementPoint
+
 	$TempSCCMServers = foreach($AllDomain in $AllDomains){
 		if(!$OPSec){
 			$TempSCCMTargets = @(
@@ -6349,7 +6395,7 @@ Add-Type -TypeDefinition $code
 			
 			if($IPAddress.count -gt 1){$IPAddress = $IPAddress -join ", "}
 			#$ObjectRetrieve = $TotalAllMachines | Where-Object {$_.domain -eq $AllDomain} | Where-Object {$_.name -eq $SCCMServerShort}
-			$Enrolled = (Get-WmiObject -Class SMS_Authority -Namespace root\CCM).CurrentManagementPoint -contains $dNSHostName
+			$Enrolled = $SCCMCurrentManagementPoints -contains $dNSHostName
 			$ObjectRetrieve = $TotalEnabledDisabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $_.dnshostname -eq $dNSHostName}
 			$ProcessedSCCMServers[$dNSHostName] = $true
 			[PSCustomObject]@{
@@ -6375,11 +6421,11 @@ Add-Type -TypeDefinition $code
     ######### WSUS Servers ###############
 	####################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "WSUS Servers" -ForegroundColor Cyan
-	}
+		}
 	
 	$TempWSUSServers = @()
 	$WSUSServers = @()
@@ -6629,11 +6675,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		    }
 		}
 		
-		if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+					Write-Host ""
 			Write-Host ""
 			Write-Host "WebDAV Enabled Machines" -ForegroundColor Cyan
-		}
+			}
 		
 		$WebDAVStatusResults = foreach($AllDomain in $AllDomains){
 			#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
@@ -6690,11 +6736,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
     ######### VNC Unauthenticated Access ###############
 	####################################################
 	if(!$NoVNCUnauthAccess -AND !$OPSec){
-	    if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+	    			Write-Host ""
 			Write-Host ""
 			Write-Host "VNC Unauthenticated Access" -ForegroundColor Cyan
-		}
+			}
 		
 		$VNCUnauthAccess = foreach($AllDomain in $AllDomains){
 			#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
@@ -6749,11 +6795,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
     ######### Printers ###############
 	####################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Printers" -ForegroundColor Cyan
-	}
+		}
 	
 	$TempPrinters = foreach ($AllDomain in $AllDomains) {
 		
@@ -6815,11 +6861,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
     ########### Duplicate SPNs ###############
 	############################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Duplicate SPNs" -ForegroundColor Cyan
-	}
+		}
 	
 	$Excluded = 'kadmin/changepw'
 	$TempSPNAccounts = @()
@@ -6880,11 +6926,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	####################################################
 	if(!$NoSMBSharesEnum -AND !$OPSec){
 		
-		if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+					Write-Host ""
 			Write-Host ""
 			Write-Host "Readable and Writable Shares" -ForegroundColor Cyan
-		}
+			}
 	
 	 	$excludedShares = @('SYSVOL', 'Netlogon', 'print$', 'IPC$')
 		
@@ -6926,11 +6972,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	#############################################
 	
 	if($HomeDirectories -OR $AllEnum){
-		if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+					Write-Host ""
 			Write-Host ""
 			Write-Host "Home Directories" -ForegroundColor Cyan
-		}
+			}
 		
 		$TempHomeDirectories = foreach($AllDomain in $AllDomains){
 			$HomeDirectoriesResults = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.homedirectory})
@@ -6954,11 +7000,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
     ########### Empty Groups ################
 	##################################################
 	if($EmptyGroups -OR $AllEnum){
-		if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+					Write-Host ""
 			Write-Host ""
 			Write-Host "Empty Groups" -ForegroundColor Cyan
-		}
+			}
 		
 		$FinalGroupResults = foreach($AllDomain in $AllDomains){
 			$TempGroupResults = $TotalGroups | Where-Object {$_.domain -eq $AllDomain -AND -not $_.member -and ((GetSID-FromBytes -sidBytes $_.objectsid) -match "S-1-(\d+-){4,}[\d]{4,10}$")}
@@ -6997,11 +7043,12 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 
     if($GPOsRights -OR $AllEnum){
 	
-		if(!$NoOutput){
-			Write-Host ""
+			if($NoOutput){ Write-Host "[>] Phase 7/11 Group Policy" }
+			if(!$NoOutput){
+					Write-Host ""
 			Write-Host ""
 			Write-Host "Who can create GPOs" -ForegroundColor Cyan
-		}
+			}
 		$TempGPOCreators = foreach ($AllDomain in $AllDomains) {
 			
 			# Retrieve the GUID to Name mapping
@@ -7089,11 +7136,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			$HTMLGPOCreators = $TempGPOCreators | Sort-Object Domain,Account | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='GPOCreators'>Who can create GPOs</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='GPOCreators'>" }
 		}
 		
-		if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+					Write-Host ""
 			Write-Host ""
 			Write-Host "Who can modify existing GPOs" -ForegroundColor Cyan
-		}
+			}
 		
 		$TempGPOsWhocanmodify = foreach ($AllDomain in $AllDomains) {
 			
@@ -7190,11 +7237,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 			$HTMLGPOsWhocanmodify = $TempGPOsWhocanmodify | Sort-Object Domain,"Policy Name","Who can edit" | ConvertTo-Html -Fragment -PreContent "<h2 data-linked-table='GPOsWhocanmodify'>Who can modify existing GPOs</h2>" | ForEach-Object { $_ -replace "<table>", "<table id='GPOsWhocanmodify'>" }
 		}
 
-        if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+        			Write-Host ""
 			Write-Host ""
 			Write-Host "Who can link GPOs" -ForegroundColor Cyan
-		}
+			}
 		
 		$TempGpoLinkResults = foreach ($AllDomain in $AllDomains) {
 			if($Domain -and $Server){$SelectTheDCName = $Server}
@@ -7387,11 +7434,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 
 	if($NoLAPS){}
 	else{
-		if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+					Write-Host ""
 			Write-Host ""
 			Write-Host "LAPS GPOs" -ForegroundColor Cyan
-		}
+			}
 		$TempLAPSGPOs = foreach ($AllDomain in $AllDomains) {
 			$LAPSGPOs = @($AllCollectedGPOs | Where-Object { $_.domain -eq $AllDomain })
 			foreach ($LAPSGPO in $LAPSGPOs) {
@@ -7440,11 +7487,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		
 		if($TempLAPSGPOs -AND ($LAPSReadRights -OR $AllEnum)){
 
-			if(!$NoOutput){
-				Write-Host ""
+				if(!$NoOutput){
+							Write-Host ""
 				Write-Host ""
 				Write-Host "Who can read LAPS" -ForegroundColor Cyan
-			}
+				}
 			$TempLAPSCanRead = foreach ($AllDomain in $AllDomains) {
 				
 				$ExcludedAccounts = "IIS_IUSRS|Certificate Service DCOM Access|Cert Publishers|Public Folder Management|Group Policy Creator Owners|Windows Authorization Access Group|Denied RODC Password Replication Group|Organization Management|Exchange Servers|Exchange Trusted Subsystem|Exchange Recipient Administrators|Exchange Domain Servers|Exchange Organization Administrators|Exchange Public Folder Administrators|Managed Availability Servers|Exchange Windows Permissions|SELF|SYSTEM|Domain Admins|Enterprise|CREATOR OWNER|BUILTIN|Key Admins|MSOL|Account Operators|Terminal Server License Servers"
@@ -7526,11 +7573,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 
   		if($TempLAPSGPOs -AND ($LAPSExtended -OR $AllEnum)){
 			
-			if(!$NoOutput){
-				Write-Host ""
+				if(!$NoOutput){
+							Write-Host ""
 				Write-Host ""
 				Write-Host "LAPS Extended Rights" -ForegroundColor Cyan
-			}
+				}
 			
 			$TempLAPSExtended = foreach ($AllDomain in $AllDomains) {
 				
@@ -7621,11 +7668,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		
 		if($TempLAPSGPOs -AND ($LAPSComputers -OR ($AllEnum -AND $Force))){
 
-			if(!$NoOutput){
-				Write-Host ""
+				if(!$NoOutput){
+							Write-Host ""
 				Write-Host ""
 				Write-Host "Computer objects where LAPS is enabled" -ForegroundColor Cyan
-			}
+				}
 			
 			$TempLapsEnabledComputers = foreach ($AllDomain in $AllDomains) {
 				$LapsEnabledComputers = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $_."ms-Mcs-AdmPwdExpirationTime" -ne $null})
@@ -7678,11 +7725,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
     
 	if($NoAppLocker){}
 	else{
-		if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+					Write-Host ""
 			Write-Host ""
 			Write-Host "AppLocker GPOs" -ForegroundColor Cyan
-		}
+			}
 		$TempAppLockerGPOs = foreach ($AllDomain in $AllDomains) {
 			$AppLockerGPOs = @($AllCollectedGPOs | Where-Object { $_.domain -eq $AllDomain -AND $_.DisplayName -like "*AppLocker*" })
 			foreach ($AppLockerGPO in $AppLockerGPOs) {
@@ -7705,11 +7752,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	####################################################################
 	
 	if($MoreGPOs -OR $AllEnum){
-        if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+        			Write-Host ""
 			Write-Host ""
 			Write-Host "GPOs that modify local group memberships" -ForegroundColor Cyan
-		}
+			}
 		
 		# Loop through each relevant GPO
 		$TempGPOLocalGroupsMembership = foreach($AllDomain in $AllDomains) {
@@ -7908,11 +7955,12 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	########### Unconstrained Delegation (Computers) ###############
 	####################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if($NoOutput){ Write-Host "[>] Phase 8/11 Delegation & Weak Permissions" }
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Unconstrained Delegation (Computers)" -ForegroundColor Cyan
-	}
+		}
 	$TempUnconstrained = foreach ($AllDomain in $AllDomains) {
 		#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 		$Unconstrained = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $TotalDomainControllers.dnshostname -notcontains $_.dnshostname -AND $_.userAccountControl -band 524288 })
@@ -7972,11 +8020,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	########### Unconstrained Delegation (Users) ###############
 	####################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Unconstrained Delegation (Users)" -ForegroundColor Cyan
-	}
+		}
 	$TempUnconstrainedUsers = foreach ($AllDomain in $AllDomains) {
 		#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 		$UnconstrainedUsers = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.userAccountControl -band 524288 })
@@ -7986,9 +8034,9 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 				"Name" = $User.samaccountname
 				"Enabled" = if ($User.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if(!$User.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $User.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $User.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $User.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $User.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"Adm" = if($AdmSIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $User.objectsid)) { "YES" } else { "NO" }
+				"DA" = if($DASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $User.objectsid)) { "YES" } else { "NO" }
+				"EA" = if($EASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $User.objectsid)) { "YES" } else { "NO" }
 				"Last Logon" = if($User.lastlogontimestamp){Convert-LdapTimestamp -timestamp $User.lastlogontimestamp}else{""}
 				"Pwd Last Set" = if($User.pwdlastset){Convert-LdapTimestamp -timestamp $User.pwdlastset}else{""}
 				"Object SID" = GetSID-FromBytes -sidBytes $User.objectsid
@@ -8018,11 +8066,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	    ########### Constrained Delegation (Computers)###############
 		#############################################################
 	
-	    if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+	    			Write-Host ""
 			Write-Host ""
 			Write-Host "Constrained Delegation (Computers)" -ForegroundColor Cyan
-		}
+			}
 		$TempConstrainedDelegationComputers = foreach ($AllDomain in $AllDomains) {
 			#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
 			$ConstrainedDelegationComputers = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $_."msds-allowedtodelegateto"})
@@ -8083,11 +8131,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	    ########### Constrained Delegation (Users)###############
 		#########################################################
 	
-	    if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+	    			Write-Host ""
 			Write-Host ""
 			Write-Host "Constrained Delegation (Users)" -ForegroundColor Cyan
-		}
+			}
 		$TempConstrainedDelegationUsers = foreach ($AllDomain in $AllDomains) {
 			$ConstrainedDelegationUsers = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_."msds-allowedtodelegateto"})
 			foreach ($ConstrainedDelegationUser in $ConstrainedDelegationUsers) {
@@ -8096,9 +8144,9 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 					"Name" = $ConstrainedDelegationUser.Name
 					"Enabled" = if ($ConstrainedDelegationUser.useraccountcontrol -band 2) { "False" } else { "True" }
 					"Active" = if(!$ConstrainedDelegationUser.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $ConstrainedDelegationUser.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-					"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $ConstrainedDelegationUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-					"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $ConstrainedDelegationUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-					"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $ConstrainedDelegationUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"Adm" = if($AdmSIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $ConstrainedDelegationUser.objectsid)) { "YES" } else { "NO" }
+					"DA" = if($DASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $ConstrainedDelegationUser.objectsid)) { "YES" } else { "NO" }
+					"EA" = if($EASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $ConstrainedDelegationUser.objectsid)) { "YES" } else { "NO" }
 					"Last Logon" = if($ConstrainedDelegationUser.lastlogontimestamp){Convert-LdapTimestamp -timestamp $ConstrainedDelegationUser.lastlogontimestamp}else{""}
 					"SID" = GetSID-FromBytes -sidBytes $ConstrainedDelegationUser.objectSID
 					"msds-AllowedToDelegateTo" = $ConstrainedDelegationUser."msds-AllowedToDelegateTo" -join " - "
@@ -8125,11 +8173,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		###########################################################
 	    
 		if ($RBCD -or $AllEnum) {
-			if(!$NoOutput){
-				Write-Host ""
+				if(!$NoOutput){
+							Write-Host ""
 				Write-Host ""
 				Write-Host "Resource Based Constrained Delegation" -ForegroundColor Cyan
-			}
+				}
 
 			$RBACDObjects = foreach ($AllDomain in $AllDomains) {
 				# Define excluded accounts
@@ -8146,7 +8194,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 				$guidMap = $AllGUIDMappings["$AllDomain"]
 
 				# Create a runspace pool to limit concurrency (adjust min and max as needed)
-				$RunspacePool = [runspacefactory]::CreateRunspacePool(1, 10)
+				$RunspacePool = [runspacefactory]::CreateRunspacePool(1, (Get-RunspaceThrottle))
 				$RunspacePool.Open()
 
 				$Jobs = @()
@@ -8327,11 +8375,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		###########################################################
 		
 		if($RBCD -OR $AllEnum){
-			if(!$NoOutput){
-				Write-Host ""
+				if(!$NoOutput){
+							Write-Host ""
 				Write-Host ""
 				Write-Host "Allowed To Act On Behalf Of Other Identity" -ForegroundColor Cyan
-			}
+				}
 			$AccessAllowedComputers = foreach ($AllDomain in $AllDomains) {
 				
 				$AllowedToActComputers = @($TotalEnabledMachines | Where-Object {$_.domain -eq $AllDomain -AND $_."msDS-AllowedToActOnBehalfOfOtherIdentity"})
@@ -8421,11 +8469,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		###########################################################
 	    
 		if($WeakPermissions -OR $AllEnum){
-	  		if(!$NoOutput){
-				Write-Host ""
+				if(!$NoOutput){
+	  						Write-Host ""
 				Write-Host ""
 				Write-Host "Weak Permissions" -ForegroundColor Cyan
-			}
+				}
 			
 			$WeakPermissionsObjects = foreach ($AllDomain in $AllDomains) {
 				
@@ -8442,7 +8490,7 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 				$guidMap = $AllGUIDMappings["$AllDomain"]
 				
 				# Create a runspace pool to limit concurrency (adjust min and max as needed)
-				$RunspacePool = [runspacefactory]::CreateRunspacePool(1, 10)
+				$RunspacePool = [runspacefactory]::CreateRunspacePool(1, (Get-RunspaceThrottle))
 				$RunspacePool.Open()
 
 				$Jobs = @()
@@ -8623,11 +8671,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		###########################################################
 		
 		if($UserCreatedObjects -OR $AllEnum){
-			if(!$NoOutput){
-				Write-Host ""
+				if(!$NoOutput){
+							Write-Host ""
 				Write-Host ""
 				Write-Host "Computer Objects created by regular users" -ForegroundColor Cyan
-			}
+				}
 			$ADComputersCreated = foreach ($AllDomain in $AllDomains) {
 				
 				#$ResolveServer = $RIDRoleDCs | Where-Object {$matched = $false;foreach ($Extr in $ExtrDCs) {if ($_.dnshostname -eq "$Extr.$AllDomain") {$matched = $true;break}}$matched} | Select-Object -ExpandProperty dnshostname
@@ -8698,11 +8746,12 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	########### Users Allowed to logon ###############
 	#########################################################
 
-	if(!$NoOutput){
-		Write-Host ""
+		if($NoOutput){ Write-Host "[>] Phase 9/11 Security Groups & Membership" }
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Users Allowed to Logon" -ForegroundColor Cyan
-	}
+		}
 	$TempAllowedtologonto = foreach ($AllDomain in $AllDomains) {
 		$AllowedtologontoUsers = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_."userWorkstations"})
 		foreach ($AllowedtologontoUser in $AllowedtologontoUsers) {
@@ -8711,9 +8760,9 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 				"Name" = $AllowedtologontoUser.Name
 				"Enabled" = if ($AllowedtologontoUser.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if(!$AllowedtologontoUser.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $AllowedtologontoUser.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $AllowedtologontoUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $AllowedtologontoUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $AllowedtologontoUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"Adm" = if($AdmSIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $AllowedtologontoUser.objectsid)) { "YES" } else { "NO" }
+				"DA" = if($DASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $AllowedtologontoUser.objectsid)) { "YES" } else { "NO" }
+				"EA" = if($EASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $AllowedtologontoUser.objectsid)) { "YES" } else { "NO" }
 				"Last Logon" = if($AllowedtologontoUser.lastlogontimestamp){Convert-LdapTimestamp -timestamp $AllowedtologontoUser.lastlogontimestamp}else{""}
 				"SID" = GetSID-FromBytes -sidBytes $AllowedtologontoUser.objectSID
 				"Allowed to Logon to" = $AllowedtologontoUser."userWorkstations" -replace ",",", "
@@ -8738,11 +8787,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	########### Managed Objects ###############
 	#########################################################
 
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Managed Objects" -ForegroundColor Cyan
-	}
+		}
 	$TempManagedObjects = foreach ($AllDomain in $AllDomains) {
 		$ManagedObjectsUsers = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain -AND $_."managedobjects"})
 		$ManagedObjectsGroups = @($TotalGroups | Where-Object {$_.domain -eq $AllDomain -AND $_."managedobjects"})
@@ -8753,9 +8802,9 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 				"Name" = $ManagedObjectsUser.Name
 				"Enabled" = if ($ManagedObjectsUser.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if(!$ManagedObjectsUser.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $ManagedObjectsUser.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $ManagedObjectsUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $ManagedObjectsUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $ManagedObjectsUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"Adm" = if($AdmSIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $ManagedObjectsUser.objectsid)) { "YES" } else { "NO" }
+				"DA" = if($DASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $ManagedObjectsUser.objectsid)) { "YES" } else { "NO" }
+				"EA" = if($EASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $ManagedObjectsUser.objectsid)) { "YES" } else { "NO" }
 				"Last Logon" = if($ManagedObjectsUser.lastlogontimestamp){Convert-LdapTimestamp -timestamp $ManagedObjectsUser.lastlogontimestamp}else{""}
 				"SID" = GetSID-FromBytes -sidBytes $ManagedObjectsUser.objectSID
 				"Managed Objects" = ($ManagedObjectsUser.managedobjects | ForEach-Object { ($_ -split '[=,]')[1] }) -join ","
@@ -8768,9 +8817,9 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 				"Name" = $ManagedObjectsGroup.Name
 				"Enabled" = if ($ManagedObjectsGroup.useraccountcontrol -band 2) { "False" } else { "True" }
 				"Active" = if(!$ManagedObjectsGroup.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $ManagedObjectsGroup.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-				"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $ManagedObjectsGroup.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $ManagedObjectsGroup.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-				"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $ManagedObjectsGroup.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+				"Adm" = if($AdmSIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $ManagedObjectsGroup.objectsid)) { "YES" } else { "NO" }
+				"DA" = if($DASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $ManagedObjectsGroup.objectsid)) { "YES" } else { "NO" }
+				"EA" = if($EASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $ManagedObjectsGroup.objectsid)) { "YES" } else { "NO" }
 				"Last Logon" = if($ManagedObjectsGroup.lastlogontimestamp){Convert-LdapTimestamp -timestamp $ManagedObjectsGroup.lastlogontimestamp}else{""}
 				"SID" = GetSID-FromBytes -sidBytes $ManagedObjectsGroup.objectSID
 				"Managed Objects" = ($ManagedObjectsGroup.managedobjects | ForEach-Object { ($_ -split '[=,]')[1] }) -join ", "
@@ -8810,11 +8859,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	########### Account Operators ################
 	####################################################
 
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Account Operators" -ForegroundColor Cyan
-	}
+		}
 	$TempAccountOperators = @()
 	$TempAccountOperators = foreach ($AllDomain in $AllDomains) {
 		$AccountOperators = @()
@@ -8875,11 +8924,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	########### Backup Operators ################
 	####################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Backup Operators" -ForegroundColor Cyan
-	}
+		}
 	$TempBackupOperators = @()
 	$TempBackupOperators = foreach ($AllDomain in $AllDomains) {
 		$BackupOperators = @()
@@ -8924,11 +8973,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	########### Cert Publishers ################
 	####################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Cert Publishers" -ForegroundColor Cyan
-	}
+		}
 	$TempCertPublishersGroup = @()
 	$TempCertPublishersGroup = foreach ($AllDomain in $AllDomains) {
 		$CertPublishers = @()
@@ -8989,11 +9038,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	########### Distributed COM Users ################
 	####################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Distributed COM Users" -ForegroundColor Cyan
-	}
+		}
 	$TempDCOMUsers = @()
 	$TempDCOMUsers = foreach ($AllDomain in $AllDomains) {
 		$DCOMUsers = @()
@@ -9037,11 +9086,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	########### DNS Admins ################
 	####################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "DNS Admins" -ForegroundColor Cyan
-	}
+		}
 	$TempDNSAdmins = @()
 	$TempDNSAdmins = foreach ($AllDomain in $AllDomains) {
 		$DNSAdmins = @()
@@ -9085,11 +9134,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	########### Enterprise Key Admins ################
 	####################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Enterprise Key Admins" -ForegroundColor Cyan
-	}
+		}
 	$TempEnterpriseKeyAdmins = @()
 	$TempEnterpriseKeyAdmins = foreach ($AllDomain in $AllDomains) {
 		$EnterpriseKeyAdmins = @()
@@ -9141,11 +9190,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	########### Enterprise Read-Only Domain Controllers ################
 	####################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Enterprise Read-Only Domain Controllers" -ForegroundColor Cyan
-	}
+		}
 	$TempEnterpriseRODCs = @()
 	$TempEnterpriseRODCs = foreach ($AllDomain in $AllDomains) {
 		$EnterpriseRODCs = @()
@@ -9190,11 +9239,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	########### Group Policy Creator Owners ################
 	####################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Group Policy Creator Owners" -ForegroundColor Cyan
-	}
+		}
 	$TempGPCreatorOwners = @()
 	$TempGPCreatorOwners = foreach ($AllDomain in $AllDomains) {
 		$GPCreatorOwners = @()
@@ -9238,11 +9287,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	########### Key Admins ################
 	####################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Key Admins" -ForegroundColor Cyan
-	}
+		}
 	$TempKeyAdmins = @()
 	$TempKeyAdmins = foreach ($AllDomain in $AllDomains) {
 		$KeyAdmins = @()
@@ -9303,11 +9352,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	########### Organization Management ################
 	####################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Organization Management" -ForegroundColor Cyan
-	}
+		}
 	$TempOrganizationManagement = @()
 	$TempOrganizationManagement = foreach ($AllDomain in $AllDomains) {
 		$OrganizationManagement = @()
@@ -9351,11 +9400,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	########### Performance Log Users ################
 	####################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Performance Log Users" -ForegroundColor Cyan
-	}
+		}
 	$TempPerformanceLogUsers = @()
 	$TempPerformanceLogUsers = foreach ($AllDomain in $AllDomains) {
 		$PerformanceLogUsers = @()
@@ -9399,11 +9448,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	########### Print Operators ################
 	####################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Print Operators" -ForegroundColor Cyan
-	}
+		}
 	$TempPrintOperators = @()
 	$TempPrintOperators = foreach ($AllDomain in $AllDomains) {
 		$PrintOperators = @()
@@ -9447,11 +9496,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	########### Protected Users ################
 	####################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Protected Users" -ForegroundColor Cyan
-	}
+		}
 	$TempProtectedUsers = @()
 	$TempProtectedUsers = foreach ($AllDomain in $AllDomains) {
 		$ProtectedUsers = @()
@@ -9513,11 +9562,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	########### Read-Only Domain Controllers ################
 	####################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Read-Only Domain Controllers" -ForegroundColor Cyan
-	}
+		}
 	$TempRODCs = @()
 	$TempRODCs = foreach ($AllDomain in $AllDomains) {
 		$RODCs = @()
@@ -9561,11 +9610,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	########### Remote Desktop Users ################
 	####################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Remote Desktop Users" -ForegroundColor Cyan
-	}
+		}
 	$TempRDPUsers = @()
 	$TempRDPUsers = foreach ($AllDomain in $AllDomains) {
 		$RDPUsers = @()
@@ -9609,11 +9658,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	########### Remote Management Users ################
 	####################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Remote Management Users" -ForegroundColor Cyan
-	}
+		}
 	$TempRemManUsers = @()
 	$TempRemManUsers = foreach ($AllDomain in $AllDomains) {
 		$RemManUsers = @()
@@ -9657,11 +9706,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	########### Schema Admins ################
 	####################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Schema Admins" -ForegroundColor Cyan
-	}
+		}
 	$TempSchemaAdmins = @()
 	$TempSchemaAdmins = foreach ($AllDomain in $AllDomains) {
 		$SchemaAdmins = @()
@@ -9717,11 +9766,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	########### Server Operators ################
 	####################################################
 	
-	if(!$NoOutput){
-		Write-Host ""
+		if(!$NoOutput){
+			Write-Host ""
 		Write-Host ""
 		Write-Host "Server Operators" -ForegroundColor Cyan
-	}
+		}
 	$TempServerOperators = @()
 	$TempServerOperators = foreach ($AllDomain in $AllDomains) {
 		$ServerOperators = @()
@@ -9788,11 +9837,12 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		########### Servers (by Keyword) ###############
 		############################################################
 
-		if(!$NoOutput){
-			Write-Host ""
+			if($NoOutput){ Write-Host "[>] Phase 10/11 Interesting Data (Keyword Search)" }
+			if(!$NoOutput){
+					Write-Host ""
 			Write-Host ""
 			Write-Host "Interesting Servers (by Keyword)" -ForegroundColor Cyan
-		}
+			}
 		$TempInterestingServersEnabled = foreach ($AllDomain in $AllDomains) {
 			$InterestingServers = @()
 			foreach($Keyword in $Keywords){$InterestingServers += $TotalEnabledMachines | Where-Object { $_.domain -eq $AllDomain -AND $_.operatingsystem -like "*Server*" -AND $_.samaccountname -like "*$Keyword*" }}
@@ -9844,11 +9894,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		########### GPOs by Keyword ################
 		#######################################
 			
-		if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+					Write-Host ""
 			Write-Host ""
 			Write-Host "Interesting GPOs (by Keyword)" -ForegroundColor Cyan
-		}
+			}
 		$TempKeywordDomainGPOs = foreach ($AllDomain in $AllDomains) {
 			$GetAllGPOsFirst = @($AllCollectedGPOs | Where-Object { $_.domain -eq $AllDomain })
 			foreach($Keyword in $Keywords){
@@ -9873,11 +9923,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		########### Groups by keyword ###########
 		#########################################
 		
-		if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+					Write-Host ""
 			Write-Host ""
 			Write-Host "Interesting Groups (by Keyword)" -ForegroundColor Cyan
-		}
+			}
 		$TempGroupsByKeyword = foreach ($AllDomain in $AllDomains) {
 			$findallgroupsfirst = @($TotalGroups | Where-Object { $_.domain -eq $AllDomain })
 			foreach ($Keyword in $Keywords) {
@@ -9902,11 +9952,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 		########### Domain OUs by Keyword ###########
 		#############################################
 		
-		if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+					Write-Host ""
 			Write-Host ""
 			Write-Host "Interesting OUs (by Keyword)" -ForegroundColor Cyan
-		}
+			}
 
 		$TempDomainOUsByKeyword = foreach($AllDomain in $AllDomains){
 			$GetAllOUsFirst = @($AllCollectedOUs | Where-Object {$_.domain -eq $AllDomain})
@@ -9948,11 +9998,12 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	
     if($NoServers){}
     else{
-        if(!$NoOutput){
-			Write-Host ""
+			if($NoOutput){ Write-Host "[>] Phase 11/11 Domain Objects Inventory" }
+			if(!$NoOutput){
+        			Write-Host ""
 			Write-Host ""
 			Write-Host "Servers (Enabled)" -ForegroundColor Cyan
-		}
+			}
 		$TempServersEnabled = foreach ($AllDomain in $AllDomains) {
 			$ComputerServers = @($TotalEnabledServers | Where-Object {$_.domain -eq $AllDomain})
 			foreach ($ComputerServer in $ComputerServers) {
@@ -10004,11 +10055,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	##################################################
 	
 	if($Workstations -OR $AllEnum){
-        if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+        			Write-Host ""
 			Write-Host ""
 			Write-Host "Workstations (Enabled)" -ForegroundColor Cyan
-		}
+			}
 		
 		$TempWorkstationsEnabled = foreach ($AllDomain in $AllDomains) {
 			$AllWorkstations = @($TotalEnabledWorkstations | Where-Object {$_.domain -eq $AllDomain})
@@ -10065,11 +10116,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	#####################################
 	
 	if ($DomainUsers -OR $AllEnum){
-		if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+					Write-Host ""
 			Write-Host ""
 			Write-Host "Users (Enabled)" -ForegroundColor Cyan
-		}
+			}
 		
 		$TempEnabledUsers = foreach ($AllDomain in $AllDomains) {
 			$EnabledUsers = @($TotalEnabledUsers | Where-Object {$_.domain -eq $AllDomain})
@@ -10078,9 +10129,9 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 					"User Name" = $EnabledUser.samaccountname
 					"Enabled" = if ($EnabledUser.useraccountcontrol -band 2) { "False" } else { "True" }
 					"Active" = if(!$EnabledUser.lastlogontimestamp){""} elseif ((Convert-LdapTimestamp -timestamp $EnabledUser.lastlogontimestamp) -ge $inactiveThreshold) { "True" } else { "False" }
-					"Adm" = if(($TempBuiltInAdministrators | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $EnabledUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-					"DA" = if(($TempDomainAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $EnabledUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
-					"EA" = if(($TempEnterpriseAdmins | Where-Object {$_."Group Domain" -eq $AllDomain -AND $_."Member Name"})."Member Name" | Where-Object { $EnabledUser.samaccountname.Contains($_) }) { "YES" } else { "NO" }
+					"Adm" = if($AdmSIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $EnabledUser.objectsid)) { "YES" } else { "NO" }
+					"DA" = if($DASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $EnabledUser.objectsid)) { "YES" } else { "NO" }
+					"EA" = if($EASIDsByDomain[$AllDomain] -contains (GetSID-FromBytes -sidBytes $EnabledUser.objectsid)) { "YES" } else { "NO" }
 					"Object SID" = GetSID-FromBytes -sidBytes $EnabledUser.objectsid
 					"Domain" = $AllDomain
 				}
@@ -10098,11 +10149,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	##################################
 	
 	if($AllGroups -OR $AllEnum){
-		if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+					Write-Host ""
 			Write-Host ""
 			Write-Host "All Groups" -ForegroundColor Cyan
-		}
+			}
 		$TempOtherGroups = foreach ($AllDomain in $AllDomains) {
 			$OtherGroups = @($TotalGroups | Where-Object {$_.domain -eq $AllDomain})
 			foreach ($OtherGroup in $OtherGroups) {
@@ -10161,11 +10212,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	###########################################
 	
 	if($AllGPOs -OR $AllEnum){
-        if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+        			Write-Host ""
 			Write-Host ""
 			Write-Host "All Domain GPOs" -ForegroundColor Cyan
-		}
+			}
 		$TempDomainGPOs = foreach ($AllDomain in $AllDomains) {
 			$DomainGPOs = @($AllCollectedGPOs | Where-Object { $_.domain -eq $AllDomain })
 			foreach ($DomainGPO in $DomainGPOs) {
@@ -10192,11 +10243,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	######################################
 	
 	if($DomainOUs -OR $AllEnum){
-		if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+					Write-Host ""
 			Write-Host ""
 			Write-Host "All Domain OUs" -ForegroundColor Cyan
-		}
+			}
 		$TempAllDomainOUs = @()
 		$TempAllDomainOUs = foreach($AllDomain in $AllDomains){
 			$CollectOUs = @($AllCollectedOUs | Where-Object { $_.domain -eq $AllDomain })
@@ -10242,11 +10293,11 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	####################################################
 
  	if($AllDescriptions -OR $AllEnum){
-		if(!$NoOutput){
-			Write-Host ""
+			if(!$NoOutput){
+					Write-Host ""
 			Write-Host ""
 			Write-Host "All Descriptions" -ForegroundColor Cyan
-		}
+			}
 		$TempAllDescriptions = @()
 		$TempAllDescriptions = foreach ($AllDomain in $AllDomains) {
 			$Descriptions = @($SumGroupsUsers | Where-Object {$_.domain -eq $AllDomain -AND $_.description})
@@ -10346,8 +10397,13 @@ Add-Type -TypeDefinition $efssource -Language CSharp
 	Write-Host "$HTMLOutputFilePath"
 	Write-Host ""
 	
-	$host.UI.RawUI.BufferSize = $originalBufferSize
-   
+	if($null -ne $originalBufferSize){
+		try{
+			$restoreWidth = [Math]::Max([int]$originalBufferSize.Width, [int]$host.UI.RawUI.WindowSize.Width)
+			$host.UI.RawUI.BufferSize = New-Object System.Management.Automation.Host.Size($restoreWidth, $originalBufferSize.Height)
+		}catch{}
+	}
+
 }
 
 function Invoke-ShareHunter{
@@ -10387,7 +10443,7 @@ public static extern bool CloseHandle(System.IntPtr h);
 	}
 
 	# Initialize the runspace pool
-	$runspacePool = [runspacefactory]::CreateRunspacePool(1, 10)
+	$runspacePool = [runspacefactory]::CreateRunspacePool(1, (Get-RunspaceThrottle))
 	$runspacePool.Open()
 
 	# Define the script block outside the loop for better efficiency
@@ -10437,7 +10493,7 @@ public static extern bool CloseHandle(System.IntPtr h);
 	$functiontable = @()
 	
 	# Create runspace pool
-	$runspacePool = [runspacefactory]::CreateRunspacePool(1, 10)
+	$runspacePool = [runspacefactory]::CreateRunspacePool(1, (Get-RunspaceThrottle))
 	$runspacePool.Open()
 
 	$runspaces = @()
@@ -10510,7 +10566,7 @@ public static extern bool CloseHandle(System.IntPtr h);
 	$runspacePool.Close()
 	$runspacePool.Dispose()
 
-	$runspacePool = [runspacefactory]::CreateRunspacePool(1, 10)
+	$runspacePool = [runspacefactory]::CreateRunspacePool(1, (Get-RunspaceThrottle))
 	$runspacePool.Open()
 
 	$runspaces = @()
@@ -10554,7 +10610,7 @@ public static extern bool CloseHandle(System.IntPtr h);
 	$runspacePool.Close()
 	$runspacePool.Dispose()
 
-	$runspacePool = [runspacefactory]::CreateRunspacePool(1, 10)
+	$runspacePool = [runspacefactory]::CreateRunspacePool(1, (Get-RunspaceThrottle))
 	$runspacePool.Open()
 
 	$runspaces = @()
@@ -10720,7 +10776,7 @@ function Find-LocalAdminAccess {
 	$Computers = $Computers | Where-Object {$_ -ne "$TempHostname"}
 	
 	# Create a runspace pool
-	$runspacePool = [runspacefactory]::CreateRunspacePool(1, 10)
+	$runspacePool = [runspacefactory]::CreateRunspacePool(1, (Get-RunspaceThrottle))
 	$runspacePool.Open()
 	$runspaces = New-Object System.Collections.ArrayList
 
@@ -10794,7 +10850,8 @@ function Find-LocalAdminAccess {
 		# WinRM Check
 		if ($WinRMPort) {
 			try {
-				Invoke-Command -ComputerName $computerName -ScriptBlock { whoami } -ErrorAction Stop
+				$WinRMSessionOption = New-PSSessionOption -OpenTimeout 5000 -OperationTimeout 5000 -CancelTimeout 2000
+				Invoke-Command -ComputerName $computerName -ScriptBlock { whoami } -SessionOption $WinRMSessionOption -ErrorAction Stop
 				$WinRMAccess = $True
 			}
 			catch {
@@ -11149,6 +11206,10 @@ namespace DataCollector
 "@
 
 # Function to retrieve all AD objects and their properties
+function Get-RunspaceThrottle {
+	return [Math]::Max(10, [Math]::Min([Environment]::ProcessorCount * 2, 32))
+}
+
 function Invoke-WithTimeout {
 	param(
 		[Parameter(Mandatory=$true)][scriptblock]$ScriptBlock,
@@ -11175,6 +11236,24 @@ function Invoke-WithTimeout {
 	else{
 		return $Default
 	}
+}
+
+function Test-DomainLDAPReachable {
+	param([string]$Domain,[string]$Server,[int]$TimeoutMs = 10000)
+	$LDAPTarget = if($Server){ $Server }else{ $Domain }
+	if(!$LDAPTarget){ return $true }
+	$result = Invoke-WithTimeout -TimeoutMs $TimeoutMs -Default "TIMEOUT" -ArgumentList @($LDAPTarget) -ScriptBlock {
+		param($LDAPTarget)
+		$entry = $null
+		try{
+			$entry = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$LDAPTarget/RootDSE")
+			$null = $entry.Properties["defaultNamingContext"][0]
+			return "OK"
+		}
+		catch{ return "ERR" }
+		finally{ if($entry){ try{$entry.Dispose()}catch{} } }
+	}
+	return ($result -ne "TIMEOUT")
 }
 
 function Get-LDAPPasswordSchemaAttributes {
@@ -11496,7 +11575,7 @@ function CheckWebDAVStatus
  	)
 	
 	# Initialize the runspace pool
-	$runspacePool = [runspacefactory]::CreateRunspacePool(1, 10)
+	$runspacePool = [runspacefactory]::CreateRunspacePool(1, (Get-RunspaceThrottle))
 	$runspacePool.Open()
 
 	# Define the script block outside the loop for better efficiency
@@ -11787,7 +11866,7 @@ function VNCUnauthAccess
 	else{$VNCUnauthAccesstimeout = 5000}
 	
 	# Initialize the runspace pool
-	$runspacePool = [runspacefactory]::CreateRunspacePool(1, 10)
+	$runspacePool = [runspacefactory]::CreateRunspacePool(1, (Get-RunspaceThrottle))
 	$runspacePool.Open()
 
 	# Define the script block outside the loop for better efficiency
@@ -11980,7 +12059,7 @@ function CheckAliveHosts
 	else{$CheckAliveHoststimeout = 5000}
 	
 	# Initialize the runspace pool
-	$runspacePool = [runspacefactory]::CreateRunspacePool(1, 10)
+	$runspacePool = [runspacefactory]::CreateRunspacePool(1, (Get-RunspaceThrottle))
 	$runspacePool.Open()
 
 	# Define the script block outside the loop for better efficiency
@@ -13188,6 +13267,34 @@ function Get-ADCSCAESC7Principals {
 		if($mask -band 0x1){$results += [PSCustomObject]@{ SID = $sid; Right = "ManageCertificates" }}
 	}
 	return $results
+}
+
+function Get-ADCSESC11InstanceStatus {
+	param([string]$CAHost,[int]$TimeoutMs = 5000)
+	return @(Invoke-WithTimeout -TimeoutMs $TimeoutMs -Default @() -ArgumentList @($CAHost) -ScriptBlock {
+		param($CAHost)
+		$results = @()
+		$reg = $null
+		try{
+			$reg = [Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine,$CAHost)
+			$configKey = $reg.OpenSubKey("SYSTEM\CurrentControlSet\Services\CertSvc\Configuration")
+			if($configKey){
+				foreach($CAInstance in $configKey.GetSubKeyNames()){
+					try{
+						$key = $configKey.OpenSubKey($CAInstance)
+						if($key){
+							$interfaceFlags = $key.GetValue("InterfaceFlags")
+							if(($interfaceFlags -band 0x200) -eq 0x200){ $InstanceResult = "The instance is not vulnerable to ESC11." }
+							else{ $InstanceResult = "The instance is vulnerable to ESC11." }
+							$results += [PSCustomObject]@{ Instance = $CAInstance; Status = $InstanceResult }
+						}
+					}catch{}
+				}
+			}
+		}catch{}
+		finally{ if($reg){ try{$reg.Close()}catch{} } }
+		,$results
+	})
 }
 
 # ESC6/ESC7/ESC16 via the CA's remote registry, executed in a runspace with a hard timeout so a CA that accepts 445
